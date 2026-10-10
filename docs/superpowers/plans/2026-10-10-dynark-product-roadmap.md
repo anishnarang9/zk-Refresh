@@ -82,10 +82,11 @@ Default to local proving. Public updating keys can be distributed through ordina
 
 - [x] Preserve baseline circuit/setup/source/compiler/raw/negative evidence: Phase1 manifest records165 original files. Root Git was subsequently initialized at the user's explicit request; historical manifests remain unchanged.
 - [x] Read/pin the complete supplied30-page DYNARK PDF and produce exact algorithm/security/code mapping. Source omissions are enumerated rather than claimed present.
-- [ ] Reconcile the theoretical parameters with the actual imported R1CS. Record padded domain size, assignment support, nonzero supports of A/B/C assignment changes, touched matrix entries, cancellations, and matrix sparsity. Do not equate one revoked leaf with the paper's distance parameter.
+- [x] Reconcile theoretical parameters with the actual R1CS/domain. E4 measures assignment support, touched entries/rows, cancellations and true A/B/C supports, with exact sparse/dense equality. A changed leaf is not the paper's distance parameter.
 - [ ] Reproduce author-style controlled examples as conformance checks, then establish BN254 equivalents. Keep the existing real circuit as the product baseline.
 - [x] Establish same-key ordinary full proving without unnecessary DYNARK cache work; preserve/label the older cache-building comparator. This does not establish an optimal full prover or implement the deferred four-FFT proposal.
-- [ ] Randomize full/update trial order, measure complete trials, and profile CPU, allocations, I/O, serialization, FFTs, scalar multiplication, and memory by stage. Benchmark lightweight cryptographic kernels separately from importer diagnostics.
+- [x] Counterbalance E2 full/update endpoints, measure complete trials and separate diagnostic census. E4 adds requested stage allocations, full/update samples,13 private-preparation stack windows and direct child memory; E2 retains I/O/preparation timings. Detailed boundaries are in the Phase1 baseline audit.
+- [ ] Before a relevant optimization, close its specific remaining attribution gap: public-UK internal allocation/CPU profile, exact per-kernel allocation stacks, cold full-only load differential, or separate lightweight-kernel benchmark. These are scoped Phase2 experiments; do not repeat completed Phase1 profiling indiscriminately.
 
 **Acceptance:** Every advertised paper capability maps to an implementation/test or an explicit open work item; both current and optimized full baselines verify independently; reports can be reproduced without modifying old evidence.
 
