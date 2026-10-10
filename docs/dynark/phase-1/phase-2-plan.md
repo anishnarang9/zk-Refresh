@@ -45,7 +45,7 @@ Proposed module paths below are new and must not reorganize the harness. Referen
 
 - [ ] Consume the completed30-page review, exact hash, source-omission register and corrected formula/code map; do not repeat Phase1 reading as unfinished work.
 - [ ] Freeze the implementation contract using Phase1's parameter/quotient derivation and candidate Trummer algorithm. Resolve fast-kernel/scheduler choices and overshoot behavior before code.
-- [ ] Carry forward reviewed ordinary-QAP and transcript-randomization scope; limit stronger claims explicitly. Review BN254 assumptions and any reduction/key-basis adapter before promotion.
+- [ ] Carry forward reviewed ordinary-QAP and transcript-randomization scope, including Groth's benign relation/auxiliary-input generator assumption; limit stronger claims explicitly. Review BN254 assumptions and any reduction/key-basis adapter before promotion. Freeze the C-only public-input and equal-padded-domain reduction fixtures below as discriminating acceptance cases.
 - [ ] Define invariant checks and accepted domains. Distinguish static derivation, vector smoke evidence and ordinary proof acceptance.
 - [ ] Review the complete resulting conformance table personally before opening gated algorithm tasks.
 
@@ -60,6 +60,7 @@ Proposed module paths below are new and must not reorganize the harness. Referen
 - [ ] Make public package immutable and share PK rather than embedding clones. Define its content identity before persistence.
 - [ ] Route randomness through a caller cryptographic RNG with explicit failure behavior; no exported test RNG, fixed seed or hidden zero-blinding production path. Tests use isolated deterministic fixtures only where identified as tests.
 - [ ] Add meaningful conformance cases: five public inputs, variables greater/less than domain, non-power-of-two constraints, public/private/zero deltas, invalid assignments, altered each public input, incorrect key, and entropy-source failure.
+- [ ] Include `w*w=x`, with public x appearing only in C: accept satisfying assignments, reject altered x and unsatisfied assignments, and preserve coordinate one. Compare original-row and A-augmented reductions at the same padded N using matching keys for each; show that equal N does not make their QAP queries interchangeable. Original-zkey H-basis interoperability remains a separate P4/G7 task.
 - [ ] Run `cargo test --locked --manifest-path crates/dynark-bn254/Cargo.toml --test full_conformance` and the unchanged probe test suite. Record source/binary/lock hashes.
 
 **Acceptance:** ordinary crates.io ark-groth16 accepts all valid full proofs and rejects altered statements with explicit false; malformed/entropy failure returns typed error without panic. Same relation/setup/reduction as the comparator. G4 remains a separately reviewed security requirement, not inferred from tests. Budget: small tests ≤5 minutes/1 GiB; no actual-circuit preparation yet.
