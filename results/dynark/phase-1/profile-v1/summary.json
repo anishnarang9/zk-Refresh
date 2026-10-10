@@ -1,0 +1,1227 @@
+{
+  "schema": 1,
+  "experiment": "E4",
+  "status": "complete",
+  "created_at_utc": "2026-10-10T23:38:03.494985+00:00",
+  "workspace": "/Users/anishnarang/Zk-refresh",
+  "total_wall_ms": 878369.534667,
+  "limits": {
+    "child_rss_bytes": 1073741824,
+    "parent_rss_bytes": 4294967296,
+    "retained_bytes": 536870912,
+    "wall_seconds": 900
+  },
+  "threads": 4,
+  "timing_classification": "Instrumented diagnostics only; fair E2 benchmark remains unchanged.",
+  "identities": {
+    "e4_source": {
+      "path": "experiments/dynark/proof-probe/src/bin/phase1-profile.rs",
+      "sha256": "c32d4a3a7af6d9c47b874c8fba95278bf0e72d8ae8dfe9ea6231f7561c5d89be"
+    },
+    "e4_binary": {
+      "path": "experiments/dynark/proof-probe/target/release/phase1-profile",
+      "sha256": "01465c56185e2340f9c9f527465a951331fc513f6842e43098906e51c814670c"
+    },
+    "e2_source": {
+      "path": "experiments/dynark/proof-probe/src/bin/phase1-baseline.rs",
+      "sha256": "2cfc91338433ca8f022196325cb70d506673efc12b0ebf7b89049e0e7551b529"
+    },
+    "e2_binary": {
+      "path": "experiments/dynark/proof-probe/target/release/phase1-baseline",
+      "sha256": "ac864557c42fff1cd680da3b7f793e9b35660601b4f61f0300a6ac9f8e84837f"
+    },
+    "e2_report": {
+      "path": "results/dynark/phase-1/e2-report.json",
+      "sha256": "6401707c22c3aff9ee2359b8a112fbe4bb6ecbc595ca097b732ea69f0332c994"
+    },
+    "e2_summary": {
+      "path": "results/dynark/phase-1/e2-summary.json",
+      "sha256": "27bd14fe60e3af92354f869567d8b10010ef3e32e8fe84c8f5cad6c107c32374"
+    }
+  },
+  "stages": {
+    "assignment_delta": {
+      "allocated_requested_bytes": 1310560,
+      "allocation_calls": 3,
+      "deallocation_calls": 0,
+      "freed_requested_bytes": 655040,
+      "lifetime_peak_rss_bytes": 1225768960,
+      "reallocation_new_requested_bytes": 1310080,
+      "reallocation_old_requested_bytes": 655040,
+      "requested_live_after_bytes": 1202792502,
+      "requested_live_before_bytes": 1202136982,
+      "requested_live_peak_bytes": 1202792502,
+      "requested_peak_above_start_bytes": 655520,
+      "rss_after_bytes": 1028669440,
+      "rss_before_bytes": 1016397824,
+      "successful_reallocation_calls": 22,
+      "system_cpu_ms": 3.8210000000002964,
+      "user_cpu_ms": 3.6849999999901684,
+      "wall_ms": 7.547583
+    },
+    "diagnostic_census": {
+      "allocated_requested_bytes": 375476188,
+      "allocation_calls": 13562,
+      "deallocation_calls": 13529,
+      "freed_requested_bytes": 375471884,
+      "lifetime_peak_rss_bytes": 1225768960,
+      "reallocation_new_requested_bytes": 654720,
+      "reallocation_old_requested_bytes": 327360,
+      "requested_live_after_bytes": 1202799180,
+      "requested_live_before_bytes": 1202794876,
+      "requested_live_peak_bytes": 1285942418,
+      "requested_peak_above_start_bytes": 83147542,
+      "rss_after_bytes": 1070956544,
+      "rss_before_bytes": 1028669440,
+      "successful_reallocation_calls": 20,
+      "system_cpu_ms": 61.159999999999656,
+      "user_cpu_ms": 299.64100000000826,
+      "wall_ms": 354.673834
+    },
+    "drop_owned_crypto_state": {
+      "allocated_requested_bytes": 0,
+      "allocation_calls": 0,
+      "deallocation_calls": 2436308,
+      "freed_requested_bytes": 1202389704,
+      "lifetime_peak_rss_bytes": 1583857664,
+      "reallocation_new_requested_bytes": 0,
+      "reallocation_old_requested_bytes": 0,
+      "requested_live_after_bytes": 608983,
+      "requested_live_before_bytes": 1202998687,
+      "requested_live_peak_bytes": 1202998687,
+      "requested_peak_above_start_bytes": 0,
+      "rss_after_bytes": 229310464,
+      "rss_before_bytes": 446103552,
+      "successful_reallocation_calls": 0,
+      "system_cpu_ms": 66.91599999999909,
+      "user_cpu_ms": 43.40599999977712,
+      "wall_ms": 110.696542
+    },
+    "import_satisfaction": {
+      "allocated_requested_bytes": 775027732,
+      "allocation_calls": 6191573,
+      "deallocation_calls": 4753758,
+      "freed_requested_bytes": 522587236,
+      "lifetime_peak_rss_bytes": 340410368,
+      "reallocation_new_requested_bytes": 134217216,
+      "reallocation_old_requested_bytes": 67108608,
+      "requested_live_after_bytes": 252833419,
+      "requested_live_before_bytes": 392923,
+      "requested_live_peak_bytes": 323449127,
+      "requested_peak_above_start_bytes": 323056204,
+      "rss_after_bytes": 246677504,
+      "rss_before_bytes": 3293184,
+      "successful_reallocation_calls": 36,
+      "system_cpu_ms": 123.22,
+      "user_cpu_ms": 808.6999999999999,
+      "wall_ms": 934.6242080000001
+    },
+    "load_private_cache": {
+      "allocated_requested_bytes": 687874481,
+      "allocation_calls": 25,
+      "deallocation_calls": 23,
+      "freed_requested_bytes": 486547889,
+      "lifetime_peak_rss_bytes": 1225768960,
+      "reallocation_new_requested_bytes": 70,
+      "reallocation_old_requested_bytes": 35,
+      "requested_live_after_bytes": 1202083742,
+      "requested_live_before_bytes": 1000757150,
+      "requested_live_peak_bytes": 1411807204,
+      "requested_peak_above_start_bytes": 411050054,
+      "rss_after_bytes": 1016053760,
+      "rss_before_bytes": 906002432,
+      "successful_reallocation_calls": 1,
+      "system_cpu_ms": 609.5809999999999,
+      "user_cpu_ms": 19255.787999999997,
+      "wall_ms": 18541.426792
+    },
+    "load_updating_key_including_pk": {
+      "allocated_requested_bytes": 1234466281,
+      "allocation_calls": 998539,
+      "deallocation_calls": 53,
+      "freed_requested_bytes": 486549089,
+      "lifetime_peak_rss_bytes": 992788480,
+      "reallocation_new_requested_bytes": 70,
+      "reallocation_old_requested_bytes": 35,
+      "requested_live_after_bytes": 1000754749,
+      "requested_live_before_bytes": 252837557,
+      "requested_live_peak_bytes": 1033028163,
+      "requested_peak_above_start_bytes": 780190606,
+      "rss_after_bytes": 905887744,
+      "rss_before_bytes": 246726656,
+      "successful_reallocation_calls": 1,
+      "system_cpu_ms": 2305.942,
+      "user_cpu_ms": 115078.67,
+      "wall_ms": 70847.37604199999
+    },
+    "private_preparation_once": {
+      "allocated_requested_bytes": 50328625677,
+      "allocation_calls": 1467151506,
+      "deallocation_calls": 1467151398,
+      "freed_requested_bytes": 50127288423,
+      "lifetime_peak_rss_bytes": 1583857664,
+      "reallocation_new_requested_bytes": 5860151774,
+      "reallocation_old_requested_bytes": 3043345335,
+      "requested_live_after_bytes": 1404234833,
+      "requested_live_before_bytes": 1202897579,
+      "requested_live_peak_bytes": 2511531089,
+      "requested_peak_above_start_bytes": 1308633510,
+      "rss_after_bytes": 138887168,
+      "rss_before_bytes": 992116736,
+      "successful_reallocation_calls": 136102934,
+      "system_cpu_ms": 8983.751,
+      "user_cpu_ms": 2863902.039,
+      "wall_ms": 746360.4864589999
+    },
+    "projection_equality_replay_and_drop": {
+      "allocated_requested_bytes": 31020898,
+      "allocation_calls": 827602,
+      "deallocation_calls": 827596,
+      "freed_requested_bytes": 232346730,
+      "lifetime_peak_rss_bytes": 1583857664,
+      "reallocation_new_requested_bytes": 4503184,
+      "reallocation_old_requested_bytes": 2251592,
+      "requested_live_after_bytes": 1202921750,
+      "requested_live_before_bytes": 1404247582,
+      "requested_live_peak_bytes": 1405143286,
+      "requested_peak_above_start_bytes": 895704,
+      "rss_after_bytes": 245399552,
+      "rss_before_bytes": 139378688,
+      "successful_reallocation_calls": 81446,
+      "system_cpu_ms": 67.91400000000003,
+      "user_cpu_ms": 2475.104999999985,
+      "wall_ms": 920.6925
+    },
+    "witness_import_validation_update_verify": {
+      "allocated_requested_bytes": 201541646,
+      "allocation_calls": 1471167,
+      "deallocation_calls": 1471167,
+      "freed_requested_bytes": 201541646,
+      "lifetime_peak_rss_bytes": 1583857664,
+      "reallocation_new_requested_bytes": 71611792,
+      "reallocation_old_requested_bytes": 35805896,
+      "requested_live_after_bytes": 1202996284,
+      "requested_live_before_bytes": 1202996284,
+      "requested_live_peak_bytes": 1298773692,
+      "requested_peak_above_start_bytes": 95777408,
+      "rss_after_bytes": 446103552,
+      "rss_before_bytes": 245792768,
+      "successful_reallocation_calls": 81464,
+      "system_cpu_ms": 53.91800000000124,
+      "user_cpu_ms": 2329.6080000000075,
+      "wall_ms": 761.282208
+    }
+  },
+  "proof_diagnostics": {
+    "full": {
+      "count": 3,
+      "median_wall_ms": 3792.236667,
+      "max_requested_live_peak_bytes": 1555148398,
+      "max_requested_peak_above_start_bytes": 352335920,
+      "median_allocated_requested_bytes": 2567601288,
+      "allocation_calls_range": [
+        1884,
+        2652
+      ],
+      "native_sample": {
+        "duration_seconds": 10,
+        "exit_code": 0,
+        "label": "full",
+        "success": true
+      }
+    },
+    "update": {
+      "count": 14,
+      "median_wall_ms": 713.0211039999999,
+      "max_requested_live_peak_bytes": 1203785507,
+      "max_requested_peak_above_start_bytes": 895224,
+      "median_allocated_requested_bytes": 30936970.0,
+      "allocation_calls_range": [
+        827512,
+        827513
+      ],
+      "native_sample": {
+        "duration_seconds": 10,
+        "exit_code": 0,
+        "label": "update",
+        "success": true
+      }
+    }
+  },
+  "census": {
+    "A": {
+      "distinct_touched_rows": 2390,
+      "touched_matrix_entries": 2390,
+      "touched_rows_canceled_to_zero": 0,
+      "true_nonzero_row_changes": 2390
+    },
+    "B": {
+      "distinct_touched_rows": 2370,
+      "touched_matrix_entries": 2370,
+      "touched_rows_canceled_to_zero": 0,
+      "true_nonzero_row_changes": 2370
+    },
+    "C": {
+      "distinct_touched_rows": 5080,
+      "touched_matrix_entries": 10450,
+      "touched_rows_canceled_to_zero": 2710,
+      "true_nonzero_row_changes": 2370
+    },
+    "assignment_support": 5081,
+    "auxiliary_support": 5080,
+    "implementation_A": {
+      "returned_rows_including_zeros": 2390,
+      "returned_zero_rows": 0,
+      "sparse_equals_dense": true
+    },
+    "implementation_B": {
+      "returned_rows_including_zeros": 2370,
+      "returned_zero_rows": 0,
+      "sparse_equals_dense": true
+    },
+    "instance_support": 1
+  },
+  "retained_requested_live_at_stage_end": {
+    "assignment_delta": 1202792502,
+    "diagnostic_census": 1202799180,
+    "drop_owned_crypto_state": 608983,
+    "import_satisfaction": 252833419,
+    "load_private_cache": 1202083742,
+    "load_updating_key_including_pk": 1000754749,
+    "private_preparation_once": 1404234833,
+    "projection_equality_replay_and_drop": 1202921750,
+    "witness_import_validation_update_verify": 1202996284
+  },
+  "retained_object_attribution": {
+    "method": "Observed net requested-live differences around sequential object loading; includes stage instrumentation. Exact per-object capacities below are structural estimates.",
+    "updating_key_including_pk_net_bytes": 747917192,
+    "private_cache_net_bytes": 201326592,
+    "new_private_projection_net_bytes": 201337254,
+    "structural_estimates": {
+      "anchor_assignment_capacity_bytes": 33554432,
+      "cache_q_a_capacity_bytes": 100663296,
+      "cache_q_b_capacity_bytes": 100663296,
+      "note": "capacity times element size is structural estimate, not live memory profiling",
+      "padded_domain": 1048576,
+      "target_assignment_capacity_bytes": 33554432
+    }
+  },
+  "witness_child": {
+    "exit_code": 0,
+    "direct_time": {
+      "real_seconds": 4.71,
+      "user_seconds": 4.58,
+      "system_seconds": 0.15,
+      "precision_note": "Darwin time -l prints hundredths of a second."
+    },
+    "wall_ms": 4804.348667,
+    "direct_max_rss_bytes": 222314496,
+    "sampled_max_node_rss_bytes": 222052352,
+    "witness_hash_matches": true,
+    "sample_count": 39,
+    "max_rss_units": "Darwin time -l bytes"
+  },
+  "projection_equality": {
+    "additional_retained_oracle": "original cache remains live; stage peak includes it",
+    "q_a_exact": true,
+    "q_a_len": 1048576,
+    "q_b_exact": true,
+    "q_b_len": 1048576
+  },
+  "correctness": {
+    "all_diagnostic_proofs_verified": true,
+    "anchor_accepted": true,
+    "regenerated_witness_exact_hash": true,
+    "reprepared_projection_vectors_exact": true,
+    "reprepared_update_accepted": true,
+    "stale_root_rejected": true,
+    "wrong_action_rejected": true
+  },
+  "correctness_counts": {
+    "full_proofs_verified": 3,
+    "update_proofs_verified": 14,
+    "stale_root_rejections": 17,
+    "wrong_action_rejections": 17,
+    "additional_reprepared_update_verified": 1,
+    "additional_regenerated_witness_update_verified": 1,
+    "anchor_verified": 1
+  },
+  "native_sampling": {
+    "method": "10-second windows at nominal1ms sample interval;13 preparation windows start about60seconds apart across746.360second stage. Counts are sampled per-thread contexts, including blocked threads; not exact CPU percentages, allocation attribution, or full-stage kernel percentages.",
+    "preparation_windows": [
+      {
+        "duration_seconds": 10,
+        "exit_code": 0,
+        "label": "private-preparation-0",
+        "success": true,
+        "window_finished_since_sampler_start_seconds": 10.442019916,
+        "window_started_since_sampler_start_seconds": 4.458e-06
+      },
+      {
+        "duration_seconds": 10,
+        "exit_code": 0,
+        "label": "private-preparation-1",
+        "success": true,
+        "window_finished_since_sampler_start_seconds": 70.771717125,
+        "window_started_since_sampler_start_seconds": 60.447065541
+      },
+      {
+        "duration_seconds": 10,
+        "exit_code": 0,
+        "label": "private-preparation-2",
+        "success": true,
+        "window_finished_since_sampler_start_seconds": 131.09567025,
+        "window_started_since_sampler_start_seconds": 120.77675725
+      },
+      {
+        "duration_seconds": 10,
+        "exit_code": 0,
+        "label": "private-preparation-3",
+        "success": true,
+        "window_finished_since_sampler_start_seconds": 191.443789,
+        "window_started_since_sampler_start_seconds": 181.10072225
+      },
+      {
+        "duration_seconds": 10,
+        "exit_code": 0,
+        "label": "private-preparation-4",
+        "success": true,
+        "window_finished_since_sampler_start_seconds": 251.759292958,
+        "window_started_since_sampler_start_seconds": 241.448832791
+      },
+      {
+        "duration_seconds": 10,
+        "exit_code": 0,
+        "label": "private-preparation-5",
+        "success": true,
+        "window_finished_since_sampler_start_seconds": 312.03110525,
+        "window_started_since_sampler_start_seconds": 301.76432125
+      },
+      {
+        "duration_seconds": 10,
+        "exit_code": 0,
+        "label": "private-preparation-6",
+        "success": true,
+        "window_finished_since_sampler_start_seconds": 372.343831625,
+        "window_started_since_sampler_start_seconds": 362.036143666
+      },
+      {
+        "duration_seconds": 10,
+        "exit_code": 0,
+        "label": "private-preparation-7",
+        "success": true,
+        "window_finished_since_sampler_start_seconds": 432.668485666,
+        "window_started_since_sampler_start_seconds": 422.348860583
+      },
+      {
+        "duration_seconds": 10,
+        "exit_code": 0,
+        "label": "private-preparation-8",
+        "success": true,
+        "window_finished_since_sampler_start_seconds": 493.008601916,
+        "window_started_since_sampler_start_seconds": 482.673558041
+      },
+      {
+        "duration_seconds": 10,
+        "exit_code": 0,
+        "label": "private-preparation-9",
+        "success": true,
+        "window_finished_since_sampler_start_seconds": 553.36331375,
+        "window_started_since_sampler_start_seconds": 543.013650208
+      },
+      {
+        "duration_seconds": 10,
+        "exit_code": 0,
+        "label": "private-preparation-10",
+        "success": true,
+        "window_finished_since_sampler_start_seconds": 613.686893958,
+        "window_started_since_sampler_start_seconds": 603.368373375
+      },
+      {
+        "duration_seconds": 10,
+        "exit_code": 0,
+        "label": "private-preparation-11",
+        "success": true,
+        "window_finished_since_sampler_start_seconds": 673.9449865,
+        "window_started_since_sampler_start_seconds": 663.691913416
+      },
+      {
+        "duration_seconds": 10,
+        "exit_code": 0,
+        "label": "private-preparation-12",
+        "success": true,
+        "window_finished_since_sampler_start_seconds": 734.256624208,
+        "window_started_since_sampler_start_seconds": 723.948643041
+      }
+    ],
+    "parsed_windows": [
+      {
+        "file": "full-sample.txt",
+        "sha256": "a547d02108db916218a31a651516eaf11ca8ca47b1d42548c1917368ace6e912",
+        "thread_count": 5,
+        "root_context_counts": [
+          7355,
+          7355,
+          7355,
+          7355,
+          7355
+        ],
+        "all_thread_context_denominator": 36775,
+        "self_count_conservation": true,
+        "family_self_counts": {
+          "blocked_wait": 10936,
+          "multiscalar_multiplication": 18626,
+          "other_nonwait": 7091,
+          "field_quotient": 74,
+          "other_full": 48
+        },
+        "nonwait_context_denominator": 25839,
+        "per_thread_family_self_counts": {
+          "0": {
+            "blocked_wait": 6958,
+            "multiscalar_multiplication": 181,
+            "other_nonwait": 215,
+            "field_quotient": 1
+          },
+          "1": {
+            "multiscalar_multiplication": 4917,
+            "blocked_wait": 687,
+            "other_nonwait": 1721,
+            "field_quotient": 18,
+            "other_full": 12
+          },
+          "2": {
+            "multiscalar_multiplication": 4390,
+            "blocked_wait": 1219,
+            "other_nonwait": 1716,
+            "field_quotient": 18,
+            "other_full": 12
+          },
+          "3": {
+            "multiscalar_multiplication": 4450,
+            "blocked_wait": 1155,
+            "other_nonwait": 1719,
+            "field_quotient": 19,
+            "other_full": 12
+          },
+          "4": {
+            "multiscalar_multiplication": 4688,
+            "blocked_wait": 917,
+            "other_nonwait": 1720,
+            "field_quotient": 18,
+            "other_full": 12
+          }
+        }
+      },
+      {
+        "file": "private-preparation-0-sample.txt",
+        "sha256": "2874c34f8e6e34d9b41a1e3e829aa9ebf36dfbacf36e4f23687071f629679b8b",
+        "thread_count": 6,
+        "root_context_counts": [
+          7122,
+          7122,
+          7122,
+          7122,
+          7122,
+          7122
+        ],
+        "all_thread_context_denominator": 42732,
+        "self_count_conservation": true,
+        "family_self_counts": {
+          "blocked_wait": 14340,
+          "group_convolution_fft": 31,
+          "group_elementwise_products": 17781,
+          "group_fft_other_context": 10296,
+          "other_nonwait": 284
+        },
+        "nonwait_context_denominator": 28392,
+        "per_thread_family_self_counts": {
+          "0": {
+            "blocked_wait": 7091,
+            "group_convolution_fft": 31
+          },
+          "1": {
+            "group_elementwise_products": 4445,
+            "blocked_wait": 32,
+            "group_fft_other_context": 2574,
+            "other_nonwait": 71
+          },
+          "2": {
+            "group_elementwise_products": 4446,
+            "group_fft_other_context": 2574,
+            "other_nonwait": 71,
+            "blocked_wait": 31
+          },
+          "3": {
+            "group_elementwise_products": 4445,
+            "blocked_wait": 32,
+            "group_fft_other_context": 2574,
+            "other_nonwait": 71
+          },
+          "4": {
+            "group_elementwise_products": 4445,
+            "blocked_wait": 32,
+            "group_fft_other_context": 2574,
+            "other_nonwait": 71
+          },
+          "5": {
+            "blocked_wait": 7122
+          }
+        }
+      },
+      {
+        "file": "private-preparation-1-sample.txt",
+        "sha256": "a78abc0be43f7cf50c7d83e37185ff944fd88496aa8d896edfaff282573fdb4e",
+        "thread_count": 6,
+        "root_context_counts": [
+          7216,
+          7216,
+          7216,
+          7216,
+          7216,
+          7216
+        ],
+        "all_thread_context_denominator": 43296,
+        "self_count_conservation": true,
+        "family_self_counts": {
+          "blocked_wait": 14438,
+          "group_fft_other_context": 28858
+        },
+        "nonwait_context_denominator": 28858,
+        "per_thread_family_self_counts": {
+          "0": {
+            "blocked_wait": 7216
+          },
+          "1": {
+            "group_fft_other_context": 7214,
+            "blocked_wait": 2
+          },
+          "2": {
+            "group_fft_other_context": 7214,
+            "blocked_wait": 2
+          },
+          "3": {
+            "group_fft_other_context": 7214,
+            "blocked_wait": 2
+          },
+          "4": {
+            "group_fft_other_context": 7216
+          },
+          "5": {
+            "blocked_wait": 7216
+          }
+        }
+      },
+      {
+        "file": "private-preparation-10-sample.txt",
+        "sha256": "4b0203669e70718c5d367e0f6c1f60689da04cf873e9ff168bf0fabdbe95105a",
+        "thread_count": 6,
+        "root_context_counts": [
+          7234,
+          7234,
+          7234,
+          7234,
+          7234,
+          7234
+        ],
+        "all_thread_context_denominator": 43404,
+        "self_count_conservation": true,
+        "family_self_counts": {
+          "blocked_wait": 14493,
+          "group_fft_other_context": 28911
+        },
+        "nonwait_context_denominator": 28911,
+        "per_thread_family_self_counts": {
+          "0": {
+            "blocked_wait": 7234
+          },
+          "1": {
+            "group_fft_other_context": 7231,
+            "blocked_wait": 3
+          },
+          "2": {
+            "group_fft_other_context": 7223,
+            "blocked_wait": 11
+          },
+          "3": {
+            "group_fft_other_context": 7223,
+            "blocked_wait": 11
+          },
+          "4": {
+            "group_fft_other_context": 7234
+          },
+          "5": {
+            "blocked_wait": 7234
+          }
+        }
+      },
+      {
+        "file": "private-preparation-11-sample.txt",
+        "sha256": "e8f15761f5609add62665f369e5cbe084de4ff78f9c7ed32465db9e891bcc0a9",
+        "thread_count": 6,
+        "root_context_counts": [
+          7352,
+          7352,
+          7352,
+          7352,
+          7352,
+          7352
+        ],
+        "all_thread_context_denominator": 44112,
+        "self_count_conservation": true,
+        "family_self_counts": {
+          "blocked_wait": 14728,
+          "group_fft_other_context": 29383,
+          "other_nonwait": 1
+        },
+        "nonwait_context_denominator": 29384,
+        "per_thread_family_self_counts": {
+          "0": {
+            "blocked_wait": 7352
+          },
+          "1": {
+            "group_fft_other_context": 7345,
+            "blocked_wait": 6,
+            "other_nonwait": 1
+          },
+          "2": {
+            "group_fft_other_context": 7343,
+            "blocked_wait": 9
+          },
+          "3": {
+            "group_fft_other_context": 7343,
+            "blocked_wait": 9
+          },
+          "4": {
+            "group_fft_other_context": 7352
+          },
+          "5": {
+            "blocked_wait": 7352
+          }
+        }
+      },
+      {
+        "file": "private-preparation-12-sample.txt",
+        "sha256": "0f8aa5157ef889e0816280743286b206f6e4b33d03377c724d6c76c7001af07a",
+        "thread_count": 6,
+        "root_context_counts": [
+          7098,
+          7098,
+          7098,
+          7098,
+          7098,
+          7098
+        ],
+        "all_thread_context_denominator": 42588,
+        "self_count_conservation": true,
+        "family_self_counts": {
+          "blocked_wait": 14303,
+          "field_convolution": 50,
+          "group_elementwise_products": 27527,
+          "other_nonwait": 708
+        },
+        "nonwait_context_denominator": 28285,
+        "per_thread_family_self_counts": {
+          "0": {
+            "blocked_wait": 7064,
+            "field_convolution": 34
+          },
+          "1": {
+            "group_elementwise_products": 6882,
+            "other_nonwait": 177,
+            "field_convolution": 4,
+            "blocked_wait": 35
+          },
+          "2": {
+            "group_elementwise_products": 6881,
+            "other_nonwait": 177,
+            "field_convolution": 4,
+            "blocked_wait": 36
+          },
+          "3": {
+            "group_elementwise_products": 6882,
+            "other_nonwait": 176,
+            "blocked_wait": 36,
+            "field_convolution": 4
+          },
+          "4": {
+            "group_elementwise_products": 6882,
+            "other_nonwait": 178,
+            "field_convolution": 4,
+            "blocked_wait": 34
+          },
+          "5": {
+            "blocked_wait": 7098
+          }
+        }
+      },
+      {
+        "file": "private-preparation-2-sample.txt",
+        "sha256": "d7e11be37488b34ffca2e365a3a45e7446d39475d9fc90ca4fa804afd9a2d6a5",
+        "thread_count": 6,
+        "root_context_counts": [
+          7136,
+          7136,
+          7136,
+          7136,
+          7136,
+          7136
+        ],
+        "all_thread_context_denominator": 42816,
+        "self_count_conservation": true,
+        "family_self_counts": {
+          "blocked_wait": 14309,
+          "group_fft_other_context": 28507
+        },
+        "nonwait_context_denominator": 28507,
+        "per_thread_family_self_counts": {
+          "0": {
+            "blocked_wait": 7136
+          },
+          "1": {
+            "group_fft_other_context": 7126,
+            "blocked_wait": 10
+          },
+          "2": {
+            "group_fft_other_context": 7117,
+            "blocked_wait": 19
+          },
+          "3": {
+            "group_fft_other_context": 7128,
+            "blocked_wait": 8
+          },
+          "4": {
+            "group_fft_other_context": 7136
+          },
+          "5": {
+            "blocked_wait": 7136
+          }
+        }
+      },
+      {
+        "file": "private-preparation-3-sample.txt",
+        "sha256": "4e6a34527fa156daa88ddb2bf0919cb7c8d91d44dcfd499075ec560b441537fe",
+        "thread_count": 6,
+        "root_context_counts": [
+          7217,
+          7217,
+          7217,
+          7217,
+          7217,
+          7217
+        ],
+        "all_thread_context_denominator": 43302,
+        "self_count_conservation": true,
+        "family_self_counts": {
+          "blocked_wait": 14478,
+          "group_fft_other_context": 28823,
+          "other_nonwait": 1
+        },
+        "nonwait_context_denominator": 28824,
+        "per_thread_family_self_counts": {
+          "0": {
+            "blocked_wait": 7217
+          },
+          "1": {
+            "group_fft_other_context": 7205,
+            "blocked_wait": 12
+          },
+          "2": {
+            "group_fft_other_context": 7197,
+            "blocked_wait": 19,
+            "other_nonwait": 1
+          },
+          "3": {
+            "group_fft_other_context": 7204,
+            "blocked_wait": 13
+          },
+          "4": {
+            "group_fft_other_context": 7217
+          },
+          "5": {
+            "blocked_wait": 7217
+          }
+        }
+      },
+      {
+        "file": "private-preparation-4-sample.txt",
+        "sha256": "c1fe2aaeda6f5eb3ad5ce951eca71927a85e6b3520d000141f4c3ecc55511b08",
+        "thread_count": 6,
+        "root_context_counts": [
+          7217,
+          7217,
+          7217,
+          7217,
+          7217,
+          7217
+        ],
+        "all_thread_context_denominator": 43302,
+        "self_count_conservation": true,
+        "family_self_counts": {
+          "blocked_wait": 14462,
+          "group_fft_other_context": 28840
+        },
+        "nonwait_context_denominator": 28840,
+        "per_thread_family_self_counts": {
+          "0": {
+            "blocked_wait": 7217
+          },
+          "1": {
+            "group_fft_other_context": 7208,
+            "blocked_wait": 9
+          },
+          "2": {
+            "group_fft_other_context": 7212,
+            "blocked_wait": 5
+          },
+          "3": {
+            "group_fft_other_context": 7203,
+            "blocked_wait": 14
+          },
+          "4": {
+            "group_fft_other_context": 7217
+          },
+          "5": {
+            "blocked_wait": 7217
+          }
+        }
+      },
+      {
+        "file": "private-preparation-5-sample.txt",
+        "sha256": "f028a98969fa6ffc2db2e0e747502c35a5746453effc183a88ebc22d699c95a8",
+        "thread_count": 6,
+        "root_context_counts": [
+          7470,
+          7470,
+          7470,
+          7470,
+          7470,
+          7470
+        ],
+        "all_thread_context_denominator": 44820,
+        "self_count_conservation": true,
+        "family_self_counts": {
+          "blocked_wait": 14966,
+          "group_fft_other_context": 29854
+        },
+        "nonwait_context_denominator": 29854,
+        "per_thread_family_self_counts": {
+          "0": {
+            "blocked_wait": 7470
+          },
+          "1": {
+            "group_fft_other_context": 7461,
+            "blocked_wait": 9
+          },
+          "2": {
+            "group_fft_other_context": 7459,
+            "blocked_wait": 11
+          },
+          "3": {
+            "group_fft_other_context": 7464,
+            "blocked_wait": 6
+          },
+          "4": {
+            "group_fft_other_context": 7470
+          },
+          "5": {
+            "blocked_wait": 7470
+          }
+        }
+      },
+      {
+        "file": "private-preparation-6-sample.txt",
+        "sha256": "4907a694750a16376aa30919d3251bc5abb5f1d387e628012a5b332cf26ee199",
+        "thread_count": 6,
+        "root_context_counts": [
+          7046,
+          7046,
+          7046,
+          7046,
+          7046,
+          7046
+        ],
+        "all_thread_context_denominator": 42276,
+        "self_count_conservation": true,
+        "family_self_counts": {
+          "blocked_wait": 14156,
+          "group_elementwise_products": 27758,
+          "group_fft_other_context": 358,
+          "other_nonwait": 4
+        },
+        "nonwait_context_denominator": 28120,
+        "per_thread_family_self_counts": {
+          "0": {
+            "blocked_wait": 7046
+          },
+          "1": {
+            "group_elementwise_products": 6934,
+            "blocked_wait": 22,
+            "group_fft_other_context": 90
+          },
+          "2": {
+            "group_elementwise_products": 6928,
+            "blocked_wait": 27,
+            "group_fft_other_context": 90,
+            "other_nonwait": 1
+          },
+          "3": {
+            "group_elementwise_products": 6941,
+            "group_fft_other_context": 89,
+            "blocked_wait": 15,
+            "other_nonwait": 1
+          },
+          "4": {
+            "group_elementwise_products": 6955,
+            "group_fft_other_context": 89,
+            "other_nonwait": 2
+          },
+          "5": {
+            "blocked_wait": 7046
+          }
+        }
+      },
+      {
+        "file": "private-preparation-7-sample.txt",
+        "sha256": "1096be4fcac59e6d38c0f669e3721bea2a0ea58495347942cd212e31dec43a07",
+        "thread_count": 6,
+        "root_context_counts": [
+          7266,
+          7266,
+          7266,
+          7266,
+          7266,
+          7266
+        ],
+        "all_thread_context_denominator": 43596,
+        "self_count_conservation": true,
+        "family_self_counts": {
+          "blocked_wait": 14532,
+          "group_fft_other_context": 29063,
+          "other_nonwait": 1
+        },
+        "nonwait_context_denominator": 29064,
+        "per_thread_family_self_counts": {
+          "0": {
+            "blocked_wait": 7266
+          },
+          "1": {
+            "group_fft_other_context": 7266
+          },
+          "2": {
+            "group_fft_other_context": 7266
+          },
+          "3": {
+            "group_fft_other_context": 7266
+          },
+          "4": {
+            "group_fft_other_context": 7265,
+            "other_nonwait": 1
+          },
+          "5": {
+            "blocked_wait": 7266
+          }
+        }
+      },
+      {
+        "file": "private-preparation-8-sample.txt",
+        "sha256": "3d5cb9ac5308163c092678211c284eed9e0a1d9887b90faee448d6a6ed56bbab",
+        "thread_count": 6,
+        "root_context_counts": [
+          7147,
+          7147,
+          7147,
+          7147,
+          7147,
+          7147
+        ],
+        "all_thread_context_denominator": 42882,
+        "self_count_conservation": true,
+        "family_self_counts": {
+          "blocked_wait": 14341,
+          "group_fft_other_context": 28541
+        },
+        "nonwait_context_denominator": 28541,
+        "per_thread_family_self_counts": {
+          "0": {
+            "blocked_wait": 7147
+          },
+          "1": {
+            "group_fft_other_context": 7135,
+            "blocked_wait": 12
+          },
+          "2": {
+            "group_fft_other_context": 7124,
+            "blocked_wait": 23
+          },
+          "3": {
+            "group_fft_other_context": 7135,
+            "blocked_wait": 12
+          },
+          "4": {
+            "group_fft_other_context": 7147
+          },
+          "5": {
+            "blocked_wait": 7147
+          }
+        }
+      },
+      {
+        "file": "private-preparation-9-sample.txt",
+        "sha256": "cd5b36a95fb602dad30c3dff27adba098e77408d0513e6dd4be16bf94cf4bcf9",
+        "thread_count": 6,
+        "root_context_counts": [
+          7134,
+          7134,
+          7134,
+          7134,
+          7134,
+          7134
+        ],
+        "all_thread_context_denominator": 42804,
+        "self_count_conservation": true,
+        "family_self_counts": {
+          "blocked_wait": 14619,
+          "group_convolution_fft": 21716,
+          "group_fft_other_context": 6461,
+          "other_nonwait": 8
+        },
+        "nonwait_context_denominator": 28185,
+        "per_thread_family_self_counts": {
+          "0": {
+            "blocked_wait": 7096,
+            "group_convolution_fft": 38
+          },
+          "1": {
+            "group_convolution_fft": 5365,
+            "blocked_wait": 155,
+            "group_fft_other_context": 1612,
+            "other_nonwait": 2
+          },
+          "2": {
+            "group_convolution_fft": 5403,
+            "group_fft_other_context": 1616,
+            "blocked_wait": 113,
+            "other_nonwait": 2
+          },
+          "3": {
+            "group_convolution_fft": 5433,
+            "blocked_wait": 83,
+            "group_fft_other_context": 1617,
+            "other_nonwait": 1
+          },
+          "4": {
+            "group_convolution_fft": 5477,
+            "group_fft_other_context": 1616,
+            "other_nonwait": 3,
+            "blocked_wait": 38
+          },
+          "5": {
+            "blocked_wait": 7134
+          }
+        }
+      },
+      {
+        "file": "update-sample.txt",
+        "sha256": "909bf6655c872fbcfe5330e8e095f2d3b8969783d83d3c91dbfb520748f1a3a9",
+        "thread_count": 5,
+        "root_context_counts": [
+          6934,
+          6934,
+          6934,
+          6934,
+          6934
+        ],
+        "all_thread_context_denominator": 34670,
+        "self_count_conservation": true,
+        "family_self_counts": {
+          "blocked_wait": 7674,
+          "sparse_lagrange_mapping": 36,
+          "other_update": 22845,
+          "other_nonwait": 241,
+          "group_sparse_projection_combine": 3874
+        },
+        "nonwait_context_denominator": 26996,
+        "per_thread_family_self_counts": {
+          "0": {
+            "blocked_wait": 6749,
+            "sparse_lagrange_mapping": 8,
+            "other_update": 13,
+            "other_nonwait": 164
+          },
+          "1": {
+            "other_update": 5697,
+            "blocked_wait": 245,
+            "group_sparse_projection_combine": 968,
+            "other_nonwait": 17,
+            "sparse_lagrange_mapping": 7
+          },
+          "2": {
+            "other_update": 5698,
+            "blocked_wait": 245,
+            "group_sparse_projection_combine": 965,
+            "other_nonwait": 19,
+            "sparse_lagrange_mapping": 7
+          },
+          "3": {
+            "other_update": 5718,
+            "blocked_wait": 218,
+            "group_sparse_projection_combine": 970,
+            "other_nonwait": 21,
+            "sparse_lagrange_mapping": 7
+          },
+          "4": {
+            "other_update": 5719,
+            "blocked_wait": 217,
+            "group_sparse_projection_combine": 971,
+            "other_nonwait": 20,
+            "sparse_lagrange_mapping": 7
+          }
+        }
+      }
+    ],
+    "private_preparation_family_self_counts": {
+      "blocked_wait": 188165,
+      "group_convolution_fft": 21747,
+      "group_elementwise_products": 73066,
+      "group_fft_other_context": 277895,
+      "other_nonwait": 1007,
+      "field_convolution": 50
+    },
+    "private_preparation_nonwait_denominator": 373765,
+    "private_preparation_all_thread_denominator": 561930,
+    "caveat": "Each node self count is inclusive count minus direct children. Families partition self counts; blocked waits remain separate. Gaps between preparation windows are unsampled.",
+    "tree_self_conservation_all_windows": true
+  },
+  "allocator_final_conservation": {
+    "cumulative_allocated_bytes": 62129577506,
+    "cumulative_freed_bytes": 62128964800,
+    "note": "remaining heap includes Rayon runtime, report/arguments and process support; not claimed zero",
+    "passed": true,
+    "requested_live_bytes": 612706
+  },
+  "watchdog": {
+    "stop": null,
+    "last_elapsed_seconds": 878.037348958,
+    "max_parent_rss_bytes": 1583202304,
+    "max_owned_child_rss_bytes": 189661184,
+    "max_retained_bytes": 100364349,
+    "sample_count": 826
+  },
+  "preservation_after_independent_check": {
+    "baseline_entries_checked": 165,
+    "hash_and_mode_mismatches": 0,
+    "retained_e2_package_and_inputs_match": true,
+    "protected_permission_mismatches": 0,
+    "owned_live_jobs": 0
+  },
+  "limitations": [
+    "System GlobalAlloc tracks requested Rust heap bytes only; not allocator metadata/rounding/native memory/stacks or physical footprint",
+    "Instrumented diagnostic repetitions are not E2 latency samples",
+    "Private preparation retains original projections as an additional oracle; reported stage peak includes this baseline",
+    "Native sampled stack share is not exact per-kernel CPU or allocation attribution",
+    "No public updating-key generation/setup allocation profile; no fully dynamic reconstruction",
+    "Single witness run establishes diagnostic maxRSS only; no distribution or device qualification",
+    "Private/stack/raw witness files protected; only aggregates suitable for local report"
+  ]
+}
