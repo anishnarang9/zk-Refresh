@@ -16,15 +16,15 @@ Coverage: pp1–8 motivation, contributions and prior work; pp9–10 algebra and
 
 **C/H:** Our raw constraints r=648,156, assignment length v=643,563, instance length k=6, public values5, padded domain N=1,048,576. Use distinct names in product code; raw r is not an FFT domain. The paper's square benchmark m=n differs from our circuit.
 
-| Quantity | Meaning | Historical near-root case |
+| Quantity | Meaning | Frozen near-root case, E4 census |
 |---|---|---:|
 | s_z | Nonzero assignment changes | 5,081: one public,5,080 auxiliary |
-| t_A,t_B,t_C | Matrix entries visited through changed columns, with multiplicity | Not counted in old report; E4 census closes this |
-| u_A,u_B | Distinct touched rows before deleting canceled sums | 2,390 /2,370 |
+| t_A,t_B,t_C | Matrix entries visited through changed columns, with multiplicity | 2,390 /2,370 /10,450 |
+| u_A,u_B,u_C | Distinct touched rows before deleting canceled sums | 2,390 /2,370 /5,080 |
 | s_A,s_B,s_C | Nonzero row-evaluation changes after cancellation | 2,390 /2,370 /2,370 |
 | s_A × s_B | Pair visits per existing cross loop with zero rows removed | 5,664,300 |
 
-Column fanout and cancellation determine work. `improved_lagrange_sparse_get` merges equal rows but retains zero sums. One Merkle-leaf change is not d=1 in compiled assignments. A new action historically changes104,175 assignments and yields about10.50billion cross-pair visits per loop; it must not silently take the near-update path.
+Column fanout and cancellation determine work. `improved_lagrange_sparse_get` merges equal rows but retains zero sums. E4's exact sparse/dense check found no retained A/B zero rows for this transition; deleting zeros therefore offers no near-case A/B speedup here. C has2,710 touched rows whose changes cancel to zero. One Merkle-leaf change is not d=1 in compiled assignments. A new action historically changes104,175 assignments and yields about10.50billion cross-pair visits per loop; it must not silently take the near-update path.
 
 **D — derived/reviewed by parent:** Let Z=X^N−1, L_i=(ω^i/N)Z/(X−ω^i), w_t=ω^t/[N(1−ω^t)] for t≠0, w_0=0, and w'_t=w_(−t). Circular convolution is (a*b)_i=Σ_j a_j b_(i−j). Partial fractions give, for i≠j:
 
