@@ -1,0 +1,9 @@
+node_modules/
+.cache/
+artifacts/
+circuits/generated/
+target/
+program/target/
+harness/target/
+results/raw/
+*.log
