@@ -50,6 +50,8 @@ Parent checked executable `update_dynark` and p13. Public changes affect A/B and
 
 **P/C, visually confirmed discrepancies:** Protocol2 G2 (p19) omits1/N, although Eq6 (p15) and code include it. Protocol2 U5 prints +s[A]; p13, direct subtraction and code require −s[A]. Eq6 includes the singular zero index without explicitly defining w_0=0; code supplies it. Sampling of new randomizers is implicit in Protocol2. Do not implement the box literally. Protocol3's t'=b transition also needs an explicit overshoot/large-update policy; its pseudocode does not specify every boundary case.
 
+Protocol1 p10 also prints the verifier's public query in G2 even though its verification equation requires G1, and starts the auxiliary sum at k+1 despite its own zero-based split beginning at k. Parent visually checked the page. The reference's typed queries and instance/auxiliary split follow the required algebra; these typesetting errors must not be copied into a new implementation.
+
 ## Paper-to-code matrix
 
 Source paths are beneath `experiments/dynark/vendor/DYNARK_/ark-groth16/src/` unless stated. Detailed function/line citations and retained arrays are in the algorithm report. Reference pin: `c73a380df86d8f5d195f1e20c8a1d86a7dce084b` plus two pre-existing local patches.
