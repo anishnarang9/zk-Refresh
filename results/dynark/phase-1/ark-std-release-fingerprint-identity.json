@@ -1,0 +1,7 @@
+{
+  "source_path": "experiments/dynark/proof-probe/target/release/build/ark-std/7648795982dee2cd/fingerprint/lib-ark_std.json",
+  "copy_path": "results/dynark/phase-1/ark-std-release-fingerprint.json",
+  "sha256": "25647cf1ef57aa6ff5e6dfe97a1e70f983ed9f1df79482c61cf123a0e68b9ae4",
+  "source_stat_bytes": 671,
+  "copy_identical": true
+}
