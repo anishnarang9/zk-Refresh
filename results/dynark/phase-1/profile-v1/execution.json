@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "experiment": "E4",
+  "created_at_utc": "2026-10-10T23:15:41.863011+00:00",
+  "identity": [
+    {
+      "path": "experiments/dynark/proof-probe/src/bin/phase1-profile.rs",
+      "sha256": "327df36cc07d9574bfa40167c5ffddb302326be4842c12e003d555835ae989ee",
+      "bytes": 35590
+    },
+    {
+      "path": "experiments/dynark/proof-probe/target/release/phase1-profile",
+      "sha256": "a1f7e25ae58473b2304a0040b4af155d0f86317faed2aba3df41b39ae6cf42bc",
+      "bytes": 3448656
+    },
+    {
+      "path": "experiments/dynark/proof-probe/src/bin/phase1-baseline.rs",
+      "sha256": "2cfc91338433ca8f022196325cb70d506673efc12b0ebf7b89049e0e7551b529",
+      "bytes": 21779
+    },
+    {
+      "path": "experiments/dynark/proof-probe/target/release/phase1-baseline",
+      "sha256": "ac864557c42fff1cd680da3b7f793e9b35660601b4f61f0300a6ac9f8e84837f",
+      "bytes": 3541264
+    },
+    {
+      "path": "experiments/dynark/proof-probe/Cargo.lock",
+      "sha256": "8ac93d908b9fbada9e9844037d398241b117c25483c59b9298a49d698eb9374e",
+      "bytes": 26277
+    },
+    {
+      "path": "experiments/dynark/proof-probe/Cargo.toml",
+      "sha256": "8d5ed834174b85e0ef7422d61c68d7c71698df85e4c797f91f4a01d0c8c95ba2",
+      "bytes": 547
+    }
+  ],
+  "build": "cargo build --locked --release --manifest-path experiments/dynark/proof-probe/Cargo.toml --bin phase1-profile",
+  "test": "cargo test --locked --manifest-path experiments/dynark/proof-probe/Cargo.toml --bin phase1-profile",
+  "test_count_passed": 3,
+  "release_profile": "existing release thin LTO, unchanged Cargo manifest",
+  "target_initial_kib": 2222108,
+  "status": "ready_for_authorized_fresh_startup",
+  "events": [
+    {
+      "kind": "startup_failed_before_crypto",
+      "command_log": "artifacts/dynark/phase-1/profile-v1-command.log",
+      "cause": "setpgid rejected already-isolated execution session; no output directory or cryptographic preparation reached"
+    },
+    {
+      "kind": "relocation_and_startup_fix_preflight",
+      "recorded_at_utc": "2026-10-10T23:20:37.588862+00:00",
+      "workspace": "/Users/anishnarang/Zk-refresh",
+      "baseline_originals_checked": 165,
+      "baseline_hash_mode_mismatches": 0,
+      "retained_e2_inputs_and_package_verified": true,
+      "startup_fix_tests_passed": 3,
+      "startup_fix_release_build_seconds": 6.52,
+      "identity": [
+        {
+          "path": "experiments/dynark/proof-probe/src/bin/phase1-profile.rs",
+          "sha256": "c32d4a3a7af6d9c47b874c8fba95278bf0e72d8ae8dfe9ea6231f7561c5d89be",
+          "bytes": 35690
+        },
+        {
+          "path": "experiments/dynark/proof-probe/target/release/phase1-profile",
+          "sha256": "01465c56185e2340f9c9f527465a951331fc513f6842e43098906e51c814670c",
+          "bytes": 3448704
+        },
+        {
+          "path": "experiments/dynark/proof-probe/src/bin/phase1-baseline.rs",
+          "sha256": "2cfc91338433ca8f022196325cb70d506673efc12b0ebf7b89049e0e7551b529",
+          "bytes": 21779
+        },
+        {
+          "path": "experiments/dynark/proof-probe/target/release/phase1-baseline",
+          "sha256": "ac864557c42fff1cd680da3b7f793e9b35660601b4f61f0300a6ac9f8e84837f",
+          "bytes": 3541264
+        }
+      ],
+      "note": "historical manifests and first build identities unchanged"
+    }
+  ]
+}
