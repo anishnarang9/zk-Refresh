@@ -1,0 +1,213 @@
+{
+  "schema": 1,
+  "captured_at_utc": "2026-10-10T22:27:49.532924+00:00",
+  "commands": [
+    {
+      "command": [
+        "rustc",
+        "-vV"
+      ],
+      "stdout": "rustc 1.100.0-nightly (908501772 2026-08-30)\nbinary: rustc\ncommit-hash: 90850177249efe0321573c569aec5d12b257f8d6\ncommit-date: 2026-08-30\nhost: aarch64-apple-darwin\nrelease: 1.100.0-nightly\nLLVM version: 23.1.0"
+    },
+    {
+      "command": [
+        "cargo",
+        "--version"
+      ],
+      "stdout": "cargo 1.100.0-nightly (e8cb624d5 2026-08-22)"
+    },
+    {
+      "command": [
+        "node",
+        "--version"
+      ],
+      "stdout": "v24.10.0"
+    },
+    {
+      "command": [
+        "circom",
+        "--version"
+      ],
+      "stdout": "circom compiler 2.2.3"
+    },
+    {
+      "command": [
+        "uname",
+        "-a"
+      ],
+      "stdout": "Darwin Anishs-MacBook-Pro-9.local 25.6.0 Darwin Kernel Version 25.6.0: Fri Jul 31 19:16:36 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_T6030 arm64"
+    },
+    {
+      "command": [
+        "sysctl",
+        "-n",
+        "machdep.cpu.brand_string",
+        "hw.memsize",
+        "hw.logicalcpu",
+        "hw.physicalcpu"
+      ],
+      "stdout": "Apple M3 Pro\n19327352832\n11\n11"
+    }
+  ],
+  "environment": {
+    "RUSTFLAGS": null,
+    "CARGO_ENCODED_RUSTFLAGS": null,
+    "CARGO_BUILD_TARGET": null,
+    "RAYON_NUM_THREADS": null,
+    "OMP_NUM_THREADS": null
+  },
+  "build_command": [
+    "cargo",
+    "build",
+    "--locked",
+    "--offline",
+    "--release",
+    "--manifest-path",
+    "experiments/dynark/proof-probe/Cargo.toml",
+    "--bin",
+    "phase1-baseline"
+  ],
+  "profile": "release; lto=thin in Cargo.toml; default vendor features include parallel",
+  "entries": [
+    {
+      "path": "experiments/dynark/proof-probe/Cargo.lock",
+      "bytes": 26277,
+      "sha256": "8ac93d908b9fbada9e9844037d398241b117c25483c59b9298a49d698eb9374e"
+    },
+    {
+      "path": "experiments/dynark/proof-probe/Cargo.toml",
+      "bytes": 547,
+      "sha256": "8d5ed834174b85e0ef7422d61c68d7c71698df85e4c797f91f4a01d0c8c95ba2"
+    },
+    {
+      "path": "experiments/dynark/proof-probe/src/bin/phase1-baseline.rs",
+      "bytes": 21779,
+      "sha256": "2cfc91338433ca8f022196325cb70d506673efc12b0ebf7b89049e0e7551b529"
+    },
+    {
+      "path": "experiments/dynark/proof-probe/src/bin/phase1-fft-smoke.rs",
+      "bytes": 7482,
+      "sha256": "871233c327dc54002bb28172332b6bafbbd644246f95b8676b9d862d9ca52f68"
+    },
+    {
+      "path": "experiments/dynark/proof-probe/src/bin/verify-artifacts.rs",
+      "bytes": 1131,
+      "sha256": "38f6123a01918095d6cd3976f13c36a13e53667d71e9b398e5fe048502715c01"
+    },
+    {
+      "path": "experiments/dynark/proof-probe/src/lib.rs",
+      "bytes": 5998,
+      "sha256": "1c16c4dab5d1641b8f94ba98c728d4a197ad038c088ececef129700d3ac5fb14"
+    },
+    {
+      "path": "experiments/dynark/proof-probe/src/main.rs",
+      "bytes": 11985,
+      "sha256": "909a5957d8b7155742a48f0346008a541ef971184261e526b03ca497dffdf4b1"
+    },
+    {
+      "path": "experiments/dynark/proof-probe/target/release/phase1-baseline",
+      "bytes": 3541264,
+      "sha256": "ac864557c42fff1cd680da3b7f793e9b35660601b4f61f0300a6ac9f8e84837f"
+    },
+    {
+      "path": "experiments/dynark/proof-probe/tests/cli.rs",
+      "bytes": 2292,
+      "sha256": "fcb54f6a7c77d8791a4308b996241efab119d9b7799a55fe343411a630157baa"
+    },
+    {
+      "path": "experiments/dynark/proof-probe/tests/import.rs",
+      "bytes": 4318,
+      "sha256": "5c3527acf5f692afedca325e026459fdaa81f99d96e442fcba5049cdb2b5afae"
+    },
+    {
+      "path": "experiments/dynark/proof-probe/tests/proof.rs",
+      "bytes": 4605,
+      "sha256": "0b731110e1df03788bebfb7e8df8fe4d2bc62a76092186ec108607c929ae3df2"
+    },
+    {
+      "path": "experiments/dynark/vendor/DYNARK_/ark-groth16/Cargo.toml",
+      "bytes": 4225,
+      "sha256": "0230b6c4c87d5c5a174ee8bb1049e53458574755a868df1ce2eeb29f4954576c"
+    },
+    {
+      "path": "experiments/dynark/vendor/DYNARK_/ark-groth16/src/constraints.rs",
+      "bytes": 20130,
+      "sha256": "d0aca7ffa5a4aef004c4e0276dd29ac829c29d63a6a09a7482dbc5809e4016a5"
+    },
+    {
+      "path": "experiments/dynark/vendor/DYNARK_/ark-groth16/src/data_structures.rs",
+      "bytes": 6615,
+      "sha256": "272b6688d7352dbf329bb40b93f2d788ce10b33612ab05deacf63961e4a5a679"
+    },
+    {
+      "path": "experiments/dynark/vendor/DYNARK_/ark-groth16/src/dynamic_cache.rs",
+      "bytes": 29901,
+      "sha256": "fecd160dd22b705326db22fb9b125d8d5ed82e2765f34179feedf665fdff5823"
+    },
+    {
+      "path": "experiments/dynark/vendor/DYNARK_/ark-groth16/src/dynark_generator.rs",
+      "bytes": 10759,
+      "sha256": "4bcb08ba6f1a1c4d55cb7136db5c8989e7f56ffb5e6c15f6e11956f6788b1103"
+    },
+    {
+      "path": "experiments/dynark/vendor/DYNARK_/ark-groth16/src/dynark_prover.rs",
+      "bytes": 12729,
+      "sha256": "5575e85562da40578887098dccd45652e5b985319ccc1bb3734fb5e33de447ac"
+    },
+    {
+      "path": "experiments/dynark/vendor/DYNARK_/ark-groth16/src/dynark_verifier.rs",
+      "bytes": 1692,
+      "sha256": "f561c7d2dfd441953dbf5f53473e0047182e1b9fb1e308ff216988b9c01fd9ef"
+    },
+    {
+      "path": "experiments/dynark/vendor/DYNARK_/ark-groth16/src/fft_handler.rs",
+      "bytes": 57448,
+      "sha256": "a278d4e66f2b34f37380f0537e9560fe818f9bf65a099d1f045f24928ddf3a7e"
+    },
+    {
+      "path": "experiments/dynark/vendor/DYNARK_/ark-groth16/src/generator.rs",
+      "bytes": 2294,
+      "sha256": "2106abf52c1221856f14cf8452aa3c901d97fc5ec54dff2c3b84b3d4b95b05d5"
+    },
+    {
+      "path": "experiments/dynark/vendor/DYNARK_/ark-groth16/src/instance_generator.rs",
+      "bytes": 7118,
+      "sha256": "2b45622fcb94ae0fca983ae45efc8e57ff2aa3f5028af2a492f5d71d817bc3b9"
+    },
+    {
+      "path": "experiments/dynark/vendor/DYNARK_/ark-groth16/src/lib.rs",
+      "bytes": 6154,
+      "sha256": "588fd35d1aff01f24ea3f3ac39077aff13fb8d8a5fecd552c446f5e09b004103"
+    },
+    {
+      "path": "experiments/dynark/vendor/DYNARK_/ark-groth16/src/prover.rs",
+      "bytes": 8344,
+      "sha256": "86a2bf4b20c03b2884374a9528f8c4a4eef9c83bbfcd4eb4efce8ffea82a4f16"
+    },
+    {
+      "path": "experiments/dynark/vendor/DYNARK_/ark-groth16/src/r1cs_to_qap.rs",
+      "bytes": 15434,
+      "sha256": "45b86e8b59522a0b7c5121326ad644f311c77517eb76d05440fab7321ba0b5e1"
+    },
+    {
+      "path": "experiments/dynark/vendor/DYNARK_/ark-groth16/src/test.rs",
+      "bytes": 5888,
+      "sha256": "fb0e88e38078c4c4efb1a39a260dac4f3c74390dda6edc701852abb88c964cdf"
+    },
+    {
+      "path": "experiments/dynark/vendor/DYNARK_/ark-groth16/src/utils.rs",
+      "bytes": 5314,
+      "sha256": "f89698fd651ae8129cc6a154bdbf59950fed5c2322c60526f667f87c960f2e00"
+    },
+    {
+      "path": "experiments/dynark/vendor/DYNARK_/ark-groth16/src/verifier.rs",
+      "bytes": 3299,
+      "sha256": "b2ebfd34e80fd55b5f1a3d7c6deb28956ae1b0d37ca39067d2cbbebee2ffdf41"
+    },
+    {
+      "path": "results/dynark/phase-1/baseline-freeze.json",
+      "bytes": 33838,
+      "sha256": "7e4dd81383ca2d21eeb3fb2a11a7c58af39f9426f8fa27e6c05b5066bd0c387c"
+    }
+  ]
+}
