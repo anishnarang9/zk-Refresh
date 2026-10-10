@@ -1,0 +1,50 @@
+{
+  "scope": "Archived pre-robustness probe supports source-diff inspection; no build manifest establishes this copy produced historical measured binary. Cargo points to upstream-regression vendor.",
+  "entries": [
+    {
+      "path": "artifacts/dynark/engine/upstream-regression-probe/Cargo.lock",
+      "sha256": "8ac93d908b9fbada9e9844037d398241b117c25483c59b9298a49d698eb9374e",
+      "bytes": 26277
+    },
+    {
+      "path": "artifacts/dynark/engine/upstream-regression-probe/Cargo.toml",
+      "sha256": "dbcf5ea7f62e8221cf58cbc5e3ea7a5b8f522a1641c53741650a0747d9d6e5f4",
+      "bytes": 603
+    },
+    {
+      "path": "artifacts/dynark/engine/upstream-regression-probe/README.md",
+      "sha256": "81259ee8c5015f325b7b5d1be6bbc7187f00574c75e9703d8ddd5fd98ba30272",
+      "bytes": 6500
+    },
+    {
+      "path": "artifacts/dynark/engine/upstream-regression-probe/src/bin/verify-artifacts.rs",
+      "sha256": "38f6123a01918095d6cd3976f13c36a13e53667d71e9b398e5fe048502715c01",
+      "bytes": 1131
+    },
+    {
+      "path": "artifacts/dynark/engine/upstream-regression-probe/src/lib.rs",
+      "sha256": "9940ef9b57f38c496a37d8cb902a4209bc05a2c489a55a82c59d79e785bde7f9",
+      "bytes": 5480
+    },
+    {
+      "path": "artifacts/dynark/engine/upstream-regression-probe/src/main.rs",
+      "sha256": "4609be938beb3d7d8d38e378cc13b38f2cb15f98d30708d45aa5ca39ea20bb1f",
+      "bytes": 11899
+    },
+    {
+      "path": "artifacts/dynark/engine/upstream-regression-probe/tests/cli.rs",
+      "sha256": "650de8056220fcba1ddf7d563ef66ad6f9a8a82436ae658a401c07f6f86872f2",
+      "bytes": 503
+    },
+    {
+      "path": "artifacts/dynark/engine/upstream-regression-probe/tests/import.rs",
+      "sha256": "3116151c2f0d5b571e201eb081033708ac6bda09a888649babff6a2b562ab442",
+      "bytes": 3136
+    },
+    {
+      "path": "artifacts/dynark/engine/upstream-regression-probe/tests/proof.rs",
+      "sha256": "0b731110e1df03788bebfb7e8df8fe4d2bc62a76092186ec108607c929ae3df2",
+      "bytes": 4605
+    }
+  ]
+}

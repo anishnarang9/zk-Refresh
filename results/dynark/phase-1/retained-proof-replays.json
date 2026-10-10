@@ -1,0 +1,106 @@
+{
+  "schema": 1,
+  "verified_at_utc": "2026-10-10T22:26:05.826998+00:00",
+  "replays": [
+    {
+      "case": "initial_original",
+      "command": [
+        "experiments/dynark/proof-probe/target/release/verify-artifacts",
+        "--vk",
+        "artifacts/dynark/engine/near-v1/ordinary-vk.bin",
+        "--proof",
+        "artifacts/dynark/engine/near-v1/initial-proof.bin",
+        "--public",
+        "artifacts/dynark/engine/near-v1/before-public-inputs.bin"
+      ],
+      "expected_exit": 0,
+      "exit_code": 0,
+      "stdout": "ordinary_groth16_valid=true\n",
+      "stderr": "",
+      "pass": true
+    },
+    {
+      "case": "updated_current",
+      "command": [
+        "experiments/dynark/proof-probe/target/release/verify-artifacts",
+        "--vk",
+        "artifacts/dynark/engine/near-v1/ordinary-vk.bin",
+        "--proof",
+        "artifacts/dynark/engine/near-v1/updated-proof.bin",
+        "--public",
+        "artifacts/dynark/engine/near-v1/after-public-inputs.bin"
+      ],
+      "expected_exit": 0,
+      "exit_code": 0,
+      "stdout": "ordinary_groth16_valid=true\n",
+      "stderr": "",
+      "pass": true
+    },
+    {
+      "case": "updated_stale",
+      "command": [
+        "experiments/dynark/proof-probe/target/release/verify-artifacts",
+        "--vk",
+        "artifacts/dynark/engine/near-v1/ordinary-vk.bin",
+        "--proof",
+        "artifacts/dynark/engine/near-v1/updated-proof.bin",
+        "--public",
+        "artifacts/dynark/engine/near-v1/before-public-inputs.bin"
+      ],
+      "expected_exit": 1,
+      "exit_code": 1,
+      "stdout": "ordinary_groth16_valid=false\n",
+      "stderr": "Error: ordinary verifier rejected proof\n",
+      "pass": true
+    },
+    {
+      "case": "initial_changed_root",
+      "command": [
+        "experiments/dynark/proof-probe/target/release/verify-artifacts",
+        "--vk",
+        "artifacts/dynark/engine/near-v1/ordinary-vk.bin",
+        "--proof",
+        "artifacts/dynark/engine/near-v1/initial-proof.bin",
+        "--public",
+        "artifacts/dynark/engine/near-v1/after-public-inputs.bin"
+      ],
+      "expected_exit": 1,
+      "exit_code": 1,
+      "stdout": "ordinary_groth16_valid=false\n",
+      "stderr": "Error: ordinary verifier rejected proof\n",
+      "pass": true
+    },
+    {
+      "case": "alice-before-bob-revocation",
+      "command": [
+        "node",
+        "node_modules/snarkjs/build/cli.cjs",
+        "groth16",
+        "verify",
+        "artifacts/setup/verification_key.json",
+        "artifacts/proofs/alice-before-bob-revocation/public.json",
+        "artifacts/proofs/alice-before-bob-revocation/proof.json"
+      ],
+      "exit_code": 0,
+      "stdout": "\u001b[32;22m[INFO]  \u001b[39;1msnarkJS\u001b[0m: OK!\n",
+      "stderr": "",
+      "pass": true
+    },
+    {
+      "case": "alice-after-bob-revocation",
+      "command": [
+        "node",
+        "node_modules/snarkjs/build/cli.cjs",
+        "groth16",
+        "verify",
+        "artifacts/setup/verification_key.json",
+        "artifacts/proofs/alice-after-bob-revocation/public.json",
+        "artifacts/proofs/alice-after-bob-revocation/proof.json"
+      ],
+      "exit_code": 0,
+      "stdout": "\u001b[32;22m[INFO]  \u001b[39;1msnarkJS\u001b[0m: OK!\n",
+      "stderr": "",
+      "pass": true
+    }
+  ]
+}
