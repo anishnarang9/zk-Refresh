@@ -2,6 +2,8 @@
 
 October 10, 2026. Queue coordinator: orchestrator. No credential-scale setup, preprocessing, proof or allocation run is currently authorized. Inspect active jobs before transferring the slot. Code edits may proceed in disjoint ownership; heavy measurements never overlap.
 
+October 11, 04:44 UTC update: queue free; all coding ownership released. Session source004 and launcher004 are frozen after parent review. Worker and independent parent each passed 23 finite mocked/integer-plan tests under exact proposal004 commands and fresh attempt003 roots (120 seconds, 512 MiB RSS, 16 MiB growth). Original reports, source pins and cleanup were verified; [source/evidence review](evidence/session-source-review.md) records counts and limits. These exceptions ran no host admission, Rust, setup or cryptography. Host pressure remains warning; credential replay/dynamics, population and session builds/runs stay held pending stable normal admission. No automatic retry or sample replacement is authorized.
+
 ## P2-E1: trusted full comparator
 
 Recorded before implementation. Hypothesis: an isolated product wrapper preserves the exact original QAP and constant-one assignment, validates inputs, and produces ordinary independently accepted proofs with fallible secure randomness. It also distinguishes equal-domain original and augmented reductions.
