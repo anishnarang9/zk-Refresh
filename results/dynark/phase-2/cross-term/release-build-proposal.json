@@ -6,11 +6,11 @@
     "crates/dynark-bn254/tests/cross_conformance.rs": "fbb344bc329606ccb669cfdf9c91eaf5c887ac36214f3e117551efdb6c11ef1b",
     "crates/dynark-bn254/src/bin/phase2-cross-bench.rs": "e4d8ddaf224c846b195def63ce4a6345b4b6060d296c50b1e02bba4c0cea5de7"
   },
-  "status": "proposed commands only; not authorized/executed",
+  "status": "both exact commands executed/pass under explicit parent grant",
   "commands": [
     {
       "name": "release-build-001",
-      "status": "proposed not executed; new parent queue grant required",
+      "status": "executed/pass; exact invocation retained in matching protected output",
       "argv": [
         "python3",
         "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/bootstrap/bounded_runner.py",
@@ -51,7 +51,7 @@
     },
     {
       "name": "release-diag-build-001",
-      "status": "proposed not executed; new parent queue grant required",
+      "status": "executed/pass; exact invocation retained in matching protected output",
       "argv": [
         "python3",
         "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/bootstrap/bounded_runner.py",

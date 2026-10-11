@@ -1,0 +1,231 @@
+{
+  "status": "two release builds and one public prepare passed; sole queue released; no timing or diagnostic schedule run",
+  "source_manifest": "results/dynark/phase-2/cross-term/source-005.json",
+  "source_drift_after_build_prepare": [],
+  "baseline_commit": "b6b00954290b32fb87d74b0b404a83d32ff48dba",
+  "builds_and_prepare": {
+    "release-build-001": {
+      "report": "results/dynark/phase-2/cross-term/release-build-001.json",
+      "invocation": {
+        "owner": "t4-cross-release-build-001",
+        "argv": [
+          "env",
+          "-u",
+          "RUSTFLAGS",
+          "-u",
+          "CARGO_ENCODED_RUSTFLAGS",
+          "RAYON_NUM_THREADS=4",
+          "CARGO_BUILD_JOBS=2",
+          "CARGO_TARGET_DIR=/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/release-target/timing",
+          "cargo",
+          "build",
+          "--release",
+          "--locked",
+          "--offline",
+          "--bin",
+          "phase2-cross-bench"
+        ],
+        "cwd": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/source-005/crates/dynark-bn254",
+        "started_at_utc": "2026-10-11T01:56:03.775490+00:00",
+        "storage_roots": [
+          "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/release-build-001",
+          "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/release-target/timing"
+        ]
+      },
+      "resource": {
+        "duration_seconds": 31.508359416970052,
+        "sample_count": 128,
+        "sampled_peak_owned_tree_rss_bytes": 797442048,
+        "sampled_peak_storage_growth_bytes": 151379483,
+        "passed": true,
+        "stop_reason": null,
+        "exit_code": 0,
+        "cleanup_remaining_owned_processes": 0,
+        "cleanup_status_unknown": false
+      },
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "7f71aa7abe2f8e813db06abc06b60a7f805bcdb28ca6164031afc83eff326aeb"
+    },
+    "release-diag-build-001": {
+      "report": "results/dynark/phase-2/cross-term/release-diag-build-001.json",
+      "invocation": {
+        "owner": "t4-cross-release-diag-build-001",
+        "argv": [
+          "env",
+          "-u",
+          "RUSTFLAGS",
+          "-u",
+          "CARGO_ENCODED_RUSTFLAGS",
+          "RAYON_NUM_THREADS=4",
+          "CARGO_BUILD_JOBS=2",
+          "CARGO_TARGET_DIR=/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/release-target/diagnostic",
+          "RUSTFLAGS=--cfg=t4_alloc_diag",
+          "cargo",
+          "build",
+          "--release",
+          "--locked",
+          "--offline",
+          "--bin",
+          "phase2-cross-bench"
+        ],
+        "cwd": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/source-005/crates/dynark-bn254",
+        "started_at_utc": "2026-10-11T01:56:58.060932+00:00",
+        "storage_roots": [
+          "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/release-diag-build-001",
+          "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/release-target/diagnostic"
+        ]
+      },
+      "resource": {
+        "duration_seconds": 31.429590083891526,
+        "sample_count": 127,
+        "sampled_peak_owned_tree_rss_bytes": 769523712,
+        "sampled_peak_storage_growth_bytes": 151481144,
+        "passed": true,
+        "stop_reason": null,
+        "exit_code": 0,
+        "cleanup_remaining_owned_processes": 0,
+        "cleanup_status_unknown": false
+      },
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "b3c56663ca1583f2250d67715240afde57daf3ca16563976407c58b4bd780b18"
+    },
+    "prepare-001": {
+      "report": "results/dynark/phase-2/cross-term/prepare-001.json",
+      "invocation": {
+        "owner": "t4-cross-prepare-001",
+        "argv": [
+          "env",
+          "-u",
+          "RUSTFLAGS",
+          "-u",
+          "CARGO_ENCODED_RUSTFLAGS",
+          "RAYON_NUM_THREADS=4",
+          "CARGO_BUILD_JOBS=2",
+          "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/release-build-001/executables/phase2-cross-bench",
+          "prepare",
+          "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/public-weights-001"
+        ],
+        "cwd": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/source-005/crates/dynark-bn254",
+        "started_at_utc": "2026-10-11T01:57:49.198474+00:00",
+        "storage_roots": [
+          "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/prepare-001",
+          "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/public-weights-001"
+        ]
+      },
+      "resource": {
+        "duration_seconds": 0.7262228750623763,
+        "sample_count": 4,
+        "sampled_peak_owned_tree_rss_bytes": 35667968,
+        "sampled_peak_storage_growth_bytes": 33559781,
+        "passed": true,
+        "stop_reason": null,
+        "exit_code": 0,
+        "cleanup_remaining_owned_processes": 0,
+        "cleanup_status_unknown": false
+      },
+      "stdout_sha256": "de925de235171b287794067add164959eb84e05091ec1cfcba7bcf52287b3238",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "release_executables": {
+    "release-build-001": {
+      "build_path": "artifacts/dynark/phase-2/cross-term/release-target/timing/release/phase2-cross-bench",
+      "retained_path": "artifacts/dynark/phase-2/cross-term/release-build-001/executables/phase2-cross-bench",
+      "sha256": "65c093a3b027a64f55c5918f086e264713cdff880549475d191b847167c0604f",
+      "bytes": 1077920,
+      "mode": "0o700",
+      "source_snapshot": "source-005",
+      "profile": "release",
+      "allocator_instrumented": false
+    },
+    "release-diag-build-001": {
+      "build_path": "artifacts/dynark/phase-2/cross-term/release-target/diagnostic/release/phase2-cross-bench",
+      "retained_path": "artifacts/dynark/phase-2/cross-term/release-diag-build-001/executables/phase2-cross-bench",
+      "sha256": "8cdaa07c0ff97fa5dce5ac5258652bd035051253c87dacd2aa37969e0722f876",
+      "bytes": 1126976,
+      "mode": "0o700",
+      "source_snapshot": "source-005",
+      "profile": "release",
+      "allocator_instrumented": true,
+      "rustflags": "--cfg=t4_alloc_diag"
+    }
+  },
+  "public_tables": {
+    "passed": true,
+    "tables": {
+      "128": {
+        "path": "artifacts/dynark/phase-2/cross-term/public-weights-001/weights-128.fr",
+        "sha256": "83715270f2d29dcd766d983aa6d340f2095ec7036aaf645f8fea2b141f310a5f",
+        "bytes": 4096,
+        "mode": "0o600",
+        "uid": 501,
+        "expected_bytes": 4096
+      },
+      "1048576": {
+        "path": "artifacts/dynark/phase-2/cross-term/public-weights-001/weights-1048576.fr",
+        "sha256": "be2f8f864b9272373c19910e6e163e0a3f90bf7b6565a2317d4e3490a8ff07c6",
+        "bytes": 33554432,
+        "mode": "0o600",
+        "uid": 501,
+        "expected_bytes": 33554432
+      }
+    },
+    "dir_mode": "0o700",
+    "binary": {
+      "build_path": "artifacts/dynark/phase-2/cross-term/release-target/timing/release/phase2-cross-bench",
+      "retained_path": "artifacts/dynark/phase-2/cross-term/release-build-001/executables/phase2-cross-bench",
+      "sha256": "65c093a3b027a64f55c5918f086e264713cdff880549475d191b847167c0604f",
+      "bytes": 1077920,
+      "mode": "0o700",
+      "source_snapshot": "source-005",
+      "profile": "release",
+      "allocator_instrumented": false
+    },
+    "events": [
+      {
+        "event": "public_table_prepared",
+        "n": 128,
+        "construction_ns": 275166,
+        "storage_ns": 93958,
+        "retained_bytes": 4096,
+        "live_structural_bytes": 8192,
+        "sha256": "83715270f2d29dcd766d983aa6d340f2095ec7036aaf645f8fea2b141f310a5f",
+        "public": true
+      },
+      {
+        "event": "public_table_prepared",
+        "n": 1048576,
+        "construction_ns": 78664333,
+        "storage_ns": 42911375,
+        "retained_bytes": 33554432,
+        "live_structural_bytes": 67108864,
+        "sha256": "be2f8f864b9272373c19910e6e163e0a3f90bf7b6565a2317d4e3490a8ff07c6",
+        "public": true
+      }
+    ],
+    "resource": {
+      "duration_seconds": 0.7262228750623763,
+      "sample_count": 4,
+      "sampled_peak_owned_tree_rss_bytes": 35667968,
+      "sampled_peak_storage_growth_bytes": 33559781,
+      "passed": true,
+      "stop_reason": null,
+      "exit_code": 0,
+      "cleanup_remaining_owned_processes": 0,
+      "cleanup_status_unknown": false
+    },
+    "notes": [
+      "public weights only; no package/key/witness or credential load",
+      "single retained vector + batch-inversion product scratch; no retained root vector",
+      "sampled RSS may miss brief product scratch peak; structural live64MiB/retained32MiB not asserted from four RSS samples",
+      "no timing or diagnostic schedule run"
+    ]
+  },
+  "parent_correctness_acceptance": "recorded in observer-binary-summary.json with independent retained-executable reruns",
+  "limits": [
+    "builds600s/1GiB sampled RSS/2GiB growth; prepare120s/512MiB sampled RSS/128MiB growth",
+    "table construction/storage measurements refer to public weights only; no package or updating-material preparation inference",
+    "prepare four ps samples underresolve short batch-inversion product scratch;64MiB structural budget comes from vector accounting",
+    "no source edits; no credential/package/key input; timing schedules require explicit next grant"
+  ]
+}

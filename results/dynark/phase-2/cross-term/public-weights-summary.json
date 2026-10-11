@@ -1,0 +1,71 @@
+{
+  "passed": true,
+  "tables": {
+    "128": {
+      "path": "artifacts/dynark/phase-2/cross-term/public-weights-001/weights-128.fr",
+      "sha256": "83715270f2d29dcd766d983aa6d340f2095ec7036aaf645f8fea2b141f310a5f",
+      "bytes": 4096,
+      "mode": "0o600",
+      "uid": 501,
+      "expected_bytes": 4096
+    },
+    "1048576": {
+      "path": "artifacts/dynark/phase-2/cross-term/public-weights-001/weights-1048576.fr",
+      "sha256": "be2f8f864b9272373c19910e6e163e0a3f90bf7b6565a2317d4e3490a8ff07c6",
+      "bytes": 33554432,
+      "mode": "0o600",
+      "uid": 501,
+      "expected_bytes": 33554432
+    }
+  },
+  "dir_mode": "0o700",
+  "binary": {
+    "build_path": "artifacts/dynark/phase-2/cross-term/release-target/timing/release/phase2-cross-bench",
+    "retained_path": "artifacts/dynark/phase-2/cross-term/release-build-001/executables/phase2-cross-bench",
+    "sha256": "65c093a3b027a64f55c5918f086e264713cdff880549475d191b847167c0604f",
+    "bytes": 1077920,
+    "mode": "0o700",
+    "source_snapshot": "source-005",
+    "profile": "release",
+    "allocator_instrumented": false
+  },
+  "events": [
+    {
+      "event": "public_table_prepared",
+      "n": 128,
+      "construction_ns": 275166,
+      "storage_ns": 93958,
+      "retained_bytes": 4096,
+      "live_structural_bytes": 8192,
+      "sha256": "83715270f2d29dcd766d983aa6d340f2095ec7036aaf645f8fea2b141f310a5f",
+      "public": true
+    },
+    {
+      "event": "public_table_prepared",
+      "n": 1048576,
+      "construction_ns": 78664333,
+      "storage_ns": 42911375,
+      "retained_bytes": 33554432,
+      "live_structural_bytes": 67108864,
+      "sha256": "be2f8f864b9272373c19910e6e163e0a3f90bf7b6565a2317d4e3490a8ff07c6",
+      "public": true
+    }
+  ],
+  "resource": {
+    "duration_seconds": 0.7262228750623763,
+    "sample_count": 4,
+    "sampled_peak_owned_tree_rss_bytes": 35667968,
+    "sampled_peak_storage_growth_bytes": 33559781,
+    "passed": true,
+    "stop_reason": null,
+    "exit_code": 0,
+    "cleanup_remaining_owned_processes": 0,
+    "cleanup_status_unknown": false
+  },
+  "notes": [
+    "public weights only; no package/key/witness or credential load",
+    "single retained vector + batch-inversion product scratch; no retained root vector",
+    "sampled RSS may miss brief product scratch peak; structural live64MiB/retained32MiB not asserted from four RSS samples",
+    "no timing or diagnostic schedule run"
+  ]
+}

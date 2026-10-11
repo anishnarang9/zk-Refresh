@@ -1,0 +1,4916 @@
+[
+  {
+    "case": "tiny0",
+    "whole": {
+      "event": "diagnostic_whole",
+      "case": "tiny0",
+      "order": "accepted_fast",
+      "accepted_ns": 500,
+      "fast_observed_ns": 32292,
+      "phase_sum_ns": 21749,
+      "residual_ns": 10543,
+      "accepted_allocation": {
+        "start_live": 33564529,
+        "end_live": 33564529,
+        "peak_live": 33564529,
+        "peak_additional": 0,
+        "requested_bytes": 0,
+        "freed_bytes": 0,
+        "alloc_calls": 0,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33569177
+      },
+      "fast_allocation": {
+        "start_live": 33564529,
+        "end_live": 33564529,
+        "peak_live": 33564529,
+        "peak_additional": 0,
+        "requested_bytes": 0,
+        "freed_bytes": 0,
+        "alloc_calls": 0,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33569177
+      },
+      "equal": true
+    },
+    "ordered_complete_phases": [
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny0",
+        "phase": "Preflight",
+        "ns": 10708,
+        "allocation": {
+          "start_live": 33564529,
+          "end_live": 33564529,
+          "peak_live": 33564529,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33569177
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny0",
+        "phase": "Normalize",
+        "ns": 10458,
+        "allocation": {
+          "start_live": 33564529,
+          "end_live": 33564529,
+          "peak_live": 33564529,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33569177
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny0",
+        "phase": "Preflight",
+        "ns": 375,
+        "allocation": {
+          "start_live": 33564529,
+          "end_live": 33564529,
+          "peak_live": 33564529,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33569177
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny0",
+        "phase": "Nodes",
+        "ns": 41,
+        "allocation": {
+          "start_live": 33564529,
+          "end_live": 33564529,
+          "peak_live": 33564529,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33569177
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny0",
+        "phase": "Collect",
+        "ns": 167,
+        "allocation": {
+          "start_live": 33564529,
+          "end_live": 33564529,
+          "peak_live": 33564529,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33569177
+        }
+      }
+    ],
+    "reported_fast_coefficient_vector_bytes": 0,
+    "allocator_net_bytes": 0,
+    "unclassified_allocator_net_beyond_returned_coefficients_bytes": 0,
+    "input_allocation": {
+      "event": "diagnostic_input_allocation",
+      "case": "tiny0",
+      "allocation": {
+        "start_live": 33561841,
+        "end_live": 33561841,
+        "peak_live": 33561841,
+        "peak_additional": 0,
+        "requested_bytes": 0,
+        "freed_bytes": 0,
+        "alloc_calls": 0,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33569177
+      }
+    },
+    "basis_allocation": {
+      "event": "diagnostic_basis_allocation",
+      "case": "tiny0",
+      "allocation": {
+        "start_live": 33561841,
+        "end_live": 33561841,
+        "peak_live": 33561841,
+        "peak_additional": 0,
+        "requested_bytes": 0,
+        "freed_bytes": 0,
+        "alloc_calls": 0,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33569177
+      }
+    },
+    "group_allocation": {
+      "event": "diagnostic_synthetic_group_allocation",
+      "case": "tiny0",
+      "accepted": {
+        "start_live": 33561841,
+        "end_live": 33561841,
+        "peak_live": 33561841,
+        "peak_additional": 0,
+        "requested_bytes": 0,
+        "freed_bytes": 0,
+        "alloc_calls": 0,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33569177
+      },
+      "grouped": {
+        "start_live": 33561841,
+        "end_live": 33561841,
+        "peak_live": 33561841,
+        "peak_additional": 0,
+        "requested_bytes": 0,
+        "freed_bytes": 0,
+        "alloc_calls": 0,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33569177
+      },
+      "product_encoding": false
+    }
+  },
+  {
+    "case": "tiny1",
+    "whole": {
+      "event": "diagnostic_whole",
+      "case": "tiny1",
+      "order": "fast_accepted",
+      "accepted_ns": 708,
+      "fast_observed_ns": 2708,
+      "phase_sum_ns": 2166,
+      "residual_ns": 542,
+      "accepted_allocation": {
+        "start_live": 33564753,
+        "end_live": 33564849,
+        "peak_live": 33564849,
+        "peak_additional": 96,
+        "requested_bytes": 96,
+        "freed_bytes": 0,
+        "alloc_calls": 3,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33569177
+      },
+      "fast_allocation": {
+        "start_live": 33564673,
+        "end_live": 33564753,
+        "peak_live": 33565449,
+        "peak_additional": 776,
+        "requested_bytes": 1536,
+        "freed_bytes": 1456,
+        "alloc_calls": 12,
+        "dealloc_calls": 9,
+        "realloc_calls": 0,
+        "lifetime_peak": 33569177
+      },
+      "equal": true
+    },
+    "ordered_complete_phases": [
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny1",
+        "phase": "Preflight",
+        "ns": 83,
+        "allocation": {
+          "start_live": 33564673,
+          "end_live": 33564673,
+          "peak_live": 33564673,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33569177
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny1",
+        "phase": "Normalize",
+        "ns": 1000,
+        "allocation": {
+          "start_live": 33564673,
+          "end_live": 33565137,
+          "peak_live": 33565449,
+          "peak_additional": 776,
+          "requested_bytes": 1376,
+          "freed_bytes": 912,
+          "alloc_calls": 7,
+          "dealloc_calls": 2,
+          "realloc_calls": 0,
+          "lifetime_peak": 33569177
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny1",
+        "phase": "Preflight",
+        "ns": 42,
+        "allocation": {
+          "start_live": 33565137,
+          "end_live": 33565137,
+          "peak_live": 33565137,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33569177
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny1",
+        "phase": "Nodes",
+        "ns": 375,
+        "allocation": {
+          "start_live": 33565137,
+          "end_live": 33565169,
+          "peak_live": 33565169,
+          "peak_additional": 32,
+          "requested_bytes": 32,
+          "freed_bytes": 0,
+          "alloc_calls": 1,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33569177
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny1",
+        "phase": "Collect",
+        "ns": 666,
+        "allocation": {
+          "start_live": 33565201,
+          "end_live": 33565265,
+          "peak_live": 33565265,
+          "peak_additional": 64,
+          "requested_bytes": 64,
+          "freed_bytes": 0,
+          "alloc_calls": 2,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33569177
+        }
+      }
+    ],
+    "reported_fast_coefficient_vector_bytes": 80,
+    "allocator_net_bytes": 80,
+    "unclassified_allocator_net_beyond_returned_coefficients_bytes": 0,
+    "input_allocation": {
+      "event": "diagnostic_input_allocation",
+      "case": "tiny1",
+      "allocation": {
+        "start_live": 33561841,
+        "end_live": 33561985,
+        "peak_live": 33561985,
+        "peak_additional": 144,
+        "requested_bytes": 144,
+        "freed_bytes": 0,
+        "alloc_calls": 6,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33569177
+      }
+    },
+    "basis_allocation": {
+      "event": "diagnostic_basis_allocation",
+      "case": "tiny1",
+      "allocation": {
+        "start_live": 33562161,
+        "end_live": 33562353,
+        "peak_live": 33562657,
+        "peak_additional": 496,
+        "requested_bytes": 2206,
+        "freed_bytes": 2014,
+        "alloc_calls": 62,
+        "dealloc_calls": 60,
+        "realloc_calls": 6,
+        "lifetime_peak": 33569177
+      }
+    },
+    "group_allocation": {
+      "event": "diagnostic_synthetic_group_allocation",
+      "case": "tiny1",
+      "accepted": {
+        "start_live": 33562353,
+        "end_live": 33562353,
+        "peak_live": 33562657,
+        "peak_additional": 304,
+        "requested_bytes": 1780,
+        "freed_bytes": 1780,
+        "alloc_calls": 58,
+        "dealloc_calls": 58,
+        "realloc_calls": 3,
+        "lifetime_peak": 33569177
+      },
+      "grouped": {
+        "start_live": 33562353,
+        "end_live": 33562353,
+        "peak_live": 33562657,
+        "peak_additional": 304,
+        "requested_bytes": 1008,
+        "freed_bytes": 1008,
+        "alloc_calls": 30,
+        "dealloc_calls": 30,
+        "realloc_calls": 3,
+        "lifetime_peak": 33569177
+      },
+      "product_encoding": false
+    }
+  },
+  {
+    "case": "tiny2",
+    "whole": {
+      "event": "diagnostic_whole",
+      "case": "tiny2",
+      "order": "accepted_fast",
+      "accepted_ns": 875,
+      "fast_observed_ns": 169792,
+      "phase_sum_ns": 168668,
+      "residual_ns": 1124,
+      "accepted_allocation": {
+        "start_live": 33564785,
+        "end_live": 33564977,
+        "peak_live": 33564977,
+        "peak_additional": 192,
+        "requested_bytes": 192,
+        "freed_bytes": 0,
+        "alloc_calls": 3,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33569177
+      },
+      "fast_allocation": {
+        "start_live": 33564977,
+        "end_live": 33599465,
+        "peak_live": 33601265,
+        "peak_additional": 36288,
+        "requested_bytes": 38865,
+        "freed_bytes": 4377,
+        "alloc_calls": 131,
+        "dealloc_calls": 63,
+        "realloc_calls": 0,
+        "lifetime_peak": 33601265
+      },
+      "equal": true
+    },
+    "ordered_complete_phases": [
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny2",
+        "phase": "Preflight",
+        "ns": 84,
+        "allocation": {
+          "start_live": 33564977,
+          "end_live": 33564977,
+          "peak_live": 33564977,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33569177
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny2",
+        "phase": "Normalize",
+        "ns": 1125,
+        "allocation": {
+          "start_live": 33564977,
+          "end_live": 33565585,
+          "peak_live": 33565753,
+          "peak_additional": 776,
+          "requested_bytes": 1520,
+          "freed_bytes": 912,
+          "alloc_calls": 7,
+          "dealloc_calls": 2,
+          "realloc_calls": 0,
+          "lifetime_peak": 33569177
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny2",
+        "phase": "Preflight",
+        "ns": 5292,
+        "allocation": {
+          "start_live": 33565585,
+          "end_live": 33565585,
+          "peak_live": 33565585,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33569177
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny2",
+        "phase": "Nodes",
+        "ns": 208,
+        "allocation": {
+          "start_live": 33565585,
+          "end_live": 33565649,
+          "peak_live": 33565649,
+          "peak_additional": 64,
+          "requested_bytes": 64,
+          "freed_bytes": 0,
+          "alloc_calls": 1,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33569177
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny2",
+        "phase": "ProductTree",
+        "ns": 129959,
+        "allocation": {
+          "start_live": 33565649,
+          "end_live": 33600305,
+          "peak_live": 33600305,
+          "peak_additional": 34656,
+          "requested_bytes": 35329,
+          "freed_bytes": 673,
+          "alloc_calls": 79,
+          "dealloc_calls": 12,
+          "realloc_calls": 0,
+          "lifetime_peak": 33600305
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny2",
+        "phase": "Numerators",
+        "ns": 1875,
+        "allocation": {
+          "start_live": 33600305,
+          "end_live": 33600433,
+          "peak_live": 33600625,
+          "peak_additional": 320,
+          "requested_bytes": 384,
+          "freed_bytes": 256,
+          "alloc_calls": 8,
+          "dealloc_calls": 6,
+          "realloc_calls": 0,
+          "lifetime_peak": 33600625
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny2",
+        "phase": "Derivatives",
+        "ns": 666,
+        "allocation": {
+          "start_live": 33600433,
+          "end_live": 33600593,
+          "peak_live": 33600593,
+          "peak_additional": 160,
+          "requested_bytes": 160,
+          "freed_bytes": 0,
+          "alloc_calls": 4,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33600625
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny2",
+        "phase": "RemainderEvaluation",
+        "ns": 7667,
+        "allocation": {
+          "start_live": 33600593,
+          "end_live": 33600945,
+          "peak_live": 33601265,
+          "peak_additional": 672,
+          "requested_bytes": 1216,
+          "freed_bytes": 864,
+          "alloc_calls": 28,
+          "dealloc_calls": 22,
+          "realloc_calls": 0,
+          "lifetime_peak": 33601265
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny2",
+        "phase": "FinitePart",
+        "ns": 21375,
+        "allocation": {
+          "start_live": 33600945,
+          "end_live": 33600945,
+          "peak_live": 33600977,
+          "peak_additional": 32,
+          "requested_bytes": 64,
+          "freed_bytes": 64,
+          "alloc_calls": 2,
+          "dealloc_calls": 2,
+          "realloc_calls": 0,
+          "lifetime_peak": 33601265
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny2",
+        "phase": "Collect",
+        "ns": 417,
+        "allocation": {
+          "start_live": 33600041,
+          "end_live": 33600169,
+          "peak_live": 33600169,
+          "peak_additional": 128,
+          "requested_bytes": 128,
+          "freed_bytes": 0,
+          "alloc_calls": 2,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33601265
+        }
+      }
+    ],
+    "reported_fast_coefficient_vector_bytes": 160,
+    "allocator_net_bytes": 34488,
+    "unclassified_allocator_net_beyond_returned_coefficients_bytes": 34328,
+    "input_allocation": {
+      "event": "diagnostic_input_allocation",
+      "case": "tiny2",
+      "allocation": {
+        "start_live": 33561841,
+        "end_live": 33562097,
+        "peak_live": 33562097,
+        "peak_additional": 256,
+        "requested_bytes": 256,
+        "freed_bytes": 0,
+        "alloc_calls": 6,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33569177
+      }
+    },
+    "basis_allocation": {
+      "event": "diagnostic_basis_allocation",
+      "case": "tiny2",
+      "allocation": {
+        "start_live": 33596777,
+        "end_live": 33597161,
+        "peak_live": 33597465,
+        "peak_additional": 688,
+        "requested_bytes": 4414,
+        "freed_bytes": 4030,
+        "alloc_calls": 122,
+        "dealloc_calls": 120,
+        "realloc_calls": 12,
+        "lifetime_peak": 33601265
+      }
+    },
+    "group_allocation": {
+      "event": "diagnostic_synthetic_group_allocation",
+      "case": "tiny2",
+      "accepted": {
+        "start_live": 33597161,
+        "end_live": 33597161,
+        "peak_live": 33597465,
+        "peak_additional": 304,
+        "requested_bytes": 6048,
+        "freed_bytes": 6048,
+        "alloc_calls": 180,
+        "dealloc_calls": 180,
+        "realloc_calls": 18,
+        "lifetime_peak": 33601265
+      },
+      "grouped": {
+        "start_live": 33597161,
+        "end_live": 33597161,
+        "peak_live": 33597465,
+        "peak_additional": 304,
+        "requested_bytes": 4032,
+        "freed_bytes": 4032,
+        "alloc_calls": 120,
+        "dealloc_calls": 120,
+        "realloc_calls": 12,
+        "lifetime_peak": 33601265
+      },
+      "product_encoding": false
+    }
+  },
+  {
+    "case": "tiny4",
+    "whole": {
+      "event": "diagnostic_whole",
+      "case": "tiny4",
+      "order": "fast_accepted",
+      "accepted_ns": 1458,
+      "fast_observed_ns": 259500,
+      "phase_sum_ns": 258042,
+      "residual_ns": 1458,
+      "accepted_allocation": {
+        "start_live": 33599657,
+        "end_live": 33600041,
+        "peak_live": 33600041,
+        "peak_additional": 384,
+        "requested_bytes": 384,
+        "freed_bytes": 0,
+        "alloc_calls": 3,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33603505
+      },
+      "fast_allocation": {
+        "start_live": 33599337,
+        "end_live": 33599657,
+        "peak_live": 33603505,
+        "peak_additional": 4168,
+        "requested_bytes": 17432,
+        "freed_bytes": 17112,
+        "alloc_calls": 246,
+        "dealloc_calls": 243,
+        "realloc_calls": 0,
+        "lifetime_peak": 33603505
+      },
+      "equal": true
+    },
+    "ordered_complete_phases": [
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny4",
+        "phase": "Preflight",
+        "ns": 83,
+        "allocation": {
+          "start_live": 33599337,
+          "end_live": 33599337,
+          "peak_live": 33599337,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33601265
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny4",
+        "phase": "Normalize",
+        "ns": 958,
+        "allocation": {
+          "start_live": 33599337,
+          "end_live": 33600233,
+          "peak_live": 33600233,
+          "peak_additional": 896,
+          "requested_bytes": 1808,
+          "freed_bytes": 912,
+          "alloc_calls": 7,
+          "dealloc_calls": 2,
+          "realloc_calls": 0,
+          "lifetime_peak": 33601265
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny4",
+        "phase": "Preflight",
+        "ns": 5083,
+        "allocation": {
+          "start_live": 33600233,
+          "end_live": 33600233,
+          "peak_live": 33600233,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33601265
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny4",
+        "phase": "Nodes",
+        "ns": 334,
+        "allocation": {
+          "start_live": 33600233,
+          "end_live": 33600361,
+          "peak_live": 33600361,
+          "peak_additional": 128,
+          "requested_bytes": 128,
+          "freed_bytes": 0,
+          "alloc_calls": 1,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33601265
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny4",
+        "phase": "ProductTree",
+        "ns": 50709,
+        "allocation": {
+          "start_live": 33600361,
+          "end_live": 33601521,
+          "peak_live": 33601905,
+          "peak_additional": 1544,
+          "requested_bytes": 2440,
+          "freed_bytes": 1280,
+          "alloc_calls": 20,
+          "dealloc_calls": 12,
+          "realloc_calls": 0,
+          "lifetime_peak": 33601905
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny4",
+        "phase": "Numerators",
+        "ns": 76667,
+        "allocation": {
+          "start_live": 33601521,
+          "end_live": 33601777,
+          "peak_live": 33602353,
+          "peak_additional": 832,
+          "requested_bytes": 2560,
+          "freed_bytes": 2304,
+          "alloc_calls": 36,
+          "dealloc_calls": 34,
+          "realloc_calls": 0,
+          "lifetime_peak": 33602353
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny4",
+        "phase": "Derivatives",
+        "ns": 833,
+        "allocation": {
+          "start_live": 33601777,
+          "end_live": 33602193,
+          "peak_live": 33602193,
+          "peak_additional": 416,
+          "requested_bytes": 416,
+          "freed_bytes": 0,
+          "alloc_calls": 4,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33602353
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny4",
+        "phase": "RemainderEvaluation",
+        "ns": 102958,
+        "allocation": {
+          "start_live": 33602193,
+          "end_live": 33602705,
+          "peak_live": 33603505,
+          "peak_additional": 1312,
+          "requested_bytes": 9696,
+          "freed_bytes": 9184,
+          "alloc_calls": 172,
+          "dealloc_calls": 168,
+          "realloc_calls": 0,
+          "lifetime_peak": 33603505
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny4",
+        "phase": "FinitePart",
+        "ns": 19792,
+        "allocation": {
+          "start_live": 33602705,
+          "end_live": 33602705,
+          "peak_live": 33602801,
+          "peak_additional": 96,
+          "requested_bytes": 128,
+          "freed_bytes": 128,
+          "alloc_calls": 4,
+          "dealloc_calls": 4,
+          "realloc_calls": 0,
+          "lifetime_peak": 33603505
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny4",
+        "phase": "Collect",
+        "ns": 625,
+        "allocation": {
+          "start_live": 33600489,
+          "end_live": 33600745,
+          "peak_live": 33600745,
+          "peak_additional": 256,
+          "requested_bytes": 256,
+          "freed_bytes": 0,
+          "alloc_calls": 2,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33603505
+        }
+      }
+    ],
+    "reported_fast_coefficient_vector_bytes": 320,
+    "allocator_net_bytes": 320,
+    "unclassified_allocator_net_beyond_returned_coefficients_bytes": 0,
+    "input_allocation": {
+      "event": "diagnostic_input_allocation",
+      "case": "tiny4",
+      "allocation": {
+        "start_live": 33596169,
+        "end_live": 33596649,
+        "peak_live": 33596649,
+        "peak_additional": 480,
+        "requested_bytes": 480,
+        "freed_bytes": 0,
+        "alloc_calls": 6,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33601265
+      }
+    },
+    "basis_allocation": {
+      "event": "diagnostic_basis_allocation",
+      "case": "tiny4",
+      "allocation": {
+        "start_live": 33597353,
+        "end_live": 33598121,
+        "peak_live": 33598425,
+        "peak_additional": 1072,
+        "requested_bytes": 8830,
+        "freed_bytes": 8062,
+        "alloc_calls": 242,
+        "dealloc_calls": 240,
+        "realloc_calls": 24,
+        "lifetime_peak": 33603505
+      }
+    },
+    "group_allocation": {
+      "event": "diagnostic_synthetic_group_allocation",
+      "case": "tiny4",
+      "accepted": {
+        "start_live": 33598121,
+        "end_live": 33598121,
+        "peak_live": 33598425,
+        "peak_additional": 304,
+        "requested_bytes": 12096,
+        "freed_bytes": 12096,
+        "alloc_calls": 360,
+        "dealloc_calls": 360,
+        "realloc_calls": 36,
+        "lifetime_peak": 33603505
+      },
+      "grouped": {
+        "start_live": 33598121,
+        "end_live": 33598121,
+        "peak_live": 33598425,
+        "peak_additional": 304,
+        "requested_bytes": 8064,
+        "freed_bytes": 8064,
+        "alloc_calls": 240,
+        "dealloc_calls": 240,
+        "realloc_calls": 24,
+        "lifetime_peak": 33603505
+      },
+      "product_encoding": false
+    }
+  },
+  {
+    "case": "tiny8",
+    "whole": {
+      "event": "diagnostic_whole",
+      "case": "tiny8",
+      "order": "accepted_fast",
+      "accepted_ns": 2833,
+      "fast_observed_ns": 1243416,
+      "phase_sum_ns": 1241790,
+      "residual_ns": 1626,
+      "accepted_allocation": {
+        "start_live": 33599817,
+        "end_live": 33600585,
+        "peak_live": 33600585,
+        "peak_additional": 768,
+        "requested_bytes": 768,
+        "freed_bytes": 0,
+        "alloc_calls": 3,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33603505
+      },
+      "fast_allocation": {
+        "start_live": 33600585,
+        "end_live": 33601225,
+        "peak_live": 33610337,
+        "peak_additional": 9752,
+        "requested_bytes": 80264,
+        "freed_bytes": 79624,
+        "alloc_calls": 819,
+        "dealloc_calls": 816,
+        "realloc_calls": 2,
+        "lifetime_peak": 33610337
+      },
+      "equal": true
+    },
+    "ordered_complete_phases": [
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny8",
+        "phase": "Preflight",
+        "ns": 41,
+        "allocation": {
+          "start_live": 33600585,
+          "end_live": 33600585,
+          "peak_live": 33600585,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33603505
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny8",
+        "phase": "Normalize",
+        "ns": 1583,
+        "allocation": {
+          "start_live": 33600585,
+          "end_live": 33602377,
+          "peak_live": 33602377,
+          "peak_additional": 1792,
+          "requested_bytes": 3024,
+          "freed_bytes": 1232,
+          "alloc_calls": 7,
+          "dealloc_calls": 2,
+          "realloc_calls": 2,
+          "lifetime_peak": 33603505
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny8",
+        "phase": "Preflight",
+        "ns": 4792,
+        "allocation": {
+          "start_live": 33602377,
+          "end_live": 33602377,
+          "peak_live": 33602377,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33603505
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny8",
+        "phase": "Nodes",
+        "ns": 708,
+        "allocation": {
+          "start_live": 33602377,
+          "end_live": 33602633,
+          "peak_live": 33602633,
+          "peak_additional": 256,
+          "requested_bytes": 256,
+          "freed_bytes": 0,
+          "alloc_calls": 1,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33603505
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny8",
+        "phase": "ProductTree",
+        "ns": 100583,
+        "allocation": {
+          "start_live": 33602633,
+          "end_live": 33605521,
+          "peak_live": 33606289,
+          "peak_additional": 3656,
+          "requested_bytes": 6728,
+          "freed_bytes": 3840,
+          "alloc_calls": 44,
+          "dealloc_calls": 28,
+          "realloc_calls": 0,
+          "lifetime_peak": 33606289
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny8",
+        "phase": "Numerators",
+        "ns": 171583,
+        "allocation": {
+          "start_live": 33605521,
+          "end_live": 33606033,
+          "peak_live": 33607185,
+          "peak_additional": 1664,
+          "requested_bytes": 8704,
+          "freed_bytes": 8192,
+          "alloc_calls": 92,
+          "dealloc_calls": 90,
+          "realloc_calls": 0,
+          "lifetime_peak": 33607185
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny8",
+        "phase": "Derivatives",
+        "ns": 1708,
+        "allocation": {
+          "start_live": 33606033,
+          "end_live": 33606961,
+          "peak_live": 33606961,
+          "peak_additional": 928,
+          "requested_bytes": 928,
+          "freed_bytes": 0,
+          "alloc_calls": 4,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33607185
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny8",
+        "phase": "RemainderEvaluation",
+        "ns": 947833,
+        "allocation": {
+          "start_live": 33606961,
+          "end_live": 33607985,
+          "peak_live": 33610337,
+          "peak_additional": 3376,
+          "requested_bytes": 59856,
+          "freed_bytes": 58832,
+          "alloc_calls": 665,
+          "dealloc_calls": 661,
+          "realloc_calls": 0,
+          "lifetime_peak": 33610337
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny8",
+        "phase": "FinitePart",
+        "ns": 12292,
+        "allocation": {
+          "start_live": 33607985,
+          "end_live": 33607985,
+          "peak_live": 33608241,
+          "peak_additional": 256,
+          "requested_bytes": 256,
+          "freed_bytes": 256,
+          "alloc_calls": 4,
+          "dealloc_calls": 4,
+          "realloc_calls": 0,
+          "lifetime_peak": 33610337
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny8",
+        "phase": "Collect",
+        "ns": 667,
+        "allocation": {
+          "start_live": 33602889,
+          "end_live": 33603401,
+          "peak_live": 33603401,
+          "peak_additional": 512,
+          "requested_bytes": 512,
+          "freed_bytes": 0,
+          "alloc_calls": 2,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33610337
+        }
+      }
+    ],
+    "reported_fast_coefficient_vector_bytes": 640,
+    "allocator_net_bytes": 640,
+    "unclassified_allocator_net_beyond_returned_coefficients_bytes": 0,
+    "input_allocation": {
+      "event": "diagnostic_input_allocation",
+      "case": "tiny8",
+      "allocation": {
+        "start_live": 33596169,
+        "end_live": 33597129,
+        "peak_live": 33597129,
+        "peak_additional": 960,
+        "requested_bytes": 992,
+        "freed_bytes": 32,
+        "alloc_calls": 6,
+        "dealloc_calls": 0,
+        "realloc_calls": 1,
+        "lifetime_peak": 33603505
+      }
+    },
+    "basis_allocation": {
+      "event": "diagnostic_basis_allocation",
+      "case": "tiny8",
+      "allocation": {
+        "start_live": 33598537,
+        "end_live": 33600073,
+        "peak_live": 33600377,
+        "peak_additional": 1840,
+        "requested_bytes": 17661,
+        "freed_bytes": 16125,
+        "alloc_calls": 482,
+        "dealloc_calls": 480,
+        "realloc_calls": 48,
+        "lifetime_peak": 33610337
+      }
+    },
+    "group_allocation": {
+      "event": "diagnostic_synthetic_group_allocation",
+      "case": "tiny8",
+      "accepted": {
+        "start_live": 33600073,
+        "end_live": 33600073,
+        "peak_live": 33600377,
+        "peak_additional": 304,
+        "requested_bytes": 24192,
+        "freed_bytes": 24192,
+        "alloc_calls": 720,
+        "dealloc_calls": 720,
+        "realloc_calls": 72,
+        "lifetime_peak": 33610337
+      },
+      "grouped": {
+        "start_live": 33600073,
+        "end_live": 33600073,
+        "peak_live": 33600377,
+        "peak_additional": 304,
+        "requested_bytes": 16128,
+        "freed_bytes": 16128,
+        "alloc_calls": 480,
+        "dealloc_calls": 480,
+        "realloc_calls": 48,
+        "lifetime_peak": 33610337
+      },
+      "product_encoding": false
+    }
+  },
+  {
+    "case": "tiny16",
+    "whole": {
+      "event": "diagnostic_whole",
+      "case": "tiny16",
+      "order": "fast_accepted",
+      "accepted_ns": 13041,
+      "fast_observed_ns": 3065791,
+      "phase_sum_ns": 3061584,
+      "residual_ns": 4207,
+      "accepted_allocation": {
+        "start_live": 33602057,
+        "end_live": 33603593,
+        "peak_live": 33603593,
+        "peak_additional": 1536,
+        "requested_bytes": 1536,
+        "freed_bytes": 0,
+        "alloc_calls": 3,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33620321
+      },
+      "fast_allocation": {
+        "start_live": 33600777,
+        "end_live": 33602057,
+        "peak_live": 33620321,
+        "peak_additional": 19544,
+        "requested_bytes": 266296,
+        "freed_bytes": 265016,
+        "alloc_calls": 1930,
+        "dealloc_calls": 1927,
+        "realloc_calls": 4,
+        "lifetime_peak": 33620321
+      },
+      "equal": true
+    },
+    "ordered_complete_phases": [
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny16",
+        "phase": "Preflight",
+        "ns": 42,
+        "allocation": {
+          "start_live": 33600777,
+          "end_live": 33600777,
+          "peak_live": 33600777,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33610337
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny16",
+        "phase": "Normalize",
+        "ns": 5083,
+        "allocation": {
+          "start_live": 33600777,
+          "end_live": 33604361,
+          "peak_live": 33604361,
+          "peak_additional": 3584,
+          "requested_bytes": 7472,
+          "freed_bytes": 3888,
+          "alloc_calls": 11,
+          "dealloc_calls": 6,
+          "realloc_calls": 4,
+          "lifetime_peak": 33610337
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny16",
+        "phase": "Preflight",
+        "ns": 4708,
+        "allocation": {
+          "start_live": 33604361,
+          "end_live": 33604361,
+          "peak_live": 33604361,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33610337
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny16",
+        "phase": "Nodes",
+        "ns": 1667,
+        "allocation": {
+          "start_live": 33604361,
+          "end_live": 33604873,
+          "peak_live": 33604873,
+          "peak_additional": 512,
+          "requested_bytes": 512,
+          "freed_bytes": 0,
+          "alloc_calls": 1,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33610337
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny16",
+        "phase": "ProductTree",
+        "ns": 221500,
+        "allocation": {
+          "start_live": 33604873,
+          "end_live": 33611729,
+          "peak_live": 33613265,
+          "peak_additional": 8392,
+          "requested_bytes": 17096,
+          "freed_bytes": 10240,
+          "alloc_calls": 92,
+          "dealloc_calls": 60,
+          "realloc_calls": 0,
+          "lifetime_peak": 33613265
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny16",
+        "phase": "Numerators",
+        "ns": 340667,
+        "allocation": {
+          "start_live": 33611729,
+          "end_live": 33612753,
+          "peak_live": 33615057,
+          "peak_additional": 3328,
+          "requested_bytes": 26096,
+          "freed_bytes": 25072,
+          "alloc_calls": 205,
+          "dealloc_calls": 203,
+          "realloc_calls": 0,
+          "lifetime_peak": 33615057
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny16",
+        "phase": "Derivatives",
+        "ns": 2333,
+        "allocation": {
+          "start_live": 33612753,
+          "end_live": 33614705,
+          "peak_live": 33614705,
+          "peak_additional": 1952,
+          "requested_bytes": 1952,
+          "freed_bytes": 0,
+          "alloc_calls": 4,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33615057
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny16",
+        "phase": "RemainderEvaluation",
+        "ns": 2470667,
+        "allocation": {
+          "start_live": 33614705,
+          "end_live": 33616753,
+          "peak_live": 33620321,
+          "peak_additional": 5616,
+          "requested_bytes": 211632,
+          "freed_bytes": 209584,
+          "alloc_calls": 1611,
+          "dealloc_calls": 1607,
+          "realloc_calls": 0,
+          "lifetime_peak": 33620321
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny16",
+        "phase": "FinitePart",
+        "ns": 13500,
+        "allocation": {
+          "start_live": 33616753,
+          "end_live": 33616753,
+          "peak_live": 33617265,
+          "peak_additional": 512,
+          "requested_bytes": 512,
+          "freed_bytes": 512,
+          "alloc_calls": 4,
+          "dealloc_calls": 4,
+          "realloc_calls": 0,
+          "lifetime_peak": 33620321
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny16",
+        "phase": "Collect",
+        "ns": 1417,
+        "allocation": {
+          "start_live": 33605385,
+          "end_live": 33606409,
+          "peak_live": 33606409,
+          "peak_additional": 1024,
+          "requested_bytes": 1024,
+          "freed_bytes": 0,
+          "alloc_calls": 2,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33620321
+        }
+      }
+    ],
+    "reported_fast_coefficient_vector_bytes": 1280,
+    "allocator_net_bytes": 1280,
+    "unclassified_allocator_net_beyond_returned_coefficients_bytes": 0,
+    "input_allocation": {
+      "event": "diagnostic_input_allocation",
+      "case": "tiny16",
+      "allocation": {
+        "start_live": 33596169,
+        "end_live": 33598089,
+        "peak_live": 33598089,
+        "peak_additional": 1920,
+        "requested_bytes": 2016,
+        "freed_bytes": 96,
+        "alloc_calls": 6,
+        "dealloc_calls": 0,
+        "realloc_calls": 2,
+        "lifetime_peak": 33610337
+      }
+    },
+    "basis_allocation": {
+      "event": "diagnostic_basis_allocation",
+      "case": "tiny16",
+      "allocation": {
+        "start_live": 33600905,
+        "end_live": 33603977,
+        "peak_live": 33604281,
+        "peak_additional": 3376,
+        "requested_bytes": 35325,
+        "freed_bytes": 32253,
+        "alloc_calls": 962,
+        "dealloc_calls": 960,
+        "realloc_calls": 96,
+        "lifetime_peak": 33620321
+      }
+    },
+    "group_allocation": {
+      "event": "diagnostic_synthetic_group_allocation",
+      "case": "tiny16",
+      "accepted": {
+        "start_live": 33603977,
+        "end_live": 33603977,
+        "peak_live": 33604281,
+        "peak_additional": 304,
+        "requested_bytes": 48384,
+        "freed_bytes": 48384,
+        "alloc_calls": 1440,
+        "dealloc_calls": 1440,
+        "realloc_calls": 144,
+        "lifetime_peak": 33620321
+      },
+      "grouped": {
+        "start_live": 33603977,
+        "end_live": 33603977,
+        "peak_live": 33604281,
+        "peak_additional": 304,
+        "requested_bytes": 32256,
+        "freed_bytes": 32256,
+        "alloc_calls": 960,
+        "dealloc_calls": 960,
+        "realloc_calls": 96,
+        "lifetime_peak": 33620321
+      },
+      "product_encoding": false
+    }
+  },
+  {
+    "case": "tiny32",
+    "whole": {
+      "event": "diagnostic_whole",
+      "case": "tiny32",
+      "order": "accepted_fast",
+      "accepted_ns": 35208,
+      "fast_observed_ns": 7557333,
+      "phase_sum_ns": 7551667,
+      "residual_ns": 5666,
+      "accepted_allocation": {
+        "start_live": 33602697,
+        "end_live": 33605769,
+        "peak_live": 33605769,
+        "peak_additional": 3072,
+        "requested_bytes": 3072,
+        "freed_bytes": 0,
+        "alloc_calls": 3,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33620321
+      },
+      "fast_allocation": {
+        "start_live": 33605769,
+        "end_live": 33608329,
+        "peak_live": 33646609,
+        "peak_additional": 40840,
+        "requested_bytes": 725272,
+        "freed_bytes": 722712,
+        "alloc_calls": 4226,
+        "dealloc_calls": 4223,
+        "realloc_calls": 6,
+        "lifetime_peak": 33646609
+      },
+      "equal": true
+    },
+    "ordered_complete_phases": [
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny32",
+        "phase": "Preflight",
+        "ns": 166,
+        "allocation": {
+          "start_live": 33605769,
+          "end_live": 33605769,
+          "peak_live": 33605769,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33620321
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny32",
+        "phase": "Normalize",
+        "ns": 5250,
+        "allocation": {
+          "start_live": 33605769,
+          "end_live": 33612937,
+          "peak_live": 33612937,
+          "peak_additional": 7168,
+          "requested_bytes": 14160,
+          "freed_bytes": 6992,
+          "alloc_calls": 15,
+          "dealloc_calls": 10,
+          "realloc_calls": 6,
+          "lifetime_peak": 33620321
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny32",
+        "phase": "Preflight",
+        "ns": 3042,
+        "allocation": {
+          "start_live": 33612937,
+          "end_live": 33612937,
+          "peak_live": 33612937,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33620321
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny32",
+        "phase": "Nodes",
+        "ns": 3875,
+        "allocation": {
+          "start_live": 33612937,
+          "end_live": 33613961,
+          "peak_live": 33613961,
+          "peak_additional": 1024,
+          "requested_bytes": 1024,
+          "freed_bytes": 0,
+          "alloc_calls": 1,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33620321
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny32",
+        "phase": "ProductTree",
+        "ns": 439209,
+        "allocation": {
+          "start_live": 33613961,
+          "end_live": 33629777,
+          "peak_live": 33632849,
+          "peak_additional": 18888,
+          "requested_bytes": 41416,
+          "freed_bytes": 25600,
+          "alloc_calls": 188,
+          "dealloc_calls": 124,
+          "realloc_calls": 0,
+          "lifetime_peak": 33632849
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny32",
+        "phase": "Numerators",
+        "ns": 801417,
+        "allocation": {
+          "start_live": 33629777,
+          "end_live": 33631825,
+          "peak_live": 33636433,
+          "peak_additional": 6656,
+          "requested_bytes": 65008,
+          "freed_bytes": 62960,
+          "alloc_calls": 429,
+          "dealloc_calls": 427,
+          "realloc_calls": 0,
+          "lifetime_peak": 33636433
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny32",
+        "phase": "Derivatives",
+        "ns": 5375,
+        "allocation": {
+          "start_live": 33631825,
+          "end_live": 33635825,
+          "peak_live": 33635825,
+          "peak_additional": 4000,
+          "requested_bytes": 4000,
+          "freed_bytes": 0,
+          "alloc_calls": 4,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33636433
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny32",
+        "phase": "RemainderEvaluation",
+        "ns": 6266167,
+        "allocation": {
+          "start_live": 33635825,
+          "end_live": 33639921,
+          "peak_live": 33646609,
+          "peak_additional": 10784,
+          "requested_bytes": 596592,
+          "freed_bytes": 592496,
+          "alloc_calls": 3583,
+          "dealloc_calls": 3579,
+          "realloc_calls": 0,
+          "lifetime_peak": 33646609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny32",
+        "phase": "FinitePart",
+        "ns": 25000,
+        "allocation": {
+          "start_live": 33639921,
+          "end_live": 33639921,
+          "peak_live": 33640689,
+          "peak_additional": 768,
+          "requested_bytes": 1024,
+          "freed_bytes": 1024,
+          "alloc_calls": 4,
+          "dealloc_calls": 4,
+          "realloc_calls": 0,
+          "lifetime_peak": 33646609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny32",
+        "phase": "Collect",
+        "ns": 2166,
+        "allocation": {
+          "start_live": 33614985,
+          "end_live": 33617033,
+          "peak_live": 33617033,
+          "peak_additional": 2048,
+          "requested_bytes": 2048,
+          "freed_bytes": 0,
+          "alloc_calls": 2,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33646609
+        }
+      }
+    ],
+    "reported_fast_coefficient_vector_bytes": 2560,
+    "allocator_net_bytes": 2560,
+    "unclassified_allocator_net_beyond_returned_coefficients_bytes": 0,
+    "input_allocation": {
+      "event": "diagnostic_input_allocation",
+      "case": "tiny32",
+      "allocation": {
+        "start_live": 33596169,
+        "end_live": 33600009,
+        "peak_live": 33600009,
+        "peak_additional": 3840,
+        "requested_bytes": 4064,
+        "freed_bytes": 224,
+        "alloc_calls": 6,
+        "dealloc_calls": 0,
+        "realloc_calls": 3,
+        "lifetime_peak": 33620321
+      }
+    },
+    "basis_allocation": {
+      "event": "diagnostic_basis_allocation",
+      "case": "tiny32",
+      "allocation": {
+        "start_live": 33605641,
+        "end_live": 33611785,
+        "peak_live": 33612089,
+        "peak_additional": 6448,
+        "requested_bytes": 70652,
+        "freed_bytes": 64508,
+        "alloc_calls": 1922,
+        "dealloc_calls": 1920,
+        "realloc_calls": 192,
+        "lifetime_peak": 33646609
+      }
+    },
+    "group_allocation": {
+      "event": "diagnostic_synthetic_group_allocation",
+      "case": "tiny32",
+      "accepted": {
+        "start_live": 33611785,
+        "end_live": 33611785,
+        "peak_live": 33612089,
+        "peak_additional": 304,
+        "requested_bytes": 96767,
+        "freed_bytes": 96767,
+        "alloc_calls": 2880,
+        "dealloc_calls": 2880,
+        "realloc_calls": 288,
+        "lifetime_peak": 33646609
+      },
+      "grouped": {
+        "start_live": 33611785,
+        "end_live": 33611785,
+        "peak_live": 33612089,
+        "peak_additional": 304,
+        "requested_bytes": 64511,
+        "freed_bytes": 64511,
+        "alloc_calls": 1920,
+        "dealloc_calls": 1920,
+        "realloc_calls": 192,
+        "lifetime_peak": 33646609
+      },
+      "product_encoding": false
+    }
+  },
+  {
+    "case": "tiny64",
+    "whole": {
+      "event": "diagnostic_whole",
+      "case": "tiny64",
+      "order": "fast_accepted",
+      "accepted_ns": 144500,
+      "fast_observed_ns": 16503416,
+      "phase_sum_ns": 16491667,
+      "residual_ns": 11749,
+      "accepted_allocation": {
+        "start_live": 33611657,
+        "end_live": 33617801,
+        "peak_live": 33617801,
+        "peak_additional": 6144,
+        "requested_bytes": 6144,
+        "freed_bytes": 0,
+        "alloc_calls": 3,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33692433
+      },
+      "fast_allocation": {
+        "start_live": 33606537,
+        "end_live": 33611657,
+        "peak_live": 33692433,
+        "peak_additional": 85896,
+        "requested_bytes": 1851480,
+        "freed_bytes": 1846360,
+        "alloc_calls": 8901,
+        "dealloc_calls": 8898,
+        "realloc_calls": 8,
+        "lifetime_peak": 33692433
+      },
+      "equal": true
+    },
+    "ordered_complete_phases": [
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny64",
+        "phase": "Preflight",
+        "ns": 125,
+        "allocation": {
+          "start_live": 33606537,
+          "end_live": 33606537,
+          "peak_live": 33606537,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33646609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny64",
+        "phase": "Normalize",
+        "ns": 9500,
+        "allocation": {
+          "start_live": 33606537,
+          "end_live": 33620873,
+          "peak_live": 33620873,
+          "peak_additional": 14336,
+          "requested_bytes": 28448,
+          "freed_bytes": 14112,
+          "alloc_calls": 25,
+          "dealloc_calls": 20,
+          "realloc_calls": 8,
+          "lifetime_peak": 33646609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny64",
+        "phase": "Preflight",
+        "ns": 4917,
+        "allocation": {
+          "start_live": 33620873,
+          "end_live": 33620873,
+          "peak_live": 33620873,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33646609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny64",
+        "phase": "Nodes",
+        "ns": 10333,
+        "allocation": {
+          "start_live": 33620873,
+          "end_live": 33622921,
+          "peak_live": 33622921,
+          "peak_additional": 2048,
+          "requested_bytes": 2048,
+          "freed_bytes": 0,
+          "alloc_calls": 1,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33646609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny64",
+        "phase": "ProductTree",
+        "ns": 901542,
+        "allocation": {
+          "start_live": 33622921,
+          "end_live": 33658705,
+          "peak_live": 33664849,
+          "peak_additional": 41928,
+          "requested_bytes": 98744,
+          "freed_bytes": 62960,
+          "alloc_calls": 381,
+          "dealloc_calls": 253,
+          "realloc_calls": 0,
+          "lifetime_peak": 33664849
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny64",
+        "phase": "Numerators",
+        "ns": 1662542,
+        "allocation": {
+          "start_live": 33658705,
+          "end_live": 33662801,
+          "peak_live": 33672017,
+          "peak_additional": 13312,
+          "requested_bytes": 158688,
+          "freed_bytes": 154592,
+          "alloc_calls": 878,
+          "dealloc_calls": 876,
+          "realloc_calls": 0,
+          "lifetime_peak": 33672017
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny64",
+        "phase": "Derivatives",
+        "ns": 11125,
+        "allocation": {
+          "start_live": 33662801,
+          "end_live": 33670897,
+          "peak_live": 33670897,
+          "peak_additional": 8096,
+          "requested_bytes": 8096,
+          "freed_bytes": 0,
+          "alloc_calls": 4,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33672017
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny64",
+        "phase": "RemainderEvaluation",
+        "ns": 13852666,
+        "allocation": {
+          "start_live": 33670897,
+          "end_live": 33679089,
+          "peak_live": 33692433,
+          "peak_additional": 21536,
+          "requested_bytes": 1549312,
+          "freed_bytes": 1541120,
+          "alloc_calls": 7606,
+          "dealloc_calls": 7602,
+          "realloc_calls": 0,
+          "lifetime_peak": 33692433
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny64",
+        "phase": "FinitePart",
+        "ns": 34417,
+        "allocation": {
+          "start_live": 33679089,
+          "end_live": 33679089,
+          "peak_live": 33680625,
+          "peak_additional": 1536,
+          "requested_bytes": 2048,
+          "freed_bytes": 2048,
+          "alloc_calls": 4,
+          "dealloc_calls": 4,
+          "realloc_calls": 0,
+          "lifetime_peak": 33692433
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny64",
+        "phase": "Collect",
+        "ns": 4500,
+        "allocation": {
+          "start_live": 33624969,
+          "end_live": 33629065,
+          "peak_live": 33629065,
+          "peak_additional": 4096,
+          "requested_bytes": 4096,
+          "freed_bytes": 0,
+          "alloc_calls": 2,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33692433
+        }
+      }
+    ],
+    "reported_fast_coefficient_vector_bytes": 5120,
+    "allocator_net_bytes": 5120,
+    "unclassified_allocator_net_beyond_returned_coefficients_bytes": 0,
+    "input_allocation": {
+      "event": "diagnostic_input_allocation",
+      "case": "tiny64",
+      "allocation": {
+        "start_live": 33596169,
+        "end_live": 33603849,
+        "peak_live": 33603849,
+        "peak_additional": 7680,
+        "requested_bytes": 8160,
+        "freed_bytes": 480,
+        "alloc_calls": 6,
+        "dealloc_calls": 0,
+        "realloc_calls": 4,
+        "lifetime_peak": 33646609
+      }
+    },
+    "basis_allocation": {
+      "event": "diagnostic_basis_allocation",
+      "case": "tiny64",
+      "allocation": {
+        "start_live": 33615113,
+        "end_live": 33627401,
+        "peak_live": 33627705,
+        "peak_additional": 12592,
+        "requested_bytes": 141305,
+        "freed_bytes": 129017,
+        "alloc_calls": 3842,
+        "dealloc_calls": 3840,
+        "realloc_calls": 384,
+        "lifetime_peak": 33692433
+      }
+    },
+    "group_allocation": {
+      "event": "diagnostic_synthetic_group_allocation",
+      "case": "tiny64",
+      "accepted": {
+        "start_live": 33627401,
+        "end_live": 33627401,
+        "peak_live": 33627705,
+        "peak_additional": 304,
+        "requested_bytes": 193535,
+        "freed_bytes": 193535,
+        "alloc_calls": 5760,
+        "dealloc_calls": 5760,
+        "realloc_calls": 576,
+        "lifetime_peak": 33692433
+      },
+      "grouped": {
+        "start_live": 33627401,
+        "end_live": 33627401,
+        "peak_live": 33627705,
+        "peak_additional": 304,
+        "requested_bytes": 129023,
+        "freed_bytes": 129023,
+        "alloc_calls": 3840,
+        "dealloc_calls": 3840,
+        "realloc_calls": 384,
+        "lifetime_peak": 33692433
+      },
+      "product_encoding": false
+    }
+  },
+  {
+    "case": "tiny128",
+    "whole": {
+      "event": "diagnostic_whole",
+      "case": "tiny128",
+      "order": "accepted_fast",
+      "accepted_ns": 580917,
+      "fast_observed_ns": 44825292,
+      "phase_sum_ns": 44810917,
+      "residual_ns": 14375,
+      "accepted_allocation": {
+        "start_live": 33614217,
+        "end_live": 33626505,
+        "peak_live": 33626505,
+        "peak_additional": 12288,
+        "requested_bytes": 12288,
+        "freed_bytes": 0,
+        "alloc_calls": 3,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33692433
+      },
+      "fast_allocation": {
+        "start_live": 33626505,
+        "end_live": 33636745,
+        "peak_live": 33806609,
+        "peak_additional": 180104,
+        "requested_bytes": 4520904,
+        "freed_bytes": 4510664,
+        "alloc_calls": 18341,
+        "dealloc_calls": 18338,
+        "realloc_calls": 12,
+        "lifetime_peak": 33806609
+      },
+      "equal": true
+    },
+    "ordered_complete_phases": [
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny128",
+        "phase": "Preflight",
+        "ns": 125,
+        "allocation": {
+          "start_live": 33626505,
+          "end_live": 33626505,
+          "peak_live": 33626505,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33692433
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny128",
+        "phase": "Normalize",
+        "ns": 24333,
+        "allocation": {
+          "start_live": 33626505,
+          "end_live": 33655177,
+          "peak_live": 33655177,
+          "peak_additional": 28672,
+          "requested_bytes": 58320,
+          "freed_bytes": 29648,
+          "alloc_calls": 47,
+          "dealloc_calls": 42,
+          "realloc_calls": 10,
+          "lifetime_peak": 33692433
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny128",
+        "phase": "Preflight",
+        "ns": 5375,
+        "allocation": {
+          "start_live": 33655177,
+          "end_live": 33655177,
+          "peak_live": 33655177,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33692433
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny128",
+        "phase": "Nodes",
+        "ns": 23500,
+        "allocation": {
+          "start_live": 33655177,
+          "end_live": 33659273,
+          "peak_live": 33659273,
+          "peak_additional": 4096,
+          "requested_bytes": 4096,
+          "freed_bytes": 0,
+          "alloc_calls": 1,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33692433
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny128",
+        "phase": "ProductTree",
+        "ns": 2374375,
+        "allocation": {
+          "start_live": 33659273,
+          "end_live": 33739089,
+          "peak_live": 33751601,
+          "peak_additional": 92328,
+          "requested_bytes": 227240,
+          "freed_bytes": 147424,
+          "alloc_calls": 772,
+          "dealloc_calls": 516,
+          "realloc_calls": 2,
+          "lifetime_peak": 33751601
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny128",
+        "phase": "Numerators",
+        "ns": 3690834,
+        "allocation": {
+          "start_live": 33739089,
+          "end_live": 33747281,
+          "peak_live": 33765713,
+          "peak_additional": 26624,
+          "requested_bytes": 374720,
+          "freed_bytes": 366528,
+          "alloc_calls": 1776,
+          "dealloc_calls": 1774,
+          "realloc_calls": 0,
+          "lifetime_peak": 33765713
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny128",
+        "phase": "Derivatives",
+        "ns": 20834,
+        "allocation": {
+          "start_live": 33747281,
+          "end_live": 33763569,
+          "peak_live": 33763569,
+          "peak_additional": 16288,
+          "requested_bytes": 16288,
+          "freed_bytes": 0,
+          "alloc_calls": 4,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33765713
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny128",
+        "phase": "RemainderEvaluation",
+        "ns": 38615500,
+        "allocation": {
+          "start_live": 33763569,
+          "end_live": 33779953,
+          "peak_live": 33806609,
+          "peak_additional": 43040,
+          "requested_bytes": 3827952,
+          "freed_bytes": 3811568,
+          "alloc_calls": 15735,
+          "dealloc_calls": 15731,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny128",
+        "phase": "FinitePart",
+        "ns": 45833,
+        "allocation": {
+          "start_live": 33779953,
+          "end_live": 33779953,
+          "peak_live": 33783025,
+          "peak_additional": 3072,
+          "requested_bytes": 4096,
+          "freed_bytes": 4096,
+          "alloc_calls": 4,
+          "dealloc_calls": 4,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "tiny128",
+        "phase": "Collect",
+        "ns": 10208,
+        "allocation": {
+          "start_live": 33663369,
+          "end_live": 33671561,
+          "peak_live": 33671561,
+          "peak_additional": 8192,
+          "requested_bytes": 8192,
+          "freed_bytes": 0,
+          "alloc_calls": 2,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      }
+    ],
+    "reported_fast_coefficient_vector_bytes": 10240,
+    "allocator_net_bytes": 10240,
+    "unclassified_allocator_net_beyond_returned_coefficients_bytes": 0,
+    "input_allocation": {
+      "event": "diagnostic_input_allocation",
+      "case": "tiny128",
+      "allocation": {
+        "start_live": 33596169,
+        "end_live": 33611529,
+        "peak_live": 33611529,
+        "peak_additional": 15360,
+        "requested_bytes": 16352,
+        "freed_bytes": 992,
+        "alloc_calls": 6,
+        "dealloc_calls": 0,
+        "realloc_calls": 5,
+        "lifetime_peak": 33692433
+      }
+    },
+    "basis_allocation": {
+      "event": "diagnostic_basis_allocation",
+      "case": "tiny128",
+      "allocation": {
+        "start_live": 33634057,
+        "end_live": 33658633,
+        "peak_live": 33658937,
+        "peak_additional": 24880,
+        "requested_bytes": 282610,
+        "freed_bytes": 258034,
+        "alloc_calls": 7682,
+        "dealloc_calls": 7680,
+        "realloc_calls": 768,
+        "lifetime_peak": 33806609
+      }
+    },
+    "group_allocation": {
+      "event": "diagnostic_synthetic_group_allocation",
+      "case": "tiny128",
+      "accepted": {
+        "start_live": 33658633,
+        "end_live": 33658633,
+        "peak_live": 33658937,
+        "peak_additional": 304,
+        "requested_bytes": 387064,
+        "freed_bytes": 387064,
+        "alloc_calls": 11520,
+        "dealloc_calls": 11520,
+        "realloc_calls": 1152,
+        "lifetime_peak": 33806609
+      },
+      "grouped": {
+        "start_live": 33658633,
+        "end_live": 33658633,
+        "peak_live": 33658937,
+        "peak_additional": 304,
+        "requested_bytes": 258045,
+        "freed_bytes": 258045,
+        "alloc_calls": 7680,
+        "dealloc_calls": 7680,
+        "realloc_calls": 768,
+        "lifetime_peak": 33806609
+      },
+      "product_encoding": false
+    }
+  },
+  {
+    "case": "uneven128x1",
+    "whole": {
+      "event": "diagnostic_whole",
+      "case": "uneven128x1",
+      "order": "fast_accepted",
+      "accepted_ns": 7792,
+      "fast_observed_ns": 35119959,
+      "phase_sum_ns": 35102042,
+      "residual_ns": 17917,
+      "accepted_allocation": {
+        "start_live": 33615337,
+        "end_live": 33619497,
+        "peak_live": 33619497,
+        "peak_additional": 4160,
+        "requested_bytes": 4160,
+        "freed_bytes": 0,
+        "alloc_calls": 3,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33806609
+      },
+      "fast_allocation": {
+        "start_live": 33606113,
+        "end_live": 33615337,
+        "peak_live": 33772113,
+        "peak_additional": 166000,
+        "requested_bytes": 4344064,
+        "freed_bytes": 4334840,
+        "alloc_calls": 17718,
+        "dealloc_calls": 17715,
+        "realloc_calls": 7,
+        "lifetime_peak": 33806609
+      },
+      "equal": true
+    },
+    "ordered_complete_phases": [
+      {
+        "event": "diagnostic_phase",
+        "case": "uneven128x1",
+        "phase": "Preflight",
+        "ns": 167,
+        "allocation": {
+          "start_live": 33606113,
+          "end_live": 33606113,
+          "peak_live": 33606113,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "uneven128x1",
+        "phase": "Normalize",
+        "ns": 14875,
+        "allocation": {
+          "start_live": 33606113,
+          "end_live": 33620681,
+          "peak_live": 33620681,
+          "peak_additional": 14568,
+          "requested_bytes": 29848,
+          "freed_bytes": 15280,
+          "alloc_calls": 27,
+          "dealloc_calls": 22,
+          "realloc_calls": 5,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "uneven128x1",
+        "phase": "Preflight",
+        "ns": 5375,
+        "allocation": {
+          "start_live": 33620681,
+          "end_live": 33620681,
+          "peak_live": 33620681,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "uneven128x1",
+        "phase": "Nodes",
+        "ns": 23000,
+        "allocation": {
+          "start_live": 33620681,
+          "end_live": 33624777,
+          "peak_live": 33624777,
+          "peak_additional": 4096,
+          "requested_bytes": 4096,
+          "freed_bytes": 0,
+          "alloc_calls": 1,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "uneven128x1",
+        "phase": "ProductTree",
+        "ns": 1906542,
+        "allocation": {
+          "start_live": 33624777,
+          "end_live": 33704593,
+          "peak_live": 33717105,
+          "peak_additional": 92328,
+          "requested_bytes": 227240,
+          "freed_bytes": 147424,
+          "alloc_calls": 772,
+          "dealloc_calls": 516,
+          "realloc_calls": 2,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "uneven128x1",
+        "phase": "Numerators",
+        "ns": 1994125,
+        "allocation": {
+          "start_live": 33704593,
+          "end_live": 33712785,
+          "peak_live": 33725073,
+          "peak_additional": 20480,
+          "requested_bytes": 227872,
+          "freed_bytes": 219680,
+          "alloc_calls": 1174,
+          "dealloc_calls": 1172,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "uneven128x1",
+        "phase": "Derivatives",
+        "ns": 21625,
+        "allocation": {
+          "start_live": 33712785,
+          "end_live": 33729073,
+          "peak_live": 33729073,
+          "peak_additional": 16288,
+          "requested_bytes": 16288,
+          "freed_bytes": 0,
+          "alloc_calls": 4,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "uneven128x1",
+        "phase": "RemainderEvaluation",
+        "ns": 31093458,
+        "allocation": {
+          "start_live": 33729073,
+          "end_live": 33745457,
+          "peak_live": 33772113,
+          "peak_additional": 43040,
+          "requested_bytes": 3826432,
+          "freed_bytes": 3810048,
+          "alloc_calls": 15734,
+          "dealloc_calls": 15730,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "uneven128x1",
+        "phase": "FinitePart",
+        "ns": 37000,
+        "allocation": {
+          "start_live": 33745457,
+          "end_live": 33745457,
+          "peak_live": 33749553,
+          "peak_additional": 4096,
+          "requested_bytes": 4096,
+          "freed_bytes": 4096,
+          "alloc_calls": 4,
+          "dealloc_calls": 4,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "uneven128x1",
+        "phase": "Collect",
+        "ns": 5875,
+        "allocation": {
+          "start_live": 33628873,
+          "end_live": 33637065,
+          "peak_live": 33637065,
+          "peak_additional": 8192,
+          "requested_bytes": 8192,
+          "freed_bytes": 0,
+          "alloc_calls": 2,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      }
+    ],
+    "reported_fast_coefficient_vector_bytes": 9224,
+    "allocator_net_bytes": 9224,
+    "unclassified_allocator_net_beyond_returned_coefficients_bytes": 0,
+    "input_allocation": {
+      "event": "diagnostic_input_allocation",
+      "case": "uneven128x1",
+      "allocation": {
+        "start_live": 33596169,
+        "end_live": 33603425,
+        "peak_live": 33603425,
+        "peak_additional": 7256,
+        "requested_bytes": 7256,
+        "freed_bytes": 0,
+        "alloc_calls": 6,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33806609
+      }
+    },
+    "basis_allocation": {
+      "event": "diagnostic_basis_allocation",
+      "case": "uneven128x1",
+      "allocation": {
+        "start_live": 33616809,
+        "end_live": 33641385,
+        "peak_live": 33641689,
+        "peak_additional": 24880,
+        "requested_bytes": 282610,
+        "freed_bytes": 258034,
+        "alloc_calls": 7682,
+        "dealloc_calls": 7680,
+        "realloc_calls": 768,
+        "lifetime_peak": 33806609
+      }
+    },
+    "group_allocation": {
+      "event": "diagnostic_synthetic_group_allocation",
+      "case": "uneven128x1",
+      "accepted": {
+        "start_live": 33641385,
+        "end_live": 33641385,
+        "peak_live": 33641689,
+        "peak_additional": 304,
+        "requested_bytes": 130418,
+        "freed_bytes": 130418,
+        "alloc_calls": 3884,
+        "dealloc_calls": 3884,
+        "realloc_calls": 387,
+        "lifetime_peak": 33806609
+      },
+      "grouped": {
+        "start_live": 33641385,
+        "end_live": 33641385,
+        "peak_live": 33641689,
+        "peak_additional": 304,
+        "requested_bytes": 130032,
+        "freed_bytes": 130032,
+        "alloc_calls": 3870,
+        "dealloc_calls": 3870,
+        "realloc_calls": 387,
+        "lifetime_peak": 33806609
+      },
+      "product_encoding": false
+    }
+  },
+  {
+    "case": "uneven1x128",
+    "whole": {
+      "event": "diagnostic_whole",
+      "case": "uneven1x128",
+      "order": "accepted_fast",
+      "accepted_ns": 6000,
+      "fast_observed_ns": 34556791,
+      "phase_sum_ns": 34541042,
+      "residual_ns": 15749,
+      "accepted_allocation": {
+        "start_live": 33606113,
+        "end_live": 33610273,
+        "peak_live": 33610273,
+        "peak_additional": 4160,
+        "requested_bytes": 4160,
+        "freed_bytes": 0,
+        "alloc_calls": 3,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33806609
+      },
+      "fast_allocation": {
+        "start_live": 33610273,
+        "end_live": 33619497,
+        "peak_live": 33776273,
+        "peak_additional": 166000,
+        "requested_bytes": 4345584,
+        "freed_bytes": 4336360,
+        "alloc_calls": 17719,
+        "dealloc_calls": 17716,
+        "realloc_calls": 7,
+        "lifetime_peak": 33806609
+      },
+      "equal": true
+    },
+    "ordered_complete_phases": [
+      {
+        "event": "diagnostic_phase",
+        "case": "uneven1x128",
+        "phase": "Preflight",
+        "ns": 84,
+        "allocation": {
+          "start_live": 33610273,
+          "end_live": 33610273,
+          "peak_live": 33610273,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "uneven1x128",
+        "phase": "Normalize",
+        "ns": 12084,
+        "allocation": {
+          "start_live": 33610273,
+          "end_live": 33624841,
+          "peak_live": 33624841,
+          "peak_additional": 14568,
+          "requested_bytes": 29848,
+          "freed_bytes": 15280,
+          "alloc_calls": 27,
+          "dealloc_calls": 22,
+          "realloc_calls": 5,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "uneven1x128",
+        "phase": "Preflight",
+        "ns": 4959,
+        "allocation": {
+          "start_live": 33624841,
+          "end_live": 33624841,
+          "peak_live": 33624841,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "uneven1x128",
+        "phase": "Nodes",
+        "ns": 21208,
+        "allocation": {
+          "start_live": 33624841,
+          "end_live": 33628937,
+          "peak_live": 33628937,
+          "peak_additional": 4096,
+          "requested_bytes": 4096,
+          "freed_bytes": 0,
+          "alloc_calls": 1,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "uneven1x128",
+        "phase": "ProductTree",
+        "ns": 1866541,
+        "allocation": {
+          "start_live": 33628937,
+          "end_live": 33708753,
+          "peak_live": 33721265,
+          "peak_additional": 92328,
+          "requested_bytes": 227240,
+          "freed_bytes": 147424,
+          "alloc_calls": 772,
+          "dealloc_calls": 516,
+          "realloc_calls": 2,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "uneven1x128",
+        "phase": "Numerators",
+        "ns": 1982208,
+        "allocation": {
+          "start_live": 33708753,
+          "end_live": 33716945,
+          "peak_live": 33733329,
+          "peak_additional": 24576,
+          "requested_bytes": 227872,
+          "freed_bytes": 219680,
+          "alloc_calls": 1174,
+          "dealloc_calls": 1172,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "uneven1x128",
+        "phase": "Derivatives",
+        "ns": 21000,
+        "allocation": {
+          "start_live": 33716945,
+          "end_live": 33733233,
+          "peak_live": 33733233,
+          "peak_additional": 16288,
+          "requested_bytes": 16288,
+          "freed_bytes": 0,
+          "alloc_calls": 4,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "uneven1x128",
+        "phase": "RemainderEvaluation",
+        "ns": 30582250,
+        "allocation": {
+          "start_live": 33733233,
+          "end_live": 33749617,
+          "peak_live": 33776273,
+          "peak_additional": 43040,
+          "requested_bytes": 3827952,
+          "freed_bytes": 3811568,
+          "alloc_calls": 15735,
+          "dealloc_calls": 15731,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "uneven1x128",
+        "phase": "FinitePart",
+        "ns": 44625,
+        "allocation": {
+          "start_live": 33749617,
+          "end_live": 33749617,
+          "peak_live": 33752689,
+          "peak_additional": 3072,
+          "requested_bytes": 4096,
+          "freed_bytes": 4096,
+          "alloc_calls": 4,
+          "dealloc_calls": 4,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "uneven1x128",
+        "phase": "Collect",
+        "ns": 6083,
+        "allocation": {
+          "start_live": 33633033,
+          "end_live": 33641225,
+          "peak_live": 33641225,
+          "peak_additional": 8192,
+          "requested_bytes": 8192,
+          "freed_bytes": 0,
+          "alloc_calls": 2,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      }
+    ],
+    "reported_fast_coefficient_vector_bytes": 9224,
+    "allocator_net_bytes": 9224,
+    "unclassified_allocator_net_beyond_returned_coefficients_bytes": 0,
+    "input_allocation": {
+      "event": "diagnostic_input_allocation",
+      "case": "uneven1x128",
+      "allocation": {
+        "start_live": 33596169,
+        "end_live": 33603425,
+        "peak_live": 33603425,
+        "peak_additional": 7256,
+        "requested_bytes": 7256,
+        "freed_bytes": 0,
+        "alloc_calls": 6,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33806609
+      }
+    },
+    "basis_allocation": {
+      "event": "diagnostic_basis_allocation",
+      "case": "uneven1x128",
+      "allocation": {
+        "start_live": 33616809,
+        "end_live": 33641385,
+        "peak_live": 33641689,
+        "peak_additional": 24880,
+        "requested_bytes": 282610,
+        "freed_bytes": 258034,
+        "alloc_calls": 7682,
+        "dealloc_calls": 7680,
+        "realloc_calls": 768,
+        "lifetime_peak": 33806609
+      }
+    },
+    "group_allocation": {
+      "event": "diagnostic_synthetic_group_allocation",
+      "case": "uneven1x128",
+      "accepted": {
+        "start_live": 33641385,
+        "end_live": 33641385,
+        "peak_live": 33641689,
+        "peak_additional": 304,
+        "requested_bytes": 130415,
+        "freed_bytes": 130415,
+        "alloc_calls": 3884,
+        "dealloc_calls": 3884,
+        "realloc_calls": 387,
+        "lifetime_peak": 33806609
+      },
+      "grouped": {
+        "start_live": 33641385,
+        "end_live": 33641385,
+        "peak_live": 33641689,
+        "peak_additional": 304,
+        "requested_bytes": 130029,
+        "freed_bytes": 130029,
+        "alloc_calls": 3870,
+        "dealloc_calls": 3870,
+        "realloc_calls": 387,
+        "lifetime_peak": 33806609
+      },
+      "product_encoding": false
+    }
+  },
+  {
+    "case": "far",
+    "whole": {
+      "event": "diagnostic_whole",
+      "case": "far",
+      "order": "fast_accepted",
+      "accepted_ns": 1969459,
+      "fast_observed_ns": 169705917,
+      "phase_sum_ns": 169667373,
+      "residual_ns": 38544,
+      "accepted_allocation": {
+        "start_live": 33659785,
+        "end_live": 33675017,
+        "peak_live": 33675017,
+        "peak_additional": 15232,
+        "requested_bytes": 15232,
+        "freed_bytes": 0,
+        "alloc_calls": 2,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 34217425
+      },
+      "fast_allocation": {
+        "start_live": 33625513,
+        "end_live": 33659785,
+        "peak_live": 34217425,
+        "peak_additional": 591912,
+        "requested_bytes": 23598488,
+        "freed_bytes": 23564216,
+        "alloc_calls": 70570,
+        "dealloc_calls": 70567,
+        "realloc_calls": 340,
+        "lifetime_peak": 34217425
+      },
+      "equal": true
+    },
+    "ordered_complete_phases": [
+      {
+        "event": "diagnostic_phase",
+        "case": "far",
+        "phase": "Preflight",
+        "ns": 708,
+        "allocation": {
+          "start_live": 33625513,
+          "end_live": 33625513,
+          "peak_live": 33625513,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "far",
+        "phase": "Normalize",
+        "ns": 35291,
+        "allocation": {
+          "start_live": 33625513,
+          "end_live": 33680265,
+          "peak_live": 33680265,
+          "peak_additional": 54752,
+          "requested_bytes": 112544,
+          "freed_bytes": 57792,
+          "alloc_calls": 85,
+          "dealloc_calls": 80,
+          "realloc_calls": 12,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "far",
+        "phase": "Preflight",
+        "ns": 5375,
+        "allocation": {
+          "start_live": 33680265,
+          "end_live": 33680265,
+          "peak_live": 33680265,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "far",
+        "phase": "Nodes",
+        "ns": 189875,
+        "allocation": {
+          "start_live": 33680265,
+          "end_live": 33695497,
+          "peak_live": 33695497,
+          "peak_additional": 15232,
+          "requested_bytes": 15232,
+          "freed_bytes": 0,
+          "alloc_calls": 1,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 33806609
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "far",
+        "phase": "ProductTree",
+        "ns": 6834250,
+        "allocation": {
+          "start_live": 33695497,
+          "end_live": 33957393,
+          "peak_live": 33983249,
+          "peak_additional": 287752,
+          "requested_bytes": 724632,
+          "freed_bytes": 462736,
+          "alloc_calls": 2885,
+          "dealloc_calls": 1933,
+          "realloc_calls": 8,
+          "lifetime_peak": 33983249
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "far",
+        "phase": "Numerators",
+        "ns": 11389917,
+        "allocation": {
+          "start_live": 33957393,
+          "end_live": 33990161,
+          "peak_live": 34065169,
+          "peak_additional": 107776,
+          "requested_bytes": 1683168,
+          "freed_bytes": 1650400,
+          "alloc_calls": 5005,
+          "dealloc_calls": 5003,
+          "realloc_calls": 32,
+          "lifetime_peak": 34065169
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "far",
+        "phase": "Derivatives",
+        "ns": 68708,
+        "allocation": {
+          "start_live": 33990161,
+          "end_live": 34050993,
+          "peak_live": 34050993,
+          "peak_additional": 60832,
+          "requested_bytes": 60832,
+          "freed_bytes": 0,
+          "alloc_calls": 4,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 34065169
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "far",
+        "phase": "RemainderEvaluation",
+        "ns": 151025333,
+        "allocation": {
+          "start_live": 34050993,
+          "end_live": 34111921,
+          "peak_live": 34217425,
+          "peak_additional": 166432,
+          "requested_bytes": 20956384,
+          "freed_bytes": 20895456,
+          "alloc_calls": 62584,
+          "dealloc_calls": 62580,
+          "realloc_calls": 288,
+          "lifetime_peak": 34217425
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "far",
+        "phase": "FinitePart",
+        "ns": 99875,
+        "allocation": {
+          "start_live": 34111921,
+          "end_live": 34111921,
+          "peak_live": 34127153,
+          "peak_additional": 15232,
+          "requested_bytes": 15232,
+          "freed_bytes": 15232,
+          "alloc_calls": 4,
+          "dealloc_calls": 4,
+          "realloc_calls": 0,
+          "lifetime_peak": 34217425
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "far",
+        "phase": "Collect",
+        "ns": 18041,
+        "allocation": {
+          "start_live": 33710729,
+          "end_live": 33741193,
+          "peak_live": 33741193,
+          "peak_additional": 30464,
+          "requested_bytes": 30464,
+          "freed_bytes": 0,
+          "alloc_calls": 2,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 34217425
+        }
+      }
+    ],
+    "reported_fast_coefficient_vector_bytes": 34272,
+    "allocator_net_bytes": 34272,
+    "unclassified_allocator_net_beyond_returned_coefficients_bytes": 0,
+    "input_allocation": {
+      "event": "diagnostic_input_allocation",
+      "case": "far",
+      "allocation": {
+        "start_live": 33596169,
+        "end_live": 33622825,
+        "peak_live": 33622825,
+        "peak_additional": 26656,
+        "requested_bytes": 26656,
+        "freed_bytes": 0,
+        "alloc_calls": 5,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 33806609
+      }
+    },
+    "basis_allocation": {
+      "event": "diagnostic_basis_allocation",
+      "case": "far",
+      "allocation": {
+        "start_live": 33672329,
+        "end_live": 33763721,
+        "peak_live": 33764025,
+        "peak_additional": 91696,
+        "requested_bytes": 1050992,
+        "freed_bytes": 959600,
+        "alloc_calls": 28562,
+        "dealloc_calls": 28560,
+        "realloc_calls": 2856,
+        "lifetime_peak": 34217425
+      }
+    },
+    "group_allocation": {
+      "event": "diagnostic_synthetic_group_allocation",
+      "case": "far",
+      "accepted": {
+        "start_live": 33763721,
+        "end_live": 33763721,
+        "peak_live": 33764025,
+        "peak_additional": 304,
+        "requested_bytes": 479796,
+        "freed_bytes": 479796,
+        "alloc_calls": 14280,
+        "dealloc_calls": 14280,
+        "realloc_calls": 1428,
+        "lifetime_peak": 34217425
+      },
+      "grouped": {
+        "start_live": 33763721,
+        "end_live": 33763721,
+        "peak_live": 33764025,
+        "peak_additional": 304,
+        "requested_bytes": 479796,
+        "freed_bytes": 479796,
+        "alloc_calls": 14280,
+        "dealloc_calls": 14280,
+        "realloc_calls": 1428,
+        "lifetime_peak": 34217425
+      },
+      "product_encoding": false
+    }
+  },
+  {
+    "case": "middle",
+    "whole": {
+      "event": "diagnostic_whole",
+      "case": "middle",
+      "order": "accepted_fast",
+      "accepted_ns": 49159250,
+      "fast_observed_ns": 1313414666,
+      "phase_sum_ns": 1313267627,
+      "residual_ns": 147039,
+      "accepted_allocation": {
+        "start_live": 33732137,
+        "end_live": 33808297,
+        "peak_live": 33808297,
+        "peak_additional": 76160,
+        "requested_bytes": 76160,
+        "freed_bytes": 0,
+        "alloc_calls": 2,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 34217425
+      },
+      "fast_allocation": {
+        "start_live": 33808297,
+        "end_live": 33979657,
+        "peak_live": 37739697,
+        "peak_additional": 3931400,
+        "requested_bytes": 233557688,
+        "freed_bytes": 233386328,
+        "alloc_calls": 391626,
+        "dealloc_calls": 391623,
+        "realloc_calls": 4604,
+        "lifetime_peak": 37739697
+      },
+      "equal": true
+    },
+    "ordered_complete_phases": [
+      {
+        "event": "diagnostic_phase",
+        "case": "middle",
+        "phase": "Preflight",
+        "ns": 584,
+        "allocation": {
+          "start_live": 33808297,
+          "end_live": 33808297,
+          "peak_live": 33808297,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 34217425
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "middle",
+        "phase": "Normalize",
+        "ns": 159583,
+        "allocation": {
+          "start_live": 33808297,
+          "end_live": 34143497,
+          "peak_live": 34143497,
+          "peak_additional": 335200,
+          "requested_bytes": 684672,
+          "freed_bytes": 349472,
+          "alloc_calls": 401,
+          "dealloc_calls": 396,
+          "realloc_calls": 18,
+          "lifetime_peak": 34217425
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "middle",
+        "phase": "Preflight",
+        "ns": 7417,
+        "allocation": {
+          "start_live": 34143497,
+          "end_live": 34143497,
+          "peak_live": 34143497,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 34217425
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "middle",
+        "phase": "Nodes",
+        "ns": 951083,
+        "allocation": {
+          "start_live": 34143497,
+          "end_live": 34219657,
+          "peak_live": 34219657,
+          "peak_additional": 76160,
+          "requested_bytes": 76160,
+          "freed_bytes": 0,
+          "alloc_calls": 1,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 34219657
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "middle",
+        "phase": "ProductTree",
+        "ns": 40899334,
+        "allocation": {
+          "start_live": 34219657,
+          "end_live": 36122769,
+          "peak_live": 36322801,
+          "peak_additional": 2103144,
+          "requested_bytes": 5788104,
+          "freed_bytes": 3884992,
+          "alloc_calls": 14646,
+          "dealloc_calls": 9886,
+          "realloc_calls": 92,
+          "lifetime_peak": 36322801
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "middle",
+        "phase": "Numerators",
+        "ns": 81464250,
+        "allocation": {
+          "start_live": 36122769,
+          "end_live": 36384913,
+          "peak_live": 36978161,
+          "peak_additional": 855392,
+          "requested_bytes": 15574752,
+          "freed_bytes": 15312608,
+          "alloc_calls": 23809,
+          "dealloc_calls": 23807,
+          "realloc_calls": 366,
+          "lifetime_peak": 36978161
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "middle",
+        "phase": "Derivatives",
+        "ns": 276875,
+        "allocation": {
+          "start_live": 36384913,
+          "end_live": 36689457,
+          "peak_live": 36689457,
+          "peak_additional": 304544,
+          "requested_bytes": 304544,
+          "freed_bytes": 0,
+          "alloc_calls": 4,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 36978161
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "middle",
+        "phase": "RemainderEvaluation",
+        "ns": 1189046167,
+        "allocation": {
+          "start_live": 36689457,
+          "end_live": 36994097,
+          "peak_live": 37739697,
+          "peak_additional": 1050240,
+          "requested_bytes": 210900976,
+          "freed_bytes": 210596336,
+          "alloc_calls": 352759,
+          "dealloc_calls": 352755,
+          "realloc_calls": 4128,
+          "lifetime_peak": 37739697
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "middle",
+        "phase": "FinitePart",
+        "ns": 375417,
+        "allocation": {
+          "start_live": 36994097,
+          "end_live": 36994097,
+          "peak_live": 37070257,
+          "peak_additional": 76160,
+          "requested_bytes": 76160,
+          "freed_bytes": 76160,
+          "alloc_calls": 4,
+          "dealloc_calls": 4,
+          "realloc_calls": 0,
+          "lifetime_peak": 37739697
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "middle",
+        "phase": "Collect",
+        "ns": 86917,
+        "allocation": {
+          "start_live": 34295817,
+          "end_live": 34448137,
+          "peak_live": 34448137,
+          "peak_additional": 152320,
+          "requested_bytes": 152320,
+          "freed_bytes": 0,
+          "alloc_calls": 2,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 37739697
+        }
+      }
+    ],
+    "reported_fast_coefficient_vector_bytes": 171360,
+    "allocator_net_bytes": 171360,
+    "unclassified_allocator_net_beyond_returned_coefficients_bytes": 0,
+    "input_allocation": {
+      "event": "diagnostic_input_allocation",
+      "case": "middle",
+      "allocation": {
+        "start_live": 33596169,
+        "end_live": 33729449,
+        "peak_live": 33729449,
+        "peak_additional": 133280,
+        "requested_bytes": 133280,
+        "freed_bytes": 0,
+        "alloc_calls": 5,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 34217425
+      }
+    },
+    "basis_allocation": {
+      "event": "diagnostic_basis_allocation",
+      "case": "middle",
+      "allocation": {
+        "start_live": 33976969,
+        "end_live": 34433929,
+        "peak_live": 34434233,
+        "peak_additional": 457264,
+        "requested_bytes": 5254969,
+        "freed_bytes": 4798009,
+        "alloc_calls": 142802,
+        "dealloc_calls": 142800,
+        "realloc_calls": 14280,
+        "lifetime_peak": 37739697
+      }
+    },
+    "group_allocation": {
+      "event": "diagnostic_synthetic_group_allocation",
+      "case": "middle",
+      "accepted": {
+        "start_live": 34433929,
+        "end_live": 34433929,
+        "peak_live": 34434233,
+        "peak_additional": 304,
+        "requested_bytes": 2398996,
+        "freed_bytes": 2398996,
+        "alloc_calls": 71400,
+        "dealloc_calls": 71400,
+        "realloc_calls": 7140,
+        "lifetime_peak": 37739697
+      },
+      "grouped": {
+        "start_live": 34433929,
+        "end_live": 34433929,
+        "peak_live": 34434233,
+        "peak_additional": 304,
+        "requested_bytes": 2398996,
+        "freed_bytes": 2398996,
+        "alloc_calls": 71400,
+        "dealloc_calls": 71400,
+        "realloc_calls": 7140,
+        "lifetime_peak": 37739697
+      },
+      "product_encoding": false
+    }
+  },
+  {
+    "case": "near",
+    "whole": {
+      "event": "diagnostic_whole",
+      "case": "near",
+      "order": "fast_accepted",
+      "accepted_ns": 196512583,
+      "fast_observed_ns": 2715755375,
+      "phase_sum_ns": 2715443335,
+      "residual_ns": 312040,
+      "accepted_allocation": {
+        "start_live": 34208137,
+        "end_live": 34360457,
+        "peak_live": 34360457,
+        "peak_additional": 152320,
+        "requested_bytes": 152320,
+        "freed_bytes": 0,
+        "alloc_calls": 2,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 41988113
+      },
+      "fast_allocation": {
+        "start_live": 33865417,
+        "end_live": 34208137,
+        "peak_live": 41988113,
+        "peak_additional": 8122696,
+        "requested_bytes": 517072496,
+        "freed_bytes": 516729776,
+        "alloc_calls": 785174,
+        "dealloc_calls": 785171,
+        "realloc_calls": 9562,
+        "lifetime_peak": 41988113
+      },
+      "equal": true
+    },
+    "ordered_complete_phases": [
+      {
+        "event": "diagnostic_phase",
+        "case": "near",
+        "phase": "Preflight",
+        "ns": 1959,
+        "allocation": {
+          "start_live": 33865417,
+          "end_live": 33865417,
+          "peak_live": 33865417,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 37739697
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "near",
+        "phase": "Normalize",
+        "ns": 324167,
+        "allocation": {
+          "start_live": 33865417,
+          "end_live": 34535817,
+          "peak_live": 34535817,
+          "peak_additional": 670400,
+          "requested_bytes": 1369208,
+          "freed_bytes": 698808,
+          "alloc_calls": 796,
+          "dealloc_calls": 791,
+          "realloc_calls": 20,
+          "lifetime_peak": 37739697
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "near",
+        "phase": "Preflight",
+        "ns": 8916,
+        "allocation": {
+          "start_live": 34535817,
+          "end_live": 34535817,
+          "peak_live": 34535817,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 37739697
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "near",
+        "phase": "Nodes",
+        "ns": 1947334,
+        "allocation": {
+          "start_live": 34535817,
+          "end_live": 34688137,
+          "peak_live": 34688137,
+          "peak_additional": 152320,
+          "requested_bytes": 152320,
+          "freed_bytes": 0,
+          "alloc_calls": 1,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 37739697
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "near",
+        "phase": "ProductTree",
+        "ns": 88942959,
+        "allocation": {
+          "start_live": 34688137,
+          "end_live": 38756561,
+          "peak_live": 39154257,
+          "peak_additional": 4466120,
+          "requested_bytes": 12514296,
+          "freed_bytes": 8445872,
+          "alloc_calls": 29319,
+          "dealloc_calls": 19799,
+          "realloc_calls": 188,
+          "lifetime_peak": 39154257
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "near",
+        "phase": "Numerators",
+        "ns": 154865708,
+        "allocation": {
+          "start_live": 38756561,
+          "end_live": 39280849,
+          "peak_live": 40464977,
+          "peak_additional": 1708416,
+          "requested_bytes": 33058656,
+          "freed_bytes": 32534368,
+          "alloc_calls": 46578,
+          "dealloc_calls": 46576,
+          "realloc_calls": 682,
+          "lifetime_peak": 40464977
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "near",
+        "phase": "Derivatives",
+        "ns": 544542,
+        "allocation": {
+          "start_live": 39280849,
+          "end_live": 39890033,
+          "peak_live": 39890033,
+          "peak_additional": 609184,
+          "requested_bytes": 609184,
+          "freed_bytes": 0,
+          "alloc_calls": 4,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 40464977
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "near",
+        "phase": "RemainderEvaluation",
+        "ns": 2467897166,
+        "allocation": {
+          "start_live": 39890033,
+          "end_live": 40499313,
+          "peak_live": 41988113,
+          "peak_additional": 2098080,
+          "requested_bytes": 468911872,
+          "freed_bytes": 468302592,
+          "alloc_calls": 708470,
+          "dealloc_calls": 708466,
+          "realloc_calls": 8672,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "near",
+        "phase": "FinitePart",
+        "ns": 733375,
+        "allocation": {
+          "start_live": 40499313,
+          "end_live": 40499313,
+          "peak_live": 40651633,
+          "peak_additional": 152320,
+          "requested_bytes": 152320,
+          "freed_bytes": 152320,
+          "alloc_calls": 4,
+          "dealloc_calls": 4,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "near",
+        "phase": "Collect",
+        "ns": 177209,
+        "allocation": {
+          "start_live": 34840457,
+          "end_live": 35145097,
+          "peak_live": 35145097,
+          "peak_additional": 304640,
+          "requested_bytes": 304640,
+          "freed_bytes": 0,
+          "alloc_calls": 2,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      }
+    ],
+    "reported_fast_coefficient_vector_bytes": 342720,
+    "allocator_net_bytes": 342720,
+    "unclassified_allocator_net_beyond_returned_coefficients_bytes": 0,
+    "input_allocation": {
+      "event": "diagnostic_input_allocation",
+      "case": "near",
+      "allocation": {
+        "start_live": 33596169,
+        "end_live": 33862729,
+        "peak_live": 33862729,
+        "peak_additional": 266560,
+        "requested_bytes": 266560,
+        "freed_bytes": 0,
+        "alloc_calls": 5,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 37739697
+      }
+    },
+    "basis_allocation": {
+      "event": "diagnostic_basis_allocation",
+      "case": "near",
+      "allocation": {
+        "start_live": 34357769,
+        "end_live": 35271689,
+        "peak_live": 35271993,
+        "peak_additional": 914224,
+        "requested_bytes": 10509910,
+        "freed_bytes": 9595990,
+        "alloc_calls": 285602,
+        "dealloc_calls": 285600,
+        "realloc_calls": 28560,
+        "lifetime_peak": 41988113
+      }
+    },
+    "group_allocation": {
+      "event": "diagnostic_synthetic_group_allocation",
+      "case": "near",
+      "accepted": {
+        "start_live": 35271689,
+        "end_live": 35271689,
+        "peak_live": 35271993,
+        "peak_additional": 304,
+        "requested_bytes": 4797985,
+        "freed_bytes": 4797985,
+        "alloc_calls": 142800,
+        "dealloc_calls": 142800,
+        "realloc_calls": 14280,
+        "lifetime_peak": 41988113
+      },
+      "grouped": {
+        "start_live": 35271689,
+        "end_live": 35271689,
+        "peak_live": 35271993,
+        "peak_additional": 304,
+        "requested_bytes": 4797985,
+        "freed_bytes": 4797985,
+        "alloc_calls": 142800,
+        "dealloc_calls": 142800,
+        "realloc_calls": 14280,
+        "lifetime_peak": 41988113
+      },
+      "product_encoding": false
+    }
+  },
+  {
+    "case": "intermediate128",
+    "whole": {
+      "event": "diagnostic_whole",
+      "case": "intermediate128",
+      "order": "accepted_fast",
+      "accepted_ns": 620916,
+      "fast_observed_ns": 36189750,
+      "phase_sum_ns": 36176582,
+      "residual_ns": 13168,
+      "accepted_allocation": {
+        "start_live": 33614217,
+        "end_live": 33626505,
+        "peak_live": 33626505,
+        "peak_additional": 12288,
+        "requested_bytes": 12288,
+        "freed_bytes": 0,
+        "alloc_calls": 3,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 41988113
+      },
+      "fast_allocation": {
+        "start_live": 33626505,
+        "end_live": 33636745,
+        "peak_live": 33806609,
+        "peak_additional": 180104,
+        "requested_bytes": 4519384,
+        "freed_bytes": 4509144,
+        "alloc_calls": 18340,
+        "dealloc_calls": 18337,
+        "realloc_calls": 12,
+        "lifetime_peak": 41988113
+      },
+      "equal": true
+    },
+    "ordered_complete_phases": [
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate128",
+        "phase": "Preflight",
+        "ns": 500,
+        "allocation": {
+          "start_live": 33626505,
+          "end_live": 33626505,
+          "peak_live": 33626505,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate128",
+        "phase": "Normalize",
+        "ns": 25750,
+        "allocation": {
+          "start_live": 33626505,
+          "end_live": 33655177,
+          "peak_live": 33655177,
+          "peak_additional": 28672,
+          "requested_bytes": 58320,
+          "freed_bytes": 29648,
+          "alloc_calls": 47,
+          "dealloc_calls": 42,
+          "realloc_calls": 10,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate128",
+        "phase": "Preflight",
+        "ns": 5166,
+        "allocation": {
+          "start_live": 33655177,
+          "end_live": 33655177,
+          "peak_live": 33655177,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate128",
+        "phase": "Nodes",
+        "ns": 54542,
+        "allocation": {
+          "start_live": 33655177,
+          "end_live": 33659273,
+          "peak_live": 33659273,
+          "peak_additional": 4096,
+          "requested_bytes": 4096,
+          "freed_bytes": 0,
+          "alloc_calls": 1,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate128",
+        "phase": "ProductTree",
+        "ns": 1950292,
+        "allocation": {
+          "start_live": 33659273,
+          "end_live": 33739089,
+          "peak_live": 33751601,
+          "peak_additional": 92328,
+          "requested_bytes": 227240,
+          "freed_bytes": 147424,
+          "alloc_calls": 772,
+          "dealloc_calls": 516,
+          "realloc_calls": 2,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate128",
+        "phase": "Numerators",
+        "ns": 3598125,
+        "allocation": {
+          "start_live": 33739089,
+          "end_live": 33747281,
+          "peak_live": 33765713,
+          "peak_additional": 26624,
+          "requested_bytes": 374720,
+          "freed_bytes": 366528,
+          "alloc_calls": 1776,
+          "dealloc_calls": 1774,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate128",
+        "phase": "Derivatives",
+        "ns": 21833,
+        "allocation": {
+          "start_live": 33747281,
+          "end_live": 33763569,
+          "peak_live": 33763569,
+          "peak_additional": 16288,
+          "requested_bytes": 16288,
+          "freed_bytes": 0,
+          "alloc_calls": 4,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate128",
+        "phase": "RemainderEvaluation",
+        "ns": 30467541,
+        "allocation": {
+          "start_live": 33763569,
+          "end_live": 33779953,
+          "peak_live": 33806609,
+          "peak_additional": 43040,
+          "requested_bytes": 3826432,
+          "freed_bytes": 3810048,
+          "alloc_calls": 15734,
+          "dealloc_calls": 15730,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate128",
+        "phase": "FinitePart",
+        "ns": 44833,
+        "allocation": {
+          "start_live": 33779953,
+          "end_live": 33779953,
+          "peak_live": 33783025,
+          "peak_additional": 3072,
+          "requested_bytes": 4096,
+          "freed_bytes": 4096,
+          "alloc_calls": 4,
+          "dealloc_calls": 4,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate128",
+        "phase": "Collect",
+        "ns": 8000,
+        "allocation": {
+          "start_live": 33663369,
+          "end_live": 33671561,
+          "peak_live": 33671561,
+          "peak_additional": 8192,
+          "requested_bytes": 8192,
+          "freed_bytes": 0,
+          "alloc_calls": 2,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      }
+    ],
+    "reported_fast_coefficient_vector_bytes": 10240,
+    "allocator_net_bytes": 10240,
+    "unclassified_allocator_net_beyond_returned_coefficients_bytes": 0,
+    "input_allocation": {
+      "event": "diagnostic_input_allocation",
+      "case": "intermediate128",
+      "allocation": {
+        "start_live": 33596169,
+        "end_live": 33611529,
+        "peak_live": 33611529,
+        "peak_additional": 15360,
+        "requested_bytes": 16352,
+        "freed_bytes": 992,
+        "alloc_calls": 6,
+        "dealloc_calls": 0,
+        "realloc_calls": 5,
+        "lifetime_peak": 41988113
+      }
+    },
+    "basis_allocation": {
+      "event": "diagnostic_basis_allocation",
+      "case": "intermediate128",
+      "allocation": {
+        "start_live": 33634057,
+        "end_live": 33658633,
+        "peak_live": 33658937,
+        "peak_additional": 24880,
+        "requested_bytes": 282620,
+        "freed_bytes": 258044,
+        "alloc_calls": 7682,
+        "dealloc_calls": 7680,
+        "realloc_calls": 768,
+        "lifetime_peak": 41988113
+      }
+    },
+    "group_allocation": {
+      "event": "diagnostic_synthetic_group_allocation",
+      "case": "intermediate128",
+      "accepted": {
+        "start_live": 33658633,
+        "end_live": 33658633,
+        "peak_live": 33658937,
+        "peak_additional": 304,
+        "requested_bytes": 387065,
+        "freed_bytes": 387065,
+        "alloc_calls": 11520,
+        "dealloc_calls": 11520,
+        "realloc_calls": 1152,
+        "lifetime_peak": 41988113
+      },
+      "grouped": {
+        "start_live": 33658633,
+        "end_live": 33658633,
+        "peak_live": 33658937,
+        "peak_additional": 304,
+        "requested_bytes": 258043,
+        "freed_bytes": 258043,
+        "alloc_calls": 7680,
+        "dealloc_calls": 7680,
+        "realloc_calls": 768,
+        "lifetime_peak": 41988113
+      },
+      "product_encoding": false
+    }
+  },
+  {
+    "case": "intermediate256",
+    "whole": {
+      "event": "diagnostic_whole",
+      "case": "intermediate256",
+      "order": "fast_accepted",
+      "accepted_ns": 2209875,
+      "fast_observed_ns": 78348416,
+      "phase_sum_ns": 78325625,
+      "residual_ns": 22791,
+      "accepted_allocation": {
+        "start_live": 33650057,
+        "end_live": 33674633,
+        "peak_live": 33674633,
+        "peak_additional": 24576,
+        "requested_bytes": 24576,
+        "freed_bytes": 0,
+        "alloc_calls": 3,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 41988113
+      },
+      "fast_allocation": {
+        "start_live": 33629577,
+        "end_live": 33650057,
+        "peak_live": 34006513,
+        "peak_additional": 376936,
+        "requested_bytes": 10719352,
+        "freed_bytes": 10698872,
+        "alloc_calls": 37521,
+        "dealloc_calls": 37518,
+        "realloc_calls": 92,
+        "lifetime_peak": 41988113
+      },
+      "equal": true
+    },
+    "ordered_complete_phases": [
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate256",
+        "phase": "Preflight",
+        "ns": 167,
+        "allocation": {
+          "start_live": 33629577,
+          "end_live": 33629577,
+          "peak_live": 33629577,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate256",
+        "phase": "Normalize",
+        "ns": 34458,
+        "allocation": {
+          "start_live": 33629577,
+          "end_live": 33686921,
+          "peak_live": 33686921,
+          "peak_additional": 57344,
+          "requested_bytes": 116960,
+          "freed_bytes": 59616,
+          "alloc_calls": 89,
+          "dealloc_calls": 84,
+          "realloc_calls": 12,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate256",
+        "phase": "Preflight",
+        "ns": 5167,
+        "allocation": {
+          "start_live": 33686921,
+          "end_live": 33686921,
+          "peak_live": 33686921,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate256",
+        "phase": "Nodes",
+        "ns": 107208,
+        "allocation": {
+          "start_live": 33686921,
+          "end_live": 33695113,
+          "peak_live": 33695113,
+          "peak_additional": 8192,
+          "requested_bytes": 8192,
+          "freed_bytes": 0,
+          "alloc_calls": 1,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate256",
+        "phase": "ProductTree",
+        "ns": 4005042,
+        "allocation": {
+          "start_live": 33695113,
+          "end_live": 33871185,
+          "peak_live": 33897041,
+          "peak_additional": 201928,
+          "requested_bytes": 516488,
+          "freed_bytes": 340416,
+          "alloc_calls": 1562,
+          "dealloc_calls": 1050,
+          "realloc_calls": 8,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate256",
+        "phase": "Numerators",
+        "ns": 7452333,
+        "allocation": {
+          "start_live": 33871185,
+          "end_live": 33887569,
+          "peak_live": 33924657,
+          "peak_additional": 53472,
+          "requested_bytes": 869744,
+          "freed_bytes": 853360,
+          "alloc_calls": 3597,
+          "dealloc_calls": 3595,
+          "realloc_calls": 8,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate256",
+        "phase": "Derivatives",
+        "ns": 39625,
+        "allocation": {
+          "start_live": 33887569,
+          "end_live": 33920241,
+          "peak_live": 33920241,
+          "peak_additional": 32672,
+          "requested_bytes": 32672,
+          "freed_bytes": 0,
+          "alloc_calls": 4,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate256",
+        "phase": "RemainderEvaluation",
+        "ns": 66607583,
+        "allocation": {
+          "start_live": 33920241,
+          "end_live": 33953009,
+          "peak_live": 34006513,
+          "peak_additional": 86272,
+          "requested_bytes": 9150720,
+          "freed_bytes": 9117952,
+          "alloc_calls": 32262,
+          "dealloc_calls": 32258,
+          "realloc_calls": 64,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate256",
+        "phase": "FinitePart",
+        "ns": 62958,
+        "allocation": {
+          "start_live": 33953009,
+          "end_live": 33953009,
+          "peak_live": 33961201,
+          "peak_additional": 8192,
+          "requested_bytes": 8192,
+          "freed_bytes": 8192,
+          "alloc_calls": 4,
+          "dealloc_calls": 4,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate256",
+        "phase": "Collect",
+        "ns": 11084,
+        "allocation": {
+          "start_live": 33703305,
+          "end_live": 33719689,
+          "peak_live": 33719689,
+          "peak_additional": 16384,
+          "requested_bytes": 16384,
+          "freed_bytes": 0,
+          "alloc_calls": 2,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      }
+    ],
+    "reported_fast_coefficient_vector_bytes": 20480,
+    "allocator_net_bytes": 20480,
+    "unclassified_allocator_net_beyond_returned_coefficients_bytes": 0,
+    "input_allocation": {
+      "event": "diagnostic_input_allocation",
+      "case": "intermediate256",
+      "allocation": {
+        "start_live": 33596169,
+        "end_live": 33626889,
+        "peak_live": 33626889,
+        "peak_additional": 30720,
+        "requested_bytes": 32736,
+        "freed_bytes": 2016,
+        "alloc_calls": 6,
+        "dealloc_calls": 0,
+        "realloc_calls": 6,
+        "lifetime_peak": 41988113
+      }
+    },
+    "basis_allocation": {
+      "event": "diagnostic_basis_allocation",
+      "case": "intermediate256",
+      "allocation": {
+        "start_live": 33671945,
+        "end_live": 33721097,
+        "peak_live": 33721401,
+        "peak_additional": 49456,
+        "requested_bytes": 565237,
+        "freed_bytes": 516085,
+        "alloc_calls": 15362,
+        "dealloc_calls": 15360,
+        "realloc_calls": 1536,
+        "lifetime_peak": 41988113
+      }
+    },
+    "group_allocation": {
+      "event": "diagnostic_synthetic_group_allocation",
+      "case": "intermediate256",
+      "accepted": {
+        "start_live": 33721097,
+        "end_live": 33721097,
+        "peak_live": 33721401,
+        "peak_additional": 304,
+        "requested_bytes": 774131,
+        "freed_bytes": 774131,
+        "alloc_calls": 23040,
+        "dealloc_calls": 23040,
+        "realloc_calls": 2304,
+        "lifetime_peak": 41988113
+      },
+      "grouped": {
+        "start_live": 33721097,
+        "end_live": 33721097,
+        "peak_live": 33721401,
+        "peak_additional": 304,
+        "requested_bytes": 516092,
+        "freed_bytes": 516092,
+        "alloc_calls": 15360,
+        "dealloc_calls": 15360,
+        "realloc_calls": 1536,
+        "lifetime_peak": 41988113
+      },
+      "product_encoding": false
+    }
+  },
+  {
+    "case": "intermediate512",
+    "whole": {
+      "event": "diagnostic_whole",
+      "case": "intermediate512",
+      "order": "accepted_fast",
+      "accepted_ns": 9137084,
+      "fast_observed_ns": 177909458,
+      "phase_sum_ns": 177867126,
+      "residual_ns": 42332,
+      "accepted_allocation": {
+        "start_live": 33660297,
+        "end_live": 33709449,
+        "peak_live": 33709449,
+        "peak_additional": 49152,
+        "requested_bytes": 49152,
+        "freed_bytes": 0,
+        "alloc_calls": 3,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 41988113
+      },
+      "fast_allocation": {
+        "start_live": 33709449,
+        "end_live": 33750409,
+        "peak_live": 34497041,
+        "peak_additional": 787592,
+        "requested_bytes": 24920648,
+        "freed_bytes": 24879688,
+        "alloc_calls": 76354,
+        "dealloc_calls": 76351,
+        "realloc_calls": 354,
+        "lifetime_peak": 41988113
+      },
+      "equal": true
+    },
+    "ordered_complete_phases": [
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate512",
+        "phase": "Preflight",
+        "ns": 375,
+        "allocation": {
+          "start_live": 33709449,
+          "end_live": 33709449,
+          "peak_live": 33709449,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate512",
+        "phase": "Normalize",
+        "ns": 83750,
+        "allocation": {
+          "start_live": 33709449,
+          "end_live": 33824137,
+          "peak_live": 33824137,
+          "peak_additional": 114688,
+          "requested_bytes": 234048,
+          "freed_bytes": 119360,
+          "alloc_calls": 173,
+          "dealloc_calls": 168,
+          "realloc_calls": 14,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate512",
+        "phase": "Preflight",
+        "ns": 5250,
+        "allocation": {
+          "start_live": 33824137,
+          "end_live": 33824137,
+          "peak_live": 33824137,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate512",
+        "phase": "Nodes",
+        "ns": 200375,
+        "allocation": {
+          "start_live": 33824137,
+          "end_live": 33840521,
+          "peak_live": 33840521,
+          "peak_additional": 16384,
+          "requested_bytes": 16384,
+          "freed_bytes": 0,
+          "alloc_calls": 1,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate512",
+        "phase": "ProductTree",
+        "ns": 8560500,
+        "allocation": {
+          "start_live": 33840521,
+          "end_live": 34225489,
+          "peak_live": 34276465,
+          "peak_additional": 435944,
+          "requested_bytes": 1155800,
+          "freed_bytes": 770832,
+          "alloc_calls": 3145,
+          "dealloc_calls": 2121,
+          "realloc_calls": 20,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate512",
+        "phase": "Numerators",
+        "ns": 16196500,
+        "allocation": {
+          "start_live": 34225489,
+          "end_live": 34258257,
+          "peak_live": 34334785,
+          "peak_additional": 109296,
+          "requested_bytes": 1985776,
+          "freed_bytes": 1953008,
+          "alloc_calls": 7269,
+          "dealloc_calls": 7267,
+          "realloc_calls": 32,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate512",
+        "phase": "Derivatives",
+        "ns": 66875,
+        "allocation": {
+          "start_live": 34258257,
+          "end_live": 34323697,
+          "peak_live": 34323697,
+          "peak_additional": 65440,
+          "requested_bytes": 65440,
+          "freed_bytes": 0,
+          "alloc_calls": 4,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate512",
+        "phase": "RemainderEvaluation",
+        "ns": 152631500,
+        "allocation": {
+          "start_live": 34323697,
+          "end_live": 34389233,
+          "peak_live": 34497041,
+          "peak_additional": 173344,
+          "requested_bytes": 21414048,
+          "freed_bytes": 21348512,
+          "alloc_calls": 65756,
+          "dealloc_calls": 65752,
+          "realloc_calls": 288,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate512",
+        "phase": "FinitePart",
+        "ns": 98542,
+        "allocation": {
+          "start_live": 34389233,
+          "end_live": 34389233,
+          "peak_live": 34405617,
+          "peak_additional": 16384,
+          "requested_bytes": 16384,
+          "freed_bytes": 16384,
+          "alloc_calls": 4,
+          "dealloc_calls": 4,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate512",
+        "phase": "Collect",
+        "ns": 23459,
+        "allocation": {
+          "start_live": 33856905,
+          "end_live": 33889673,
+          "peak_live": 33889673,
+          "peak_additional": 32768,
+          "requested_bytes": 32768,
+          "freed_bytes": 0,
+          "alloc_calls": 2,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      }
+    ],
+    "reported_fast_coefficient_vector_bytes": 40960,
+    "allocator_net_bytes": 40960,
+    "unclassified_allocator_net_beyond_returned_coefficients_bytes": 0,
+    "input_allocation": {
+      "event": "diagnostic_input_allocation",
+      "case": "intermediate512",
+      "allocation": {
+        "start_live": 33596169,
+        "end_live": 33657609,
+        "peak_live": 33657609,
+        "peak_additional": 61440,
+        "requested_bytes": 65504,
+        "freed_bytes": 4064,
+        "alloc_calls": 6,
+        "dealloc_calls": 0,
+        "realloc_calls": 7,
+        "lifetime_peak": 41988113
+      }
+    },
+    "basis_allocation": {
+      "event": "diagnostic_basis_allocation",
+      "case": "intermediate512",
+      "allocation": {
+        "start_live": 33747721,
+        "end_live": 33846025,
+        "peak_live": 33846329,
+        "peak_additional": 98608,
+        "requested_bytes": 1130479,
+        "freed_bytes": 1032175,
+        "alloc_calls": 30722,
+        "dealloc_calls": 30720,
+        "realloc_calls": 3072,
+        "lifetime_peak": 41988113
+      }
+    },
+    "group_allocation": {
+      "event": "diagnostic_synthetic_group_allocation",
+      "case": "intermediate512",
+      "accepted": {
+        "start_live": 33846025,
+        "end_live": 33846025,
+        "peak_live": 33846329,
+        "peak_additional": 304,
+        "requested_bytes": 1548266,
+        "freed_bytes": 1548266,
+        "alloc_calls": 46080,
+        "dealloc_calls": 46080,
+        "realloc_calls": 4608,
+        "lifetime_peak": 41988113
+      },
+      "grouped": {
+        "start_live": 33846025,
+        "end_live": 33846025,
+        "peak_live": 33846329,
+        "peak_additional": 304,
+        "requested_bytes": 1032182,
+        "freed_bytes": 1032182,
+        "alloc_calls": 30720,
+        "dealloc_calls": 30720,
+        "realloc_calls": 3072,
+        "lifetime_peak": 41988113
+      },
+      "product_encoding": false
+    }
+  },
+  {
+    "case": "intermediate1024",
+    "whole": {
+      "event": "diagnostic_whole",
+      "case": "intermediate1024",
+      "order": "fast_accepted",
+      "accepted_ns": 36589875,
+      "fast_observed_ns": 386210958,
+      "phase_sum_ns": 386134082,
+      "residual_ns": 76876,
+      "accepted_allocation": {
+        "start_live": 33803657,
+        "end_live": 33901961,
+        "peak_live": 33901961,
+        "peak_additional": 98304,
+        "requested_bytes": 98304,
+        "freed_bytes": 0,
+        "alloc_calls": 3,
+        "dealloc_calls": 0,
+        "realloc_calls": 0,
+        "lifetime_peak": 41988113
+      },
+      "fast_allocation": {
+        "start_live": 33721737,
+        "end_live": 33803657,
+        "peak_live": 35363361,
+        "peak_additional": 1641624,
+        "requested_bytes": 56770760,
+        "freed_bytes": 56688840,
+        "alloc_calls": 154407,
+        "dealloc_calls": 154404,
+        "realloc_calls": 940,
+        "lifetime_peak": 41988113
+      },
+      "equal": true
+    },
+    "ordered_complete_phases": [
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate1024",
+        "phase": "Preflight",
+        "ns": 1416,
+        "allocation": {
+          "start_live": 33721737,
+          "end_live": 33721737,
+          "peak_live": 33721737,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate1024",
+        "phase": "Normalize",
+        "ns": 126750,
+        "allocation": {
+          "start_live": 33721737,
+          "end_live": 33951113,
+          "peak_live": 33951113,
+          "peak_additional": 229376,
+          "requested_bytes": 471728,
+          "freed_bytes": 242352,
+          "alloc_calls": 347,
+          "dealloc_calls": 342,
+          "realloc_calls": 16,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate1024",
+        "phase": "Preflight",
+        "ns": 7000,
+        "allocation": {
+          "start_live": 33951113,
+          "end_live": 33951113,
+          "peak_live": 33951113,
+          "peak_additional": 0,
+          "requested_bytes": 0,
+          "freed_bytes": 0,
+          "alloc_calls": 0,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate1024",
+        "phase": "Nodes",
+        "ns": 429041,
+        "allocation": {
+          "start_live": 33951113,
+          "end_live": 33983881,
+          "peak_live": 33983881,
+          "peak_additional": 32768,
+          "requested_bytes": 32768,
+          "freed_bytes": 0,
+          "alloc_calls": 1,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate1024",
+        "phase": "ProductTree",
+        "ns": 17942167,
+        "allocation": {
+          "start_live": 33983881,
+          "end_live": 34819409,
+          "peak_live": 34920081,
+          "peak_additional": 936200,
+          "requested_bytes": 2549864,
+          "freed_bytes": 1714336,
+          "alloc_calls": 6312,
+          "dealloc_calls": 4264,
+          "realloc_calls": 44,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate1024",
+        "phase": "Numerators",
+        "ns": 39840500,
+        "allocation": {
+          "start_live": 34819409,
+          "end_live": 34884945,
+          "peak_live": 35034225,
+          "peak_additional": 214816,
+          "requested_bytes": 4456544,
+          "freed_bytes": 4391008,
+          "alloc_calls": 14622,
+          "dealloc_calls": 14620,
+          "realloc_calls": 80,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate1024",
+        "phase": "Derivatives",
+        "ns": 132083,
+        "allocation": {
+          "start_live": 34884945,
+          "end_live": 35015921,
+          "peak_live": 35015921,
+          "peak_additional": 130976,
+          "requested_bytes": 130976,
+          "freed_bytes": 0,
+          "alloc_calls": 4,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate1024",
+        "phase": "RemainderEvaluation",
+        "ns": 327429083,
+        "allocation": {
+          "start_live": 35015921,
+          "end_live": 35146993,
+          "peak_live": 35363361,
+          "peak_additional": 347440,
+          "requested_bytes": 49030576,
+          "freed_bytes": 48899504,
+          "alloc_calls": 133115,
+          "dealloc_calls": 133111,
+          "realloc_calls": 800,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate1024",
+        "phase": "FinitePart",
+        "ns": 178375,
+        "allocation": {
+          "start_live": 35146993,
+          "end_live": 35146993,
+          "peak_live": 35179761,
+          "peak_additional": 32768,
+          "requested_bytes": 32768,
+          "freed_bytes": 32768,
+          "alloc_calls": 4,
+          "dealloc_calls": 4,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      },
+      {
+        "event": "diagnostic_phase",
+        "case": "intermediate1024",
+        "phase": "Collect",
+        "ns": 47667,
+        "allocation": {
+          "start_live": 34016649,
+          "end_live": 34082185,
+          "peak_live": 34082185,
+          "peak_additional": 65536,
+          "requested_bytes": 65536,
+          "freed_bytes": 0,
+          "alloc_calls": 2,
+          "dealloc_calls": 0,
+          "realloc_calls": 0,
+          "lifetime_peak": 41988113
+        }
+      }
+    ],
+    "reported_fast_coefficient_vector_bytes": 81920,
+    "allocator_net_bytes": 81920,
+    "unclassified_allocator_net_beyond_returned_coefficients_bytes": 0,
+    "input_allocation": {
+      "event": "diagnostic_input_allocation",
+      "case": "intermediate1024",
+      "allocation": {
+        "start_live": 33596169,
+        "end_live": 33719049,
+        "peak_live": 33719049,
+        "peak_additional": 122880,
+        "requested_bytes": 131040,
+        "freed_bytes": 8160,
+        "alloc_calls": 6,
+        "dealloc_calls": 0,
+        "realloc_calls": 8,
+        "lifetime_peak": 41988113
+      }
+    },
+    "basis_allocation": {
+      "event": "diagnostic_basis_allocation",
+      "case": "intermediate1024",
+      "allocation": {
+        "start_live": 33899273,
+        "end_live": 34095881,
+        "peak_live": 34096185,
+        "peak_additional": 196912,
+        "requested_bytes": 2260966,
+        "freed_bytes": 2064358,
+        "alloc_calls": 61442,
+        "dealloc_calls": 61440,
+        "realloc_calls": 6144,
+        "lifetime_peak": 41988113
+      }
+    },
+    "group_allocation": {
+      "event": "diagnostic_synthetic_group_allocation",
+      "case": "intermediate1024",
+      "accepted": {
+        "start_live": 34095881,
+        "end_live": 34095881,
+        "peak_live": 34096185,
+        "peak_additional": 304,
+        "requested_bytes": 3096529,
+        "freed_bytes": 3096529,
+        "alloc_calls": 92160,
+        "dealloc_calls": 92160,
+        "realloc_calls": 9216,
+        "lifetime_peak": 41988113
+      },
+      "grouped": {
+        "start_live": 34095881,
+        "end_live": 34095881,
+        "peak_live": 34096185,
+        "peak_additional": 304,
+        "requested_bytes": 2064357,
+        "freed_bytes": 2064357,
+        "alloc_calls": 61440,
+        "dealloc_calls": 61440,
+        "realloc_calls": 6144,
+        "lifetime_peak": 41988113
+      },
+      "product_encoding": false
+    }
+  }
+]

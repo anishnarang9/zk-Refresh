@@ -1,0 +1,23 @@
+{
+  "release-build-001": {
+    "build_path": "artifacts/dynark/phase-2/cross-term/release-target/timing/release/phase2-cross-bench",
+    "retained_path": "artifacts/dynark/phase-2/cross-term/release-build-001/executables/phase2-cross-bench",
+    "sha256": "65c093a3b027a64f55c5918f086e264713cdff880549475d191b847167c0604f",
+    "bytes": 1077920,
+    "mode": "0o700",
+    "source_snapshot": "source-005",
+    "profile": "release",
+    "allocator_instrumented": false
+  },
+  "release-diag-build-001": {
+    "build_path": "artifacts/dynark/phase-2/cross-term/release-target/diagnostic/release/phase2-cross-bench",
+    "retained_path": "artifacts/dynark/phase-2/cross-term/release-diag-build-001/executables/phase2-cross-bench",
+    "sha256": "8cdaa07c0ff97fa5dce5ac5258652bd035051253c87dacd2aa37969e0722f876",
+    "bytes": 1126976,
+    "mode": "0o700",
+    "source_snapshot": "source-005",
+    "profile": "release",
+    "allocator_instrumented": true,
+    "rustflags": "--cfg=t4_alloc_diag"
+  }
+}

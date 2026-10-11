@@ -1,0 +1,35 @@
+{
+  "scope": "analysis-only reporting failures; no crate/source/benchmark failure, no additional timing run",
+  "trials": [
+    {
+      "name": "initial inline extraction",
+      "error": "ZeroDivisionError: division by zero",
+      "cause": "tiny0 has zero accepted timer values; ratios are undefined for those records",
+      "resolution": "retain raw records, report 13 undefined field ratios and use only 17 defined ratios for ratio summary, without dropping time samples"
+    },
+    {
+      "name": "analyze_synthetic.py first invocation",
+      "argv": [
+        "python3",
+        "results/dynark/phase-2/cross-term/analyze_synthetic.py"
+      ],
+      "cwd": "/Users/anishnarang/Zk-refresh",
+      "exit_code": 1,
+      "error": "AssertionError at assertion that Fast allocator end_live-start_live equals reported coefficient vector bytes",
+      "cause": "tiny2 first FFT-bearing process call retains extra 34328 allocator bytes in ProductTree",
+      "resolution": "record net retention and unclassified excess explicitly; vector bytes and requested process bytes have distinct meanings; no source change or extra run"
+    }
+  ],
+  "final_analysis": {
+    "argv": [
+      "python3",
+      "results/dynark/phase-2/cross-term/analyze_synthetic.py"
+    ],
+    "exit_code": 0,
+    "validated": true,
+    "pairs": 248980606,
+    "group_calls": 657404,
+    "snapshot_files": 39,
+    "drift": []
+  }
+}

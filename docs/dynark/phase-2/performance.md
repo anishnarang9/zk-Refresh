@@ -1,6 +1,6 @@
 # Performance hypotheses and accounting
 
-October 10, 2026. **No fresh Phase 2 speed or memory improvement is established yet.** Phase 1 values below are retained historical measurements checked against primary JSON in this phase, not rerun measurements.
+October 10–11, 2026. **No complete credential or session speed improvement is established yet.** Fresh isolated experiments below are negative for their tested admission conditions. Phase 1 values are retained historical measurements checked against primary JSON in this phase, not rerun measurements.
 
 E2 `e2-report.json` records public preparation 382,968.881750 ms, private preparation 510,322.833875 ms and validated warm-filesystem reload 63,452.820625 ms. E4 `profile-v1/summary.json` records 201,326,592 requested bytes retained by two private projection vectors, 747,917,192 requested bytes added by UK-with-PK load, and exact equality of both reprepared N=1,048,576 projection vectors. Instrumented proof timings are not substituted for E2 samples. Full satisfaction is included in the Phase 2 validated engine and must be charged symmetrically in any comparison.
 
@@ -26,6 +26,12 @@ The [isolated experiment](../../../results/dynark/phase-2/representation/glv/rep
 Thirty counterbalanced measured batches after two excluded warm-ups at each of N=256 and N=4096 show a negative paid-work result for 65 sampled multipliers repeated once or four times. Table construction plus multiplication plus destruction lost in every measured pair. At N=256, four repeats took median 7.643 ms pinned versus 8.089 ms paid cached; at N=4096, 7.464 versus 15.776 ms. Warm cached multiplication was modestly lower, but these short batches do not establish a precise speed percentage or a full FFT benefit.
 
 Separate allocation diagnostics observed zero cached-kernel allocation calls, versus 8,468 calls/258,064 requested traffic bytes for four pinned repeats. Construction itself incurred 16,902/270,342 calls for N=256/4096 and retained 41,040/655,440 requested bytes. The entire public table is charged despite only 65 sampled multipliers. Requested heap, sampled RSS and logical table payload are reported separately; the very short N=256 diagnostic RSS sample is underresolved. This rejects admission for the tested low-reuse workloads. Higher reuse remains an unmeasured hypothesis; no product integration or complete preparation/session gain is approved by these observations.
+
+### P2-E4b observed cross-kernel result
+
+The [frozen synthetic experiment](../../../results/dynark/phase-2/cross-term/synthetic-timing-report.md) completed exact coefficient and separate group comparisons within its finite budget. On 30 counterbalanced uninstrumented pairs per primary case, Fast lost every comparison for support unions of at least two. Synthetic far/middle/near median weighted quadratic times were 2.040/51.991/206.895 ms; Fast times were 168.507/1304.777/2730.016 ms. Median paired ratios were 84.28/25.05/13.20. Four intermediate sizes had only two exploratory pairs each and also lost. No reliable crossover was observed, so P2-D12 retains the direct quadratic production kernel without a threshold selector or dynamic schema change.
+
+The separate diagnostic observed 517,072,496 requested traffic bytes, 785,174 allocation calls and 8,122,696 additional peak live requested bytes for near Fast; remainder evaluation occupied 90.9% of the observed whole call. These quantities differ from RSS and normal timing. Combining coefficients reduced synthetic group calls for overlapping supports, but the near/middle/far disjoint cases had equal calls and nearly equal group time; no complete-update gain follows. Actual credential supports and total-session measurements remain open. The public synthetic tables and group bases are not a validated credential package or private preparation result.
 
 ## Selective dependency hypothesis for T7 review
 
