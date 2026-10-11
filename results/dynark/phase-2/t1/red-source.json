@@ -1,0 +1,15 @@
+{
+  "purpose": "Meaningful fail-closed RNG stub: valid proof, entropy source propagation and rejection draw count fail before implementation. No algebra gate relaxed.",
+  "files": [
+    {
+      "path": "crates/dynark-bn254/src/randomness.rs",
+      "sha256": "e2a93b66a7738c801ec136c5c9813fa09705f38435060d76874bf43acb498381"
+    },
+    {
+      "path": "crates/dynark-bn254/tests/full_conformance.rs",
+      "sha256": "013f566990e51583f7dec16b7fe0d5b6e54d4a2454218a3a4167c3eed49b033d"
+    }
+  ],
+  "test_result": "3 passed; 6 failed; failure cause stub never consumed caller entropy",
+  "log": "artifacts/dynark/phase-2/t1/test-red/stdout.log"
+}

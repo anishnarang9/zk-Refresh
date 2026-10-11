@@ -1,0 +1,25 @@
+[package]
+name = "dynark-bn254"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+dynark = { package = "ark-groth16", path = "vendor/ark-groth16" }
+ordinary = { package = "ark-groth16", version = "=0.5.0" }
+ark-bn254 = "=0.5.0"
+ark-ff = "=0.5.0"
+ark-ec = "=0.5.0"
+ark-poly = "=0.5.0"
+ark-relations = "=0.5.1"
+ark-serialize = "=0.5.0"
+rand = "=0.8.8"
+sha2 = "=0.10.9"
+
+[profile.dev]
+debug = 0
+incremental = false
+
+[profile.test]
+debug = 0
+incremental = false

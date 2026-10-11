@@ -1,0 +1,102 @@
+{
+  "reference_pin": "c73a380df86d8f5d195f1e20c8a1d86a7dce084b",
+  "snapshot": [
+    {
+      "path": "LICENSE-APACHE",
+      "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+      "bytes": 10847
+    },
+    {
+      "path": "LICENSE-MIT",
+      "sha256": "8f71659370c5268d9a1dc962a46232540e8fca63462586d8efaa95aab492a208",
+      "bytes": 1046
+    },
+    {
+      "path": "ark-groth16/Cargo.toml",
+      "sha256": "0230b6c4c87d5c5a174ee8bb1049e53458574755a868df1ce2eeb29f4954576c",
+      "bytes": 4225
+    },
+    {
+      "path": "ark-groth16/README.md",
+      "sha256": "d5bfe579eb73b8deff348409c24e267256ef9fc67919ece7ef6f1372596d9326",
+      "bytes": 2671
+    },
+    {
+      "path": "ark-groth16/src/constraints.rs",
+      "sha256": "d0aca7ffa5a4aef004c4e0276dd29ac829c29d63a6a09a7482dbc5809e4016a5",
+      "bytes": 20130
+    },
+    {
+      "path": "ark-groth16/src/data_structures.rs",
+      "sha256": "272b6688d7352dbf329bb40b93f2d788ce10b33612ab05deacf63961e4a5a679",
+      "bytes": 6615
+    },
+    {
+      "path": "ark-groth16/src/dynamic_cache.rs",
+      "sha256": "fecd160dd22b705326db22fb9b125d8d5ed82e2765f34179feedf665fdff5823",
+      "bytes": 29901
+    },
+    {
+      "path": "ark-groth16/src/dynark_generator.rs",
+      "sha256": "4bcb08ba6f1a1c4d55cb7136db5c8989e7f56ffb5e6c15f6e11956f6788b1103",
+      "bytes": 10759
+    },
+    {
+      "path": "ark-groth16/src/dynark_prover.rs",
+      "sha256": "5575e85562da40578887098dccd45652e5b985319ccc1bb3734fb5e33de447ac",
+      "bytes": 12729
+    },
+    {
+      "path": "ark-groth16/src/dynark_verifier.rs",
+      "sha256": "f561c7d2dfd441953dbf5f53473e0047182e1b9fb1e308ff216988b9c01fd9ef",
+      "bytes": 1692
+    },
+    {
+      "path": "ark-groth16/src/fft_handler.rs",
+      "sha256": "a278d4e66f2b34f37380f0537e9560fe818f9bf65a099d1f045f24928ddf3a7e",
+      "bytes": 57448
+    },
+    {
+      "path": "ark-groth16/src/generator.rs",
+      "sha256": "2106abf52c1221856f14cf8452aa3c901d97fc5ec54dff2c3b84b3d4b95b05d5",
+      "bytes": 2294
+    },
+    {
+      "path": "ark-groth16/src/instance_generator.rs",
+      "sha256": "2b45622fcb94ae0fca983ae45efc8e57ff2aa3f5028af2a492f5d71d817bc3b9",
+      "bytes": 7118
+    },
+    {
+      "path": "ark-groth16/src/lib.rs",
+      "sha256": "588fd35d1aff01f24ea3f3ac39077aff13fb8d8a5fecd552c446f5e09b004103",
+      "bytes": 6154
+    },
+    {
+      "path": "ark-groth16/src/prover.rs",
+      "sha256": "86a2bf4b20c03b2884374a9528f8c4a4eef9c83bbfcd4eb4efce8ffea82a4f16",
+      "bytes": 8344
+    },
+    {
+      "path": "ark-groth16/src/r1cs_to_qap.rs",
+      "sha256": "45b86e8b59522a0b7c5121326ad644f311c77517eb76d05440fab7321ba0b5e1",
+      "bytes": 15434
+    },
+    {
+      "path": "ark-groth16/src/test.rs",
+      "sha256": "fb0e88e38078c4c4efb1a39a260dac4f3c74390dda6edc701852abb88c964cdf",
+      "bytes": 5888
+    },
+    {
+      "path": "ark-groth16/src/utils.rs",
+      "sha256": "f89698fd651ae8129cc6a154bdbf59950fed5c2322c60526f667f87c960f2e00",
+      "bytes": 5314
+    },
+    {
+      "path": "ark-groth16/src/verifier.rs",
+      "sha256": "b2ebfd34e80fd55b5f1a3d7c6deb28956ae1b0d37ca39067d2cbbebee2ffdf41",
+      "bytes": 3299
+    }
+  ],
+  "probe_lock_sha256": "8ac93d908b9fbada9e9844037d398241b117c25483c59b9298a49d698eb9374e",
+  "reference_diff_sha256": "cce04ed6e83262cfbbb934fe035a77b57c6e54620cf95bf9598c714d241321e0"
+}
