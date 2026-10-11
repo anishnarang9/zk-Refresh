@@ -1,0 +1,466 @@
+{
+  "schema": 1,
+  "gate": "P2-E4a standalone/same-key small correctness only",
+  "parent_acceptance": "pending independent review/rerun",
+  "baseline_commit": "b6b00954290b32fb87d74b0b404a83d32ff48dba",
+  "reference_pin": "c73a380df86d8f5d195f1e20c8a1d86a7dce084b",
+  "sources_sha256": {
+    "crates/dynark-bn254/src/cross.rs": "63483f6a0c3ebac424ced53383354641230320cc50f2f6f2d81065800f214869",
+    "crates/dynark-bn254/src/cross_proof_tests.rs": "38f52796ada9553738c80e55fcfcb0b5ae4890411085fdf3638323525f3763ff",
+    "crates/dynark-bn254/tests/cross_conformance.rs": "2565174768a95d8e4f51511abaeb736e9540dbe775dc1a99480ec8bbfa13dfa8",
+    "crates/dynark-bn254/Cargo.toml": "45215cb72b2d609506ced27e4c60f192856f559d43382647cc863da13c46e58f",
+    "crates/dynark-bn254/Cargo.lock": "aaf70b9ecf4dbbefc4d6c1cb34a3eabb7762860884f100497a22f92fd70d75c8",
+    "results/dynark/phase-2/bootstrap/bounded_runner.py": "f2a0669b538f3f67751fafd132fee25211b637cc1082f24c4a40a43f85d01137"
+  },
+  "source_snapshot_manifest": "results/dynark/phase-2/cross-term/source-002.json",
+  "executables": {
+    "snapshot-green-002": {
+      "path": "artifacts/dynark/phase-2/cross-term/source-001/crates/dynark-bn254/target/debug/build/dynark-bn254/b744b236409a3dcb/out/cross_conformance-b744b236409a3dcb",
+      "sha256": "f84bc7c48331aaaa394f9ea7ea56fee60bdfbbbb5ef5e4f2ba6b48135db2c52a",
+      "bytes": 5316928,
+      "mode": "0o700"
+    },
+    "snapshot-proof-001": {
+      "path": "artifacts/dynark/phase-2/cross-term/source-001/crates/dynark-bn254/target/debug/build/dynark-bn254/024d1e214ee3da85/out/dynark_bn254-024d1e214ee3da85",
+      "sha256": "c92597e0c3089453a0704da2efb1ac76c540d5869129a6acd333e5597dff3924",
+      "bytes": 12792096,
+      "mode": "0o700"
+    }
+  },
+  "resolved_dependencies": [
+    {
+      "name": "ark-bn254",
+      "version": "0.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "checksum": "d69eab57e8d2663efa5c63135b2af4f396d66424f88954c21104125ab6b3e6bc"
+    },
+    {
+      "name": "ark-ec",
+      "version": "0.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "checksum": "43d68f2d516162846c1238e755a7c4d131b892b70cc70c471a8e3ca3ed818fce"
+    },
+    {
+      "name": "ark-ff",
+      "version": "0.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "checksum": "a177aba0ed1e0fbb62aa9f6d0502e9b46dad8c2eab04c14258a1212d2557ea70"
+    },
+    {
+      "name": "ark-groth16",
+      "version": "0.5.0",
+      "source": "local-product-fork",
+      "checksum": null
+    },
+    {
+      "name": "ark-groth16",
+      "version": "0.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "checksum": "88f1d0f3a534bb54188b8dcc104307db6c56cdae574ddc3212aec0625740fc7e"
+    },
+    {
+      "name": "ark-poly",
+      "version": "0.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "checksum": "579305839da207f02b89cd1679e50e67b4331e2f9294a57693e5051b7703fe27"
+    },
+    {
+      "name": "ark-relations",
+      "version": "0.5.1",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "checksum": "ec46ddc93e7af44bcab5230937635b06fb5744464dd6a7e7b083e80ebd274384"
+    },
+    {
+      "name": "ark-serialize",
+      "version": "0.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "checksum": "3f4d068aaf107ebcd7dfb52bc748f8030e0fc930ac8e360146ca54c1203088f7"
+    },
+    {
+      "name": "rand",
+      "version": "0.8.8",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "checksum": "e058c7de0b26af77780c769414d6257830bb240f3c38477dbc2c16e5f54d6d4c"
+    },
+    {
+      "name": "rand",
+      "version": "0.9.5",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "checksum": "b9ef1d0d795eb7d84685bca4f72f3649f064e6641543d3a8c415898726a57b41"
+    },
+    {
+      "name": "sha2",
+      "version": "0.10.9",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "checksum": "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283"
+    }
+  ],
+  "runs": {
+    "red-001": {
+      "report": "results/dynark/phase-2/cross-term/red-001.json",
+      "invocation": {
+        "owner": "t4-cross-red",
+        "argv": [
+          "env",
+          "RAYON_NUM_THREADS=4",
+          "CARGO_BUILD_JOBS=2",
+          "cargo",
+          "test",
+          "--locked",
+          "--test",
+          "cross_conformance",
+          "finite_part_matches_direct_field_sums",
+          "--",
+          "--exact",
+          "--nocapture"
+        ],
+        "cwd": "/Users/anishnarang/Zk-refresh/crates/dynark-bn254",
+        "started_at_utc": "2026-10-11T01:09:03.014301+00:00",
+        "storage_roots": [
+          "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/red-001",
+          "/Users/anishnarang/Zk-refresh/crates/dynark-bn254/target"
+        ]
+      },
+      "summary": {
+        "passed": false,
+        "exit_code": 101,
+        "stop_reason": null,
+        "duration_seconds": 1.138617584016174,
+        "sample_count": 5,
+        "sampled_peak_owned_tree_rss_bytes": 177979392,
+        "sampled_peak_storage_growth_bytes": 24609,
+        "cleanup_remaining_owned_processes": 0,
+        "cleanup_status_unknown": false
+      }
+    },
+    "red-002": {
+      "report": "results/dynark/phase-2/cross-term/red-002.json",
+      "invocation": {
+        "owner": "t4-cross-red",
+        "argv": [
+          "env",
+          "RAYON_NUM_THREADS=4",
+          "CARGO_BUILD_JOBS=2",
+          "cargo",
+          "test",
+          "--locked",
+          "--test",
+          "cross_conformance",
+          "finite_part_matches_direct_field_sums",
+          "--",
+          "--exact",
+          "--nocapture"
+        ],
+        "cwd": "/Users/anishnarang/Zk-refresh/crates/dynark-bn254",
+        "started_at_utc": "2026-10-11T01:09:14.824756+00:00",
+        "storage_roots": [
+          "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/red-002",
+          "/Users/anishnarang/Zk-refresh/crates/dynark-bn254/target"
+        ]
+      },
+      "summary": {
+        "passed": false,
+        "exit_code": 101,
+        "stop_reason": null,
+        "duration_seconds": 1.421801791060716,
+        "sample_count": 6,
+        "sampled_peak_owned_tree_rss_bytes": 227459072,
+        "sampled_peak_storage_growth_bytes": 1829475,
+        "cleanup_remaining_owned_processes": 0,
+        "cleanup_status_unknown": false
+      }
+    },
+    "green-001": {
+      "report": "results/dynark/phase-2/cross-term/green-001.json",
+      "invocation": {
+        "owner": "t4-cross-green",
+        "argv": [
+          "env",
+          "RAYON_NUM_THREADS=4",
+          "CARGO_BUILD_JOBS=2",
+          "cargo",
+          "test",
+          "--locked",
+          "--test",
+          "cross_conformance",
+          "--",
+          "--nocapture",
+          "--test-threads=1"
+        ],
+        "cwd": "/Users/anishnarang/Zk-refresh/crates/dynark-bn254",
+        "started_at_utc": "2026-10-11T01:15:17.279757+00:00",
+        "storage_roots": [
+          "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/green-001",
+          "/Users/anishnarang/Zk-refresh/crates/dynark-bn254/target"
+        ]
+      },
+      "summary": {
+        "passed": false,
+        "exit_code": 101,
+        "stop_reason": null,
+        "duration_seconds": 1.4218503329902887,
+        "sample_count": 6,
+        "sampled_peak_owned_tree_rss_bytes": 233799680,
+        "sampled_peak_storage_growth_bytes": 9196,
+        "cleanup_remaining_owned_processes": 0,
+        "cleanup_status_unknown": false
+      }
+    },
+    "snapshot-green-001": {
+      "report": "results/dynark/phase-2/cross-term/snapshot-green-001.json",
+      "invocation": {
+        "owner": "t4-cross-snapshot-green",
+        "argv": [
+          "env",
+          "RAYON_NUM_THREADS=4",
+          "CARGO_BUILD_JOBS=2",
+          "cargo",
+          "test",
+          "--locked",
+          "--test",
+          "cross_conformance",
+          "--",
+          "--nocapture",
+          "--test-threads=1"
+        ],
+        "cwd": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/source-001/crates/dynark-bn254",
+        "started_at_utc": "2026-10-11T01:16:48.910492+00:00",
+        "storage_roots": [
+          "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/snapshot-green-001",
+          "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/source-001/crates/dynark-bn254/target"
+        ]
+      },
+      "summary": {
+        "passed": false,
+        "exit_code": 101,
+        "stop_reason": null,
+        "duration_seconds": 19.14659566699993,
+        "sample_count": 78,
+        "sampled_peak_owned_tree_rss_bytes": 801144832,
+        "sampled_peak_storage_growth_bytes": 155953269,
+        "cleanup_remaining_owned_processes": 0,
+        "cleanup_status_unknown": false
+      }
+    },
+    "snapshot-green-002": {
+      "report": "results/dynark/phase-2/cross-term/snapshot-green-002.json",
+      "invocation": {
+        "owner": "t4-cross-snapshot-green",
+        "argv": [
+          "env",
+          "RAYON_NUM_THREADS=4",
+          "CARGO_BUILD_JOBS=2",
+          "CARGO_TARGET_DIR=/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/source-001/crates/dynark-bn254/target",
+          "cargo",
+          "test",
+          "--locked",
+          "--test",
+          "cross_conformance",
+          "--",
+          "--nocapture",
+          "--test-threads=1"
+        ],
+        "cwd": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/source-002/crates/dynark-bn254",
+        "started_at_utc": "2026-10-11T01:19:37.231534+00:00",
+        "storage_roots": [
+          "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/snapshot-green-002",
+          "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/source-001/crates/dynark-bn254/target"
+        ]
+      },
+      "summary": {
+        "passed": true,
+        "exit_code": 0,
+        "stop_reason": null,
+        "duration_seconds": 50.79253887501545,
+        "sample_count": 205,
+        "sampled_peak_owned_tree_rss_bytes": 458260480,
+        "sampled_peak_storage_growth_bytes": 7727847,
+        "cleanup_remaining_owned_processes": 0,
+        "cleanup_status_unknown": false
+      }
+    },
+    "snapshot-proof-001": {
+      "report": "results/dynark/phase-2/cross-term/snapshot-proof-001.json",
+      "invocation": {
+        "owner": "t4-cross-snapshot-proof",
+        "argv": [
+          "env",
+          "RAYON_NUM_THREADS=4",
+          "CARGO_BUILD_JOBS=2",
+          "CARGO_TARGET_DIR=/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/source-001/crates/dynark-bn254/target",
+          "cargo",
+          "test",
+          "--locked",
+          "--lib",
+          "cross_proof_tests::",
+          "--",
+          "--nocapture",
+          "--test-threads=1"
+        ],
+        "cwd": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/source-002/crates/dynark-bn254",
+        "started_at_utc": "2026-10-11T01:20:33.739995+00:00",
+        "storage_roots": [
+          "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/snapshot-proof-001",
+          "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/cross-term/source-001/crates/dynark-bn254/target"
+        ]
+      },
+      "summary": {
+        "passed": true,
+        "exit_code": 0,
+        "stop_reason": null,
+        "duration_seconds": 14.945695166941732,
+        "sample_count": 61,
+        "sampled_peak_owned_tree_rss_bytes": 414892032,
+        "sampled_peak_storage_growth_bytes": 29931298,
+        "cleanup_remaining_owned_processes": 0,
+        "cleanup_status_unknown": false
+      }
+    }
+  },
+  "fixtures": [
+    {
+      "v": "5",
+      "rows": "5",
+      "N": "8",
+      "reduction": "Original",
+      "matrix": "f233ecca00adf08530be17dd7366f2b44e8b35b03879cf15806178f96aef5392",
+      "circuit": "2d45f8c626c7857f5be2bd5ec740cfc6486a6322f807406e07e646b00976579f",
+      "pk": "704a2e4992ed339ee12c085221853c82299822747e255271fe8933038fde02c7",
+      "vk": "7a0b81efdc25e73c6f1dbc3515d0ac7e78629a613f2ed0cc0e631aef043637f7",
+      "package": "23f203aaa7b97af70ffe64b2ad2b9b47b43cabba98243d55d3d4226c84efe023",
+      "setup_seed": "82"
+    },
+    {
+      "v": "5",
+      "rows": "5",
+      "N": "8",
+      "reduction": "InstanceAugmentedA",
+      "matrix": "f233ecca00adf08530be17dd7366f2b44e8b35b03879cf15806178f96aef5392",
+      "circuit": "d301235248bbef7f942c16bec4cad91846fabef1be318f85ac132491aa6a2d7a",
+      "pk": "b50b559d2edd0c81c92143919a0733262bfe9181fa5370c794c0924a62be1315",
+      "vk": "f1cde58eac80b3160add93615869f7a6cade155c388d90fea8b8df230b36d2a8",
+      "package": "64fbd9bf3c9ae1f27edb9d34bc9a9cd924d6c826b3265f22af815d20206f1826",
+      "setup_seed": "82"
+    },
+    {
+      "v": "11",
+      "rows": "5",
+      "N": "8",
+      "reduction": "Original",
+      "matrix": "e809e811b945715eca8987cbbf00884df4210bf5f801209e9838ae6409933726",
+      "circuit": "9783d33c5193981ebe026f523911126ab799f896260559f907aeeaca9e29b6d3",
+      "pk": "476550819f20e0383c135c015db2d524cd6441c4f9445983e13948341bd9a7a5",
+      "vk": "f067f09082d980265357e5535b7edac3742531094861137e6dbce6602bd257eb",
+      "package": "d96e1669483845a3afd9aa8b462d373321a6156d20a5abf29bcc20632c178e75",
+      "setup_seed": "82"
+    },
+    {
+      "v": "11",
+      "rows": "5",
+      "N": "8",
+      "reduction": "InstanceAugmentedA",
+      "matrix": "e809e811b945715eca8987cbbf00884df4210bf5f801209e9838ae6409933726",
+      "circuit": "2e4a8e8ebed963b4a43be3f29189e756ca8c37f500f018220d4292d2d3c387d6",
+      "pk": "7e805830abc7662529baa7fb4f84aa726764cf5564ab7a59db8cf4db2526fd18",
+      "vk": "4ab1a930e7d3c3c74d2ffadb003615f0a4ce5d736d90d404dcba840152a9f62c",
+      "package": "f2ce45fd6984ff2cc14977c3ff1ce249df945973750ff7a81ca01411f41e03ac",
+      "setup_seed": "82"
+    },
+    {
+      "v": "13",
+      "rows": "9",
+      "N": "16",
+      "reduction": "Original",
+      "matrix": "a590f138eed284c99e510324ae9d0da2c7cee9364e2a85e1287245314d4675a5",
+      "circuit": "898f2521e410c5b0b59ad651b301c1249b7134a2944ad6d88c885aa3a69347e4",
+      "pk": "3f8d308f98f32508352af565ec2d3d04379696f0b8f0fbc51cbecf5b046eec16",
+      "vk": "4c01d2925b3d2d13eeb3bdf3950ce7ead3ec984f43eb32464e49c38d32c6b197",
+      "package": "75ffae48477fd41b71eb138907d48d7358ee90bc040116be414b52c702a27561",
+      "setup_seed": "82"
+    },
+    {
+      "v": "13",
+      "rows": "9",
+      "N": "16",
+      "reduction": "InstanceAugmentedA",
+      "matrix": "a590f138eed284c99e510324ae9d0da2c7cee9364e2a85e1287245314d4675a5",
+      "circuit": "ebc24270b7d3cd842d5cc736d9d2f0917ed25ab99570c3599c2b96fa44725304",
+      "pk": "be4b53175957c1fc8780bc56a939e8d3b7e508c1034f8308cf7209739f55f8c9",
+      "vk": "2ac827c58636ca4dc42f0367676c74e02ff7e7901ce8306babaf18365bc4fbf9",
+      "package": "e5c79a6c8639fe604b1295cc989e16de29caddbfb684fde31ca4f8092ef9b467",
+      "setup_seed": "82"
+    },
+    {
+      "v": "19",
+      "rows": "9",
+      "N": "16",
+      "reduction": "Original",
+      "matrix": "5f41054b8f50f764356aee77204176bc11a814674a792a5b4d7f2d92bea40100",
+      "circuit": "95f137bf7884727453ed28eea15fedebf037927439687b7e8f66432f00f89dd5",
+      "pk": "18fb2cc7cf5e2b2fec21540fb8526a5b697c7e5909bdeb5f159f789e956505aa",
+      "vk": "4982167e16534de17cf6b554bf7bf7dfd85198cc8ad7790f980aba538deb6862",
+      "package": "646667c9c843586f8e9acfeaa68c2536b1209e05d55015bec3feeb73f7dd526c",
+      "setup_seed": "82"
+    },
+    {
+      "v": "19",
+      "rows": "9",
+      "N": "16",
+      "reduction": "InstanceAugmentedA",
+      "matrix": "5f41054b8f50f764356aee77204176bc11a814674a792a5b4d7f2d92bea40100",
+      "circuit": "759b1ec632e4b8e3ba4c5db4756eba8d1138e4cb4b7f67bf27835370acb047da",
+      "pk": "8b3489192aea19eb8d5c77e15f305bc7da3d32bd412cf2ab9942160130002b87",
+      "vk": "4a1430faa8544b6854bea5a3cb5ec6684369254148c0ba12f6088f37b66f1e7a",
+      "package": "82a1eb794f77d1978982c2cc314b86ee908c858230bcd6827139c799d53763c9",
+      "setup_seed": "82"
+    }
+  ],
+  "conditions": {
+    "rustc": "1.100.0-nightly (908501772 2026-08-30)",
+    "cargo": "1.100.0-nightly (e8cb624d5 2026-08-22)",
+    "os": "Darwin25.6.0",
+    "architecture": "arm64",
+    "rayon_num_threads_configured": 4,
+    "cargo_build_jobs_configured": 2,
+    "test_threads": 1,
+    "notes": [
+      "Runner environment metadata describes runner; child invocation explicitly sets Rayon/build variables via env. No observed parallel-speed claim.",
+      "RSS/storage limits sampled by existing runner; brief spikes can be missed."
+    ]
+  },
+  "correctness": {
+    "standalone_tests_passed": 12,
+    "same_key_test_passed": 1,
+    "field_random_cases": 112,
+    "dense_quotient_random_cases": 48,
+    "finite_part_vector_cases": 24,
+    "division_cases": 44,
+    "same_key_transitions": 48,
+    "same_key_method_runs": 96,
+    "ordinary_accepts": 96,
+    "altered_statement_rejects": 96,
+    "pair_visits_standalone_integration": 811016,
+    "pair_visits_finite_part": 24090,
+    "pair_visits_division": 51158,
+    "pair_visits_standalone_total": 886264,
+    "pair_visits_same_key": 23320,
+    "pair_case_cap": 1000000,
+    "pair_invocation_cap": 20000000,
+    "public_seeds": {
+      "field": 8373430210047796273,
+      "quotient": 8373442356383607089,
+      "finite_part": 8373445642133794097,
+      "division": 8373428011309556785,
+      "setup_fixture": 82
+    }
+  },
+  "limits": [
+    "No live integration or dynamic-state claim; tests use accepted-T2 snapshot with explicit module overlays.",
+    "No timing/crossover/credential input or preparation. Proposed later plan is not authorized.",
+    "Polynomial core uses fast FFT multiplication and reversed/Newton division; complete call adds raw normalization and s root exponentiations O(s log N).",
+    "Weighted quadratic uses shared immutable table and exact A-by-B Cartesian pair loops; accepted anchored comparator remains unchanged.",
+    "Candidate encoding combines L coefficients by union index and skips zero; fair later complete-group benchmarking must retain/label accepted separate-support comparator.",
+    "Package/material authentication, valid assignments, caller entropy and application freshness remain owner/external boundaries.",
+    "Structural preflight is deliberately conservative, not actual allocator/RSS measurement or OOM recovery."
+  ]
+}
