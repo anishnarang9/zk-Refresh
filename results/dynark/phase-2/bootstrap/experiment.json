@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "recorded_at_utc": "2026-10-11T00:37:46.770703+00:00",
+  "owner": "evidence_steward",
+  "experiment": "P2-B0 fresh bootstrap preservation and dummy watchdog validation",
+  "working_root": "/Users/anishnarang/Zk-refresh",
+  "status": "recorded_before_execution",
+  "authorization": "Parent-dispatched bounded read-only verification; no crypto/build/profile job",
+  "hypothesis": "All original baseline and retained E2 identities/modes still match original manifests after relocation; helper enforces limits on its owned processes",
+  "sources": [
+    "results/dynark/phase-1/baseline-freeze.json",
+    "results/dynark/phase-1/e2-build-manifest.json",
+    "results/dynark/phase-1/e2-preservation.json",
+    "results/dynark/phase-1/revised-validation.json"
+  ],
+  "bounds": {
+    "hash_wall_seconds": 180,
+    "hash_additional_rss_bytes": 134217728,
+    "stream_chunk_bytes": 1048576,
+    "dummy_validation_wall_seconds": 60,
+    "dummy_validation_rss_bytes": 134217728,
+    "new_storage_bytes": 16777216
+  },
+  "execution_slot": "light read-only hashing and public dummy Python subprocesses only; T1 owns sole small Rust build/test slot",
+  "stops": [
+    "hash/mode mismatch: preserve and notify parent; do not repair frozen inputs",
+    "runtime/RSS/storage bound",
+    "unexpected owned-process cleanup failure"
+  ],
+  "reporting": "Private full path/hash manifest with mode600; public aggregates, existing public source/build identities and no private command output",
+  "excluded": [
+    "proving",
+    "setup",
+    "build",
+    "profiler",
+    "credential-scale run",
+    "vendor edits",
+    "Phase1 edits"
+  ],
+  "historical_path_policy": "Map /Users/anishnarang/Zk-fresh/ relative paths to current root for verification; original manifests stay unchanged"
+}

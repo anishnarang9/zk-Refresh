@@ -37,6 +37,18 @@ Expansion yields `Quo(a_current db+b_current da+da db)`, including the new cross
 
 The [architecture](architecture.md) freezes generation, threshold, overshoot, failure and memory contracts. T5 first closes the known odd-log FFT and tail-batch progress defects. The proposed concrete scheduler must be reviewed before implementation; high-level algebra approval does not validate a state machine. Small repairs needed to establish progress are authorized now.
 
+### T0 second review and parent disposition
+
+The [independent Sol high review](evidence/t0-review.md) confirms the finite-part formula, grouped correction ordering and ordinary security limits. Parent also inspected the supplied paper extraction at pp13–15 and pp19–23 and the reference's actual update/reconstruction vectors. T0 is complete as a specification gate; no runtime gate is closed by this review.
+
+Approve the independently derived in-place radix-two reconstruction candidate with explicit bit-reversal, butterfly, normalization and bounded row/copy cursors. Every supported odd/even log size uses the same algorithm; do not copy square-half assumptions. All zeroing, allocation/materialization, stage transitions and public table preparation must be accounted for. A partial reconstruction is retained between calls; repeatedly running eager K is not an implementation of this design.
+
+Approve quota `F(u)=floor(W*u/b)` with checked arithmetic and at most one threshold crossing when t<b and 0<d<=b. Complete the old builder before promotion; carry e=t+d-b as prepaid scheduling credit on a new builder frozen at the whole accepted target, never as a fictitious witness. New pending corrections start empty and the transition is not applied again. Parent checked the boundary argument: adjacent actual snapshots can be less than 2b apart; the previous active snapshot and current partial block therefore require a conservative 4b assignment-distance cap. Record this 4b extension explicitly; do not claim the paper's ideal 2b bound. Row support, pair work and memory have independent caps because assignment distance does not bound fanout.
+
+One initialization may share already-complete initial projections; do not count that as a distinct completed reconstruction. Required sequence evidence must include completed work for distinct frozen snapshots and atomic promotions. Optional background work reduces outstanding quota without double charging. All maintenance, copied pages/undo state, fallback and abandoned work remain charged. Quota units establish bounded operation counts, not a wall-time guarantee.
+
+Before a transition mutates committed state, preflight validation/identity, entropy, bounds and allocation requirements. Reconstruction/proof work must use a bounded staged representation or charged undo/copy-on-write strategy; failure injection must demonstrate the previous committed generation is preserved. The exact concrete representation is subject to implementation review, small sequence tests and a peak-memory preflight before credential-scale execution. Reference two-checkpoint vector counts are structural estimates only; they are not measured product memory.
+
 ## Security and discriminating fixtures
 
 Follow [Phase 1 security analysis](../phase-1/evidence/paper-security.md), including the benign relation/auxiliary-input generator assumption inherited from Groth. Correct raw component equality with fresh independent uniform r/s supports the conditional transcript argument under valid-state/no-leakage assumptions. It does not prove arbitrary auxiliary-input, simulation-extractability, cache-compromise, forward-security, timing privacy or production setup claims. No quantitative BN254 security claim is added.
