@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "owner": "t3-glv",
+  "started_at_utc": "2026-10-11T00:52:53.805124+00:00",
+  "ended_at_utc": "2026-10-11T00:52:54.101442+00:00",
+  "timezone": [
+    "EST",
+    "EDT"
+  ],
+  "duration_seconds": 0.2963542500510812,
+  "limits": {
+    "runtime_seconds": 300,
+    "owned_tree_rss_bytes": 268435456,
+    "storage_growth_bytes": 2147483648,
+    "poll_seconds": 0.2
+  },
+  "stop_reason": null,
+  "exit_code": 0,
+  "runner_error_type": null,
+  "cleanup_remaining_owned_processes": 0,
+  "cleanup_status_unknown": false,
+  "sample_count": 2,
+  "samples": [
+    {
+      "elapsed_seconds": 0.02121479099150747,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 1998848,
+      "storage_growth_bytes": 1315
+    },
+    {
+      "elapsed_seconds": 0.2740503749810159,
+      "owned_process_count": 0,
+      "owned_tree_rss_bytes": 0,
+      "storage_growth_bytes": 1573
+    }
+  ],
+  "sampled_peak_owned_tree_rss_bytes": 1998848,
+  "sampled_peak_storage_growth_bytes": 1573,
+  "environment": {
+    "RAYON_NUM_THREADS": "4",
+    "OMP_NUM_THREADS": null,
+    "TZ": null
+  },
+  "measurement_notes": [
+    "RSS from ps KiB converted to bytes; sum of live owned tree; not heap allocation",
+    "storage is positive logical file-size growth per supplied root; excludes deleted-file peak between samples",
+    "limits sampled; short spikes and daemonized ancestry escape between samples may be missed",
+    "samples exclude runner/ps RSS; storage report written after the measured command",
+    "child stdout/stderr/argv retained only in protected output"
+  ],
+  "passed": true
+}

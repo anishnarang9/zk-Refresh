@@ -19,6 +19,14 @@ Candidate: retain exact signed GLV decompositions for repeatedly used **public F
 
 Reject this candidate if retained public memory/load outweighs allocation/time savings or if it complicates the bounded scheduler without measured benefit. A lower allocation count alone is not a speed claim. Dependency source remains pinned; no global Cargo registry patch is allowed. Public preparation, private preparation and full proving must each state whether they use the candidate, so a backend improvement is not attributed uniquely to DYNARK.
 
+### P2-E3a observed result
+
+The [isolated experiment](../../../results/dynark/phase-2/representation/glv/report.md) is complete. Parent reviewed the exact multiplication recipe, read raw diagnostic/timing samples and aggregate statistics, confirmed executable/source hashes, and independently reran all three equality tests (passed in 1.64 seconds). Tests cover all forward/inverse twiddle entries through N=4096, normalization and boundary/exceptional/rescaled points. The product backend remains unchanged.
+
+Thirty counterbalanced measured batches after two excluded warm-ups at each of N=256 and N=4096 show a negative paid-work result for 65 sampled multipliers repeated once or four times. Table construction plus multiplication plus destruction lost in every measured pair. At N=256, four repeats took median 7.643 ms pinned versus 8.089 ms paid cached; at N=4096, 7.464 versus 15.776 ms. Warm cached multiplication was modestly lower, but these short batches do not establish a precise speed percentage or a full FFT benefit.
+
+Separate allocation diagnostics observed zero cached-kernel allocation calls, versus 8,468 calls/258,064 requested traffic bytes for four pinned repeats. Construction itself incurred 16,902/270,342 calls for N=256/4096 and retained 41,040/655,440 requested bytes. The entire public table is charged despite only 65 sampled multipliers. Requested heap, sampled RSS and logical table payload are reported separately; the very short N=256 diagnostic RSS sample is underresolved. This rejects admission for the tested low-reuse workloads. Higher reuse remains an unmeasured hypothesis; no product integration or complete preparation/session gain is approved by these observations.
+
 ## Selective dependency hypothesis for T7 review
 
 A requested projection entry `q_i^A=sum_j a_j phi_ij` depends on the entire nonzero anchor A vector, not only coordinate i. An on-demand direct calculation can avoid retaining both full N-entry vectors, but costs dense anchor traversal and group work per requested entry; sparse requested output alone does not imply cheaper preparation. A bounded selective cache may compute a few requested entries and otherwise choose validated full proving. Cache identity includes exact anchor/setup/action and requested rows. No cross-action reuse is approved.

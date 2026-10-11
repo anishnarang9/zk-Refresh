@@ -1,0 +1,313 @@
+{
+  "snapshot": {
+    "accepted_product_commit": "9dc054788a5b4cf3c403e485773af985554b49f0",
+    "snapshot_file_hashes": [
+      [
+        "crates/dynark-bn254/Cargo.lock",
+        "aaf70b9ecf4dbbefc4d6c1cb34a3eabb7762860884f100497a22f92fd70d75c8"
+      ],
+      [
+        "crates/dynark-bn254/Cargo.toml",
+        "45215cb72b2d609506ced27e4c60f192856f559d43382647cc863da13c46e58f"
+      ],
+      [
+        "crates/dynark-bn254/README.md",
+        "308ea3d134d9e3e2e67e36e41146a5d3837d62e878cbfa50880fef95d0678352"
+      ],
+      [
+        "crates/dynark-bn254/src/artifact.rs",
+        "a3c916f333ad7663b2d81c29b4d54a030752b8348092f09ca6798b8b23df25af"
+      ],
+      [
+        "crates/dynark-bn254/src/full.rs",
+        "8aa23983a9524d3b72022552a219be457ad970b02c7ca385de3ef8d4956b6579"
+      ],
+      [
+        "crates/dynark-bn254/src/lib.rs",
+        "f2c5a65b0dfbaee2dd736b260799a0c65d4e609ca1f34bb3da84df816d4efc79"
+      ],
+      [
+        "crates/dynark-bn254/src/randomness.rs",
+        "7fc2324647ae948009854dcca956dcf8ca80e890d68a562f739f5984cc7a6cbc"
+      ],
+      [
+        "crates/dynark-bn254/tests/full_conformance.rs",
+        "2647c89712e3068d5d43a435376983e814a7b34ec9b99d4f9208051ac3928dc5"
+      ],
+      [
+        "crates/dynark-bn254/vendor/ark-groth16/Cargo.toml",
+        "0230b6c4c87d5c5a174ee8bb1049e53458574755a868df1ce2eeb29f4954576c"
+      ],
+      [
+        "crates/dynark-bn254/vendor/ark-groth16/LICENSE-APACHE",
+        "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+      ],
+      [
+        "crates/dynark-bn254/vendor/ark-groth16/LICENSE-MIT",
+        "8f71659370c5268d9a1dc962a46232540e8fca63462586d8efaa95aab492a208"
+      ],
+      [
+        "crates/dynark-bn254/vendor/ark-groth16/PATCHES.md",
+        "4c6c17017d0b4baf79d81725178c79088bec26ea9903fc624969c80d3e4ae46c"
+      ],
+      [
+        "crates/dynark-bn254/vendor/ark-groth16/README.md",
+        "d5bfe579eb73b8deff348409c24e267256ef9fc67919ece7ef6f1372596d9326"
+      ],
+      [
+        "crates/dynark-bn254/vendor/ark-groth16/src/constraints.rs",
+        "d0aca7ffa5a4aef004c4e0276dd29ac829c29d63a6a09a7482dbc5809e4016a5"
+      ],
+      [
+        "crates/dynark-bn254/vendor/ark-groth16/src/data_structures.rs",
+        "272b6688d7352dbf329bb40b93f2d788ce10b33612ab05deacf63961e4a5a679"
+      ],
+      [
+        "crates/dynark-bn254/vendor/ark-groth16/src/dynamic_cache.rs",
+        "fecd160dd22b705326db22fb9b125d8d5ed82e2765f34179feedf665fdff5823"
+      ],
+      [
+        "crates/dynark-bn254/vendor/ark-groth16/src/dynark_generator.rs",
+        "4bcb08ba6f1a1c4d55cb7136db5c8989e7f56ffb5e6c15f6e11956f6788b1103"
+      ],
+      [
+        "crates/dynark-bn254/vendor/ark-groth16/src/dynark_prover.rs",
+        "5575e85562da40578887098dccd45652e5b985319ccc1bb3734fb5e33de447ac"
+      ],
+      [
+        "crates/dynark-bn254/vendor/ark-groth16/src/dynark_verifier.rs",
+        "f561c7d2dfd441953dbf5f53473e0047182e1b9fb1e308ff216988b9c01fd9ef"
+      ],
+      [
+        "crates/dynark-bn254/vendor/ark-groth16/src/fft_handler.rs",
+        "a278d4e66f2b34f37380f0537e9560fe818f9bf65a099d1f045f24928ddf3a7e"
+      ],
+      [
+        "crates/dynark-bn254/vendor/ark-groth16/src/generator.rs",
+        "2106abf52c1221856f14cf8452aa3c901d97fc5ec54dff2c3b84b3d4b95b05d5"
+      ],
+      [
+        "crates/dynark-bn254/vendor/ark-groth16/src/instance_generator.rs",
+        "2b45622fcb94ae0fca983ae45efc8e57ff2aa3f5028af2a492f5d71d817bc3b9"
+      ],
+      [
+        "crates/dynark-bn254/vendor/ark-groth16/src/lib.rs",
+        "588fd35d1aff01f24ea3f3ac39077aff13fb8d8a5fecd552c446f5e09b004103"
+      ],
+      [
+        "crates/dynark-bn254/vendor/ark-groth16/src/prover.rs",
+        "86a2bf4b20c03b2884374a9528f8c4a4eef9c83bbfcd4eb4efce8ffea82a4f16"
+      ],
+      [
+        "crates/dynark-bn254/vendor/ark-groth16/src/r1cs_to_qap.rs",
+        "45b86e8b59522a0b7c5121326ad644f311c77517eb76d05440fab7321ba0b5e1"
+      ],
+      [
+        "crates/dynark-bn254/vendor/ark-groth16/src/test.rs",
+        "fb0e88e38078c4c4efb1a39a260dac4f3c74390dda6edc701852abb88c964cdf"
+      ],
+      [
+        "crates/dynark-bn254/vendor/ark-groth16/src/utils.rs",
+        "f89698fd651ae8129cc6a154bdbf59950fed5c2322c60526f667f87c960f2e00"
+      ],
+      [
+        "crates/dynark-bn254/vendor/ark-groth16/src/verifier.rs",
+        "b2ebfd34e80fd55b5f1a3d7c6deb28956ae1b0d37ca39067d2cbbebee2ffdf41"
+      ],
+      [
+        "crates/dynark-bn254/src/bin/phase2-glv-ablation.rs",
+        "6f22f3a90e8fe6533ee58b8d01f94bff6c5b56087b8d84facb6206839ce82e11"
+      ]
+    ],
+    "snapshot_identity_sha256": "358f19da668cee067bfd66873462a67c5111ca9ebb81067546e12c75688d1604",
+    "binary_source_sha256": "6f22f3a90e8fe6533ee58b8d01f94bff6c5b56087b8d84facb6206839ce82e11"
+  },
+  "source_sha256": "6f22f3a90e8fe6533ee58b8d01f94bff6c5b56087b8d84facb6206839ce82e11",
+  "lock_sha256": "aaf70b9ecf4dbbefc4d6c1cb34a3eabb7762860884f100497a22f92fd70d75c8",
+  "executables": {
+    "target-timing": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/glv/target-timing/release/phase2-glv-ablation",
+      "sha256": "5550f0f4af85216f232037eb675608e1c4e38de07038bc6e45e61e7347d46a62",
+      "allocator_cfg": false
+    },
+    "target-diagnostic": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/glv/target-diagnostic/release/phase2-glv-ablation",
+      "sha256": "1924a8075d545ba09284b21bc40076d7376f03a5e3edd6d2bede636fbc5aa03e",
+      "allocator_cfg": true
+    },
+    "tests": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/glv/target-timing/release/build/dynark-bn254/423b90a0fa22d0d8/out/phase2_glv_ablation-423b90a0fa22d0d8",
+      "sha256": "5417ced292efbdca371279e2808873fc0761e3a69962d267537b0b39f1a9aff7",
+      "allocator_cfg": false
+    }
+  },
+  "fixtures": {
+    "256": {
+      "generation_recipe_sha256": "fe89504cac75defe29dc641ce6601512f9d11933a08e520792060d23d72b1fd2",
+      "identity_kind": "deterministic public generation recipe, not serialized content digest"
+    },
+    "4096": {
+      "generation_recipe_sha256": "4233788762833cc7b2bed545896c8884139b38d8f3f7c4f61b82b1fc570b2452",
+      "identity_kind": "deterministic public generation recipe, not serialized content digest"
+    }
+  },
+  "commands": {
+    "build-diagnostic": {
+      "argv": [
+        "/usr/bin/env",
+        "CARGO_TARGET_DIR=/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/glv/target-diagnostic",
+        "RUSTFLAGS=--cfg=glv_alloc",
+        "RAYON_NUM_THREADS=4",
+        "cargo",
+        "build",
+        "--offline",
+        "--locked",
+        "--release",
+        "--bin",
+        "phase2-glv-ablation",
+        "-j1"
+      ],
+      "cwd": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/glv/snapshot-t1/crates/dynark-bn254",
+      "runner_report": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/representation/glv/build-diagnostic.json",
+      "passed": true,
+      "duration_seconds": 46.002862708061,
+      "sampled_peak_tree_rss_bytes": 574275584,
+      "sampled_storage_growth_bytes": 147232408
+    },
+    "diagnostic-n256": {
+      "argv": [
+        "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/glv/target-diagnostic/release/phase2-glv-ablation",
+        "diagnostic",
+        "256"
+      ],
+      "cwd": "/Users/anishnarang/Zk-refresh",
+      "runner_report": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/representation/glv/diagnostic-n256.json",
+      "passed": true,
+      "duration_seconds": 0.27139604091644287,
+      "sampled_peak_tree_rss_bytes": 32768,
+      "sampled_storage_growth_bytes": 1558
+    },
+    "tests": {
+      "argv": [
+        "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/glv/target-timing/release/build/dynark-bn254/423b90a0fa22d0d8/out/phase2_glv_ablation-423b90a0fa22d0d8",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/anishnarang/Zk-refresh",
+      "runner_report": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/representation/glv/tests.json",
+      "passed": true,
+      "duration_seconds": 2.1376895420253277,
+      "sampled_peak_tree_rss_bytes": 3555328,
+      "sampled_storage_growth_bytes": 757
+    },
+    "parent-tests": {
+      "argv": [
+        "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/glv/target-timing/release/build/dynark-bn254/423b90a0fa22d0d8/out/phase2_glv_ablation-423b90a0fa22d0d8",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/anishnarang/Zk-refresh",
+      "runner_report": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/representation/glv/parent-tests.json",
+      "passed": true,
+      "duration_seconds": 1.8873015840072185,
+      "sampled_peak_tree_rss_bytes": 3538944,
+      "sampled_storage_growth_bytes": 787
+    },
+    "timing-n4096": {
+      "argv": [
+        "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/glv/target-timing/release/phase2-glv-ablation",
+        "timing",
+        "4096"
+      ],
+      "cwd": "/Users/anishnarang/Zk-refresh",
+      "runner_report": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/representation/glv/timing-n4096.json",
+      "passed": true,
+      "duration_seconds": 0.9453573329374194,
+      "sampled_peak_tree_rss_bytes": 3014656,
+      "sampled_storage_growth_bytes": 37665
+    },
+    "timing-n256": {
+      "argv": [
+        "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/glv/target-timing/release/phase2-glv-ablation",
+        "timing",
+        "256"
+      ],
+      "cwd": "/Users/anishnarang/Zk-refresh",
+      "runner_report": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/representation/glv/timing-n256.json",
+      "passed": true,
+      "duration_seconds": 0.9584175830241293,
+      "sampled_peak_tree_rss_bytes": 2146304,
+      "sampled_storage_growth_bytes": 37206
+    },
+    "build-tests": {
+      "argv": [
+        "/usr/bin/env",
+        "CARGO_TARGET_DIR=/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/glv/target-timing",
+        "RAYON_NUM_THREADS=4",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--release",
+        "--bin",
+        "phase2-glv-ablation",
+        "--no-run",
+        "-j1"
+      ],
+      "cwd": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/glv/snapshot-t1/crates/dynark-bn254",
+      "runner_report": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/representation/glv/build-tests.json",
+      "passed": true,
+      "duration_seconds": 2.0960599170066416,
+      "sampled_peak_tree_rss_bytes": 222904320,
+      "sampled_storage_growth_bytes": 1130615
+    },
+    "build-timing": {
+      "argv": [
+        "/usr/bin/env",
+        "CARGO_TARGET_DIR=/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/glv/target-timing",
+        "RAYON_NUM_THREADS=4",
+        "cargo",
+        "build",
+        "--offline",
+        "--locked",
+        "--release",
+        "--bin",
+        "phase2-glv-ablation",
+        "-j1"
+      ],
+      "cwd": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/glv/snapshot-t1/crates/dynark-bn254",
+      "runner_report": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/representation/glv/build-timing.json",
+      "passed": true,
+      "duration_seconds": 46.00056904100347,
+      "sampled_peak_tree_rss_bytes": 575094784,
+      "sampled_storage_growth_bytes": 147230078
+    },
+    "diagnostic-n4096": {
+      "argv": [
+        "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/glv/target-diagnostic/release/phase2-glv-ablation",
+        "diagnostic",
+        "4096"
+      ],
+      "cwd": "/Users/anishnarang/Zk-refresh",
+      "runner_report": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/representation/glv/diagnostic-n4096.json",
+      "passed": true,
+      "duration_seconds": 0.2963542500510812,
+      "sampled_peak_tree_rss_bytes": 1998848,
+      "sampled_storage_growth_bytes": 1573
+    }
+  },
+  "environment": {
+    "rustc": "rustc 1.100.0-nightly (908501772 2026-08-30)\nbinary: rustc\ncommit-hash: 90850177249efe0321573c569aec5d12b257f8d6\ncommit-date: 2026-08-30\nhost: aarch64-apple-darwin\nrelease: 1.100.0-nightly\nLLVM version: 23.1.0\n",
+    "cargo": "cargo 1.100.0-nightly (e8cb624d5 2026-08-22)",
+    "os": "ProductName:\t\tmacOS\nProductVersion:\t\t26.6.2\nBuildVersion:\t\t25G83\n",
+    "hardware": "Mac15,6\n11\n19327352832\n",
+    "RAYON_NUM_THREADS": "4",
+    "timing_RUSTFLAGS": "unset",
+    "diagnostic_RUSTFLAGS": "--cfg=glv_alloc",
+    "offline": true,
+    "locked": true,
+    "jobs": 1,
+    "inherited_RUSTFLAGS": null,
+    "inherited_CARGO_ENCODED_RUSTFLAGS": null
+  },
+  "target_total_logical_bytes": 295566261,
+  "bounded_runner_sha256": "f2a0669b538f3f67751fafd132fee25211b637cc1082f24c4a40a43f85d01137"
+}
