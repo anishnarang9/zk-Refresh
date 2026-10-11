@@ -16,6 +16,8 @@ mod delta;
 mod full;
 pub mod import;
 mod randomness;
+mod reconstruction;
+mod dynamic;
 
 pub use artifact::{
     public_schema_digest, CircuitDescriptor, PackageIdentity, PublicPackage, Reduction, Shape,
@@ -24,10 +26,15 @@ pub use artifact::{
 pub use full::{prove, ProofStatement};
 pub use anchored::{Anchor, UpdatingMaterial};
 pub use delta::{AnchorBinding, Limits, MatrixTouch, PreparedTransition, RowDeltas, Transition, TransitionStats};
+pub use reconstruction::{ReconstructionMaterial, ReconstructionPhase, WorkEvent};
+pub use dynamic::{CapPolicy, DynamicConfig, DynamicPreparation, DynamicState, DynamicStatus, PreparationProgress, UpdateProgress, WorkLedger};
 
 /// Typed failures never contain a partial proof or private assignment.
 #[derive(Debug)]
 pub enum Error {
+    Busy,
+    NotReady,
+    Cancelled,
     Shape(&'static str),
     Matrix(&'static str),
     Schema(&'static str),

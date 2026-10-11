@@ -1,0 +1,201 @@
+{
+  "scope": "synthetic finite P2-E5a; hardened final build003/unit002/dynamic002; no actual credential or scale claims",
+  "source_identity": "source-before-build-003.json",
+  "after_identity": "source-after-gate-003.json",
+  "source_drift": [],
+  "runs": [
+    {
+      "run": "build-001",
+      "passed": false,
+      "exit_code": 101,
+      "stop_reason": null,
+      "duration_seconds": 2.218470333958976,
+      "sample_count": 9,
+      "sampled_tree_rss_bytes": 416448512,
+      "sampled_logical_storage_growth_bytes": 13793195,
+      "remaining_owned_processes": 0
+    },
+    {
+      "run": "build-002",
+      "passed": true,
+      "exit_code": 0,
+      "stop_reason": null,
+      "duration_seconds": 5.563093167031184,
+      "sample_count": 21,
+      "sampled_tree_rss_bytes": 699252736,
+      "sampled_logical_storage_growth_bytes": 24577147,
+      "remaining_owned_processes": 0
+    },
+    {
+      "run": "unit-001",
+      "passed": false,
+      "exit_code": 101,
+      "stop_reason": null,
+      "duration_seconds": 112.34229937498458,
+      "sample_count": 431,
+      "sampled_tree_rss_bytes": 8880128,
+      "sampled_logical_storage_growth_bytes": 6378,
+      "remaining_owned_processes": 0
+    },
+    {
+      "run": "focused-001",
+      "passed": true,
+      "exit_code": 0,
+      "stop_reason": null,
+      "duration_seconds": 17.742315290961415,
+      "sample_count": 69,
+      "sampled_tree_rss_bytes": 400293888,
+      "sampled_logical_storage_growth_bytes": 17845551,
+      "remaining_owned_processes": 0
+    },
+    {
+      "run": "dynamic-001",
+      "passed": true,
+      "exit_code": 0,
+      "stop_reason": null,
+      "duration_seconds": 69.72686058399267,
+      "sample_count": 271,
+      "sampled_tree_rss_bytes": 6684672,
+      "sampled_logical_storage_growth_bytes": 1098,
+      "remaining_owned_processes": 0
+    },
+    {
+      "run": "build-003",
+      "passed": true,
+      "exit_code": 0,
+      "stop_reason": null,
+      "duration_seconds": 3.50571850000415,
+      "sample_count": 14,
+      "sampled_tree_rss_bytes": 659947520,
+      "sampled_logical_storage_growth_bytes": 23214472,
+      "remaining_owned_processes": 0
+    },
+    {
+      "run": "unit-002",
+      "passed": true,
+      "exit_code": 0,
+      "stop_reason": null,
+      "duration_seconds": 132.6826232499443,
+      "sample_count": 514,
+      "sampled_tree_rss_bytes": 10108928,
+      "sampled_logical_storage_growth_bytes": 5916,
+      "remaining_owned_processes": 0
+    },
+    {
+      "run": "dynamic-002",
+      "passed": true,
+      "exit_code": 0,
+      "stop_reason": null,
+      "duration_seconds": 71.33660699997563,
+      "sample_count": 276,
+      "sampled_tree_rss_bytes": 6799360,
+      "sampled_logical_storage_growth_bytes": 3169,
+      "remaining_owned_processes": 0
+    }
+  ],
+  "dynamic_aggregates": [
+    {
+      "domain": 2,
+      "assignment_len": 5,
+      "dense": false,
+      "transitions": 360,
+      "private_structural_bytes": 5752,
+      "shared_public_structural_bytes": 4160,
+      "ledger": {
+        "saturated": false,
+        "initialization_actions": 13,
+        "adopted_cells": 8,
+        "header_actions": 163,
+        "attempted_reconstruction_actions": 7615,
+        "committed_reconstruction_actions": 7615,
+        "attempted_group_scalar_calls": 3888,
+        "attempted_field_mul_calls": 1944,
+        "committed_group_scalar_calls": 3888,
+        "committed_field_mul_calls": 1944,
+        "validation_entries": 2520,
+        "assignment_copied_elements": 1800,
+        "map_merge_elements": 4560,
+        "quadratic_pair_visits": 2604,
+        "group_preimages": 1296,
+        "field_preimages": 1944,
+        "mark_clear_visits": 3240,
+        "rollback_cells": 0,
+        "full_fallbacks": 0,
+        "completed_distinct_snapshots": 162
+      }
+    },
+    {
+      "domain": 8,
+      "assignment_len": 5,
+      "dense": false,
+      "transitions": 360,
+      "private_structural_bytes": 13392,
+      "shared_public_structural_bytes": 7280,
+      "ledger": {
+        "saturated": false,
+        "initialization_actions": 50,
+        "adopted_cells": 32,
+        "header_actions": 163,
+        "attempted_reconstruction_actions": 40339,
+        "committed_reconstruction_actions": 40339,
+        "attempted_group_scalar_calls": 20736,
+        "attempted_field_mul_calls": 12960,
+        "committed_group_scalar_calls": 20736,
+        "committed_field_mul_calls": 12960,
+        "validation_entries": 3600,
+        "assignment_copied_elements": 1800,
+        "map_merge_elements": 7980,
+        "quadratic_pair_visits": 7812,
+        "group_preimages": 5184,
+        "field_preimages": 7776,
+        "mark_clear_visits": 12960,
+        "rollback_cells": 0,
+        "full_fallbacks": 0,
+        "completed_distinct_snapshots": 162
+      }
+    },
+    {
+      "domain": 16,
+      "assignment_len": 21,
+      "dense": true,
+      "transitions": 280,
+      "private_structural_bytes": 25288,
+      "shared_public_structural_bytes": 24712,
+      "ledger": {
+        "saturated": false,
+        "initialization_actions": 99,
+        "adopted_cells": 64,
+        "header_actions": 210,
+        "attempted_reconstruction_actions": 117716,
+        "committed_reconstruction_actions": 117716,
+        "attempted_group_scalar_calls": 60384,
+        "attempted_field_mul_calls": 40274,
+        "committed_group_scalar_calls": 60384,
+        "committed_field_mul_calls": 40274,
+        "validation_entries": 24640,
+        "assignment_copied_elements": 5880,
+        "map_merge_elements": 10400,
+        "quadratic_pair_visits": 21210,
+        "group_preimages": 13408,
+        "field_preimages": 14784,
+        "mark_clear_visits": 28192,
+        "rollback_cells": 0,
+        "full_fallbacks": 0,
+        "completed_distinct_snapshots": 209
+      }
+    }
+  ],
+  "five_public": {
+    "reductions": [
+      "Original",
+      "InstanceAugmentedA"
+    ],
+    "transitions_each": 12,
+    "genuine_reconstructions_each": 7,
+    "altered_public_rejections_each": 60
+  },
+  "final_passes": {
+    "lib_unit": 17,
+    "dynamic_integration": 5
+  }
+}

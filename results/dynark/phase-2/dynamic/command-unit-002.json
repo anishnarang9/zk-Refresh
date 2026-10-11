@@ -1,0 +1,32 @@
+{
+  "argv": [
+    "python3",
+    "results/dynark/phase-2/bootstrap/bounded_runner.py",
+    "--owner",
+    "t5_dynamic-unit-002",
+    "--cwd",
+    "/Users/anishnarang/Zk-refresh",
+    "--private-output",
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/dynamic/unit-002",
+    "--report",
+    "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/dynamic/unit-002.json",
+    "--runtime-seconds",
+    "900",
+    "--rss-bytes",
+    "2147483648",
+    "--storage-bytes",
+    "2147483648",
+    "--storage-path",
+    "/Users/anishnarang/Zk-refresh/crates/dynark-bn254/target",
+    "--",
+    "env",
+    "RAYON_NUM_THREADS=4",
+    "CARGO_BUILD_JOBS=2",
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/dynamic/executables-build-003/dynark_bn254-024d1e214ee3da85",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "source_identity": "source-before-build-003.json",
+  "executable_identity": "executables-build-003.json",
+  "status": "completed PASS17/17, source no drift"
+}
