@@ -18,6 +18,7 @@ pub mod import;
 mod randomness;
 mod reconstruction;
 mod dynamic;
+pub mod persistence;
 
 pub use artifact::{
     public_schema_digest, CircuitDescriptor, PackageIdentity, PublicPackage, Reduction, Shape,

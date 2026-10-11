@@ -1,0 +1,16 @@
+{
+  "head": "01d541bf0fb5833b02f9d82280dde11dd8318120",
+  "files": {
+    "crates/dynark-bn254/Cargo.lock": "50a18e4e57bad47cf266089dc5da60f901b34332646117092f5f7084567a4a6b",
+    "crates/dynark-bn254/Cargo.toml": "267a496b140aefee243a14a150db1bc6e4d5404233820915e49cf84d599dcb51",
+    "crates/dynark-bn254/src/dynamic.rs": "079849b3675273c32527b743865ffb5dc21214203f327149b71217764ea87b45",
+    "crates/dynark-bn254/src/dynamic/persistence_codec.rs": "35e8f7fa8e5dcdbea037615e3f793d3c48b6832ae0901597cb7a785e7fcbf545",
+    "crates/dynark-bn254/src/lib.rs": "8ddfc3a926a8b99873cb1cad35da27b027e70a07bf6757c43a9843ca0c8f7138",
+    "crates/dynark-bn254/src/persistence.rs": "c6a97ea84a645a084345c4f7400e8bb849079ac393bbdfd6767f133af9214d44",
+    "crates/dynark-bn254/src/persistence/provider.rs": "7922188ca61526df8d35f20506b00fb699735bbaef90957b65affa5c702d0242",
+    "crates/dynark-bn254/src/persistence/storage.rs": "6907941f61697a321978332141b9ec13c3baea785f22f787bb0b252dad0f5bc7",
+    "crates/dynark-bn254/src/persistence/wire.rs": "408491c5a5d3c4a774a2f301240053477fa1f1e432824b738fdaffd9a0b29448",
+    "crates/dynark-bn254/src/reconstruction.rs": "b90910376efd609a9ed3a55fdddf45a68f1e9df60f564f8607a40250394fa326",
+    "crates/dynark-bn254/tests/private/persistence_private.rs": "d08a07d0089203db7b7645572dbe350479f53c96f0b5f98ce42122aab60cdaed"
+  }
+}

@@ -1424,3 +1424,6 @@ fn full_token(base: &AnchorBinding, c: &Current, p: &PublicPackage) -> Result<[u
 #[cfg(test)]
 #[path = "../tests/private/dynamic_private.rs"]
 mod tests;
+
+// Internal codec owns no public raw-state access.
+pub(crate) mod persistence_codec;

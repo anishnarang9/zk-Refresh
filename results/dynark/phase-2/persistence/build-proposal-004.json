@@ -1,0 +1,27 @@
+{
+  "owner": "t6-persistence-build-004",
+  "argv": [
+    "cargo",
+    "test",
+    "--manifest-path",
+    "crates/dynark-bn254/Cargo.toml",
+    "--lib",
+    "--no-run",
+    "--locked",
+    "--offline"
+  ],
+  "environment": {
+    "RAYON_NUM_THREADS": "4",
+    "CARGO_BUILD_JOBS": "2"
+  },
+  "bounds": {
+    "runtime_seconds": 600,
+    "rss_bytes": 2147483648,
+    "growth_bytes": 2147483648
+  },
+  "private_output": "artifacts/dynark/phase-2/persistence/build-004",
+  "report": "results/dynark/phase-2/persistence/build-004.json",
+  "storage_paths": [
+    "crates/dynark-bn254/target"
+  ]
+}

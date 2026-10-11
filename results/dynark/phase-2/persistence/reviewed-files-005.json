@@ -1,0 +1,51 @@
+{
+  "source_manifest": "source-before-build-005.json",
+  "source_manifest_sha256": "d19ac18c3848b500b1189b97c1d71a7d532bc5573756caeeed65a31838337afe",
+  "source_files": {
+    "crates/dynark-bn254/Cargo.lock": "50a18e4e57bad47cf266089dc5da60f901b34332646117092f5f7084567a4a6b",
+    "crates/dynark-bn254/Cargo.toml": "267a496b140aefee243a14a150db1bc6e4d5404233820915e49cf84d599dcb51",
+    "crates/dynark-bn254/src/dynamic.rs": "079849b3675273c32527b743865ffb5dc21214203f327149b71217764ea87b45",
+    "crates/dynark-bn254/src/dynamic/persistence_codec.rs": "35e8f7fa8e5dcdbea037615e3f793d3c48b6832ae0901597cb7a785e7fcbf545",
+    "crates/dynark-bn254/src/lib.rs": "8ddfc3a926a8b99873cb1cad35da27b027e70a07bf6757c43a9843ca0c8f7138",
+    "crates/dynark-bn254/src/persistence.rs": "c6a97ea84a645a084345c4f7400e8bb849079ac393bbdfd6767f133af9214d44",
+    "crates/dynark-bn254/src/persistence/provider.rs": "7922188ca61526df8d35f20506b00fb699735bbaef90957b65affa5c702d0242",
+    "crates/dynark-bn254/src/persistence/storage.rs": "6907941f61697a321978332141b9ec13c3baea785f22f787bb0b252dad0f5bc7",
+    "crates/dynark-bn254/src/persistence/wire.rs": "408491c5a5d3c4a774a2f301240053477fa1f1e432824b738fdaffd9a0b29448",
+    "crates/dynark-bn254/src/reconstruction.rs": "b90910376efd609a9ed3a55fdddf45a68f1e9df60f564f8607a40250394fa326",
+    "crates/dynark-bn254/tests/private/persistence_private.rs": "d08a07d0089203db7b7645572dbe350479f53c96f0b5f98ce42122aab60cdaed"
+  },
+  "additional_report_file": {
+    "docs/dynark/phase-2/evidence/t6-credential-checkpoint-supplement.md": "f06b9f20b9710a53bd9822910d23e432a077d5d0da337ba2ef083f4cc59fd4a0"
+  },
+  "immutable_executable": {
+    "path": "/Users/anishnarang/Zk-refresh/crates/dynark-bn254/target/debug/build/dynark-bn254/b64331f2da87499a/out/dynark_bn254-b64331f2da87499a",
+    "sha256": "4e48fb2d454c26163fbbd3ce03c78ceef6902711b6b50df7ed3a8e745ee1df02",
+    "size_bytes": 14553280,
+    "test_list_command": [
+      "/Users/anishnarang/Zk-refresh/crates/dynark-bn254/target/debug/build/dynark-bn254/b64331f2da87499a/out/dynark_bn254-b64331f2da87499a",
+      "--list"
+    ],
+    "t6_tests": [
+      "dynamic::persistence_codec::tests::authenticated_framing_counts_roles_reserved_cursor_adversaries_predecode",
+      "dynamic::persistence_codec::tests::concurrent_exact_base_cas_has_one_winner_and_lease_blocks_invalidation",
+      "dynamic::persistence_codec::tests::encrypted_files_exact_recovery_resave_and_whole_store_rollback",
+      "dynamic::persistence_codec::tests::entropy_second_draw_duplicates_shared_key_namespace_and_exhaustion",
+      "dynamic::persistence_codec::tests::every_storage_boundary_interruption_preserves_exact_old_receipt",
+      "dynamic::persistence_codec::tests::exact_header_caps_identities_aead_tamper_and_subgroup_quarantine",
+      "dynamic::persistence_codec::tests::full_only_nondefault_roles_distance_telemetry_and_zero_delta",
+      "dynamic::persistence_codec::tests::golden_offsets_pool_aliases_and_all_phase_fft_stream_roundtrips",
+      "dynamic::persistence_codec::tests::invalid_canonical_fields_points_raw_rows_and_alias_maps_rejected",
+      "dynamic::persistence_codec::tests::malformed_conflict_after_dispatch_retains_unknown_fence_and_files",
+      "dynamic::persistence_codec::tests::nofollow_noreplace_fifo_and_hard_store_budget",
+      "dynamic::persistence_codec::tests::physical_key_aliases_cannot_reset_nonce_namespace",
+      "dynamic::persistence_codec::tests::resumed_distinct_swaps_common_randomness_and_raw_proofs",
+      "dynamic::persistence_codec::tests::same_n_reduction_descriptor_material_and_all_five_public_negatives",
+      "dynamic::persistence_codec::tests::save_scope_half_root_map_budget_and_validation_counts_regressions",
+      "dynamic::persistence_codec::tests::save_work_caps_precede_payload_allocation_normalization_and_validation",
+      "dynamic::persistence_codec::tests::unknown_cancel_and_invalidation_prevent_late_cas_resurrection",
+      "dynamic::persistence_codec::tests::unknown_late_cas_resolution_fences_and_invalidation",
+      "dynamic::persistence_codec::tests::unsupported_media_busy_and_admission_caps_before_decode"
+    ],
+    "protected_copy": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/persistence/executables/unit-005"
+  }
+}

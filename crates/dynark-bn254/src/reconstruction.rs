@@ -820,9 +820,26 @@ pub(crate) fn step(
 }
 
 pub(crate) fn validate_cursor(c: &Cursor, n: usize, maps: &[Map; 2]) -> Result<(), Error> {
+    let neighbors = std::array::from_fn(|side| {
+        let i = c.overlay[side];
+        [
+            i.checked_sub(1)
+                .and_then(|j| maps[side].get(j))
+                .map(|x| x.0),
+            maps[side].get(i).map(|x| x.0),
+        ]
+    });
+    validate_cursor_metadata(c, n, [maps[0].len(), maps[1].len()], neighbors)
+}
+pub(crate) fn validate_cursor_metadata(
+    c: &Cursor,
+    n: usize,
+    lengths: [usize; 2],
+    neighbors: [[Option<usize>; 2]; 2],
+) -> Result<(), Error> {
     let w = work(n)?;
     let k = n.ilog2() as usize;
-    if c.done > w || c.overlay[0] > maps[0].len() || c.overlay[1] > maps[1].len() {
+    if c.done > w || c.overlay[0] > lengths[0] || c.overlay[1] > lengths[1] {
         return Err(Error::Bound("reconstruction cursor"));
     }
     let transform = n
@@ -885,16 +902,16 @@ pub(crate) fn validate_cursor(c: &Cursor, n: usize, maps: &[Map; 2]) -> Result<(
     for side in 0..2 {
         let consumed = c.overlay[side];
         if c.phase == ReconstructionPhase::InitialReadyAlias {
-            if !maps[side].is_empty() || consumed != 0 {
+            if lengths[side] != 0 || consumed != 0 {
                 return Err(Error::Bound("alias overlay"));
             }
         } else if c.phase == ReconstructionPhase::Materialize {
-            if consumed > 0 && maps[side][consumed - 1].0 >= c.index
-                || consumed < maps[side].len() && maps[side][consumed].0 < c.index
+            if consumed > 0 && neighbors[side][0].is_some_and(|row| row >= c.index)
+                || consumed < lengths[side] && neighbors[side][1].is_some_and(|row| row < c.index)
             {
                 return Err(Error::Bound("overlay cursor prefix"));
             }
-        } else if consumed != maps[side].len() {
+        } else if consumed != lengths[side] {
             return Err(Error::Bound("unconsumed overlay"));
         }
     }
@@ -936,3 +953,90 @@ mod tests;
 #[cfg(test)]
 #[path = "../tests/private/reconstruction_pilot.rs"]
 mod pilot;
+
+impl Cursor {
+    pub(crate) fn persistence_parts(&self) -> [usize; 5] {
+        [
+            self.stream,
+            self.index,
+            self.stage,
+            self.overlay[0],
+            self.overlay[1],
+        ]
+    }
+    pub(crate) fn persistence_new(
+        phase: ReconstructionPhase,
+        done: usize,
+        group_scalar_calls: u64,
+        field_mul_calls: u64,
+        p: [usize; 5],
+    ) -> Self {
+        Self {
+            phase,
+            done,
+            group_scalar_calls,
+            field_mul_calls,
+            stream: p[0],
+            index: p[1],
+            stage: p[2],
+            overlay: [p[3], p[4]],
+        }
+    }
+}
+impl Journal {
+    pub(crate) fn persistence_clean(&self) -> bool {
+        self.gv.is_empty()
+            && self.gi.is_empty()
+            && self.fv.is_empty()
+            && self.fi.is_empty()
+            && self.marks.iter().all(|x| *x == 0)
+    }
+}
+impl ReconstructionMaterial {
+    pub(crate) fn persistence_commitments(
+        &self,
+        p: &PublicPackage,
+    ) -> Result<[[u8; 32]; 3], Error> {
+        use crate::persistence::{identity_values, HashWriter};
+        use ark_serialize::CanonicalSerialize;
+        use sha2::{Digest, Sha256};
+        self.check(p)?;
+        let n = p.shape().domain_size;
+        let mut h = HashWriter(Sha256::new());
+        h.0.update(b"dynark-bn254/persistence-domain/v1");
+        p.0.domain.serialize_compressed(&mut h)?;
+        let domain = h.0.finalize().into();
+        let mut h = HashWriter(Sha256::new());
+        h.0.update(b"dynark-bn254/persistence-uk/v1");
+        for d in identity_values(p.identity()) {
+            h.0.update(d);
+        }
+        h.0.update((n as u64).to_le_bytes());
+        for g in self.0.uk.0.lagrange.iter().chain(&self.0.uk.0.diagonal) {
+            g.serialize_compressed(&mut h)?;
+        }
+        for f in &self.0.uk.0.weights {
+            f.serialize_compressed(&mut h)?;
+        }
+        let uk: [u8; 32] = h.0.finalize().into();
+        let mut h = HashWriter(Sha256::new());
+        h.0.update(b"dynark-bn254/persistence-tables/v1");
+        for d in identity_values(p.identity()) {
+            h.0.update(d);
+        }
+        h.0.update(uk);
+        h.0.update(1u16.to_le_bytes());
+        h.0.update((n as u64).to_le_bytes());
+        for f in self
+            .0
+            .roots
+            .iter()
+            .chain(&self.0.forward)
+            .chain(&self.0.reverse)
+        {
+            f.serialize_compressed(&mut h)?;
+        }
+        self.0.inverse_n.serialize_compressed(&mut h)?;
+        Ok([domain, uk, h.0.finalize().into()])
+    }
+}
