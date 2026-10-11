@@ -1,0 +1,64 @@
+{
+  "status": "frozen-awaiting-parent-review-and-test-grant",
+  "revision": "host-guard-source-002",
+  "supersedes": "host-guard-source-001-preserved",
+  "files": [
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/population/host-guard-source-002/host_guard.py",
+      "bytes": 10266,
+      "sha256": "781c5d50248579718e1c60481666a00c34e61effe7bcf97c296c240b6e313659",
+      "mode": "0600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/population/host-guard-source-002/test_host_guard.py",
+      "bytes": 9799,
+      "sha256": "a29bf5e4ef54a66ea2ba616ce2e34cab48367b88d6bd63dc497500e670d0fb10",
+      "mode": "0600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/population/host-guard-source-002/repair-from-001.patch",
+      "bytes": 11004,
+      "sha256": "7a26fb2f97136798c22a1a148c6432b651d927c15eb9b6ad45844ba843269ae5",
+      "mode": "0600"
+    }
+  ],
+  "test_executed": false,
+  "host_window_executed": false,
+  "signals_executed": false,
+  "source_scope": "owned helper copy only",
+  "cooperative_stop": {
+    "first_signal": "SIGINT-runner-only-with-birth-recheck",
+    "cooperative_grace_seconds": 30,
+    "fallback_signals": [
+      "SIGTERM-verified-survivors",
+      "SIGKILL-verified-survivors"
+    ],
+    "fallback_grace_seconds": 5,
+    "observation_failure_never_verified_success": true
+  },
+  "policy": {
+    "admission_samples": 31,
+    "minimum_seconds": 30,
+    "strictly_increasing_finite_timestamps": true,
+    "query_timeout_seconds": 2,
+    "host_interval_seconds": 1,
+    "rss_runner_interval_seconds": 0.2,
+    "pressure_encoding": {
+      "normal": 1,
+      "warning": 2,
+      "critical": 4
+    },
+    "swapout_budget": 0,
+    "swapin_budget": 128,
+    "no_three_active_intervals": true,
+    "printed_M_max_growth_from_earlier_low": 16
+  },
+  "test_argv": [
+    "python3",
+    "-m",
+    "unittest",
+    "-v",
+    "test_host_guard"
+  ],
+  "test_cwd": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/population/host-guard-source-002"
+}

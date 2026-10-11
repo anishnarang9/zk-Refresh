@@ -1,0 +1,41 @@
+{
+  "status": "proposal-only-parent-queue-grant-required",
+  "scope": "deterministic mocked queries/signals only; no host window or actual child signals",
+  "source_manifest": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/representation/population/host-guard-freeze-002.json",
+  "source_manifest_sha256": "cc2f541f60004f7cd6a51e392342872ac178e6313e1e931c010de0f16cf351db",
+  "argv": [
+    "python3",
+    "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/bootstrap/bounded_runner.py",
+    "--owner",
+    "t3-host-guard-test-002",
+    "--cwd",
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/population/host-guard-source-002",
+    "--private-output",
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/population/host-guard-test-002",
+    "--report",
+    "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/representation/population/host-guard-test-002.json",
+    "--runtime-seconds",
+    "60",
+    "--rss-bytes",
+    "134217728",
+    "--storage-bytes",
+    "16777216",
+    "--poll-seconds",
+    "0.2",
+    "--",
+    "/usr/bin/env",
+    "PYTHONDONTWRITEBYTECODE=1",
+    "python3",
+    "-m",
+    "unittest",
+    "-v",
+    "test_host_guard"
+  ],
+  "limits": {
+    "seconds": 60,
+    "owned_rss_bytes": 134217728,
+    "new_output_bytes": 16777216
+  },
+  "source_before_after": "frozen002 files only",
+  "stop_on_failure": true
+}
