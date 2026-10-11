@@ -1,0 +1,54 @@
+# Credential dynamic harness source001: independent review
+
+## 1. Scope and disposition
+
+Reviewed the complete frozen dynamic helper, recorder, changed capacity/codec/persistence/storage hooks, reached accepted T6 APIs and fixture launcher. This is source review, not execution evidence. Compile-only review can proceed under a separate grant. Actual credential execution requires the early live-memory admission repair in section 5 and the coordinate-scan count amendment. No production algorithm or policy change is required by these findings.
+
+## 2. Changed files and ownership
+
+This review writes only this document. No source, test, helper, dependency, worker result, executable or fixture was changed. Frozen source001 adds the two private helpers and their cfg(test) registration, scalar capacity taps, and checkpoint phases/canonical-stream/installation observers. The exact diff shows no additional quotient computation, full proof, record-sized comparison copy, second record encode/decode, or added affine normalization. Existing serialization is reborrowed to permit its observer; existing decode values are checked after installation.
+
+## 3. Independently checked identities
+
+Read/hash verification matched all 59 manifest entries: 54 source files, four reporting entries and the exact diff. Base is `df0b3a780074e44d85884643183cd26ccfa8d2be`; accepted T6 applies, T7 is outside scope.
+
+| Item | SHA256 |
+| --- | --- |
+| `dynamic-source-freeze-001.json` | `62dfadf74dbb3f51f5a36ac1ba176540d7df67256c2255dadad676a5c3fb7143` |
+| `dynamic-source-001.diff` | `3e1c6a1b9d0b437bee50782b20593a12d66d6ad7c7a661cfafc69e13e8b808ca` |
+| frozen `credential_dynamic_harness.rs` | `a54b2d644551d224b508c38ce02ec3a2e19c49788fc9da82728d44cffc570c08` |
+| frozen `credential_checkpoint_trace.rs` | `5770c762d446394f822248bd835829a22c3564b443c8b26e013d29f49b6a4b3f` |
+| frozen `dynamic.rs` | `d27ee89eb46db78772777d1b643628c9fcf7d86b87871aec99b076c8ea316252` |
+| frozen `persistence_codec.rs` | `8f8ad429a36a0c5582d79c7a9d93f78be52482a004274284e0e33ec53655515b` |
+| frozen `persistence.rs` | `06482f22f36be69a5e5e1f077b472063a2c1c1bd8ad3e2c764858a051b8ad485` |
+| frozen `storage.rs` | `bd1310d9d38e2537fa8c0453767cee253d645f0c69b7585c8a9866919eb2a7e7` |
+
+## 4. Commands and execution boundary
+
+Used bounded `rg`, `nl`/`sed`, `cat`, `git status --short`, `shasum -a 256`, and an inline Python read/hash comparison of the manifest entries. Independently recalculated scheduler integer quotas and advance-call counts using arithmetic only. No build, setup, proof, benchmark, test body, host-window acquisition or heavy queue was run by this reviewer. The parent reports that the proposed source001 compile command was not launched after host pressure returned 2; this review does not claim compiler evidence.
+
+## 5. Fresh findings
+
+**Actual-run blocker: memory admission follows target import and normalization.** [Frozen helper lines 444–454](/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/credential/dynamic-source-001/crates/dynark-bn254/tests/private/credential_dynamic_harness.rs:444) load the WTNS, construct raw delta and normalize `Transition` before the first caller live-state check at [383–388](/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/credential/dynamic-source-001/crates/dynark-bn254/tests/private/credential_dynamic_harness.rs:383). [Frozen importer 232 and 250–257](/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/credential/dynamic-source-001/crates/dynark-bn254/src/import.rs:225) holds the 20,594,092-byte received snapshot alongside 20,594,016 bytes of Fr values and section metadata. Its operation bound does not add the live dynamic engine/shared tables. [Frozen transition normalization 172–183](/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/credential/dynamic-source-001/crates/dynark-bn254/src/delta.rs:172) then overlaps the target, raw delta and BTreeMap/output allocations. Later validation, staging and full-comparator checks correctly charge their own overlaps, but cannot admit earlier allocations retroactively. Before actual execution, require a conservative live private/global check before `load`, covering both the snapshot/value import peak and subsequent raw/normalization peak, followed by actual-capacity checks. This is a missing admission guarantee, not evidence of an observed 4/6 GiB overrun; compile-only and small fixtures are unaffected.
+
+**Count amendment: raw delta traverses 20v coordinates.** [Frozen helper 149 and 152](/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/credential/dynamic-source-001/crates/dynark-bn254/tests/private/credential_dynamic_harness.rs:147) separately count changed coordinates and rescan for subtraction/encoding. Ten targets therefore perform 12,871,260 coordinate visits: ten v equality-comparison passes plus ten v subtraction/is-zero passes. The count review's ten-v delta-comparison sentence accounts for only the first half if read as the complete scan cost. Record both passes. Satisfaction passes, matrix row terms, engine assignment-copy ledger and pair work remain unchanged.
+
+## 6. Counts and sample conditions
+
+The source fixes the actual synthetic credential shape N=1,048,576, v=643,563, m=648,156, E=3,466,610 and six instances. Pair/cardinality/touch drift is checked before correction, with 11m per target and 60m whole caps ([preflight 383–411](/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/credential/dynamic-source-001/crates/dynark-bn254/tests/private/credential_dynamic_harness.rs:383)). Independent quota arithmetic reproduces all ten action/done/credit constants, 218,575,669 maintenance actions and 26,686 positive-quota calls. It respects the initial ready alias, three freeze headers and two distinct promotions rather than charging the alias as a reconstruction.
+
+The source has exactly 11 full captures and 35 satisfaction passes: 11 imports, ten harness preflights, ten engine validations and four checkpoint validations. The 163,603,878 row-term total fits 50E=173,330,500. Exactly 22 canonical proof outputs get one correct and five altered-public checks; twenty old/new-root checks give 152 external calls, plus two existing internal checkpoint calls gives 154, under 160 ([verifier 335–349](/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/credential/dynamic-source-001/crates/dynark-bn254/tests/private/credential_dynamic_harness.rs:335)). No runtime measurements establish these planned outcomes.
+
+## 7. Evidence and covered behavior
+
+The launcher authenticates pinned fixture/input/source/binary identities before and after the child, derives expected public values from input JSON, and qualifies stable holder/private context ([launcher 171–210](/Users/anishnarang/Zk-refresh/results/dynark/phase-2/credential/launch_credential_dynamic.py:171)). The helper also enforces eleven distinct roots and stable issuer/time/action. Save05 requires committed/clear state, drops and wipes the old engine, then recovers the exact provider-held receipt through the fenced API ([checkpoint 414–442](/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/credential/dynamic-source-001/crates/dynark-bn254/tests/private/credential_dynamic_harness.rs:414)). Target09 checks resumed frozen05 promotion; final assertions reject fallback and unfinished required swaps ([493–551](/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/credential/dynamic-source-001/crates/dynark-bn254/tests/private/credential_dynamic_harness.rs:493)). No final builder completion is added.
+
+Canonical observer coverage binds physical offsets/widths and existing validated values to assignment/raw/map/pool installation. Final metadata covers section layout, role/source/map identity and alias edges, sorted indices, config, binding, cursor and ledger ([codec 1328–1378](/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/credential/dynamic-source-001/crates/dynark-bn254/src/dynamic/persistence_codec.rs:1328)). Five recorder tests and four helper tests are authored; none was executed by this reviewer.
+
+## 8. Assumptions and limitations
+
+Actual-run entropy delegates to OsRng; deterministic seeds are confined to small tests ([helper 320–328](/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/credential/dynamic-source-001/crates/dynark-bn254/tests/private/credential_dynamic_harness.rs:320)). Private digests stay internal. The recorder bounds hash input at 2 GiB and intervals at 128, and fails on incomplete placement/changed metadata; its small retained allocation fits the 64 KiB allowance ([trace 82–143](/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/credential/dynamic-source-001/crates/dynark-bn254/tests/private/credential_checkpoint_trace.rs:82)). Checkpoint timing includes observers and public-call residual; it supports no production latency claim. A >10s maintenance call cancels a returned Pending transaction; an already committed call records failure and cannot roll back ([helper 474–479](/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/credential/dynamic-source-001/crates/dynark-bn254/tests/private/credential_dynamic_harness.rs:474)). Synthetic-provider process-lifetime trust and accepted T6 wipe/media-sync limits persist. Host supervision remains a separate package.
+
+## 9. Recommended next gate
+
+Preserve source001 and its failure/non-launch history. Make only the parent-authorized source002 early-admission repair and coordinate-count amendment; freeze and independently review that exact diff. Then seek a fresh compile-only gate (600s/2 GiB sampled RSS/2 GiB growth), followed by a separately granted nine-test gate (120s/1 GiB/64 MiB) and parent parity review. The credential 14,400s/8 GiB/4 GiB run remains ungranted and requires those repairs, fresh evidence and separate host admission.
