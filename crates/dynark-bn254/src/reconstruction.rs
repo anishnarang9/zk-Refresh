@@ -932,3 +932,7 @@ pub(crate) fn validate_cursor(c: &Cursor, n: usize, maps: &[Map; 2]) -> Result<(
 #[cfg(test)]
 #[path = "../tests/private/reconstruction_private.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../tests/private/reconstruction_pilot.rs"]
+mod pilot;

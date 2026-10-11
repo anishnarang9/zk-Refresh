@@ -1,0 +1,8 @@
+{
+  "source": "/Users/anishnarang/Zk-refresh/crates/dynark-bn254/target/release/build/dynark-bn254/d6b5d46dec50d542/out/dynark_bn254-d6b5d46dec50d542",
+  "frozen_executable": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/dynamic/executables-pilot-build-001/reconstruction-pilot",
+  "sha256": "9c2335b8f2994ffe8580136b21641a6fadf340e60a41cf58081882e52725d645",
+  "bytes": 3392736,
+  "mode": "0700",
+  "source_identity": "source-before-pilot-build-001.json"
+}
