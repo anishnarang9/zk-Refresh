@@ -1,0 +1,212 @@
+{
+  "baseline_commit": "b6b00954290b32fb87d74b0b404a83d32ff48dba",
+  "status": "authored unbuilt observer/binary source",
+  "snapshot": "artifacts/dynark/phase-2/cross-term/source-003",
+  "overlays": [
+    "crates/dynark-bn254/src/cross.rs",
+    "crates/dynark-bn254/src/cross_proof_tests.rs",
+    "crates/dynark-bn254/tests/cross_conformance.rs",
+    "crates/dynark-bn254/src/bin/phase2-cross-bench.rs"
+  ],
+  "snapshot_only_lib_registration": [
+    "mod cross;",
+    "#[cfg(test)] mod cross_proof_tests;"
+  ],
+  "files": [
+    {
+      "path": "crates/dynark-bn254/Cargo.lock",
+      "bytes": 20630,
+      "sha256": "aaf70b9ecf4dbbefc4d6c1cb34a3eabb7762860884f100497a22f92fd70d75c8"
+    },
+    {
+      "path": "crates/dynark-bn254/Cargo.toml",
+      "bytes": 489,
+      "sha256": "45215cb72b2d609506ced27e4c60f192856f559d43382647cc863da13c46e58f"
+    },
+    {
+      "path": "crates/dynark-bn254/README.md",
+      "bytes": 6448,
+      "sha256": "99d79e5e8697b23dba6816f76a1f54cdf2c7a6da4f3a943af92733eece168937"
+    },
+    {
+      "path": "crates/dynark-bn254/src/anchored.rs",
+      "bytes": 32335,
+      "sha256": "6ef6e2949e414644aac94e77c104a3fdda1bac756a0fcc05b43f01e910a60737"
+    },
+    {
+      "path": "crates/dynark-bn254/src/artifact.rs",
+      "bytes": 14007,
+      "sha256": "ac675e7ddefb0f16a9394fa1f1a83472bf4decca2a621dfe7747a27b2a2a50cf"
+    },
+    {
+      "path": "crates/dynark-bn254/src/bin/phase2-cross-bench.rs",
+      "bytes": 32626,
+      "sha256": "8de1715657ca8413eb369f8244149880722a23e176c6d33077431d17d80d5bba"
+    },
+    {
+      "path": "crates/dynark-bn254/src/bin/phase2-glv-ablation.rs",
+      "bytes": 14410,
+      "sha256": "6f22f3a90e8fe6533ee58b8d01f94bff6c5b56087b8d84facb6206839ce82e11"
+    },
+    {
+      "path": "crates/dynark-bn254/src/cross.rs",
+      "bytes": 28651,
+      "sha256": "5c06c833569d9bed2948abfecee7a489b3f5ea5ee1f6bab033121bdd890a3b4b"
+    },
+    {
+      "path": "crates/dynark-bn254/src/cross_proof_tests.rs",
+      "bytes": 12653,
+      "sha256": "38f52796ada9553738c80e55fcfcb0b5ae4890411085fdf3638323525f3763ff"
+    },
+    {
+      "path": "crates/dynark-bn254/src/delta.rs",
+      "bytes": 8821,
+      "sha256": "e01256db13e5d8d89333e4a0ddcda14dcdcb35f5a52cd5455322d4b3d61aa879"
+    },
+    {
+      "path": "crates/dynark-bn254/src/full.rs",
+      "bytes": 2164,
+      "sha256": "8aa23983a9524d3b72022552a219be457ad970b02c7ca385de3ef8d4956b6579"
+    },
+    {
+      "path": "crates/dynark-bn254/src/import.rs",
+      "bytes": 33777,
+      "sha256": "1447fc1d29a640a933e1fcee674a78b676d7af0b5ef75e1e9019a64f2d36dc10"
+    },
+    {
+      "path": "crates/dynark-bn254/src/lib.rs",
+      "bytes": 2106,
+      "sha256": "d0ce7266a7cbce960d4a0bba5eb7a9d95ef3a2c769ca32fbd41c0ff51ab3b53b"
+    },
+    {
+      "path": "crates/dynark-bn254/src/randomness.rs",
+      "bytes": 1188,
+      "sha256": "7fc2324647ae948009854dcca956dcf8ca80e890d68a562f739f5984cc7a6cbc"
+    },
+    {
+      "path": "crates/dynark-bn254/tests/anchored_conformance.rs",
+      "bytes": 5694,
+      "sha256": "18cf02b404c60b3677d86c4a59700835891e39c69b90a733040ce97be1d86c58"
+    },
+    {
+      "path": "crates/dynark-bn254/tests/cross_conformance.rs",
+      "bytes": 22811,
+      "sha256": "fbb344bc329606ccb669cfdf9c91eaf5c887ac36214f3e117551efdb6c11ef1b"
+    },
+    {
+      "path": "crates/dynark-bn254/tests/delta_contract.rs",
+      "bytes": 5561,
+      "sha256": "6b4afcc152b5c070c2ac3c49e54215f4a476b540affefeca9b3accc40ea0d25c"
+    },
+    {
+      "path": "crates/dynark-bn254/tests/full_conformance.rs",
+      "bytes": 22647,
+      "sha256": "2647c89712e3068d5d43a435376983e814a7b34ec9b99d4f9208051ac3928dc5"
+    },
+    {
+      "path": "crates/dynark-bn254/tests/support/mod.rs",
+      "bytes": 4945,
+      "sha256": "6494f89840b98721e6b2dc6c923b4f9803ef9c5f0d388a92c523190080878a1e"
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/Cargo.toml",
+      "bytes": 4225,
+      "sha256": "0230b6c4c87d5c5a174ee8bb1049e53458574755a868df1ce2eeb29f4954576c"
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/LICENSE-APACHE",
+      "bytes": 10847,
+      "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/LICENSE-MIT",
+      "bytes": 1046,
+      "sha256": "8f71659370c5268d9a1dc962a46232540e8fca63462586d8efaa95aab492a208"
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/PATCHES.md",
+      "bytes": 2030,
+      "sha256": "4c6c17017d0b4baf79d81725178c79088bec26ea9903fc624969c80d3e4ae46c"
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/README.md",
+      "bytes": 2671,
+      "sha256": "d5bfe579eb73b8deff348409c24e267256ef9fc67919ece7ef6f1372596d9326"
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/constraints.rs",
+      "bytes": 20130,
+      "sha256": "d0aca7ffa5a4aef004c4e0276dd29ac829c29d63a6a09a7482dbc5809e4016a5"
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/data_structures.rs",
+      "bytes": 6615,
+      "sha256": "272b6688d7352dbf329bb40b93f2d788ce10b33612ab05deacf63961e4a5a679"
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/dynamic_cache.rs",
+      "bytes": 29901,
+      "sha256": "fecd160dd22b705326db22fb9b125d8d5ed82e2765f34179feedf665fdff5823"
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/dynark_generator.rs",
+      "bytes": 10759,
+      "sha256": "4bcb08ba6f1a1c4d55cb7136db5c8989e7f56ffb5e6c15f6e11956f6788b1103"
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/dynark_prover.rs",
+      "bytes": 12729,
+      "sha256": "5575e85562da40578887098dccd45652e5b985319ccc1bb3734fb5e33de447ac"
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/dynark_verifier.rs",
+      "bytes": 1692,
+      "sha256": "f561c7d2dfd441953dbf5f53473e0047182e1b9fb1e308ff216988b9c01fd9ef"
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/fft_handler.rs",
+      "bytes": 57448,
+      "sha256": "a278d4e66f2b34f37380f0537e9560fe818f9bf65a099d1f045f24928ddf3a7e"
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/generator.rs",
+      "bytes": 2294,
+      "sha256": "2106abf52c1221856f14cf8452aa3c901d97fc5ec54dff2c3b84b3d4b95b05d5"
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/instance_generator.rs",
+      "bytes": 7118,
+      "sha256": "2b45622fcb94ae0fca983ae45efc8e57ff2aa3f5028af2a492f5d71d817bc3b9"
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/lib.rs",
+      "bytes": 6154,
+      "sha256": "588fd35d1aff01f24ea3f3ac39077aff13fb8d8a5fecd552c446f5e09b004103"
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/prover.rs",
+      "bytes": 8344,
+      "sha256": "86a2bf4b20c03b2884374a9528f8c4a4eef9c83bbfcd4eb4efce8ffea82a4f16"
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/r1cs_to_qap.rs",
+      "bytes": 15434,
+      "sha256": "45b86e8b59522a0b7c5121326ad644f311c77517eb76d05440fab7321ba0b5e1"
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/test.rs",
+      "bytes": 5888,
+      "sha256": "fb0e88e38078c4c4efb1a39a260dac4f3c74390dda6edc701852abb88c964cdf"
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/utils.rs",
+      "bytes": 5314,
+      "sha256": "f89698fd651ae8129cc6a154bdbf59950fed5c2322c60526f667f87c960f2e00"
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/verifier.rs",
+      "bytes": 3299,
+      "sha256": "b2ebfd34e80fd55b5f1a3d7c6deb28956ae1b0d37ca39067d2cbbebee2ffdf41"
+    }
+  ]
+}

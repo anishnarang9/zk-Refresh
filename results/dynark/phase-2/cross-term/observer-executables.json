@@ -1,0 +1,43 @@
+{
+  "executables": {
+    "observer-kernel-001": {
+      "build_path": "artifacts/dynark/phase-2/cross-term/source-001/crates/dynark-bn254/target/debug/build/dynark-bn254/93e52be1039ce41c/out/cross_conformance-93e52be1039ce41c",
+      "retained_path": "artifacts/dynark/phase-2/cross-term/observer-kernel-001/executables/cross_conformance-93e52be1039ce41c",
+      "sha256": "2909c145a6fc3bf046943c1b61bcc174ff17f939b83c40f3fad020df62fffaf8",
+      "bytes": 5497728,
+      "mode": "0o700",
+      "source_snapshot": "source-005"
+    },
+    "observer-proof-001": {
+      "build_path": "artifacts/dynark/phase-2/cross-term/source-001/crates/dynark-bn254/target/debug/build/dynark-bn254/024d1e214ee3da85/out/dynark_bn254-024d1e214ee3da85",
+      "retained_path": "artifacts/dynark/phase-2/cross-term/observer-proof-001/executables/dynark_bn254-024d1e214ee3da85",
+      "sha256": "6b3a0381ca51f496e12a0d43da1f9a29cb8bf80cec399dd8a6974ed3bfc22bbf",
+      "bytes": 12809504,
+      "mode": "0o700",
+      "source_snapshot": "source-005"
+    },
+    "binary-test-001": {
+      "build_path": "artifacts/dynark/phase-2/cross-term/source-001/crates/dynark-bn254/target/debug/build/dynark-bn254/9db649e3e250ff92/out/phase2_cross_bench-9db649e3e250ff92",
+      "retained_path": "artifacts/dynark/phase-2/cross-term/binary-test-001/executables/phase2_cross_bench-9db649e3e250ff92",
+      "sha256": "2e6735035f55a1a77b396795fc472ba46616c00ec7dc8d3d9c279c8a2f8072d0",
+      "bytes": 5305760,
+      "mode": "0o700",
+      "source_snapshot": "source-005"
+    },
+    "historical-source-002-kernel": {
+      "retained_path": "artifacts/dynark/phase-2/cross-term/source-002-executables/cross_conformance-b744b236409a3dcb",
+      "sha256": "f84bc7c48331aaaa394f9ea7ea56fee60bdfbbbb5ef5e4f2ba6b48135db2c52a",
+      "mode": "0o700"
+    },
+    "binary-diag-test-001": {
+      "build_path": "artifacts/dynark/phase-2/cross-term/diagnostic-target/debug/build/dynark-bn254/f72626c8081d6944/out/phase2_cross_bench-f72626c8081d6944",
+      "retained_path": "artifacts/dynark/phase-2/cross-term/binary-diag-test-001/executables/phase2_cross_bench-f72626c8081d6944",
+      "sha256": "76459df43cda95b0396c00b531444f6a3fdc653ed45b5e5536106bff12053f91",
+      "bytes": 5397936,
+      "mode": "0o700",
+      "source_snapshot": "source-005",
+      "rustflags": "--cfg=t4_alloc_diag"
+    }
+  },
+  "historical_note": "source-002 proof target path024d1e... was replaced by source-005 proof build; original c92597e... identity is historical and was independently verified/rerun by parent before reuse; frozen source002 and logs retained"
+}
