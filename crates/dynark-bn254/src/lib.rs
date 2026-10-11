@@ -18,6 +18,7 @@ pub mod import;
 mod randomness;
 mod reconstruction;
 mod dynamic;
+mod selective;
 pub mod persistence;
 
 pub use artifact::{
@@ -29,6 +30,7 @@ pub use anchored::{Anchor, UpdatingMaterial};
 pub use delta::{AnchorBinding, Limits, MatrixTouch, PreparedTransition, RowDeltas, Transition, TransitionStats};
 pub use reconstruction::{ReconstructionMaterial, ReconstructionPhase, WorkEvent};
 pub use dynamic::{CapPolicy, DynamicConfig, DynamicPreparation, DynamicState, DynamicStatus, PreparationProgress, UpdateProgress, WorkLedger};
+pub use selective::{SelectiveConfig, SelectiveState, SelectiveStatus, SelectiveProgress, SelectiveLedger, SelectiveStats, SelectiveFullReason};
 
 /// Typed failures never contain a partial proof or private assignment.
 #[derive(Debug)]

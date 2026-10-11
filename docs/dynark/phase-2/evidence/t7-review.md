@@ -69,3 +69,29 @@ No cross-action projection reuse, timing privacy, forward security, sensitive-bu
 ## 9. Gate verdict and next gate
 
 Frozen001 mathematical/state design has no confirmed critical defect, but initial zero-full-budget preflight needs the narrow repair above; attempted validation/scan/gather accounting must be repaired before complete session economics. This is conditional source review, not runtime acceptance. Parent will request source-002 fixes, review the narrow diff, freeze new identities and grant the bounded small correctness run, then independently review/rerun consequential results. Only afterward transfer the separately authorized full-session economics to the medium worker. No reviewer queue is held.
+
+## Source-002 scoped static re-review addendum
+
+Read the complete `results/dynark/phase-2/selective/source-001-to-002.diff`, `source-002-review.md`, `source-before-build-002.json`, the changed live source contexts and all three added focused tests. Used only bounded read/hash commands and this document append; no build, test, helper, runtime measurement or new feature. The source-001 findings and evidence above remain historical.
+
+Independently hashed live source-002:
+
+| File | SHA256 |
+|---|---|
+| `src/selective.rs` | `e7de63d79de22c955379e6f8a4f698b8e642fae39d6010a7e4b55289ebd743b5` |
+| `tests/private/selective_private.rs` | `3e77c54e7c912e57099b9ed227d5c56e96093d8f9fe02b153f8a8ce7246fc628` |
+| `results/dynark/phase-2/selective/source-before-build-002.json` | `6d2bcebec930fa8f9defdc1728e14f1bdb412877409e41dc42cd6043a01fc422` |
+
+Both changed source hashes agree with the freeze. Its manifest records documentation HEAD `83f51e73baa4da1b6d457ee1640c98513d4e4c92` separately from accepted implementation base `df0b3a780074e44d85884643183cd26ccfa8d2be`; the other 52 pins, including lock, fixture and narrow lib registration, are unchanged in the manifests. Parent independently matched all 54 live pins. This reviewer did not rerun all 54 file hashes in this narrow addendum.
+
+**Both reported finding categories are resolved statically:**
+
+- Initial full allowance is checked against fresh zero stats at `selective.rs:251–256`, before public-capacity scanning, assignment/public copies, entropy or capture. The paid ticket remains before capture. The added zero-allowance case at `selective_private.rs:987–1010` distinguishes the bound error from entropy failure and asserts zero RNG draws; absence of assignment-copy/capture dispatch follows from the source order, not a runtime allocation assertion.
+- `validation_ticket` at `selective.rs:1362–1377` stages all counter changes on a copied aggregate and installs them only after checked additions succeed. It reserves complete matrix validation, its assignment copy and separate current A/B/C column-touch sums before `validate_target` at 445–446. Explicit full validation at 1001–1005 and restart validation at 1092–1095 similarly reserve before dispatch, with zero gather reservations where no gather occurs. Names/comments now identify conservative reservations, including failed validation, rather than exact executed CPU or terms.
+- The immutable assignment count/build traversals each charge v before their scan at 464–467 and 489–492. Calls rejected before the second traversal charge only work actually reached. Anchor-relative A/B touch reservation precedes both gathers at 521–523. Reload's separate assignment clone is reserved at 952–958, and its later full-validation copy is independently reserved. None of these charges is refunded by cancellation.
+
+The focused failed-validation test at `selective_private.rs:1012–1106` covers current/full/restart rejection, retained reservations, zero entropy and unchanged committed state; malformed opaque assignments occur only inside private test fault injection. The C-only cancel/success case at 1108–1150 checks both scans, all current gather reservations including nonzero C touches, repeated dispatch charges and cancellation retention. These are discriminating authored checks inspected in source; no pass or compilation is asserted. Some expected touch values reuse the counting helper, so independent confidence in all three matrix orientations comes from reviewing its complete loop at `selective.rs:1348–1359`, rather than treating those assertions alone as an independent oracle.
+
+The exact diff changes preflight/accounting and three tests only. Direct-entry/proof arithmetic, typed demand, cache/LRU atomic commit, fixed 4/2/8 limits, FullOnly policy, reload trust boundary and dependencies remain unchanged. No additional confirmed defect was introduced by this diff. Reservations can exceed work executed before an early error; they remain distinct from actual entry counters and measured whole-session CPU. Initial caller validation/input normalization, outside retained state and whole-session costs still require the later economics harness.
+
+**Current verdict:** reported source findings resolved; source-002 is statically ready for the parent's next bounded build/correctness gate. All 19 proposed tests are unbuilt/unexecuted in this review. No runtime acceptance, performance result or queue grant follows from this addendum, and no reviewer queue is held.

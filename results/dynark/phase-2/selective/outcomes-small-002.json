@@ -1,0 +1,84 @@
+{
+  "tests": [
+    {
+      "name": "selective::tests::anchor_touch_pair_correction_caps_choose_paid_full_or_refuse_its_allowance",
+      "result": "ok"
+    },
+    {
+      "name": "selective::tests::both_entropy_failures_and_late_computed_miss_fault_preserve_committed_state",
+      "result": "ok"
+    },
+    {
+      "name": "selective::tests::c_only_public_change_and_noop_keep_zero_entry_work_original_and_exact_augmented_demand",
+      "result": "ok"
+    },
+    {
+      "name": "selective::tests::cancellation_spends_started_attempt_but_preserves_cache_proof_generation_and_lru",
+      "result": "ok"
+    },
+    {
+      "name": "selective::tests::common_randomizers_match_all_four_fresh_full_and_eager_anchor_components",
+      "result": "ok"
+    },
+    {
+      "name": "selective::tests::compact_assignment_and_fanout_preflight_use_exact_full_anchor_support",
+      "result": "ok"
+    },
+    {
+      "name": "selective::tests::every_streamed_action_boundary_cancels_without_installing_any_partial_state",
+      "result": "ok"
+    },
+    {
+      "name": "selective::tests::failed_validation_reserves_matrix_and_current_gather_work_without_entropy_or_commit",
+      "result": "ok"
+    },
+    {
+      "name": "selective::tests::lru_eviction_hits_reversals_and_eighth_started_attempt_then_ninth_full",
+      "result": "ok"
+    },
+    {
+      "name": "selective::tests::malformed_private_entry_cursor_rejects_before_an_operation_or_commit",
+      "result": "ok"
+    },
+    {
+      "name": "selective::tests::normalized_current_cap_identity_and_statement_errors_precede_entropy_and_entry_work",
+      "result": "ok"
+    },
+    {
+      "name": "selective::tests::reload_and_holder_action_invalidation_lose_cache_without_refunding_external_ledger",
+      "result": "ok"
+    },
+    {
+      "name": "selective::tests::row_group_field_caps_fallback_and_private_caps_refuse_before_validation_entropy",
+      "result": "ok"
+    },
+    {
+      "name": "selective::tests::successful_and_cancelled_dispatch_counts_both_anchor_scans_and_all_current_matrices",
+      "result": "ok"
+    },
+    {
+      "name": "selective::tests::third_miss_and_fifth_typed_demand_fallback_precede_dense_work",
+      "result": "ok"
+    },
+    {
+      "name": "selective::tests::tiny_current_change_with_accumulated_anchor_demand_latches_full_before_entry_scan",
+      "result": "ok"
+    },
+    {
+      "name": "selective::tests::typed_entries_match_eager_and_independent_polynomial_on_all_shapes",
+      "result": "ok"
+    },
+    {
+      "name": "selective::tests::zero_initial_full_allowance_rejects_before_rng_copy_or_capture",
+      "result": "ok"
+    },
+    {
+      "name": "selective::tests::zero_sparse_and_full_width_anchor_rows_have_exact_endpoint_entries",
+      "result": "ok"
+    }
+  ],
+  "source": "source-before-build-002.json",
+  "exe_sha256": "e141589c282038cb904ced45ada995829723c03d7f57b1044e2051694b96b9b1",
+  "primary_summary": "test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 37 filtered out; finished in 37.95s",
+  "cpu": "not measured; correctness trial, not performance result"
+}

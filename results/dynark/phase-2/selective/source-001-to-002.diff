@@ -1,0 +1,378 @@
+--- source001/crates/dynark-bn254/src/selective.rs
++++ source002/crates/dynark-bn254/src/selective.rs
+@@ -72,8 +72,9 @@
+     }
+ }
+ 
+-/// Counts are aggregate only. Full/MSM/correction reservations bound attempted work,
+-/// while entry row/group/field counters record operations actually performed.
++/// Counts are aggregate only. Full/MSM/correction/validation/copy/touch reservations
++/// conservatively charge dispatches including errors; validation can fail before a
++/// reserved gather runs. Entry row/group/field counters record actual operations.
+ #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+ pub struct SelectiveStats {
+     pub attempts_started: usize,
+@@ -90,10 +91,13 @@
+     pub full_calls_started: usize,
+     pub full_g1_msm_inputs_reserved: usize,
+     pub full_g2_msm_inputs_reserved: usize,
+-    pub validation_entries: usize,
+-    pub assignment_copied_elements: usize,
++    pub validation_entries_reserved: usize,
++    pub assignment_copied_elements_reserved: usize,
++    pub current_a_touched_entries_reserved: usize,
++    pub current_b_touched_entries_reserved: usize,
++    pub current_c_touched_entries_reserved: usize,
+     pub anchor_delta_scanned_elements: usize,
+-    pub anchor_touched_entries: usize,
++    pub anchor_touched_entries_reserved: usize,
+     pub accepted_updates: usize,
+     pub updates_started: usize,
+     pub cancellations: usize,
+@@ -244,6 +248,12 @@
+         if assignment.package != p.identity() {
+             return Err(Error::AssignmentPackage);
+         }
++        let mut ledger = SelectiveLedger {
++            identity: Arc::new(()),
++            context: binding,
++            stats: SelectiveStats::default(),
++        };
++        full_preflight(p, config, &ledger)?;
+         let public_bytes = public_bytes(p, uk)?;
+         let initial = add(
+             bytes(assignment.values.capacity(), size_of::<Fr>())?,
+@@ -289,11 +299,6 @@
+         )?;
+         check_memory(config, public_bytes, initial_peak)?;
+         let (r, s) = randomness::blinders(rng)?;
+-        let mut ledger = SelectiveLedger {
+-            identity: Arc::new(()),
+-            context: binding,
+-            stats: SelectiveStats::default(),
+-        };
+         full_ticket(p, config, &mut ledger)?;
+         let core = capture(p, assignment, r, s)?;
+         let mut binding = binding;
+@@ -306,7 +311,7 @@
+             package: proof.package,
+             generation: proof.generation,
+         };
+-        ledger.stats.assignment_copied_elements = p.shape().assignment_len;
++        ledger.stats.assignment_copied_elements_reserved = p.shape().assignment_len;
+         let state = Self {
+             package: p.clone(),
+             uk: uk.clone(),
+@@ -437,15 +442,8 @@
+             add(base, validation_bound(p, t)?)?,
+         )?;
+         checked_bump(&mut l.stats.updates_started, 1)?;
++        validation_ticket(p, current_touches(p, t)?, l)?;
+         let prepared = t.validate_target(p, &self.current.assignment)?;
+-        checked_bump(
+-            &mut l.stats.validation_entries,
+-            prepared.stats().full_validation_entries,
+-        )?;
+-        checked_bump(
+-            &mut l.stats.assignment_copied_elements,
+-            p.shape().assignment_len,
+-        )?;
+         // Current->target gathering was paid by T2. Drop it before allocating anchor-relative outputs.
+         let target = prepared.target;
+         drop(prepared.rows);
+@@ -488,6 +486,10 @@
+                     )?,
+                 )?;
+                 delta = reserved(count)?;
++                checked_bump(
++                    &mut l.stats.anchor_delta_scanned_elements,
++                    p.shape().assignment_len,
++                )?;
+                 for (i, (a, b)) in anchor
+                     .core
+                     .assignment
+@@ -516,9 +518,9 @@
+                         alloc,
+                     )?;
+                     check_memory(self.config, self.public_bytes, peak)?;
++                    checked_bump(&mut l.stats.anchor_touched_entries_reserved, touch)?;
+                     rows.a = gather(&p.0.columns[0], &delta)?;
+                     rows.b = gather(&p.0.columns[1], &delta)?;
+-                    checked_bump(&mut l.stats.anchor_touched_entries, touch)?;
+                     let demand = add(rows.a.len(), rows.b.len())?;
+                     if demand > CACHE {
+                         reason = Some(SelectiveFullReason::Demand);
+@@ -648,7 +650,7 @@
+         };
+         if full_copy.is_some() {
+             checked_bump(
+-                &mut l.stats.assignment_copied_elements,
++                &mut l.stats.assignment_copied_elements_reserved,
+                 p.shape().assignment_len,
+             )?;
+         }
+@@ -947,6 +949,10 @@
+             self.public_bytes,
+             add(add(base, extra)?, full_scratch(&self.package)?)?,
+         )?;
++        checked_bump(
++            &mut l.stats.assignment_copied_elements_reserved,
++            self.package.shape().assignment_len,
++        )?;
+         let a = ValidatedAssignment {
+             package: self.current.assignment.package,
+             values: copy_fields(&self.current.assignment.values)?,
+@@ -991,6 +997,8 @@
+             )?,
+         )?;
+         check_memory(self.config, self.public_bytes, peak)?;
++        checked_bump(&mut l.stats.updates_started, 1)?;
++        validation_ticket(&self.package, [0; 3], l)?;
+         let public = copy_fields(&assignment.values[1..self.package.shape().instance_len])?;
+         let output_public = copy_fields(&public)?;
+         let copied = copy_fields(&assignment.values)?;
+@@ -1012,15 +1020,6 @@
+             )?,
+         )?;
+         check_memory(self.config, self.public_bytes, actual_peak)?;
+-        checked_bump(&mut l.stats.updates_started, 1)?;
+-        checked_bump(
+-            &mut l.stats.assignment_copied_elements,
+-            self.package.shape().assignment_len,
+-        )?;
+-        checked_bump(
+-            &mut l.stats.validation_entries,
+-            matrix_entries(&self.package)?,
+-        )?;
+         let tick = self
+             .tick
+             .checked_add(1)
+@@ -1090,6 +1089,7 @@
+                 )?,
+             )?,
+         )?;
++        validation_ticket(p, [0; 3], l)?;
+         let public = copy_fields(&assignment.values[1..p.shape().instance_len])?;
+         let output_public = copy_fields(&public)?;
+         let target = p.validate_values(copy_fields(&assignment.values)?, &public)?;
+@@ -1110,11 +1110,6 @@
+             )?,
+         )?;
+         check_memory(config, public_bytes, actual_peak)?;
+-        checked_bump(&mut l.stats.validation_entries, matrix_entries(p)?)?;
+-        checked_bump(
+-            &mut l.stats.assignment_copied_elements,
+-            p.shape().assignment_len,
+-        )?;
+         let (r, s) = randomness::blinders(rng)?;
+         full_ticket(p, config, l)?;
+         let core = capture(p, assignment, r, s)?;
+@@ -1350,6 +1345,37 @@
+     let m = &p.0.matrices;
+     add(add(m.a_num_non_zero, m.b_num_non_zero)?, m.c_num_non_zero)
+ }
++fn current_touches(p: &PublicPackage, t: &Transition) -> Result<[usize; 3], Error> {
++    let mut touched = [0; 3];
++    for (matrix, columns) in p.0.columns.iter().enumerate() {
++        for &(j, _) in &t.delta {
++            touched[matrix] = add(
++                touched[matrix],
++                columns.get(j).ok_or(Error::DeltaCoordinate)?.len(),
++            )?;
++        }
++    }
++    Ok(touched)
++}
++// Reserve the complete streaming validation and every possible T2 gather before dispatch.
++// A rejected public statement/early unsatisfied row can use less than this reservation.
++fn validation_ticket(
++    p: &PublicPackage,
++    touches: [usize; 3],
++    l: &mut SelectiveLedger,
++) -> Result<(), Error> {
++    let mut next = l.stats;
++    checked_bump(&mut next.validation_entries_reserved, matrix_entries(p)?)?;
++    checked_bump(
++        &mut next.assignment_copied_elements_reserved,
++        p.shape().assignment_len,
++    )?;
++    checked_bump(&mut next.current_a_touched_entries_reserved, touches[0])?;
++    checked_bump(&mut next.current_b_touched_entries_reserved, touches[1])?;
++    checked_bump(&mut next.current_c_touched_entries_reserved, touches[2])?;
++    l.stats = next;
++    Ok(())
++}
+ fn statement(core: &AnchorCore, b: AnchorBinding, public_values: Vec<Fr>) -> ProofStatement {
+     ProofStatement {
+         proof: ordinary::Proof {
+--- source001/crates/dynark-bn254/tests/private/selective_private.rs
++++ source002/crates/dynark-bn254/tests/private/selective_private.rs
+@@ -983,3 +983,168 @@
+         assert_eq!(l.stats(), before);
+     }
+ }
++
++#[test]
++fn zero_initial_full_allowance_rejects_before_rng_copy_or_capture() {
++    let p = fixture::package(8, Reduction::Original, 3);
++    let uk = UpdatingMaterial::prepare(&p, Limits::small()).unwrap();
++    let z = fixture::assignment(&p, &[]);
++    let a = p
++        .validate_assignment(&fixture::encode(&z), &z[1..6])
++        .unwrap();
++    let mut config = SelectiveConfig::small();
++    config.max_full_calls = 0;
++    let mut rng = EntropyFailure { draw: 0, fail: 0 };
++    assert!(matches!(
++        SelectiveState::create(
++            &p,
++            &uk,
++            a,
++            AnchorBinding::new(&p, [1; 32], [2; 32], 1),
++            config,
++            &mut rng
++        ),
++        Err(Error::Bound("selective full calls"))
++    ));
++    assert_eq!(rng.draw, 0);
++}
++
++#[test]
++fn failed_validation_reserves_matrix_and_current_gather_work_without_entropy_or_commit() {
++    let (p, uk, mut s, mut l, z) = initialized(16, Reduction::Original);
++    let mut invalid = z.clone();
++    invalid[6] = Fr::from(2);
++    let t = transition(&p, &s, &z, &invalid, 2);
++    let image = snapshot(&s);
++    let before = l.stats();
++    let expected = current_touches(&p, &t).unwrap();
++    let mut rng = EntropyFailure { draw: 0, fail: 0 };
++    assert!(matches!(
++        s.begin_update(&t, &mut l, &mut rng),
++        Err(Error::Unsatisfied { .. })
++    ));
++    assert_eq!(
++        l.stats.validation_entries_reserved - before.validation_entries_reserved,
++        matrix_entries(&p).unwrap()
++    );
++    assert_eq!(
++        l.stats.assignment_copied_elements_reserved - before.assignment_copied_elements_reserved,
++        z.len()
++    );
++    assert_eq!(
++        [
++            l.stats.current_a_touched_entries_reserved,
++            l.stats.current_b_touched_entries_reserved,
++            l.stats.current_c_touched_entries_reserved
++        ],
++        expected
++    );
++    assert_eq!(l.stats.anchor_delta_scanned_elements, 0);
++    assert_eq!(rng.draw, 0);
++    assert_eq!(snapshot(&s), image);
++
++    // Private fault injection into the opaque validated type exercises the full-validation error path.
++    let a = ValidatedAssignment {
++        package: p.identity(),
++        values: invalid.clone(),
++    };
++    let before = l.stats();
++    assert!(matches!(
++        s.begin_full_for_binding(a, [3; 32], [4; 32], 2, &mut l, &mut rng),
++        Err(Error::Unsatisfied { .. })
++    ));
++    assert_eq!(
++        l.stats.validation_entries_reserved - before.validation_entries_reserved,
++        matrix_entries(&p).unwrap()
++    );
++    assert_eq!(
++        l.stats.assignment_copied_elements_reserved - before.assignment_copied_elements_reserved,
++        z.len()
++    );
++    assert_eq!(
++        l.stats.current_a_touched_entries_reserved,
++        before.current_a_touched_entries_reserved
++    );
++    assert_eq!(
++        l.stats.current_b_touched_entries_reserved,
++        before.current_b_touched_entries_reserved
++    );
++    assert_eq!(
++        l.stats.current_c_touched_entries_reserved,
++        before.current_c_touched_entries_reserved
++    );
++    assert_eq!(rng.draw, 0);
++    assert_eq!(snapshot(&s), image);
++    let binding = s.binding();
++    let a = ValidatedAssignment {
++        package: p.identity(),
++        values: invalid,
++    };
++    let before = l.stats();
++    assert!(matches!(
++        SelectiveState::full_after_restart(
++            &p,
++            &uk,
++            a,
++            binding,
++            SelectiveConfig::small(),
++            &mut l,
++            &mut rng
++        ),
++        Err(Error::Unsatisfied { .. })
++    ));
++    assert_eq!(
++        l.stats.validation_entries_reserved - before.validation_entries_reserved,
++        matrix_entries(&p).unwrap()
++    );
++    assert_eq!(
++        l.stats.assignment_copied_elements_reserved - before.assignment_copied_elements_reserved,
++        z.len()
++    );
++    assert_eq!(rng.draw, 0);
++    assert_eq!(snapshot(&s), image);
++}
++
++#[test]
++fn successful_and_cancelled_dispatch_counts_both_anchor_scans_and_all_current_matrices() {
++    let (p, _, mut s, mut l, z) = initialized(16, Reduction::Original);
++    let mut target = z.clone();
++    target[2] += Fr::ONE;
++    *target.last_mut().unwrap() += Fr::ONE;
++    let t = transition(&p, &s, &z, &target, 2);
++    let image = snapshot(&s);
++    let before = l.stats();
++    let expected = current_touches(&p, &t).unwrap();
++    assert!(expected[2] > 0);
++    s.begin_update(&t, &mut l, &mut rand::rngs::OsRng).unwrap();
++    assert_eq!(
++        l.stats.anchor_delta_scanned_elements - before.anchor_delta_scanned_elements,
++        2 * z.len()
++    );
++    assert_eq!(
++        [
++            l.stats.current_a_touched_entries_reserved,
++            l.stats.current_b_touched_entries_reserved,
++            l.stats.current_c_touched_entries_reserved
++        ],
++        expected
++    );
++    s.advance_update(0, &mut l).unwrap();
++    s.cancel_update(&mut l).unwrap();
++    assert_eq!(l.stats.anchor_delta_scanned_elements, 2 * z.len());
++    assert_eq!(snapshot(&s), image);
++    fixture::verify(
++        &p,
++        &s.update(&t, &mut l, &mut rand::rngs::OsRng).unwrap(),
++        &target,
++    );
++    assert_eq!(l.stats.anchor_delta_scanned_elements, 4 * z.len());
++    assert_eq!(
++        [
++            l.stats.current_a_touched_entries_reserved,
++            l.stats.current_b_touched_entries_reserved,
++            l.stats.current_c_touched_entries_reserved
++        ],
++        expected.map(|x| 2 * x)
++    );
++}

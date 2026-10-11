@@ -1,0 +1,29 @@
+{
+  "argv": [
+    "python3",
+    "results/dynark/phase-2/bootstrap/bounded_runner.py",
+    "--owner",
+    "t5_dynamic-selective-small-001",
+    "--cwd",
+    "/Users/anishnarang/Zk-refresh",
+    "--private-output",
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/selective/small-001",
+    "--report",
+    "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/selective/small-001.json",
+    "--runtime-seconds",
+    "600",
+    "--rss-bytes",
+    "1073741824",
+    "--storage-bytes",
+    "2147483648",
+    "--",
+    "env",
+    "RAYON_NUM_THREADS=4",
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/selective/executables-build-001/dynark_bn254-b64331f2da87499a",
+    "selective::tests",
+    "--nocapture",
+    "--test-threads=1"
+  ],
+  "executable_sha256": "56d7547da458d1d0c63abf946a959cc083be085cab5d1933266f63264c0787a9",
+  "status": "PROPOSED; no runtime grant"
+}

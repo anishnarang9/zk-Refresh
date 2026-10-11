@@ -1,0 +1,8 @@
+{
+  "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/selective/executables-build-001/dynark_bn254-b64331f2da87499a",
+  "original": "/Users/anishnarang/Zk-refresh/crates/dynark-bn254/target/debug/build/dynark-bn254/b64331f2da87499a/out/dynark_bn254-b64331f2da87499a",
+  "sha256": "56d7547da458d1d0c63abf946a959cc083be085cab5d1933266f63264c0787a9",
+  "bytes": 15071600,
+  "source": "source-before-build-001.json",
+  "tested": false
+}
