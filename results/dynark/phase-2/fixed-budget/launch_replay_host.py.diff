@@ -1,0 +1,424 @@
+--- artifacts/dynark/phase-2/credential/host-supervisor-source-004/credential_host_supervisor.py
++++ artifacts/dynark/phase-2/fixed-budget/source-001/launch_replay_host.py
+@@ -1,374 +1,53 @@
+-"""Reusable host supervision; host policy and cooperative cleanup live in guard002.
++"""Fixed-profile strict replay; accepted shared supervisor owns cleanup/reporting."""
++import argparse,hashlib,json,os,stat,sys
++from pathlib import Path
++import bounded_host_supervisor as supervisor
++from fixed_policy import WORKLOAD_RSS_BYTES,require_policy
++ROOT=supervisor.ROOT
++COMMAND=['python3', '/Users/anishnarang/Zk-refresh/results/dynark/phase-2/bootstrap/bounded_runner.py', '--owner', 't4-cross-credential-fixed-replay-001', '--cwd', '/Users/anishnarang/Zk-refresh', '--private-output', '/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/replay-runtime-001', '--report', '/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/replay-runtime-001-primary.json', '--runtime-seconds', '2100', '--rss-bytes', '4294967296', '--storage-bytes', '2147483648', '--poll-seconds', '0.2', '--', '/usr/bin/time', '-p', '/usr/bin/env', 'RAYON_NUM_THREADS=4', 'CARGO_BUILD_JOBS=2', 'RUST_TEST_THREADS=1', 'python3', '/Users/anishnarang/Zk-refresh/results/dynark/phase-2/credential/launch_credential.py', '--mode', 'replay', '--executable', '/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/credential/executables/credential-source002-release-libtest', '--binary-sha256', 'e897365e0dba01922399737bd9dd8d2add9f01be4f960ad09fcb580fa52200e2', '--output', '/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/replay-runtime-001', '--source-manifest', '/Users/anishnarang/Zk-refresh/results/dynark/phase-2/credential/source-freeze-003.json', '--source-manifest-sha256', 'da68699b2e97fc6fd67fa8f1452ad21bff9c2b86619f59e424ee3457f7f292e6', '--expected-identity', 'b88ecb8f071de579d6248471ec63c451fa6e8ad940e1cd3b5ae88c2b0b398058:4ed8bc9915ac836bbeda833480fba8a5dea9cf58c198b1668c460743552b7e1e:2ca816e3f84f1e93aed0b2f5e49db05fab4d6e27a348f681ef1b237d9697d85c:1ae0864ab3bdbe39f912734ba8c11c65c02d3a9b3d56d8204fb00ddac57ab642:57cea7ff53a711f8fbb2e8f256a21a852d087564c49df70b6065c6994765c0d5']
++DEPENDENCIES=[{'path': '/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/credential/executables/credential-source002-release-libtest', 'bytes': 3692464, 'sha256': 'e897365e0dba01922399737bd9dd8d2add9f01be4f960ad09fcb580fa52200e2'}, {'path': '/Users/anishnarang/Zk-refresh/results/dynark/phase-2/credential/source-freeze-003.json', 'bytes': 15239, 'sha256': 'da68699b2e97fc6fd67fa8f1452ad21bff9c2b86619f59e424ee3457f7f292e6'}, {'path': '/Users/anishnarang/Zk-refresh/results/dynark/phase-2/credential/launch_credential.py', 'bytes': 12483, 'sha256': '51acd7d74ef0ff0ae47e2bfa43db3f563bd30dfcb228f5b1ff61c00ae80aa271'}, {'path': '/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/bounded_host_supervisor.py', 'bytes': 25651, 'sha256': 'd407f9960df6862be1e498a5d279e901be280921f8d3b12eab146ac2d9bcc24d'}, {'path': '/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/fixed_policy.py', 'bytes': 2948, 'sha256': '35134b1b711f7c4dec0be76dbc592f537bb020c793ce7a5abf87936603221160'}, {'path': '/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/resource-policy.json', 'bytes': 1215, 'sha256': '5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98'}]
++OUTPUT=Path('/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/replay-runtime-001');REPORT=Path('/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/replay-runtime-001-primary.json');HOST=Path('/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/replay-runtime-001-host')
+ 
+-No Rust edits, pressure generation, fallback campaign or private values in output.
+-The CLI never accepts a host injector. The private monitor argument exists solely
+-for a finite public smoke using a real bounded runner and harmless sleep child.
+-"""
+-import argparse
+-import hashlib
+-import json
+-import os
+-import pathlib
+-import stat
+-import signal
+-import subprocess
+-import sys
+-import time
+-import types
++def replay_command(proposal):
++    require_policy(proposal)
++    if proposal.get('status')!='parent-granted' or proposal.get('unresolved_prelaunch_gates'):raise ValueError('replay_ungranted')
++    if proposal.get('command')!=COMMAND:raise ValueError('exact_fixed_replay_command')
++    return list(COMMAND)
+ 
+-ROOT = pathlib.Path('/Users/anishnarang/Zk-refresh')
+-GUARD = ROOT / 'artifacts/dynark/phase-2/representation/population/host-guard-source-002/host_guard.py'
+-GUARD_SHA = '781c5d50248579718e1c60481666a00c34e61effe7bcf97c296c240b6e313659'
+-GUARD_BYTES = 10266
+-GUARD_MANIFEST = ROOT / 'results/dynark/phase-2/representation/population/host-guard-freeze-002.json'
+-GUARD_MANIFEST_BYTES = 2131
+-GUARD_MANIFEST_SHA = 'cc2f541f60004f7cd6a51e392342872ac178e6313e1e931c010de0f16cf351db'
+-RUNNER = ROOT / 'results/dynark/phase-2/bootstrap/bounded_runner.py'
+-RUNNER_BYTES = 11594
+-RUNNER_SHA = 'f2a0669b538f3f67751fafd132fee25211b637cc1082f24c4a40a43f85d01137'
+-MAX_PROCESSES = 8
+-MAX_TRACKED_BIRTHS = 64
+-MAX_SAMPLES = 16384
+-SIDE_BYTES = 16 * 1024 * 1024
+-ADMISSION_SECONDS = 240
+-CLEANUP_ALLOWANCE_SECONDS = 120  # Planning allowance, not a hard helper deadline.
+-
+-
+-def received(path, size, digest):
+-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+-    with os.fdopen(fd, 'rb') as file:
+-        meta = os.fstat(file.fileno())
+-        if not stat.S_ISREG(meta.st_mode) or meta.st_size != size or meta.st_uid != os.getuid():
+-            raise ValueError('received_identity_type_size_owner')
+-        data = file.read(size + 1)
+-        if len(data) != size or file.read(1) or hashlib.sha256(data).hexdigest() != digest:
+-            raise ValueError('received_identity_digest')
+-    return data
+-
+-
+-def load_guard():
+-    received(GUARD_MANIFEST, GUARD_MANIFEST_BYTES, GUARD_MANIFEST_SHA)
+-    data = received(GUARD, GUARD_BYTES, GUARD_SHA)
+-    module = types.ModuleType('credential_frozen_host_guard002')
+-    exec(compile(data, str(GUARD), 'exec'), module.__dict__)
+-    return module
+-
+-
+-def unique_object(pairs):
+-    out = {}
+-    for key, value in pairs:
+-        if key in out:
+-            raise ValueError('duplicate_key')
+-        out[key] = value
+-    return out
+-
+-
+-class Evidence:
+-    def __init__(self, path):
+-        self.path = pathlib.Path(path)
+-        self.path.mkdir(mode=0o700)
+-        self.file = open(os.open(self.path / 'events.jsonl', os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w')
+-        self.bytes = 0
+-
+-    def emit(self, value):
+-        value = dict(value, utc=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
+-        encoded = json.dumps(value, separators=(',', ':')) + '\n'
+-        new_bytes = self.bytes + len(encoded.encode())
+-        if new_bytes > SIDE_BYTES:
+-            raise ValueError('host_evidence_bytes')
+-        self.bytes = new_bytes
+-        self.file.write(encoded)
+-        self.file.flush()
+-
+-    def close(self):
+-        self.file.close()
+-
+-
+-def admission(guard, evidence):
+-    samples = []
+-    began = time.monotonic()
+-    for i in range(guard.ADMISSION_SAMPLES):
+-        if samples:
+-            time.sleep(max(0, samples[-1]['monotonic'] + 1 - time.monotonic()))
+-        if time.monotonic() - began > ADMISSION_SECONDS:
+-            raise ValueError('admission_elapsed')
+-        sample = guard.host()
+-        samples.append(sample)
+-        evidence.emit(dict(event='host_admission_sample', index=i, sample=sample))
+-    reason = guard.admission_failure(samples)
+-    evidence.emit(dict(event='host_admission_result', failure=reason,
+-                       samples=len(samples), wall_seconds=time.monotonic()-began))
+-    if reason:
+-        raise ValueError('host_admission_failed')
+-    return samples[-1]
+-
+-
+-def successful(primary, verified, raw):
+-    return primary is None and verified and isinstance(raw, dict) and raw.get('passed') is True
+-
+-
+-def stop_unestablished_child(child, guard, primary, emit):
+-    """SIGINT only the caller-created, still-owned Popen direct child.
+-
+-This monitor is its sole waiter, SIGCHLD must have default disposition, and
+-no outside waitpid may reap this child. Under those assumptions an exited but
+-unreaped child retains its PID; Popen.send_signal polls/reaps before its PID-based
+-signal and skips an already reaped child. Popen is not a kernel identity handle.
+-No other wait thread or raw PID/group signaling is allowed. This establishes
+-ownership of the direct runner only, never of unobserved descendants. Cleanup
+-always stays unverified on this route. A later PID census cannot establish
+-ownership after send_signal may have polled/reaped the original direct child.
+-"""
+-    began = time.monotonic()
+-    issues = False
+-    try:
+-        requested = child.poll() is None
+-        if requested:
+-            child.send_signal(signal.SIGINT)
+-        emit(dict(event='direct_child_cooperative_sigint', primary_cause=primary,
+-                  runner_pid=child.pid, signal_requested=requested,
+-                  grace_seconds=guard.COOPERATIVE_GRACE_SECONDS,
+-                  sole_waiter_unreaped_direct_child=True, raw_pid_or_group_signal=False))
+-    except BaseException as error:
+-        issues = True
+-        emit(dict(event='host_cleanup_issue', primary_cause=primary,
+-                  supplemental_cause=type(error).__name__, phase='direct_child_sigint'))
+-    try:
+-        remaining = max(0.001, guard.COOPERATIVE_GRACE_SECONDS-(time.monotonic()-began))
+-        child.wait(timeout=remaining)
+-    except BaseException as error:
+-        issues = True
+-        emit(dict(event='host_cleanup_issue', primary_cause=primary,
+-                  supplemental_cause=type(error).__name__, phase='direct_child_wait'))
+-    emit(dict(event='direct_child_stop_complete', primary_cause=primary,
+-              runner_returncode=child.poll(), cleanup_verified=False, supplemental_cleanup_issue=issues,
+-              wall_seconds=time.monotonic()-began,
+-              direct_runner_exit_alone_does_not_prove_descendant_cleanup=True))
+-    return False
+-
+-
+-def live_owned_sample(owner):
+-    """Prune history only after a successful complete fixed-guard census.
+-
+-The guard first retains every previously observed live birth, including a live
+-orphan reparented outside the runner tree. Its returned mapping excludes absent
+-and zombie entries. Failed observations propagate before wrapper pruning; no
+-new query or PID ownership claim is introduced. The fixed guard stays unchanged.
+-"""
+-    owned = owner.sample()
+-    owner.known = {pid:row['birth'] for pid,row in owned.items()}
+-    return owned
+-
+-
+-def monitor(command, cwd, output, report, evidence, guard, initial_sample=None,
+-            runtime_sample=None):
+-    # The unchanged bounded runner is the only RSS/storage sampler and authority.
+-    # guard process snapshots establish births/ancestry and finite process counts.
+-    if signal.getsignal(signal.SIGCHLD) != signal.SIG_DFL:
+-        raise ValueError('nondefault_sigchld_disposition')
+-    if output.exists() or report.exists():
+-        raise FileExistsError('fresh_runner_output_and_report_required')
+-    if runtime_sample is None:
+-        runtime_sample = guard.host
+-    child = None
+-    owner = None
+-    primary = None
+-    verified = False
+-    evidence_ok = True
+-    last_ownership = None
+-    samples = [] if initial_sample is None else [initial_sample]
+-    began = time.monotonic()
+-    def cleanup_emit(value):
+-        nonlocal evidence_ok
+-        try:
+-            evidence.emit(value)
+-        except BaseException:
+-            evidence_ok = False  # Evidence failure must never bypass owned cleanup.
+-    meta_fd = os.open(evidence.path / 'runner.stdout', os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+-    err_fd = os.open(evidence.path / 'runner.stderr', os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+-    try:
+-        evidence.emit(dict(event='supervisor_resource_plan', process_cap=MAX_PROCESSES,
+-                           tracked_birth_cap=MAX_TRACKED_BIRTHS, host_sample_cap=MAX_SAMPLES,
+-                           side_evidence_bytes=SIDE_BYTES, cleanup_allowance_seconds=CLEANUP_ALLOWANCE_SECONDS,
+-                           cleanup_allowance_is_not_hard_wall=True,
+-                           rss_storage_authority='unchanged_bounded_runner_0.2s',
+-                           duplicate_rss_storage_sampler=False))
+-        child = subprocess.Popen(command, cwd=cwd, stdin=subprocess.DEVNULL,
+-                                 stdout=meta_fd, stderr=err_fd)
+-        try:
+-            owner = guard.OwnedChild(child)
+-        except BaseException as error:
+-            primary = 'initial_ownership_failure'
+-            cleanup_emit(dict(event='initial_ownership_exception', primary_cause=primary,
+-                              supplemental_cause=type(error).__name__))
+-            raise
+-        evidence.emit(dict(event='owned_runner_start', pid=child.pid, birth=owner.birth,
+-                           argv=command, process_cap=MAX_PROCESSES,
+-                           cleanup_allowance_seconds=CLEANUP_ALLOWANCE_SECONDS))
+-        while True:
+-            tick = time.monotonic()
+-            try:
+-                sample = runtime_sample()
+-            except BaseException as error:
+-                primary = ('unknown_pressure' if isinstance(error, ValueError) and
+-                           error.args == ('unknown_pressure',) else 'host_query_failure')
+-                evidence.emit(dict(event='host_query_exception', primary_cause=primary,
+-                                   supplemental_cause=type(error).__name__))
+-                break
+-            samples.append(sample)
+-            evidence.emit(dict(event='host_runtime_sample', index=len(samples)-1, sample=sample))
+-            if len(samples) > MAX_SAMPLES:
+-                primary = 'host_sample_cap'
+-            if primary is None:
+-                primary = guard.runtime_failure(samples)
+-            if primary is not None:
+-                break  # Enter central cooperative stop before another ownership query.
+-            owned = live_owned_sample(owner)
+-            ownership = {pid:dict(ppid=row['ppid'], birth=row['birth']) for pid,row in owned.items()}
+-            if ownership != last_ownership:
+-                evidence.emit(dict(event='owned_process_inventory', owned=ownership,
+-                                   tracked_births=len(owner.known)))
+-                last_ownership = ownership
+-            if primary is None and len(owned) > MAX_PROCESSES:
+-                primary = 'owned_process_cap'
+-            if primary is None and len(owner.known) > MAX_TRACKED_BIRTHS:
+-                primary = 'tracked_birth_cap'
+-            if primary is not None or (child.poll() is not None and not owned):
+-                break
+-            time.sleep(max(0, tick + 1 - time.monotonic()))
+-    except BaseException as error:
+-        if primary is None:
+-            primary = 'supervisor_error'
+-        cleanup_emit(dict(event='host_monitor_exception', primary_cause=primary,
+-                          supplemental_cause=type(error).__name__))
+-    finally:
+-        cleanup_began = time.monotonic()
+-        try:
+-            if owner is not None and primary is not None:
+-                start = time.monotonic()
+-                verified = owner.stop(primary, cleanup_emit)
+-                elapsed = time.monotonic() - start
+-                cleanup_emit(dict(event='host_cleanup_result', primary_cause=primary,
+-                                  wall_seconds=elapsed, cleanup_verified=verified,
+-                                  allowance_seconds=CLEANUP_ALLOWANCE_SECONDS,
+-                                  allowance_exceeded=elapsed > CLEANUP_ALLOWANCE_SECONDS))
+-                if elapsed > CLEANUP_ALLOWANCE_SECONDS:
+-                    verified = False
+-                if not verified and child.poll() is None:
+-                    cleanup_emit(dict(event='direct_child_fallback_request', primary_cause=primary,
+-                                      supplemental_cause='owned_cleanup_unverified_runner_still_alive'))
+-                    stop_unestablished_child(child, guard, primary, cleanup_emit)
+-                    verified = False  # Prior telemetry failure is never erased.
+-            elif owner is not None:
+-                verified = child.poll() is not None and not live_owned_sample(owner)
+-            elif child is not None:
+-                verified = stop_unestablished_child(child, guard, primary, cleanup_emit)
+-        except BaseException as error:
+-            verified = False
+-            if primary is None:
+-                primary = 'cleanup_error'
+-            cleanup_emit(dict(event='host_cleanup_unverified', primary_cause=primary,
+-                              supplemental_cause=type(error).__name__, phase='cleanup_exception'))
+-            try:
+-                if child is not None and child.poll() is None:
+-                    cleanup_emit(dict(event='direct_child_fallback_request', primary_cause=primary,
+-                                      supplemental_cause='owned_cleanup_exception_runner_still_alive'))
+-                    stop_unestablished_child(child, guard, primary, cleanup_emit)
+-            except BaseException as fallback_error:
+-                cleanup_emit(dict(event='host_cleanup_issue', primary_cause=primary,
+-                                  supplemental_cause=type(fallback_error).__name__, phase='direct_fallback_exception'))
+-            verified = False
+-        finally:
+-            cleanup_elapsed = time.monotonic()-cleanup_began
+-            if cleanup_elapsed > CLEANUP_ALLOWANCE_SECONDS:
+-                verified = False
+-            cleanup_emit(dict(event='host_cleanup_total', primary_cause=primary,
+-                              wall_seconds=cleanup_elapsed, cleanup_verified=verified,
+-                              allowance_seconds=CLEANUP_ALLOWANCE_SECONDS,
+-                              allowance_exceeded=cleanup_elapsed > CLEANUP_ALLOWANCE_SECONDS,
+-                              includes_direct_child_fallback=True))
+-            for fd in (meta_fd, err_fd):
+-                try:
+-                    os.close(fd)
+-                except BaseException as error:
+-                    evidence_ok = False
+-                    if primary is None:
+-                        primary = 'metadata_fd_close_error'
+-                    cleanup_emit(dict(event='host_cleanup_issue', primary_cause=primary,
+-                                      supplemental_cause=type(error).__name__, phase='metadata_fd_close'))
+-    verified = verified and evidence_ok
+-    if verified and child is not None:
+-        child.wait(timeout=5)
+-    raw = None
+-    data = None
+-    if report.exists():
+-        fd = os.open(report, os.O_RDONLY | os.O_NOFOLLOW)
+-        with os.fdopen(fd, 'rb') as file:
+-            meta = os.fstat(file.fileno())
+-            if not stat.S_ISREG(meta.st_mode) or meta.st_uid != os.getuid() or meta.st_size > 2*1024*1024:
+-                raise ValueError('runner_report_type_size_owner')
+-            data = file.read(2*1024*1024+1)
+-            if len(data) != meta.st_size:
+-                raise ValueError('runner_report_changed_length')
+-        raw = json.loads(data, object_pairs_hook=unique_object)
+-    if primary is None and child is not None and child.poll() != 0:
+-        primary = 'runner_nonzero_exit'
+-    cleanup_emit(dict(event='host_supervisor_complete', primary_host_cause=primary,
+-                      cleanup_verified=verified, runner_returncode=None if child is None else child.poll(),
+-                      primary_runner_report_present=raw is not None,
+-                      raw_runner_report_sha256=None if data is None else hashlib.sha256(data).hexdigest(),
+-                      whole_monitor_seconds=time.monotonic()-began,
+-                      runner_report_fields_unmodified=True))
+-    return primary, verified and evidence_ok, raw
++def authenticate(entries):
++    for entry in entries:
++        path=Path(entry['path'])
++        for p in (path,*path.parents):
++            if p.is_symlink():raise ValueError('identity_symlink')
++        h=hashlib.sha256();n=0
++        with os.fdopen(os.open(path,os.O_RDONLY|os.O_NOFOLLOW),'rb') as f:
++            meta=os.fstat(f.fileno())
++            if not stat.S_ISREG(meta.st_mode) or meta.st_uid!=os.getuid() or meta.st_size!=entry['bytes']:raise ValueError('identity_owner_type_size')
++            while block:=f.read(65536):h.update(block);n+=len(block)
++        if n!=entry['bytes'] or h.hexdigest()!=entry['sha256']:raise ValueError('identity_digest')
+ 
+ def main():
+-    parser = argparse.ArgumentParser()
+-    parser.add_argument('--proposal', type=pathlib.Path, required=True)
+-    parser.add_argument('--proposal-bytes', type=int, required=True)
+-    parser.add_argument('--proposal-sha256', required=True)
+-    parser.add_argument('--supervisor-sha256', required=True)
+-    parser.add_argument('--output', type=pathlib.Path, required=True)
+-    args = parser.parse_args()
+-    if args.proposal_bytes > 32768:
+-        raise ValueError('proposal_size')
+-    this = pathlib.Path(__file__)
+-    received(this, this.stat().st_size, args.supervisor_sha256)
+-    proposal = json.loads(received(args.proposal, args.proposal_bytes, args.proposal_sha256), object_pairs_hook=unique_object)
+-    command = proposal['command']
+-    runner = str(ROOT / 'results/dynark/phase-2/bootstrap/bounded_runner.py')
+-    if command[:2] != ['python3', runner] or command[3] != 't4-cross-credential-strict-replay-003':
+-        raise ValueError('fixed_replay_runner')
+-    output = pathlib.Path(command[command.index('--private-output') + 1])
+-    report = pathlib.Path(command[command.index('--report') + 1])
+-    if output != ROOT / 'artifacts/dynark/phase-2/credential/strict-replay-003' or report != ROOT / 'results/dynark/phase-2/credential/strict-replay-003.json':
+-        raise ValueError('fixed_replay_paths')
+-    if args.output != ROOT / 'artifacts/dynark/phase-2/credential/strict-replay-003-host':
+-        raise ValueError('fixed_host_path')
+-    if output.exists() or report.exists():
+-        raise FileExistsError('fresh_runner_output_and_report_required')
+-    received(RUNNER, RUNNER_BYTES, RUNNER_SHA)
+-    guard = load_guard()
+-    evidence = Evidence(args.output)
++    ap=argparse.ArgumentParser();ap.add_argument('--proposal',required=True);ap.add_argument('--proposal-bytes',type=int,required=True);ap.add_argument('--proposal-sha256',required=True);ap.add_argument('--wrapper-sha256',required=True);a=ap.parse_args()
++    if not 0<a.proposal_bytes<=32768:raise ValueError('proposal_size')
++    this=Path(__file__);supervisor.received(this,this.stat().st_size,a.wrapper_sha256)
++    proposal=json.loads(supervisor.received(a.proposal,a.proposal_bytes,a.proposal_sha256),object_pairs_hook=supervisor.unique_object)
++    command=replay_command(proposal);authenticate(DEPENDENCIES)
++    supervisor.received(supervisor.RUNNER,supervisor.RUNNER_BYTES,supervisor.RUNNER_SHA)
++    if Path(command[command.index('--executable')+1]).stat().st_mode&0o777!=0o700:raise ValueError('immutable_executable_mode')
++    if any(p.exists() for p in (OUTPUT,REPORT,HOST)):raise FileExistsError('fresh_replay_paths')
++    guard=supervisor.load_guard();os.umask(0o077);evidence=supervisor.Evidence(HOST)
+     try:
+-        evidence.emit(dict(event='host_guard_identity', sha256=GUARD_SHA, bytes=GUARD_BYTES,
+-                           pressure_policy_is_experimental=True, no_trial_causation_claim=True,
+-                           prior_partial_samples_excluded=17))
+-        last = admission(guard, evidence)
+-        primary, verified, raw = monitor(command, ROOT, output, report, evidence, guard, last)
+-        received(this, this.stat().st_size, args.supervisor_sha256)
+-        received(GUARD, GUARD_BYTES, GUARD_SHA)
+-        received(GUARD_MANIFEST, GUARD_MANIFEST_BYTES, GUARD_MANIFEST_SHA)
+-        received(RUNNER, RUNNER_BYTES, RUNNER_SHA)
+-        if not successful(primary, verified, raw):
+-            return 1
+-        return 0
+-    finally:
+-        evidence.close()
+-
+-
+-if __name__ == '__main__':
+-    try:
+-        sys.exit(main())
++        last=supervisor.admission(guard,evidence)
++        primary,verified,raw=supervisor.monitor(command,ROOT,OUTPUT,REPORT,evidence,guard,last)
++        try:
++            authenticate(DEPENDENCIES);supervisor.received(this,this.stat().st_size,a.wrapper_sha256)
++            supervisor.authenticate_policy();supervisor.received(supervisor.GUARD,supervisor.GUARD_BYTES,supervisor.GUARD_SHA);supervisor.received(supervisor.GUARD_MANIFEST,supervisor.GUARD_MANIFEST_BYTES,supervisor.GUARD_MANIFEST_SHA);supervisor.received(supervisor.RUNNER,supervisor.RUNNER_BYTES,supervisor.RUNNER_SHA)
++        except BaseException as error:
++            if primary is None:primary='source_after_failure'
++            evidence.emit(dict(event='replay_identity_after_failure',primary_cause=primary,supplemental_cause=type(error).__name__))
++        return 0 if supervisor.successful(primary,verified,raw) else 1
++    finally:evidence.close()
++if __name__=='__main__':
++    try:sys.exit(main())
+     except Exception as error:
+-        print(json.dumps(dict(event='supervisor_failure', class_name=type(error).__name__, private_details_omitted=True)), flush=True)
+-        sys.exit(1)
++        print(json.dumps(dict(event='replay_wrapper_failure',class_name=type(error).__name__)));sys.exit(1)

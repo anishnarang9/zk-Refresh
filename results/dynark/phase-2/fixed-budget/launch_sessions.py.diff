@@ -1,0 +1,107 @@
+--- artifacts/dynark/phase-2/sessions/tooling-source-001/launch_sessions.py
++++ artifacts/dynark/phase-2/fixed-budget/source-001/launch_sessions.py
+@@ -5,10 +5,11 @@
+ """
+ import argparse, hashlib, json, math, os, stat, sys, time, types
+ from pathlib import Path
++from fixed_policy import POLICY_ID, POLICY_SHA, WORKLOAD_RSS_BYTES, MONITORING_PLANNING_BYTES, require_policy
+ ROOT=Path('/Users/anishnarang/Zk-refresh');PRIVATE=ROOT/'artifacts/dynark/phase-2/sessions'
+ HERE=PRIVATE/'tooling-source-001'
+-SHARED=ROOT/'artifacts/dynark/phase-2/credential/dynamic-supervisor-source-001/bounded_host_supervisor.py'
+-SHARED_SHA='1dcc815419a42e9ae3a331a52a73bd9567766844964e36c00b675a4557b28f68'
++SHARED=Path('/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/bounded_host_supervisor.py')
++SHARED_SHA='d407f9960df6862be1e498a5d279e901be280921f8d3b12eab146ac2d9bcc24d'
+ WORK_KEYS=('proofs','g1','g2','g1_msm','g2_msm','pairs','entries','muls','adds','verifications','proof_points','output_fields','inclusive_points','inclusive_fields')
+ CAPS=dict(zip(WORK_KEYS,(32000,30000000,2000000,40000000,12000000,30000000,200000000,300000000,600000000,192000,96000,160000,550000,10000000)))
+ PHASE_CAP={'prepare':300,'audit-pilot':300,'train':1800,'holdout':1800,'allocation-diagnostic':900}
+@@ -104,6 +105,7 @@
+     current={k:0 for k in WORK_KEYS};base=dict(current)
+     if phase not in CHAIN:raise ValueError('phase')
+     if prior is not None:
++        require_policy(prior)
+         if prior.get('schema')!='session-cumulative-work-v3' or prior.get('status') not in ('complete','aborted') or prior.get('study_id')!=study or prior.get('source_manifest_sha256')!=source_sha:raise ValueError('predecessor_identity')
+         if prior.get('phase_chain')!=list(CHAIN[:CHAIN.index(phase)]):raise ValueError('predecessor_chain')
+         base=validate_vector(prior['reserved'])  # Already cumulative: never recurse into predecessor.
+@@ -149,6 +151,7 @@
+ class PhaseEvidence:
+     def __init__(self,supervisor,path,budget):self.inner=supervisor.Evidence(path);self.path=self.inner.path;self.budget=budget
+     def emit(self,value):
++        value=dict(value,resource_policy_id=POLICY_ID,resource_policy_sha256=POLICY_SHA)
+         encoded=json.dumps(value,separators=(',',':'),allow_nan=False).encode()
+         if len(encoded)+64>8192 or self.budget.events>=self.budget.limits['events']:raise ValueError('side_evidence_failure')
+         self.budget.charge('host',len(encoded)+64);self.budget.events+=1;self.inner.emit(value)
+@@ -217,6 +220,7 @@
+     return v
+ 
+ def fit_role(p,study,source):
++    require_policy(p)
+     if p.get('schema')!='session-group-provenance-v1' or p.get('passed') is not True or p.get('study_id')!=study or p.get('source_manifest_sha256')!=source:raise ValueError('fit_provenance')
+     g=p['group']
+     if g.get('mode') not in ('full','selective'):raise ValueError('fit_comparator')
+@@ -283,7 +287,7 @@
+ 
+ def main():
+     ap=argparse.ArgumentParser();ap.add_argument('--grant',required=True);ap.add_argument('--grant-sha256',required=True);a=ap.parse_args()
+-    grant=read_json(dict(path=a.grant,sha256=a.grant_sha256));phase=grant['phase'];deadline=time.monotonic()+PHASE_CAP[phase]
++    grant=read_json(dict(path=a.grant,sha256=a.grant_sha256));require_policy(grant);phase=grant['phase'];deadline=time.monotonic()+PHASE_CAP[phase]
+     if grant.get('status')!='parent-granted' or grant.get('unresolved_prelaunch_gates') or len(grant['study_id'])!=64:raise ValueError('grant_gate')
+     source_entry=dict(path=grant['source_manifest'],sha256=grant['source_manifest_sha256']);source=read_json(source_entry)
+     if len(source['files'])>256 or len(grant['frozen_external'])>256:raise ValueError('source_entry_count')
+@@ -293,12 +297,12 @@
+     for e in entries:
+         if e['path'] in catalog and catalog[e['path']]!=e:raise ValueError('conflicting_source_pin')
+         catalog[e['path']]=e
+-    if str(HERE/'launch_sessions.py') not in catalog or str(SHARED) not in catalog or catalog[str(SHARED)]['sha256']!=SHARED_SHA:raise ValueError('launcher_shared_pin')
++    if str(Path(__file__)) not in catalog or str(SHARED) not in catalog or catalog[str(SHARED)]['sha256']!=SHARED_SHA:raise ValueError('launcher_shared_pin')
+     authenticate(catalog)
+     plan=load_module('session_plan',HERE/'session_plan.py',catalog);sys.modules['session_plan']=plan
+     fitter=load_module('session_fitter',HERE/'fit_train.py',catalog);supervisor=load_module('session_shared_supervisor',SHARED,catalog)
+     guard=supervisor.load_guard();supervisor.received(supervisor.RUNNER,supervisor.RUNNER_BYTES,supervisor.RUNNER_SHA)
+-    for p,n,h in ((supervisor.RUNNER,supervisor.RUNNER_BYTES,supervisor.RUNNER_SHA),(supervisor.GUARD,supervisor.GUARD_BYTES,supervisor.GUARD_SHA),(supervisor.GUARD_MANIFEST,supervisor.GUARD_MANIFEST_BYTES,supervisor.GUARD_MANIFEST_SHA)):
++    for p,n,h in ((supervisor.POLICY_MODULE,supervisor.POLICY_MODULE_BYTES,supervisor.POLICY_MODULE_SHA),(supervisor.POLICY_PATH,supervisor.POLICY_BYTES,supervisor.POLICY_SHA),(supervisor.RUNNER,supervisor.RUNNER_BYTES,supervisor.RUNNER_SHA),(supervisor.GUARD,supervisor.GUARD_BYTES,supervisor.GUARD_SHA),(supervisor.GUARD_MANIFEST,supervisor.GUARD_MANIFEST_BYTES,supervisor.GUARD_MANIFEST_SHA)):
+         catalog[str(p)]=dict(path=str(p),bytes=n,sha256=h)
+     jobs=grant['jobs'];expected=([dict(phase=phase,audit='common-r-s')]+plan.schedule(phase) if phase=='audit-pilot' else plan.schedule('train-forced')+plan.schedule('train-selectors') if phase=='train' else [dict(phase=phase)] if phase=='prepare' else plan.schedule(phase))
+     if [j['group'] for j in jobs]!=expected:raise ValueError('finite_schedule')
+@@ -309,11 +313,11 @@
+     if len(previous)>1:raise ValueError('one_predecessor')
+     prior=read_json(previous[0],65536) if previous else None
+     totals,current=cumulative_reservation(jobs,prior,phase,grant['study_id'],grant['source_manifest_sha256'])
+-    out=protected_path(grant['output']);runner_root=protected_path(grant['runner_output']);out.relative_to(PRIVATE);runner_root.relative_to(PRIVATE);disjoint_roots(out,runner_root)
++    out=protected_path(grant['output']);runner_root=protected_path(grant['runner_output']);out.relative_to(ROOT/'artifacts/dynark/phase-2/fixed-budget');runner_root.relative_to(ROOT/'artifacts/dynark/phase-2/fixed-budget');disjoint_roots(out,runner_root)
+     if out.parent!=runner_root.parent or out.exists() or runner_root.exists() or stat.S_IMODE(out.parent.stat().st_mode)!=0o700 or out.parent.stat().st_uid!=os.getuid():raise ValueError('fresh_sibling_roots')
+     limits=side_limits(phase,len(jobs));budget=SideBudget(limits);budget.charge('control',2*65536)
+     out.mkdir(mode=0o700);runner_root.mkdir(mode=0o700)
+-    ledger=dict(schema='session-cumulative-work-v3',phase=phase,phase_chain=list(CHAIN[:CHAIN.index(phase)+1]),reserved=totals,phase_reserved=current,study_id=grant['study_id'],source_manifest_sha256=grant['source_manifest_sha256'],predecessor=previous)
++    ledger=dict(resource_policy_id=POLICY_ID,resource_policy_sha256=POLICY_SHA,monitoring_additional_planning_bytes=MONITORING_PLANNING_BYTES,schema='session-cumulative-work-v3',phase=phase,phase_chain=list(CHAIN[:CHAIN.index(phase)+1]),reserved=totals,phase_reserved=current,study_id=grant['study_id'],source_manifest_sha256=grant['source_manifest_sha256'],predecessor=previous)
+     initial_reservation(out,ledger);completed=[];failure=None;policy=policy_sha=None;core_paid=0
+     try:
+         e=PhaseEvidence(supervisor,out/'admission',budget)
+@@ -329,8 +333,8 @@
+                 if key.startswith('SESSION_') or key in ('RUSTFLAGS','CARGO_ENCODED_RUSTFLAGS','CARGO_TARGET_DIR','RUSTC_WRAPPER','RUSTC_WORKSPACE_WRAPPER'):env.pop(key,None)
+             reviewed=job['reviewed_env']
+             if set(reviewed)-{'SESSION_ARTIFACTS','SESSION_PUBLIC_MANIFEST_SHA256','SESSION_POLICY','SESSION_POLICY_SHA256'} or any(not isinstance(v,str) or len(v)>4096 for v in reviewed.values()):raise ValueError('reviewed_env')
+-            env.update(reviewed);env.update(SESSION_WORK_ENVELOPE=envelope_csv(job['reviewed_work_envelope']),SESSION_OWNER_OUTPUT=str(data),RAYON_NUM_THREADS='4',CARGO_BUILD_JOBS='2')
+-            fixture=protected_path(env['SESSION_ARTIFACTS']);fixture.relative_to(PRIVATE)
++            env.update(reviewed);env.update(SESSION_WORK_ENVELOPE=envelope_csv(job['reviewed_work_envelope']),SESSION_OWNER_OUTPUT=str(data),RAYON_NUM_THREADS='4',CARGO_BUILD_JOBS='2',RUST_TEST_THREADS='1')
++            fixture=protected_path(env['SESSION_ARTIFACTS']);fixture.relative_to(ROOT/'artifacts/dynark/phase-2')
+             if phase=='prepare':
+                 if fixture!=out/'public-artifacts':raise ValueError('fresh_fixture_root')
+                 fixture.mkdir(mode=0o700)
+@@ -356,7 +360,7 @@
+             storage=limits['core_storage_bytes']-core_paid
+             if storage<=0:raise ValueError('cumulative_storage')
+             report=owned/'primary-report.json';bounded=owned/'bounded'
+-            command=[grant['python'],str(supervisor.RUNNER),'--owner',grant['owner'],'--cwd',str(ROOT),'--private-output',str(bounded),'--report',str(report),'--runtime-seconds',str(deadline-time.monotonic()),'--rss-bytes',str((1 if phase in ('prepare','audit-pilot') else 2)*1024**3-128*MiB),'--storage-bytes',str(storage),'--storage-path',str(out),'--poll-seconds','0.2','--',*argv]
++            command=[grant['python'],str(supervisor.RUNNER),'--owner',grant['owner'],'--cwd',str(ROOT),'--private-output',str(bounded),'--report',str(report),'--runtime-seconds',str(deadline-time.monotonic()),'--rss-bytes',str(WORKLOAD_RSS_BYTES),'--storage-bytes',str(storage),'--storage-path',str(out),'--poll-seconds','0.2','--',*argv]
+             e=PhaseEvidence(supervisor,owned/'host',budget)
+             raw=monitored(supervisor,command,bounded,report,e,guard,initial,deadline,env,min(16384,PHASE_CAP[phase]+2))
+             for p in (report,bounded/'report.json'):budget.charge('reports',p.stat().st_size)
+@@ -385,7 +389,7 @@
+                 marker=[x for x in rows if x.get('record')=='group']
+                 if len(marker)!=1 or any(marker[0].get(k)!=v for k,v in dict(mode=group['mode'].title(),case=group['case'],k=group['k'],samples=group['samples']).items()):raise ValueError('final_group_identity')
+             elif len([x for x in rows if x.get('record')==('prepare' if phase=='prepare' else 'audit')])!=1:raise ValueError('final_special_marker')
+-            provenance=dict(schema='session-group-provenance-v1',passed=True,study_id=grant['study_id'],source_manifest_sha256=grant['source_manifest_sha256'],group=group,executable=exe,argv=argv,fixture_pins=[catalog[str(fixture/name)] for name in ('circuit.r1cs','updating-key.bin','public-manifest.txt')] if phase!='prepare' else prepared,policy_sha256=env.get('SESSION_POLICY_SHA256'),log=pin,final_reservations=actual,runtime_seconds=float(command[command.index('--runtime-seconds')+1]),report=identity(dict(path=str(report),sha256=hash_file(report))),duplicate_report=identity(dict(path=str(bounded/'report.json'),sha256=hash_file(bounded/'report.json'))))
++            provenance=dict(resource_policy_id=POLICY_ID,resource_policy_sha256=POLICY_SHA,schema='session-group-provenance-v1',passed=True,study_id=grant['study_id'],source_manifest_sha256=grant['source_manifest_sha256'],group=group,executable=exe,argv=argv,fixture_pins=[catalog[str(fixture/name)] for name in ('circuit.r1cs','updating-key.bin','public-manifest.txt')] if phase!='prepare' else prepared,policy_sha256=env.get('SESSION_POLICY_SHA256'),log=pin,final_reservations=actual,runtime_seconds=float(command[command.index('--runtime-seconds')+1]),report=identity(dict(path=str(report),sha256=hash_file(report))),duplicate_report=identity(dict(path=str(bounded/'report.json'),sha256=hash_file(bounded/'report.json'))))
+             write_new(owned/'provenance.json',provenance,budget,65536);completed.append(provenance)
+         authenticate(catalog)
+         if policy is not None:identity(dict(path=str(policy),sha256=policy_sha),4096)

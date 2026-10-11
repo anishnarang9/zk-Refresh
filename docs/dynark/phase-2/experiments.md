@@ -1,5 +1,7 @@
 # Experiments and serial execution queue
 
+October 11 user amendment: [fixed resource budget and verification](evidence/fixed-budget-review.md). The benchmark allowance is now independent of free RAM and ordinary warning-pressure/swap observations. Worker and independent parent each passed 15 finite tests within 120 seconds / 512 MiB RSS / 32 MiB growth. Both queue slots are released and successor sources are frozen. No heavy run or Rust build occurred. Historical normal-pressure gates below are superseded by the amendment, not retroactively applied to earlier results.
+
 October 10, 2026. Queue coordinator: orchestrator. No credential-scale setup, preprocessing, proof or allocation run is currently authorized. Inspect active jobs before transferring the slot. Code edits may proceed in disjoint ownership; heavy measurements never overlap.
 
 October 11, 04:44 UTC update: queue free; all coding ownership released. Session source004 and launcher004 are frozen after parent review. Worker and independent parent each passed 23 finite mocked/integer-plan tests under exact proposal004 commands and fresh attempt003 roots (120 seconds, 512 MiB RSS, 16 MiB growth). Original reports, source pins and cleanup were verified; [source/evidence review](evidence/session-source-review.md) records counts and limits. These exceptions ran no host admission, Rust, setup or cryptography. Host pressure remains warning; credential replay/dynamics, population and session builds/runs stay held pending stable normal admission. No automatic retry or sample replacement is authorized.

@@ -1,0 +1,59 @@
+--- artifacts/dynark/phase-2/credential/dynamic-supervisor-source-001/bounded_host_supervisor.py
++++ artifacts/dynark/phase-2/fixed-budget/source-001/bounded_host_supervisor.py
+@@ -16,14 +16,15 @@
+ import time
+ import types
+ import math
++from fixed_policy import POLICY_ID, POLICY_SHA, POLICY_PATH, POLICY_BYTES, MONITORING_PLANNING_BYTES, outcome
+ 
+ ROOT = pathlib.Path('/Users/anishnarang/Zk-refresh')
+-GUARD = ROOT / 'artifacts/dynark/phase-2/representation/population/host-guard-source-002/host_guard.py'
+-GUARD_SHA = '781c5d50248579718e1c60481666a00c34e61effe7bcf97c296c240b6e313659'
+-GUARD_BYTES = 10266
+-GUARD_MANIFEST = ROOT / 'results/dynark/phase-2/representation/population/host-guard-freeze-002.json'
+-GUARD_MANIFEST_BYTES = 2131
+-GUARD_MANIFEST_SHA = 'cc2f541f60004f7cd6a51e392342872ac178e6313e1e931c010de0f16cf351db'
++GUARD = pathlib.Path('/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/host_guard.py')
++GUARD_SHA = '2c5b640f14879c1b71e265c97a019eac3bb405b1c29df9fcc50cfd09e5d39567'
++GUARD_BYTES = 9870
++GUARD_MANIFEST = pathlib.Path('/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/host-guard-freeze.json')
++GUARD_MANIFEST_BYTES = 745
++GUARD_MANIFEST_SHA = '4b7ceaa83ca58b882a6d35bff7f3e36d348a57ab28022e4cb01b556e63c96fdc'
+ RUNNER = ROOT / 'results/dynark/phase-2/bootstrap/bounded_runner.py'
+ RUNNER_BYTES = 11594
+ RUNNER_SHA = 'f2a0669b538f3f67751fafd132fee25211b637cc1082f24c4a40a43f85d01137'
+@@ -54,7 +55,16 @@
+     return data
+ 
+ 
++POLICY_MODULE=pathlib.Path('/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/fixed_policy.py')
++POLICY_MODULE_BYTES=2948
++POLICY_MODULE_SHA='35134b1b711f7c4dec0be76dbc592f537bb020c793ce7a5abf87936603221160'
++
++def authenticate_policy():
++    received(POLICY_MODULE,POLICY_MODULE_BYTES,POLICY_MODULE_SHA)
++    received(POLICY_PATH,POLICY_BYTES,POLICY_SHA)
++
+ def load_guard():
++    authenticate_policy()
+     received(GUARD_MANIFEST, GUARD_MANIFEST_BYTES, GUARD_MANIFEST_SHA)
+     data = received(GUARD, GUARD_BYTES, GUARD_SHA)
+     module = types.ModuleType('credential_frozen_host_guard002')
+@@ -80,7 +90,7 @@
+         self.records = 0
+ 
+     def emit(self, value):
+-        value = dict(value, utc=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
++        value = dict(value, resource_policy_id=POLICY_ID, resource_policy_sha256=POLICY_SHA, utc=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
+         encoded = json.dumps(value, separators=(',', ':')) + '\n'
+         new_bytes = self.bytes + len(encoded.encode())
+         if len(encoded.encode()) > MAX_EVENT_BYTES or self.records >= MAX_EVENTS or new_bytes > SIDE_BYTES:
+@@ -351,6 +361,8 @@
+     cleanup_emit(dict(event='host_supervisor_complete', primary_host_cause=primary,
+                       cleanup_verified=verified, runner_returncode=None if child is None else child.poll(),
+                       primary_runner_report_present=raw is not None,
++                      measurement_outcome=outcome(primary,verified and evidence_ok,raw),
++                      additional_monitoring_planning_bytes=MONITORING_PLANNING_BYTES,monitoring_reserve_is_enforced=False,
+                       raw_runner_report_sha256=report_sha,
+                       whole_monitor_seconds=time.monotonic()-began,
+                       runner_report_fields_unmodified=True, samples_retained_in_original_files_only=True))

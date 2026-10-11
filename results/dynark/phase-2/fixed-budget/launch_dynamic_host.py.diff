@@ -1,0 +1,68 @@
+--- artifacts/dynark/phase-2/credential/dynamic-supervisor-source-001/launch_dynamic_host.py
++++ artifacts/dynark/phase-2/fixed-budget/source-001/launch_dynamic_host.py
+@@ -6,6 +6,7 @@
+ from pathlib import Path
+ import sys
+ import types
++from fixed_policy import WORKLOAD_RSS_BYTES, MONITORING_PLANNING_BYTES, RUST_TEST_THREADS, require_policy
+ 
+ ROOT=Path('/Users/anishnarang/Zk-refresh')
+ HERE=Path(__file__).resolve().parent
+@@ -15,9 +16,9 @@
+ SOURCE=ROOT/'results/dynark/phase-2/credential/dynamic-source-freeze-004-v2.json'
+ SOURCE_SHA='ae838cd42ab44b880086a51a13cc3d45e2e02e670de96ec17a5aefb62b28d70e'
+ SOURCE_BYTES=22975
+-OUTPUT=ROOT/'artifacts/dynark/phase-2/credential/dynamic-runtime-004'
+-REPORT=ROOT/'artifacts/dynark/phase-2/credential/dynamic-runtime-004-primary.json'
+-HOST=ROOT/'artifacts/dynark/phase-2/credential/dynamic-runtime-004-host'
++OUTPUT=ROOT/'artifacts/dynark/phase-2/fixed-budget/dynamic-runtime-001'
++REPORT=ROOT/'artifacts/dynark/phase-2/fixed-budget/dynamic-runtime-001-primary.json'
++HOST=ROOT/'artifacts/dynark/phase-2/fixed-budget/dynamic-runtime-001-host'
+ RESERVE_BYTES=192*1024**2
+ 
+ 
+@@ -43,6 +44,7 @@
+ 
+ 
+ def core_argv(supervisor,proposal):
++    require_policy(proposal)
+     if proposal.get('status')!='parent-granted' or proposal.get('executable') is None:
+         raise ValueError('runtime_ungranted_or_binary_unresolved')
+     exe=proposal['executable']
+@@ -53,9 +55,9 @@
+         raise ValueError('strict_expected_identity')
+     command=['python3',str(supervisor.RUNNER),'--owner','t4-cross-credential-dynamic-004',
+         '--cwd',str(ROOT),'--private-output',str(OUTPUT),'--report',str(REPORT),
+-        '--runtime-seconds','14400','--rss-bytes','8589934592','--storage-bytes','4294967296',
++        '--runtime-seconds','14400','--rss-bytes',str(WORKLOAD_RSS_BYTES),'--storage-bytes','4294967296',
+         '--poll-seconds','0.2','--','/usr/bin/time','-p','/usr/bin/env','-u','RUSTFLAGS',
+-        '-u','CARGO_ENCODED_RUSTFLAGS','RAYON_NUM_THREADS=4','CARGO_BUILD_JOBS=2',
++        '-u','CARGO_ENCODED_RUSTFLAGS','RAYON_NUM_THREADS=4','CARGO_BUILD_JOBS=2','RUST_TEST_THREADS=1',
+         'python3','-B',str(CORE),'--mode','dynamic','--executable',exe['path'],
+         '--binary-sha256',exe['sha256'],'--output',str(OUTPUT),
+         '--source-manifest',str(SOURCE),'--source-manifest-sha256',SOURCE_SHA,
+@@ -86,6 +88,7 @@
+         dict(path=str(CORE),bytes=CORE_BYTES,sha256=CORE_SHA),
+         dict(path=str(SOURCE),bytes=SOURCE_BYTES,sha256=SOURCE_SHA),
+         dict(path=str(supervisor.RUNNER),bytes=supervisor.RUNNER_BYTES,sha256=supervisor.RUNNER_SHA)]
++    entries.extend(dict(path=str(p),bytes=n,sha256=h) for p,n,h in ((supervisor.POLICY_MODULE,supervisor.POLICY_MODULE_BYTES,supervisor.POLICY_MODULE_SHA),(supervisor.POLICY_PATH,supervisor.POLICY_BYTES,supervisor.POLICY_SHA)))
+     authenticate(supervisor,entries)
+     received=supervisor.received(args.proposal,args.proposal_bytes,args.proposal_sha256)
+     proposal=json.loads(received,object_pairs_hook=supervisor.unique_object)
+@@ -102,13 +105,14 @@
+     os.umask(0o077)
+     evidence=supervisor.Evidence(HOST)
+     try:
+-        evidence.emit(dict(event='dynamic_resource_plan',core_rss_bytes=8589934592,
++        evidence.emit(dict(event='dynamic_resource_plan',core_rss_bytes=WORKLOAD_RSS_BYTES,
+             additional_wrapper_planning_reserve_bytes=RESERVE_BYTES,reserve_is_enforced=False,
+-            total_planning_bytes=8589934592+RESERVE_BYTES,core_argv_unchanged=True))
++            total_planning_bytes=WORKLOAD_RSS_BYTES+RESERVE_BYTES,crypto_core_argv_unchanged=True))
+         last=supervisor.admission(guard,evidence)
+         primary,verified,raw=supervisor.monitor(command,ROOT,OUTPUT,REPORT,evidence,guard,last)
+         try:
+             authenticate(supervisor,entries)
++            supervisor.authenticate_policy()
+             supervisor.received(supervisor.GUARD,supervisor.GUARD_BYTES,supervisor.GUARD_SHA)
+             supervisor.received(supervisor.GUARD_MANIFEST,supervisor.GUARD_MANIFEST_BYTES,supervisor.GUARD_MANIFEST_SHA)
+         except BaseException as error:

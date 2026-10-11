@@ -1,0 +1,576 @@
+{
+  "schema": "dynark-fixed-budget-bundle-v1",
+  "status": "fixed successor sources; finite tests pending; no campaign grant",
+  "resource_policy": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/resource-policy.json",
+    "bytes": 1215,
+    "sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+    "mode": "0o600"
+  },
+  "files": [
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/SHA256SUMS",
+      "bytes": 6527,
+      "sha256": "34414e355f427339b36c994adea4152186eb5d0932efb4681e34bbbdcbcabd5a",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/bounded_host_supervisor.py",
+      "bytes": 25651,
+      "sha256": "d407f9960df6862be1e498a5d279e901be280921f8d3b12eab146ac2d9bcc24d",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/fixed_policy.py",
+      "bytes": 2948,
+      "sha256": "35134b1b711f7c4dec0be76dbc592f537bb020c793ce7a5abf87936603221160",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/host-guard-freeze.json",
+      "bytes": 745,
+      "sha256": "4b7ceaa83ca58b882a6d35bff7f3e36d348a57ab28022e4cb01b556e63c96fdc",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/host_guard.py",
+      "bytes": 9870,
+      "sha256": "2c5b640f14879c1b71e265c97a019eac3bb405b1c29df9fcc50cfd09e5d39567",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/launch_dynamic_host.py",
+      "bytes": 7264,
+      "sha256": "348ec074673eb92e645b66e71ad7cc185d28456f00e2cf08a6de13967f125c56",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/launch_population.py",
+      "bytes": 11621,
+      "sha256": "edb382d5ac2d941120300bef6593eecd188ee637af966d75f0b05734daf3c6df",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/launch_replay_host.py",
+      "bytes": 6591,
+      "sha256": "2d421bf8fdc227f0b4c5a180dcb63178a55e481b3ac97bbadfa1c9f780d42219",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/launch_sessions.py",
+      "bytes": 29072,
+      "sha256": "2d209ecca8262c047d6074abdff1d1dee9caf8b9b01d3250132719b092aeb531",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/Cargo.lock",
+      "bytes": 24165,
+      "sha256": "50a18e4e57bad47cf266089dc5da60f901b34332646117092f5f7084567a4a6b",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/Cargo.toml",
+      "bytes": 775,
+      "sha256": "bf84f5acf25c1a6e650493447608705bc0ab806325edfaa4507ad1daa621f328",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/README.md",
+      "bytes": 6448,
+      "sha256": "99d79e5e8697b23dba6816f76a1f54cdf2c7a6da4f3a943af92733eece168937",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/src/anchored.rs",
+      "bytes": 32531,
+      "sha256": "13b0f8cc76a193d411c28ff7753cf24fd0cd160613cfeb1b474b1c96f515a9a6",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/src/artifact.rs",
+      "bytes": 14007,
+      "sha256": "ac675e7ddefb0f16a9394fa1f1a83472bf4decca2a621dfe7747a27b2a2a50cf",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/src/bin/phase2-cross-bench.rs",
+      "bytes": 40163,
+      "sha256": "e4d8ddaf224c846b195def63ce4a6345b4b6060d296c50b1e02bba4c0cea5de7",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/src/bin/phase2-glv-ablation.rs",
+      "bytes": 14410,
+      "sha256": "6f22f3a90e8fe6533ee58b8d01f94bff6c5b56087b8d84facb6206839ce82e11",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/src/bin/phase2-population.rs",
+      "bytes": 24342,
+      "sha256": "4a853d66cc4fc7279755ed5175914186603a8f09c7cdbbbfa268414343eb2d2c",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/src/cross.rs",
+      "bytes": 28651,
+      "sha256": "5c06c833569d9bed2948abfecee7a489b3f5ea5ee1f6bab033121bdd890a3b4b",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/src/cross_proof_tests.rs",
+      "bytes": 12653,
+      "sha256": "38f52796ada9553738c80e55fcfcb0b5ae4890411085fdf3638323525f3763ff",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/src/delta.rs",
+      "bytes": 8821,
+      "sha256": "e01256db13e5d8d89333e4a0ddcda14dcdcb35f5a52cd5455322d4b3d61aa879",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/src/dynamic/persistence_codec.rs",
+      "bytes": 43221,
+      "sha256": "35e8f7fa8e5dcdbea037615e3f793d3c48b6832ae0901597cb7a785e7fcbf545",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/src/dynamic.rs",
+      "bytes": 52058,
+      "sha256": "079849b3675273c32527b743865ffb5dc21214203f327149b71217764ea87b45",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/src/full.rs",
+      "bytes": 2164,
+      "sha256": "8aa23983a9524d3b72022552a219be457ad970b02c7ca385de3ef8d4956b6579",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/src/import.rs",
+      "bytes": 35889,
+      "sha256": "d5066840aeada7439394973f00bdab4b77e7d8f5defb548071c0282fa0254c16",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/src/lib.rs",
+      "bytes": 2446,
+      "sha256": "d3d762e816e8a7388561c3aad99793cb4f09244e7aed66392a2f168a5879c11e",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/src/persistence/provider.rs",
+      "bytes": 13343,
+      "sha256": "7922188ca61526df8d35f20506b00fb699735bbaef90957b65affa5c702d0242",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/src/persistence/storage.rs",
+      "bytes": 11193,
+      "sha256": "6907941f61697a321978332141b9ec13c3baea785f22f787bb0b252dad0f5bc7",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/src/persistence/wire.rs",
+      "bytes": 9227,
+      "sha256": "408491c5a5d3c4a774a2f301240053477fa1f1e432824b738fdaffd9a0b29448",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/src/persistence.rs",
+      "bytes": 23008,
+      "sha256": "c6a97ea84a645a084345c4f7400e8bb849079ac393bbdfd6767f133af9214d44",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/src/population_observer.rs",
+      "bytes": 10289,
+      "sha256": "477b6d4e3bc848326de682cc4db2aaa48ead977b85ba22a882a0f079a962db94",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/src/randomness.rs",
+      "bytes": 1188,
+      "sha256": "7fc2324647ae948009854dcca956dcf8ca80e890d68a562f739f5984cc7a6cbc",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/src/reconstruction.rs",
+      "bytes": 34961,
+      "sha256": "b90910376efd609a9ed3a55fdddf45a68f1e9df60f564f8607a40250394fa326",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/tests/anchored_conformance.rs",
+      "bytes": 5694,
+      "sha256": "18cf02b404c60b3677d86c4a59700835891e39c69b90a733040ce97be1d86c58",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/tests/cross_conformance.rs",
+      "bytes": 22811,
+      "sha256": "fbb344bc329606ccb669cfdf9c91eaf5c887ac36214f3e117551efdb6c11ef1b",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/tests/delta_contract.rs",
+      "bytes": 5561,
+      "sha256": "6b4afcc152b5c070c2ac3c49e54215f4a476b540affefeca9b3accc40ea0d25c",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/tests/dynamic_conformance.rs",
+      "bytes": 10039,
+      "sha256": "75fbc45bbeabef53a7eaa750e039bdd7979eb5ddb5940f3426ad991db4ec407f",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/tests/dynamic_fixture.rs",
+      "bytes": 5007,
+      "sha256": "8401392cd16e33a46bf58e3e909e63faf69ff36650ed60a50de1b43f5286a264",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/tests/full_conformance.rs",
+      "bytes": 22647,
+      "sha256": "2647c89712e3068d5d43a435376983e814a7b34ec9b99d4f9208051ac3928dc5",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/tests/private/dynamic_private.rs",
+      "bytes": 18225,
+      "sha256": "22fc923f85d36289c7e9dc431c60f8f198b689d1a4ed989a20e668a73231ea52",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/tests/private/persistence_private.rs",
+      "bytes": 47284,
+      "sha256": "d08a07d0089203db7b7645572dbe350479f53c96f0b5f98ce42122aab60cdaed",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/tests/private/reconstruction_pilot.rs",
+      "bytes": 20659,
+      "sha256": "4cf9a7ab22699530ac5146daf7f652f99faf2cc69faa1bf5c8bc753fe23ecb02",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/tests/private/reconstruction_private.rs",
+      "bytes": 9511,
+      "sha256": "959f2f1907185a4281a5ff32b2ba36fa449be3d584237dd777d0dab442eb344c",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/tests/support/mod.rs",
+      "bytes": 4945,
+      "sha256": "6494f89840b98721e6b2dc6c923b4f9803ef9c5f0d388a92c523190080878a1e",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/vendor/ark-groth16/Cargo.toml",
+      "bytes": 4225,
+      "sha256": "0230b6c4c87d5c5a174ee8bb1049e53458574755a868df1ce2eeb29f4954576c",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/vendor/ark-groth16/LICENSE-APACHE",
+      "bytes": 10847,
+      "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/vendor/ark-groth16/LICENSE-MIT",
+      "bytes": 1046,
+      "sha256": "8f71659370c5268d9a1dc962a46232540e8fca63462586d8efaa95aab492a208",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/vendor/ark-groth16/PATCHES.md",
+      "bytes": 2030,
+      "sha256": "4c6c17017d0b4baf79d81725178c79088bec26ea9903fc624969c80d3e4ae46c",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/vendor/ark-groth16/README.md",
+      "bytes": 2671,
+      "sha256": "d5bfe579eb73b8deff348409c24e267256ef9fc67919ece7ef6f1372596d9326",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/vendor/ark-groth16/src/constraints.rs",
+      "bytes": 20130,
+      "sha256": "d0aca7ffa5a4aef004c4e0276dd29ac829c29d63a6a09a7482dbc5809e4016a5",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/vendor/ark-groth16/src/data_structures.rs",
+      "bytes": 6615,
+      "sha256": "272b6688d7352dbf329bb40b93f2d788ce10b33612ab05deacf63961e4a5a679",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/vendor/ark-groth16/src/dynamic_cache.rs",
+      "bytes": 29901,
+      "sha256": "fecd160dd22b705326db22fb9b125d8d5ed82e2765f34179feedf665fdff5823",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/vendor/ark-groth16/src/dynark_generator.rs",
+      "bytes": 10759,
+      "sha256": "4bcb08ba6f1a1c4d55cb7136db5c8989e7f56ffb5e6c15f6e11956f6788b1103",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/vendor/ark-groth16/src/dynark_prover.rs",
+      "bytes": 12729,
+      "sha256": "5575e85562da40578887098dccd45652e5b985319ccc1bb3734fb5e33de447ac",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/vendor/ark-groth16/src/dynark_verifier.rs",
+      "bytes": 1692,
+      "sha256": "f561c7d2dfd441953dbf5f53473e0047182e1b9fb1e308ff216988b9c01fd9ef",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/vendor/ark-groth16/src/fft_handler.rs",
+      "bytes": 57448,
+      "sha256": "a278d4e66f2b34f37380f0537e9560fe818f9bf65a099d1f045f24928ddf3a7e",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/vendor/ark-groth16/src/generator.rs",
+      "bytes": 2294,
+      "sha256": "2106abf52c1221856f14cf8452aa3c901d97fc5ec54dff2c3b84b3d4b95b05d5",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/vendor/ark-groth16/src/instance_generator.rs",
+      "bytes": 7118,
+      "sha256": "2b45622fcb94ae0fca983ae45efc8e57ff2aa3f5028af2a492f5d71d817bc3b9",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/vendor/ark-groth16/src/lib.rs",
+      "bytes": 6154,
+      "sha256": "588fd35d1aff01f24ea3f3ac39077aff13fb8d8a5fecd552c446f5e09b004103",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/vendor/ark-groth16/src/prover.rs",
+      "bytes": 8344,
+      "sha256": "86a2bf4b20c03b2884374a9528f8c4a4eef9c83bbfcd4eb4efce8ffea82a4f16",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/vendor/ark-groth16/src/r1cs_to_qap.rs",
+      "bytes": 15434,
+      "sha256": "45b86e8b59522a0b7c5121326ad644f311c77517eb76d05440fab7321ba0b5e1",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/vendor/ark-groth16/src/test.rs",
+      "bytes": 5888,
+      "sha256": "fb0e88e38078c4c4efb1a39a260dac4f3c74390dda6edc701852abb88c964cdf",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/vendor/ark-groth16/src/utils.rs",
+      "bytes": 5314,
+      "sha256": "f89698fd651ae8129cc6a154bdbf59950fed5c2322c60526f667f87c960f2e00",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/population/vendor/ark-groth16/src/verifier.rs",
+      "bytes": 3299,
+      "sha256": "b2ebfd34e80fd55b5f1a3d7c6deb28956ae1b0d37ca39067d2cbbebee2ffdf41",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/resource-policy.json",
+      "bytes": 1215,
+      "sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/test_fixed_budget.py",
+      "bytes": 15076,
+      "sha256": "d95d5a9f5e179e1b192621554a4d16dbdd827a24f24ae7d8da858e7cb9880bc4",
+      "mode": "0o600"
+    }
+  ],
+  "predecessors": [
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/population/host-guard-source-002/host_guard.py",
+      "bytes": 10266,
+      "sha256": "781c5d50248579718e1c60481666a00c34e61effe7bcf97c296c240b6e313659",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/credential/dynamic-supervisor-source-001/bounded_host_supervisor.py",
+      "bytes": 24814,
+      "sha256": "1dcc815419a42e9ae3a331a52a73bd9567766844964e36c00b675a4557b28f68",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/credential/dynamic-supervisor-source-001/launch_dynamic_host.py",
+      "bytes": 6794,
+      "sha256": "c427d20cf9c81ba854b58bc7f8a71273aa82647047ad1afecc405b1ddeca52bb",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/population/launcher-source-002/launch_population.py",
+      "bytes": 8142,
+      "sha256": "78f5d13876ecd5c3e61fa5a0fe57f6b6115ced2cbefdf68e5a3296a2a5e1f99b",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/sessions/tooling-source-001/launch_sessions.py",
+      "bytes": 28375,
+      "sha256": "0bdb088488182af0ca947eb80367a0ea3a1a4c301ba70d6a07677cb59913cc79",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/credential/host-supervisor-source-004/credential_host_supervisor.py",
+      "bytes": 18487,
+      "sha256": "0163efca3917ac7ea3357281267bbaca23715b3f5e562aa867463ee027ea0d6f",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/representation/population/source-001/crates/dynark-bn254/src/bin/phase2-population.rs",
+      "bytes": 23787,
+      "sha256": "12546d855da8fa29fc8f4555fdc1cc1a447e08386fceef6f91f8384dec7f5436",
+      "mode": "0o600"
+    }
+  ],
+  "unchanged_runtime_dependencies": [
+    {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/bootstrap/bounded_runner.py",
+      "bytes": 11594,
+      "sha256": "f2a0669b538f3f67751fafd132fee25211b637cc1082f24c4a40a43f85d01137",
+      "mode": "0o644"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/credential/launch_credential.py",
+      "bytes": 12483,
+      "sha256": "51acd7d74ef0ff0ae47e2bfa43db3f563bd30dfcb228f5b1ff61c00ae80aa271",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/credential/launch_credential_dynamic.py",
+      "bytes": 12459,
+      "sha256": "04c2c66b8d26572763385069ee3cfc156685eb69adfd54cb271252d4c50ea4d5",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/credential/source-freeze-003.json",
+      "bytes": 15239,
+      "sha256": "da68699b2e97fc6fd67fa8f1452ad21bff9c2b86619f59e424ee3457f7f292e6",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/credential/dynamic-source-freeze-004-v2.json",
+      "bytes": 22975,
+      "sha256": "ae838cd42ab44b880086a51a13cc3d45e2e02e670de96ec17a5aefb62b28d70e",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/sessions/tooling-source-001/session_plan.py",
+      "bytes": 13778,
+      "sha256": "228e0d8e1d77fca8c12efe54310f12e7e781f3b4711271e59d59a7ff699647ae",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/sessions/tooling-source-001/fit_train.py",
+      "bytes": 4947,
+      "sha256": "93af0afb8af3bfdc5618003b1b106eaf55ab1daddb9c4ade4c45063a8d062b49",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/sessions/tooling-source-001/session_work_inventory.py",
+      "bytes": 6174,
+      "sha256": "fc53f362abbcfca0b034b4890eb27671b4750ae64401a77bde0edd84b32694b0",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/sessions/tooling-source-001/session_decode_inventory.py",
+      "bytes": 4520,
+      "sha256": "87ee7115196bf7cdb104745c4281fefed37108207d77cfaffd737b7d86440730",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/sessions/reservation-ledger-007.json",
+      "bytes": 133288,
+      "sha256": "2ea68dbfcf8d237c5c743f3e6ad3484cbd7235244d19f924dad93c732a9e9575",
+      "mode": "0o644"
+    }
+  ],
+  "population_source": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/fixed-budget/population-source-freeze-001.json",
+    "bytes": 15692,
+    "sha256": "6f3829cbf9e46a329643a6f5b6d0b90e2b0cb4b5d6c35190c8fd99175ed969c8",
+    "mode": "0o600"
+  },
+  "population_planning": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/fixed-budget/population-planning-amendment-001.json",
+    "bytes": 1593,
+    "sha256": "dedcf2503f835bdb0cf253957999cb4fd488c47445f20dcd24a2357e6af224a0",
+    "mode": "0o600"
+  },
+  "diffs": [
+    {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/fixed-budget/host_guard.py.diff",
+      "bytes": 3335,
+      "sha256": "3a52ad704540e64eb1a7203bea6111cac0301770080ba73c8932cd0249b09fe0",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/fixed-budget/bounded_host_supervisor.py.diff",
+      "bytes": 3415,
+      "sha256": "b0faeab158dcbb8b6ca2517cfcae4abea5d7fc2570e6031f11a25f9e681cea95",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/fixed-budget/launch_dynamic_host.py.diff",
+      "bytes": 4111,
+      "sha256": "199d541a3fa5884395bd215e6c21781bc1cc51a68927227a706c3be622248e6f",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/fixed-budget/launch_population.py.diff",
+      "bytes": 8421,
+      "sha256": "d00ef04e4eb69e0a92197d019cb02568f07a24c4b0dda9d1894d25cb95e965b9",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/fixed-budget/launch_sessions.py.diff",
+      "bytes": 12088,
+      "sha256": "98ff59f39acf14c6e54ba0613f4b38d3dec287e1fa00bd5d83cbe58231eabb03",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/fixed-budget/launch_replay_host.py.diff",
+      "bytes": 25635,
+      "sha256": "8e064b5368c4090ad3dcb8b645b8af9746a3902d7d25e8feda55ae1ec8d48f89",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/fixed-budget/population-src-bin-phase2-population.rs.diff",
+      "bytes": 2374,
+      "sha256": "4a039c4682b1d5da54129834b60f207b036813e7fcfec1c663c9a95d1e23a882",
+      "mode": "0o600"
+    }
+  ],
+  "one_changed_Rust_experimental_binary_only": true,
+  "original_sources_untouched": true,
+  "standard_sha_command": [
+    "shasum",
+    "-a",
+    "256",
+    "-c",
+    "SHA256SUMS"
+  ],
+  "sha_command_cwd": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001",
+  "new_python_test_count": 15,
+  "finite_actual_child_cases": 6
+}

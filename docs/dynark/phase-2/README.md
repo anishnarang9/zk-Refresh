@@ -2,6 +2,8 @@
 
 Started October 10, 2026 in `/Users/anishnarang/Zk-refresh`. **Phase 2 is in progress, not complete.** The corrected [Phase 1 handoff](../phase-1/HANDOFF.md) and [approved bounded plan](../phase-1/phase-2-plan.md) govern this work. Historical paths remain provenance. Root starting commit: `0365566`.
 
+**October 11 user amendment:** remaining performance measurements use a fixed 4 GiB workload-tree RSS ceiling, four compute workers and one heavy trial at a time, with preregistered workload-specific time/storage/work caps. Warning pressure and swap activity are telemetry, not a changing resource allowance or normal-pressure admission gate. Critical pressure or unusable telemetry remains a separately classified host interruption. The [fixed-budget plan](../../superpowers/plans/2026-10-11-dynark-fixed-resource-budget.md) supersedes contrary launch-policy language below; earlier sources and evidence remain historical. The successor controls passed all 15 finite tests in worker and independent parent runs; [review and active entry points](evidence/fixed-budget-review.md). Population's amended Rust binary still requires compilation. Queue released; no heavy trial has run under this profile.
+
 The orchestrator owns architecture, algebra review, evidence review and documents only. All implementation, tests, measurements and helpers belong to explicitly dispatched GPT-6.1 Sol workers. At most two coding workers; no worker delegation. The orchestrator is the heavyweight queue coordinator; ownership of an execution slot is explicitly recorded before each run. Initially there is no authorized credential-scale run.
 
 | Task | Dependencies | Owner | Status | Evidence / remaining gates |
