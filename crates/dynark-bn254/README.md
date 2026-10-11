@@ -1,8 +1,9 @@
-# Bounded BN254 full prover (Phase 2 T1)
+# Bounded BN254 full and anchored prover (Phase 2 T1/T2)
 
 `PublicPackage` owns one immutable proving key and effective matrix set behind
-an Arc. Cloning a package shares its allocation; no updating key/private cache
-is created. `ordinary_verifying_key()` copies only the instance verification
+an Arc, including exact-capacity A/B/C column indexes. Cloning a package shares
+its allocations. `UpdatingMaterial` separately shares public updating tables
+without embedding a second PK. `ordinary_verifying_key()` copies only the instance verification
 query for the independent crates.io ark-groth16 verifier.
 
 Construction consumes the caller's vendor key and original matrices, descriptor,
@@ -41,14 +42,50 @@ The trait cannot certify that a caller actually supplies secure fresh entropy.
 Supported shapes have a radix-two padded domain N>=2 within BN254 two-adicity;
 v, raw constraint rows, reduced rows, k (including one) and N are distinct.
 Query lengths, matrix bounds/counts, canonical group validity and denominator
-points are checked before proof arithmetic. T2 will add bounded file import;
-T1 consumes already allocated matrices/key rather than parsing arbitrary files.
+points are checked before proof arithmetic. The typed T1 constructor consumes
+already allocated matrices/key. T2 imports apply explicit file/section/count/entry
+and structural allocation caps before allocating parsed storage or group work.
 Allocation exhaustion is not modeled as a recoverable Rust error.
+
+`import::read_r1cs` and `read_wtns` parse bounded immutable received buffers,
+reject noncanonical fields, and preserve full assignment coordinates and one.
+`read_legacy_package` consumes the exact E2 UK layout, checks a trusted expected
+package identity and externally trusted artifact digests, and shares its embedded
+PK once. `audit_legacy_package` derives a candidate product identity from those
+externally authenticated legacy bytes for review before strict replay. Neither
+route establishes ceremony honesty or executable semantics.
+
+`read_legacy_anchor` checks the exact validated witness, randomizer commitments,
+canonical groups, dimensions and ordinary proof. Trusted retained projections are
+loaded without silently regenerating them. Legacy E2 cache bytes have no
+credential/action/generation labels: an external trusted manifest must associate
+the cache digest with the intended package, exact witness/public statement and
+supplied initial binding. A checksum cannot authenticate those absent labels.
+
+`Anchor::create` captures the validated witness and randomized proof separately
+from eager projection preparation. `Anchor::binding()` returns an opaque token
+for its exact immutable state. `Transition::new` combines full-coordinate additive
+duplicates, removes zero sums, rejects attempted constant mutation, and binds the
+base/target generations plus expected public values. `Anchor::update` validates
+the full target relation and exact binding, then uses the same fallible caller
+randomness boundary as `prove`. Success/failure leave the anchor unchanged; no-op
+proofs sample fresh randomizers. Public/action-coordinate mathematical changes
+are supported; application action authorization remains external, and changing
+the action binding requires a new anchor.
+
+Sparse row gathering uses shared column indexes and reports touched entries/rows,
+nonzero rows, full-validation entries, quadratic field-pair visits and cross-term
+group multiplication calls. The cross term uses the reference quadratic field
+aggregation with linear group work; an explicit pair cap returns a typed error
+before group work. T4's fast kernel and T5 dynamics are not implemented here.
+Known buffer/vector storage estimates exclude allocator metadata/fragmentation;
+process RSS is checked separately by the bounded runner. No raw/blinder or
+vendor deterministic convenience API is exported. No credential replay has run.
 
 Run the small conformance suite with four Rayon threads:
 
 ```
-RAYON_NUM_THREADS=4 cargo test --locked --manifest-path crates/dynark-bn254/Cargo.toml --test full_conformance
+RAYON_NUM_THREADS=4 CARGO_BUILD_JOBS=2 cargo test --locked --manifest-path crates/dynark-bn254/Cargo.toml --lib --test full_conformance --test delta_contract --test anchored_conformance
 ```
 
 Use the Phase 2 bounded runner and sole execution slot when running project

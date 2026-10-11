@@ -1,0 +1,699 @@
+{
+  "root_head_at_report": "a5b1c7588fae17753b99034209dd4e62d79a2626",
+  "reference_pin": "c73a380df86d8f5d195f1e20c8a1d86a7dce084b",
+  "source_digest_convention": "SHA256(sorted path + NUL + file SHA256 + newline), entire product crate excluding target and .DS_Store; includes separately owned T3 bin as context",
+  "source_tree_digest": "e31f1de5938318af7e3fc257b2fb873e32b98573e28e58348a59e5e94afa7db2",
+  "files": [
+    {
+      "path": "crates/dynark-bn254/Cargo.lock",
+      "sha256": "aaf70b9ecf4dbbefc4d6c1cb34a3eabb7762860884f100497a22f92fd70d75c8",
+      "bytes": 20630
+    },
+    {
+      "path": "crates/dynark-bn254/Cargo.toml",
+      "sha256": "45215cb72b2d609506ced27e4c60f192856f559d43382647cc863da13c46e58f",
+      "bytes": 489
+    },
+    {
+      "path": "crates/dynark-bn254/README.md",
+      "sha256": "99d79e5e8697b23dba6816f76a1f54cdf2c7a6da4f3a943af92733eece168937",
+      "bytes": 6448
+    },
+    {
+      "path": "crates/dynark-bn254/src/anchored.rs",
+      "sha256": "6ef6e2949e414644aac94e77c104a3fdda1bac756a0fcc05b43f01e910a60737",
+      "bytes": 32335
+    },
+    {
+      "path": "crates/dynark-bn254/src/artifact.rs",
+      "sha256": "ac675e7ddefb0f16a9394fa1f1a83472bf4decca2a621dfe7747a27b2a2a50cf",
+      "bytes": 14007
+    },
+    {
+      "path": "crates/dynark-bn254/src/bin/phase2-glv-ablation.rs",
+      "sha256": "6f22f3a90e8fe6533ee58b8d01f94bff6c5b56087b8d84facb6206839ce82e11",
+      "bytes": 14410
+    },
+    {
+      "path": "crates/dynark-bn254/src/delta.rs",
+      "sha256": "e01256db13e5d8d89333e4a0ddcda14dcdcb35f5a52cd5455322d4b3d61aa879",
+      "bytes": 8821
+    },
+    {
+      "path": "crates/dynark-bn254/src/full.rs",
+      "sha256": "8aa23983a9524d3b72022552a219be457ad970b02c7ca385de3ef8d4956b6579",
+      "bytes": 2164
+    },
+    {
+      "path": "crates/dynark-bn254/src/import.rs",
+      "sha256": "1447fc1d29a640a933e1fcee674a78b676d7af0b5ef75e1e9019a64f2d36dc10",
+      "bytes": 33777
+    },
+    {
+      "path": "crates/dynark-bn254/src/lib.rs",
+      "sha256": "796f9bf89e7b984b82846388bc0eba3fe3d98e836656c34a31693016e977a826",
+      "bytes": 2058
+    },
+    {
+      "path": "crates/dynark-bn254/src/randomness.rs",
+      "sha256": "7fc2324647ae948009854dcca956dcf8ca80e890d68a562f739f5984cc7a6cbc",
+      "bytes": 1188
+    },
+    {
+      "path": "crates/dynark-bn254/tests/anchored_conformance.rs",
+      "sha256": "18cf02b404c60b3677d86c4a59700835891e39c69b90a733040ce97be1d86c58",
+      "bytes": 5694
+    },
+    {
+      "path": "crates/dynark-bn254/tests/delta_contract.rs",
+      "sha256": "6b4afcc152b5c070c2ac3c49e54215f4a476b540affefeca9b3accc40ea0d25c",
+      "bytes": 5561
+    },
+    {
+      "path": "crates/dynark-bn254/tests/full_conformance.rs",
+      "sha256": "2647c89712e3068d5d43a435376983e814a7b34ec9b99d4f9208051ac3928dc5",
+      "bytes": 22647
+    },
+    {
+      "path": "crates/dynark-bn254/tests/support/mod.rs",
+      "sha256": "6494f89840b98721e6b2dc6c923b4f9803ef9c5f0d388a92c523190080878a1e",
+      "bytes": 4945
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/Cargo.toml",
+      "sha256": "0230b6c4c87d5c5a174ee8bb1049e53458574755a868df1ce2eeb29f4954576c",
+      "bytes": 4225
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/LICENSE-APACHE",
+      "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+      "bytes": 10847
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/LICENSE-MIT",
+      "sha256": "8f71659370c5268d9a1dc962a46232540e8fca63462586d8efaa95aab492a208",
+      "bytes": 1046
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/PATCHES.md",
+      "sha256": "4c6c17017d0b4baf79d81725178c79088bec26ea9903fc624969c80d3e4ae46c",
+      "bytes": 2030
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/README.md",
+      "sha256": "d5bfe579eb73b8deff348409c24e267256ef9fc67919ece7ef6f1372596d9326",
+      "bytes": 2671
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/constraints.rs",
+      "sha256": "d0aca7ffa5a4aef004c4e0276dd29ac829c29d63a6a09a7482dbc5809e4016a5",
+      "bytes": 20130
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/data_structures.rs",
+      "sha256": "272b6688d7352dbf329bb40b93f2d788ce10b33612ab05deacf63961e4a5a679",
+      "bytes": 6615
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/dynamic_cache.rs",
+      "sha256": "fecd160dd22b705326db22fb9b125d8d5ed82e2765f34179feedf665fdff5823",
+      "bytes": 29901
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/dynark_generator.rs",
+      "sha256": "4bcb08ba6f1a1c4d55cb7136db5c8989e7f56ffb5e6c15f6e11956f6788b1103",
+      "bytes": 10759
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/dynark_prover.rs",
+      "sha256": "5575e85562da40578887098dccd45652e5b985319ccc1bb3734fb5e33de447ac",
+      "bytes": 12729
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/dynark_verifier.rs",
+      "sha256": "f561c7d2dfd441953dbf5f53473e0047182e1b9fb1e308ff216988b9c01fd9ef",
+      "bytes": 1692
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/fft_handler.rs",
+      "sha256": "a278d4e66f2b34f37380f0537e9560fe818f9bf65a099d1f045f24928ddf3a7e",
+      "bytes": 57448
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/generator.rs",
+      "sha256": "2106abf52c1221856f14cf8452aa3c901d97fc5ec54dff2c3b84b3d4b95b05d5",
+      "bytes": 2294
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/instance_generator.rs",
+      "sha256": "2b45622fcb94ae0fca983ae45efc8e57ff2aa3f5028af2a492f5d71d817bc3b9",
+      "bytes": 7118
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/lib.rs",
+      "sha256": "588fd35d1aff01f24ea3f3ac39077aff13fb8d8a5fecd552c446f5e09b004103",
+      "bytes": 6154
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/prover.rs",
+      "sha256": "86a2bf4b20c03b2884374a9528f8c4a4eef9c83bbfcd4eb4efce8ffea82a4f16",
+      "bytes": 8344
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/r1cs_to_qap.rs",
+      "sha256": "45b86e8b59522a0b7c5121326ad644f311c77517eb76d05440fab7321ba0b5e1",
+      "bytes": 15434
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/test.rs",
+      "sha256": "fb0e88e38078c4c4efb1a39a260dac4f3c74390dda6edc701852abb88c964cdf",
+      "bytes": 5888
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/utils.rs",
+      "sha256": "f89698fd651ae8129cc6a154bdbf59950fed5c2322c60526f667f87c960f2e00",
+      "bytes": 5314
+    },
+    {
+      "path": "crates/dynark-bn254/vendor/ark-groth16/src/verifier.rs",
+      "sha256": "b2ebfd34e80fd55b5f1a3d7c6deb28956ae1b0d37ca39067d2cbbebee2ffdf41",
+      "bytes": 3299
+    }
+  ],
+  "test_executables": [
+    {
+      "path": "crates/dynark-bn254/target/debug/build/dynark-bn254/024d1e214ee3da85/out/dynark_bn254-024d1e214ee3da85",
+      "sha256": "201161d703dbe85603cc9d74b7289d18eb5fea1a559ffca0ce6747920736d207",
+      "bytes": 12492800
+    },
+    {
+      "path": "crates/dynark-bn254/target/debug/build/dynark-bn254/0013fdf9bb26b0ee/out/anchored_conformance-0013fdf9bb26b0ee",
+      "sha256": "852c4bf7dbf6773d891d017d75bde967b9eba7111e9cb83e7e044f3459f7d44b",
+      "bytes": 12499088
+    },
+    {
+      "path": "crates/dynark-bn254/target/debug/build/dynark-bn254/72d91fcf624fce86/out/delta_contract-72d91fcf624fce86",
+      "sha256": "e1b7fba2c9db3408685236090720b1add47c1132fbbc4f8331a02891aaa993c1",
+      "bytes": 7256704
+    },
+    {
+      "path": "crates/dynark-bn254/target/debug/build/dynark-bn254/e8d70ae380829dd7/out/full_conformance-e8d70ae380829dd7",
+      "sha256": "3549557ba08b5de42d7e76eca5dcaee30fa7ffd9ef78d164e14aa616bf8bdc26",
+      "bytes": 11379952
+    }
+  ],
+  "resolved_packages": [
+    {
+      "name": "ahash",
+      "version": "0.8.12",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "allocator-api2",
+      "version": "0.2.21",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "ark-bn254",
+      "version": "0.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "ark-crypto-primitives",
+      "version": "0.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "ark-crypto-primitives-macros",
+      "version": "0.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "ark-ec",
+      "version": "0.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "ark-ff",
+      "version": "0.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "ark-ff-asm",
+      "version": "0.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "ark-ff-macros",
+      "version": "0.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "ark-groth16",
+      "version": "0.5.0",
+      "source": "local"
+    },
+    {
+      "name": "ark-groth16",
+      "version": "0.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "ark-poly",
+      "version": "0.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "ark-r1cs-std",
+      "version": "0.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "ark-relations",
+      "version": "0.5.1",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "ark-serialize",
+      "version": "0.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "ark-serialize-derive",
+      "version": "0.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "ark-snark",
+      "version": "0.5.1",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "ark-std",
+      "version": "0.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "arrayvec",
+      "version": "0.7.8",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "autocfg",
+      "version": "1.5.1",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "blake2",
+      "version": "0.10.6",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "block-buffer",
+      "version": "0.10.4",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "byteorder",
+      "version": "1.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "cfg-if",
+      "version": "1.0.5",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "cpufeatures",
+      "version": "0.2.17",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "crossbeam-deque",
+      "version": "0.8.8",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "crossbeam-epoch",
+      "version": "0.9.21",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "crossbeam-utils",
+      "version": "0.8.23",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "crypto-common",
+      "version": "0.1.7",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "derivative",
+      "version": "2.2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "digest",
+      "version": "0.10.7",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "dynark-bn254",
+      "version": "0.1.0",
+      "source": "local"
+    },
+    {
+      "name": "educe",
+      "version": "0.6.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "either",
+      "version": "1.19.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "enum-ordinalize",
+      "version": "4.4.2",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "enum-ordinalize-derive",
+      "version": "4.4.2",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "fnv",
+      "version": "1.0.7",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "generic-array",
+      "version": "0.14.7",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "getrandom",
+      "version": "0.2.17",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "getrandom",
+      "version": "0.3.4",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "hashbrown",
+      "version": "0.15.5",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "itertools",
+      "version": "0.13.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "itertools",
+      "version": "0.14.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "keccak",
+      "version": "0.1.6",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "libc",
+      "version": "0.2.190",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "merlin",
+      "version": "3.0.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "num-bigint",
+      "version": "0.4.8",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "num-integer",
+      "version": "0.1.47",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "num-traits",
+      "version": "0.2.19",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "once_cell",
+      "version": "1.21.4",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "paste",
+      "version": "1.0.15",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "pin-project-lite",
+      "version": "0.2.17",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "ppv-lite86",
+      "version": "0.2.21",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "proc-macro2",
+      "version": "1.0.107",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "quote",
+      "version": "1.0.47",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "r-efi",
+      "version": "5.3.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "rand",
+      "version": "0.8.8",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "rand",
+      "version": "0.9.5",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "rand_chacha",
+      "version": "0.3.1",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "rand_chacha",
+      "version": "0.9.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "rand_core",
+      "version": "0.6.4",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "rand_core",
+      "version": "0.9.5",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "rayon",
+      "version": "1.12.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "rayon-core",
+      "version": "1.13.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "sha2",
+      "version": "0.10.9",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "subtle",
+      "version": "2.6.1",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "syn",
+      "version": "1.0.109",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "syn",
+      "version": "2.0.119",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "syn",
+      "version": "3.0.7",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "tracing",
+      "version": "0.1.44",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "tracing-attributes",
+      "version": "0.1.31",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "tracing-core",
+      "version": "0.1.36",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "tracing-subscriber",
+      "version": "0.2.25",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "typenum",
+      "version": "1.20.1",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "unicode-ident",
+      "version": "1.0.26",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "valuable",
+      "version": "0.1.1",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "version_check",
+      "version": "0.9.5",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "wasi",
+      "version": "0.11.1+wasi-snapshot-preview1",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "wasip2",
+      "version": "1.0.4+wasi-0.2.12",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "wit-bindgen",
+      "version": "0.57.1",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "zerocopy",
+      "version": "0.8.62",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "zerocopy-derive",
+      "version": "0.8.62",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "zeroize",
+      "version": "1.9.1",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "zeroize_derive",
+      "version": "1.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    }
+  ],
+  "same_as_accepted_t1_manifest": {
+    "verified_file_count": 25,
+    "all_unchanged": true
+  },
+  "synthetic_fixtures": [
+    {
+      "v": 5,
+      "reduction": "Original",
+      "rows": 5,
+      "k": 2,
+      "N": 8,
+      "r1cs": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+      "witness": "0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c",
+      "profile": "0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d",
+      "schema": "b4b05c2d07d5d26aff541d7f3b9c469d194e9898f7dc95d5773177ff952fc3e4",
+      "matrix": "f233ecca00adf08530be17dd7366f2b44e8b35b03879cf15806178f96aef5392",
+      "circuit": "2d45f8c626c7857f5be2bd5ec740cfc6486a6322f807406e07e646b00976579f",
+      "pk": "704a2e4992ed339ee12c085221853c82299822747e255271fe8933038fde02c7",
+      "vk": "7a0b81efdc25e73c6f1dbc3515d0ac7e78629a613f2ed0cc0e631aef043637f7",
+      "package": "23f203aaa7b97af70ffe64b2ad2b9b47b43cabba98243d55d3d4226c84efe023"
+    },
+    {
+      "v": 5,
+      "reduction": "InstanceAugmentedA",
+      "rows": 5,
+      "k": 2,
+      "N": 8,
+      "r1cs": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+      "witness": "0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c",
+      "profile": "0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d",
+      "schema": "b4b05c2d07d5d26aff541d7f3b9c469d194e9898f7dc95d5773177ff952fc3e4",
+      "matrix": "f233ecca00adf08530be17dd7366f2b44e8b35b03879cf15806178f96aef5392",
+      "circuit": "d301235248bbef7f942c16bec4cad91846fabef1be318f85ac132491aa6a2d7a",
+      "pk": "b50b559d2edd0c81c92143919a0733262bfe9181fa5370c794c0924a62be1315",
+      "vk": "f1cde58eac80b3160add93615869f7a6cade155c388d90fea8b8df230b36d2a8",
+      "package": "64fbd9bf3c9ae1f27edb9d34bc9a9cd924d6c826b3265f22af815d20206f1826"
+    },
+    {
+      "v": 11,
+      "reduction": "Original",
+      "rows": 5,
+      "k": 2,
+      "N": 8,
+      "r1cs": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+      "witness": "0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c",
+      "profile": "0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d",
+      "schema": "b4b05c2d07d5d26aff541d7f3b9c469d194e9898f7dc95d5773177ff952fc3e4",
+      "matrix": "e809e811b945715eca8987cbbf00884df4210bf5f801209e9838ae6409933726",
+      "circuit": "9783d33c5193981ebe026f523911126ab799f896260559f907aeeaca9e29b6d3",
+      "pk": "476550819f20e0383c135c015db2d524cd6441c4f9445983e13948341bd9a7a5",
+      "vk": "f067f09082d980265357e5535b7edac3742531094861137e6dbce6602bd257eb",
+      "package": "d96e1669483845a3afd9aa8b462d373321a6156d20a5abf29bcc20632c178e75"
+    },
+    {
+      "v": 11,
+      "reduction": "InstanceAugmentedA",
+      "rows": 5,
+      "k": 2,
+      "N": 8,
+      "r1cs": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+      "witness": "0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c",
+      "profile": "0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d",
+      "schema": "b4b05c2d07d5d26aff541d7f3b9c469d194e9898f7dc95d5773177ff952fc3e4",
+      "matrix": "e809e811b945715eca8987cbbf00884df4210bf5f801209e9838ae6409933726",
+      "circuit": "2e4a8e8ebed963b4a43be3f29189e756ca8c37f500f018220d4292d2d3c387d6",
+      "pk": "7e805830abc7662529baa7fb4f84aa726764cf5564ab7a59db8cf4db2526fd18",
+      "vk": "4ab1a930e7d3c3c74d2ffadb003615f0a4ce5d736d90d404dcba840152a9f62c",
+      "package": "f2ce45fd6984ff2cc14977c3ff1ce249df945973750ff7a81ca01411f41e03ac"
+    }
+  ],
+  "fixture_limits": "tiny public relation; setup StdRng seed82, test-only explicit base r13/s19 target r23/s29. Descriptor r1cs/witness/profile tags are placeholders, not authenticated executables or artifacts. Matrix/circuit/PK/VK/package digests identify actual runtime fixture objects.",
+  "content_identity_not_authentication": true
+}

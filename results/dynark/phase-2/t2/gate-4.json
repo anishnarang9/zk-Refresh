@@ -1,0 +1,280 @@
+{
+  "schema": 1,
+  "owner": "t2_anchor",
+  "started_at_utc": "2026-10-11T00:56:21.416181+00:00",
+  "ended_at_utc": "2026-10-11T00:56:31.825952+00:00",
+  "timezone": [
+    "EST",
+    "EDT"
+  ],
+  "duration_seconds": 10.409881333005615,
+  "limits": {
+    "runtime_seconds": 600.0,
+    "owned_tree_rss_bytes": 1073741824,
+    "storage_growth_bytes": 2147483648,
+    "poll_seconds": 0.2
+  },
+  "stop_reason": null,
+  "exit_code": 0,
+  "runner_error_type": null,
+  "cleanup_remaining_owned_processes": 0,
+  "cleanup_status_unknown": false,
+  "sample_count": 40,
+  "samples": [
+    {
+      "elapsed_seconds": 0.022740124957636,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 4964352,
+      "storage_growth_bytes": 533
+    },
+    {
+      "elapsed_seconds": 0.290186999947764,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 118226944,
+      "storage_growth_bytes": 6070
+    },
+    {
+      "elapsed_seconds": 0.5592182499822229,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 252887040,
+      "storage_growth_bytes": 6070
+    },
+    {
+      "elapsed_seconds": 0.8220964579377323,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 380878848,
+      "storage_growth_bytes": 6070
+    },
+    {
+      "elapsed_seconds": 1.0834467079257593,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 506347520,
+      "storage_growth_bytes": 6070
+    },
+    {
+      "elapsed_seconds": 1.3502097920281813,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 633176064,
+      "storage_growth_bytes": 6070
+    },
+    {
+      "elapsed_seconds": 1.6118916670093313,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 625180672,
+      "storage_growth_bytes": 6070
+    },
+    {
+      "elapsed_seconds": 1.876640749978833,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 590004224,
+      "storage_growth_bytes": 1867070
+    },
+    {
+      "elapsed_seconds": 2.138302707928233,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 473677824,
+      "storage_growth_bytes": 10354419
+    },
+    {
+      "elapsed_seconds": 2.402525292010978,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 533200896,
+      "storage_growth_bytes": 18011843
+    },
+    {
+      "elapsed_seconds": 2.6679994999431074,
+      "owned_process_count": 4,
+      "owned_tree_rss_bytes": 179093504,
+      "storage_growth_bytes": 7377379
+    },
+    {
+      "elapsed_seconds": 2.943757624947466,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 390955008,
+      "storage_growth_bytes": 3293899
+    },
+    {
+      "elapsed_seconds": 3.2173691670177504,
+      "owned_process_count": 5,
+      "owned_tree_rss_bytes": 466878464,
+      "storage_growth_bytes": 10815155
+    },
+    {
+      "elapsed_seconds": 3.479529707925394,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 235094016,
+      "storage_growth_bytes": 6391
+    },
+    {
+      "elapsed_seconds": 3.7427077919710428,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 37306368,
+      "storage_growth_bytes": 1512316
+    },
+    {
+      "elapsed_seconds": 4.025425957981497,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 40845312,
+      "storage_growth_bytes": 1512333
+    },
+    {
+      "elapsed_seconds": 4.295404332922772,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 44711936,
+      "storage_growth_bytes": 1512430
+    },
+    {
+      "elapsed_seconds": 4.560331541928463,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 44548096,
+      "storage_growth_bytes": 1512540
+    },
+    {
+      "elapsed_seconds": 4.824403833015822,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 44580864,
+      "storage_growth_bytes": 1512540
+    },
+    {
+      "elapsed_seconds": 5.087033207993954,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 44597248,
+      "storage_growth_bytes": 1512540
+    },
+    {
+      "elapsed_seconds": 5.343613041914068,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 44630016,
+      "storage_growth_bytes": 1512540
+    },
+    {
+      "elapsed_seconds": 5.6011096249567345,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 44679168,
+      "storage_growth_bytes": 1512540
+    },
+    {
+      "elapsed_seconds": 5.861660375026986,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 44711936,
+      "storage_growth_bytes": 1512540
+    },
+    {
+      "elapsed_seconds": 6.121925125014968,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 44761088,
+      "storage_growth_bytes": 1512540
+    },
+    {
+      "elapsed_seconds": 6.377495541935787,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 44761088,
+      "storage_growth_bytes": 1512540
+    },
+    {
+      "elapsed_seconds": 6.645062875002623,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 36880384,
+      "storage_growth_bytes": 1512884
+    },
+    {
+      "elapsed_seconds": 6.9010639579501,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 42975232,
+      "storage_growth_bytes": 1512901
+    },
+    {
+      "elapsed_seconds": 7.161269624950364,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 43581440,
+      "storage_growth_bytes": 1512901
+    },
+    {
+      "elapsed_seconds": 7.421570124919526,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 43499520,
+      "storage_growth_bytes": 1512986
+    },
+    {
+      "elapsed_seconds": 7.684914832934737,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 43515904,
+      "storage_growth_bytes": 1512986
+    },
+    {
+      "elapsed_seconds": 7.945095457951538,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 43548672,
+      "storage_growth_bytes": 1512986
+    },
+    {
+      "elapsed_seconds": 8.203521082992665,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 43614208,
+      "storage_growth_bytes": 1512986
+    },
+    {
+      "elapsed_seconds": 8.466041708015837,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 36880384,
+      "storage_growth_bytes": 1513300
+    },
+    {
+      "elapsed_seconds": 8.732256207964383,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 41992192,
+      "storage_growth_bytes": 1513317
+    },
+    {
+      "elapsed_seconds": 9.000760874943808,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 36880384,
+      "storage_growth_bytes": 1513774
+    },
+    {
+      "elapsed_seconds": 9.266102249966934,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 46612480,
+      "storage_growth_bytes": 1513934
+    },
+    {
+      "elapsed_seconds": 9.534696166985668,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 46825472,
+      "storage_growth_bytes": 1514146
+    },
+    {
+      "elapsed_seconds": 9.79965549998451,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 46219264,
+      "storage_growth_bytes": 1514535
+    },
+    {
+      "elapsed_seconds": 10.062699666945264,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 46120960,
+      "storage_growth_bytes": 1514602
+    },
+    {
+      "elapsed_seconds": 10.353386875009164,
+      "owned_process_count": 0,
+      "owned_tree_rss_bytes": 0,
+      "storage_growth_bytes": 1514768
+    }
+  ],
+  "sampled_peak_owned_tree_rss_bytes": 633176064,
+  "sampled_peak_storage_growth_bytes": 18011843,
+  "environment": {
+    "RAYON_NUM_THREADS": "4",
+    "OMP_NUM_THREADS": null,
+    "TZ": null
+  },
+  "measurement_notes": [
+    "RSS from ps KiB converted to bytes; sum of live owned tree; not heap allocation",
+    "storage is positive logical file-size growth per supplied root; excludes deleted-file peak between samples",
+    "limits sampled; short spikes and daemonized ancestry escape between samples may be missed",
+    "samples exclude runner/ps RSS; storage report written after the measured command",
+    "child stdout/stderr/argv retained only in protected output"
+  ],
+  "passed": true
+}

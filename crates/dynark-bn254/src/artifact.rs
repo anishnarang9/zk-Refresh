@@ -50,6 +50,7 @@ pub(crate) struct PackageInner {
     pub(crate) identity: PackageIdentity,
     pub(crate) shape: Shape,
     pub(crate) matrices: ConstraintMatrices<Fr>,
+    pub(crate) columns: [Vec<Vec<(usize, Fr)>>; 3],
     pub(crate) pk: dynark::ProvingKey<Bn254>,
     pub(crate) domain: GeneralEvaluationDomain<Fr>,
 }
@@ -285,10 +286,20 @@ impl PublicPackage {
                 .ok_or(Error::Matrix("augmentation overflow"))?;
         }
         let domain = pk.vk.domain;
+        let columns = [&matrices.a, &matrices.b, &matrices.c].map(|matrix| {
+            let mut counts = vec![0usize; s.assignment_len];
+            for row in matrix { for (_, j) in row { counts[*j] += 1; } }
+            let mut columns = counts.into_iter().map(Vec::with_capacity).collect::<Vec<_>>();
+            for (i, row) in matrix.iter().enumerate() {
+                for (coefficient, j) in row { columns[*j].push((i, *coefficient)); }
+            }
+            columns
+        });
         Ok(Self(Arc::new(PackageInner {
             identity,
             shape: s,
             matrices,
+            columns,
             pk,
             domain,
         })))
@@ -334,6 +345,15 @@ impl PublicPackage {
                     .map_err(|_| Error::NonCanonicalField { coordinate })
             })
             .collect::<Result<Vec<_>, _>>()?;
+        self.validate_values(values, expected_public)
+    }
+    pub(crate) fn validate_values(
+        &self,
+        values: Vec<Fr>,
+        expected_public: &[Fr],
+    ) -> Result<ValidatedAssignment, Error> {
+        if values.len() != self.0.shape.assignment_len { return Err(Error::AssignmentCount); }
+        if expected_public.len() != self.0.shape.instance_len - 1 { return Err(Error::PublicStatement); }
         if values[0] != Fr::ONE {
             return Err(Error::ConstantOne);
         }

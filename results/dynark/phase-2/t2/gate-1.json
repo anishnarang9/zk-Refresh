@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "owner": "t2_anchor",
+  "started_at_utc": "2026-10-11T00:54:26.162668+00:00",
+  "ended_at_utc": "2026-10-11T00:54:27.291053+00:00",
+  "timezone": [
+    "EST",
+    "EDT"
+  ],
+  "duration_seconds": 1.1284227079013363,
+  "limits": {
+    "runtime_seconds": 600.0,
+    "owned_tree_rss_bytes": 1073741824,
+    "storage_growth_bytes": 2147483648,
+    "poll_seconds": 0.2
+  },
+  "stop_reason": null,
+  "exit_code": 101,
+  "runner_error_type": null,
+  "cleanup_remaining_owned_processes": 0,
+  "cleanup_status_unknown": false,
+  "sample_count": 5,
+  "samples": [
+    {
+      "elapsed_seconds": 0.02083029190544039,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 458752,
+      "storage_growth_bytes": 533
+    },
+    {
+      "elapsed_seconds": 0.2810986249241978,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 80510976,
+      "storage_growth_bytes": 6070
+    },
+    {
+      "elapsed_seconds": 0.5472545829834417,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 118620160,
+      "storage_growth_bytes": 6951
+    },
+    {
+      "elapsed_seconds": 0.8107436249265447,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 180240384,
+      "storage_growth_bytes": 6951
+    },
+    {
+      "elapsed_seconds": 1.073995416983962,
+      "owned_process_count": 0,
+      "owned_tree_rss_bytes": 0,
+      "storage_growth_bytes": 8908
+    }
+  ],
+  "sampled_peak_owned_tree_rss_bytes": 180240384,
+  "sampled_peak_storage_growth_bytes": 8908,
+  "environment": {
+    "RAYON_NUM_THREADS": "4",
+    "OMP_NUM_THREADS": null,
+    "TZ": null
+  },
+  "measurement_notes": [
+    "RSS from ps KiB converted to bytes; sum of live owned tree; not heap allocation",
+    "storage is positive logical file-size growth per supplied root; excludes deleted-file peak between samples",
+    "limits sampled; short spikes and daemonized ancestry escape between samples may be missed",
+    "samples exclude runner/ps RSS; storage report written after the measured command",
+    "child stdout/stderr/argv retained only in protected output"
+  ],
+  "passed": false
+}

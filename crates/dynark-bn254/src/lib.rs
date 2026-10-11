@@ -1,9 +1,20 @@
-//! Validated, fixed-relation BN254 full proving. Setup provenance is a caller obligation.
-//! No vendor setup, fixed-blinder, matrix wrapper, cache, or RNG convenience API is re-exported.
+//! Validated fixed-relation BN254 full and immutable anchored proving with bounded imports.
+//! Setup provenance, trusted legacy context and application authorization remain caller obligations.
+//! Full target validation is charged; quadratic correction has an explicit pair-work cap.
+//! No raw/blinder, deterministic proof, vendor setup or RNG convenience API is re-exported.
 #![forbid(unsafe_code)]
 
+#[cfg(test)]
+extern crate self as dynark_bn254;
+#[cfg(test)]
+#[path = "../tests/support/mod.rs"]
+mod test_fixture;
+
 mod artifact;
+mod anchored;
+mod delta;
 mod full;
+pub mod import;
 mod randomness;
 
 pub use artifact::{
@@ -11,6 +22,8 @@ pub use artifact::{
     ValidatedAssignment,
 };
 pub use full::{prove, ProofStatement};
+pub use anchored::{Anchor, UpdatingMaterial};
+pub use delta::{AnchorBinding, Limits, MatrixTouch, PreparedTransition, RowDeltas, Transition, TransitionStats};
 
 /// Typed failures never contain a partial proof or private assignment.
 #[derive(Debug)]
@@ -20,6 +33,14 @@ pub enum Error {
     Schema(&'static str),
     Key(&'static str),
     IdentityMismatch,
+    Bound(&'static str),
+    Import(&'static str),
+    Io(std::io::Error),
+    DeltaCoordinate,
+    ConstantMutation,
+    Generation,
+    AnchorBinding,
+    UpdatingPackage,
     AssignmentCount,
     NonCanonicalField { coordinate: usize },
     ConstantOne,
