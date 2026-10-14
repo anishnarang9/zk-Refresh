@@ -1,0 +1,69 @@
+{
+  "status": "parent-reviewed-fixed-far-full-field-equivalence",
+  "scope": "One exact fixed credential far fixture, final Poseidon component only; source prototype outside product and no generic incremental witness claim.",
+  "coordinates_checked": 643563,
+  "mismatches": 0,
+  "aliases_checked": 251,
+  "named_signals": 769,
+  "retained_final_component_signals": 518,
+  "conservative_patch_coordinates": 520,
+  "direct_nonzero_delta_coordinates": 509,
+  "baseline_unchanged": true,
+  "candidate": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/far-comparator-output-001/candidate-unaccepted.wtns",
+    "bytes": 20594092,
+    "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447"
+  },
+  "independent_original_after": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/original-full-output-002/far-after-original-full.wtns",
+    "bytes": 20594092,
+    "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447"
+  },
+  "raw_summary": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/far-comparator-output-001/summary.json",
+    "bytes": 549,
+    "sha256": "3ae9bbb6f2f6b1f1bd4c516c34a7223b225eb8d8e5d94e54f702c778b93bce62"
+  },
+  "raw_comparator_report": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/far-comparator-run-001/primary.json",
+    "bytes": 2091,
+    "sha256": "8f6e7d39a22a6a1c64e476e8c61e97d445dca3609fe198df35226dc5f9ea2ff1"
+  },
+  "raw_original_generator_report": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/original-full-run-002/primary.json",
+    "bytes": 4087,
+    "sha256": "42f6fad12beb0c95e138eda623ebad174564a7da5add7161b9d2ceec28961e13"
+  },
+  "measurements": {
+    "comparator": {
+      "duration_seconds": 0.7108596249017864,
+      "sampled_peak_owned_tree_rss_bytes": 178061312,
+      "sample_count": 4,
+      "sampled_output_growth_bytes": 20659214
+    },
+    "original_full_generator": {
+      "duration_seconds": 3.3792298750486225,
+      "sampled_peak_owned_tree_rss_bytes": 184877056,
+      "sample_count": 16
+    }
+  },
+  "measurement_limits": "Bounded payload durations include their own work; comparator includes canonical full-field scans and output, original generator includes original WASM full calculation. External pin hashing/admission not included. This is one discriminating equivalence trial, not a matched performance comparison or speedup claim; RSS/storage sampled every0.2s.",
+  "cleanup": {
+    "comparator_known_remaining": 0,
+    "comparator_unknown": false,
+    "original_generator_known_remaining": 0,
+    "original_generator_unknown": false,
+    "source_tool_fixture_pins_postverified": true
+  },
+  "unresolved_gates": {
+    "candidate_full_relation_validation": false,
+    "candidate_ordinary_original_and_decoded_proof_verification": false,
+    "candidate_five_wrong_public_rejections": false,
+    "product_integration": false,
+    "other_change_scopes": false,
+    "performance_attribution": false
+  },
+  "private_values_included": false,
+  "private_indices_or_deltas_included": false,
+  "proof_blinders_or_credentials_included": false
+}
