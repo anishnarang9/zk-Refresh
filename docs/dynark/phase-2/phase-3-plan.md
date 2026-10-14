@@ -1,6 +1,6 @@
 # Bounded Phase 3 plan
 
-Draft while Phase 2 is running; **not an execution grant**. Finalize this document against the completed Phase 2 handoff and measured mode/session results. Do not start Phase 3 automatically. Preserve the accepted controlled-organization CA, signed organization/group/purpose fields, local native proving, exact work-request action, stale-issuer pause and strict execution-current-root policy.
+Originally drafted while Phase 2 was running, without an execution grant. The user's October 14 [engine-focus authorization](engine-focus-oct14.md) now permits independent early witness work before Phase 2 closes. Each compiler acquisition, prototype and paid experiment still requires a concrete reviewed scope and finite execution budget. Finalize product defaults against the completed Phase 2 measurements. Preserve the accepted controlled-organization CA, signed organization/group/purpose fields, local native proving, exact work-request action, stale-issuer pause and strict execution-current-root policy.
 
 The first engineering experiment should test whether unchanged-circuit same-action witness work can be reused safely. It must not alter the circuit, public statement, setup, Groth16 reduction or validation policy to manufacture a gain. Real-profile qualification is a separate bounded specification task; neither requires reopening the chosen product direction.
 

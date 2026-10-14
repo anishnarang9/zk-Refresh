@@ -1,6 +1,6 @@
 # Performance hypotheses and accounting
 
-Updated October 14, 2026. **A repeated near-fixture refresh benefit is measured; total-session economics remain open.** The actual credential dynamic sequence is still running. Isolated GLV and Fast experiments below were negative for their tested conditions. Phase 1 values remain historical measurements checked against primary JSON, not rerun measurements.
+Updated October 14, 2026. **A repeated near-fixture refresh benefit is measured; total-session economics remain open.** The actual credential dynamic attempt was externally interrupted during target05; its partial results do not close the sequence/recovery gate. Isolated GLV and Fast experiments below were negative for their tested conditions. Phase 1 values remain historical measurements checked against primary JSON, not rerun measurements.
 
 E2 `e2-report.json` records public preparation 382,968.881750 ms, private preparation 510,322.833875 ms and validated warm-filesystem reload 63,452.820625 ms. E4 `profile-v1/summary.json` records 201,326,592 requested bytes retained by two private projection vectors, 747,917,192 requested bytes added by UK-with-PK load, and exact equality of both reprepared N=1,048,576 projection vectors. Instrumented proof timings are not substituted for E2 samples. Full satisfaction is included in the Phase 2 validated engine and must be charged symmetrically in any comparison.
 
