@@ -9,6 +9,7 @@ use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use ark_serialize::CanonicalSerialize;
 use dynark::r1cs_to_qap::{LibsnarkReduction, R1CSToQAP};
 use rand::{CryptoRng, RngCore};
+use rayon::prelude::*;
 use sha2::{Digest, Sha256};
 use std::{io::Write, sync::Arc};
 
@@ -345,25 +346,27 @@ impl Anchor {
         cap: usize,
     ) -> Result<(G1, G1, G2, G1), Error> {
         let pk = &p.0.pk;
-        let mut a = self.core.a_g1 + pk.delta_g1 * (r - self.core.r);
-        let mut b1 = self.core.b_g1 + pk.delta_g1 * (s - self.core.s);
-        let mut b2 = self.core.b_g2 + pk.vk.delta_g2 * (s - self.core.s);
-        let mut private = G1::zero();
-        for (j, x) in &t.delta {
-            a += pk.u_g1[*j] * *x;
-            b1 += pk.v_g1[*j] * *x;
-            b2 += pk.v_g2[*j] * *x;
-            if *j >= p.shape().instance_len {
-                private += pk.t_p_g1[*j - p.shape().instance_len] * *x;
-            }
-        }
+        let (da, db1, db2, private) = t.delta.par_iter().fold(
+            || (G1::zero(), G1::zero(), G2::zero(), G1::zero()),
+            |(mut a, mut b1, mut b2, mut private), (j, x)| {
+                a += pk.u_g1[*j] * *x;
+                b1 += pk.v_g1[*j] * *x;
+                b2 += pk.v_g2[*j] * *x;
+                if *j >= p.shape().instance_len {
+                    private += pk.t_p_g1[*j - p.shape().instance_len] * *x;
+                }
+                (a, b1, b2, private)
+            },
+        ).reduce(
+            || (G1::zero(), G1::zero(), G2::zero(), G1::zero()),
+            |a, b| (a.0 + b.0, a.1 + b.1, a.2 + b.2, a.3 + b.3),
+        );
+        let a = self.core.a_g1 + pk.delta_g1 * (r - self.core.r) + da;
+        let b1 = self.core.b_g1 + pk.delta_g1 * (s - self.core.s) + db1;
+        let b2 = self.core.b_g2 + pk.vk.delta_g2 * (s - self.core.s) + db2;
         let mut quotient = uk.cross(&rows.a, &rows.b, cap)?;
-        for (i, x) in &rows.a {
-            quotient += self.q_b[*i] * *x;
-        }
-        for (i, x) in &rows.b {
-            quotient += self.q_a[*i] * *x;
-        }
+        quotient += rows.a.par_iter().map(|(i, x)| self.q_b[*i] * *x).sum::<G1>();
+        quotient += rows.b.par_iter().map(|(i, x)| self.q_a[*i] * *x).sum::<G1>();
         let c = self.core.c_g1 + a * s - self.core.a_g1 * self.core.s + b1 * r
             - self.core.b_g1 * self.core.r
             - pk.delta_g1 * (r * s - self.core.r * self.core.s)
@@ -849,3 +852,6 @@ mod import_tests {
         std::fs::remove_dir_all(dir).unwrap();
     }
 }
+#[cfg(test)]
+#[path = "../tests/private/anchored_parallel.rs"]
+mod parallel_tests;

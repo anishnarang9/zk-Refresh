@@ -444,6 +444,7 @@ dependencies = [
  "ark-relations",
  "ark-serialize",
  "rand 0.8.8",
+ "rayon",
  "rustix",
  "sha2",
  "zeroize",
