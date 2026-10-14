@@ -1,0 +1,530 @@
+{
+  "1_identity": {
+    "source": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/source-manifest-003.json",
+      "bytes": 14928,
+      "sha256": "5b34a2e6a74dcdbe2a22e8ff8220001d2f6604b1a2658bf562414358fbfc62b8",
+      "mode": "0o600"
+    },
+    "binary": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/binaries/attribution-libtest-004",
+      "bytes": 3993536,
+      "sha256": "833b8f628f6b448b9c71797cf178628bc37dc695fb1af9df8196eb662b5f7431",
+      "mode": "0o700"
+    },
+    "input": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/input-manifest-001.json",
+      "bytes": 4605,
+      "sha256": "2cf070ae4001e05e3d4b8bfc6914c4f2a316647b1b5d47515724c52aea4a0897",
+      "mode": "0o600"
+    },
+    "wrapper": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/runtime-launcher-source-001/launch_runtime.py",
+      "bytes": 9073,
+      "sha256": "4ac7d6a3f8521664a4b546dd15ead0704422a400f5d17f881b436c0bcf1c48c6",
+      "mode": "0o600"
+    },
+    "raw_report": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/runtime-001/primary.json",
+      "bytes": 110106,
+      "sha256": "4592e43026fa13283600bf07814704bf67f5957a09c31bed057ea1fd787c685b",
+      "mode": "0o600"
+    },
+    "stdout": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/runtime-001/bounded/stdout.log",
+      "bytes": 8727,
+      "sha256": "0f39ed9b4c197589129637272e92164a33b4e6b37dfe83baa3cf17f3547cc016",
+      "mode": "0o600"
+    },
+    "host": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/runtime-001/host/events.jsonl",
+      "bytes": 80646,
+      "sha256": "8265ffb6dd3eae5ca05b4c68f665e5367ca295d8336f05e4cbe92740a2d16fe7",
+      "mode": "0o600"
+    },
+    "package": {
+      "event": "package_identity",
+      "audit": false,
+      "ns": 96287975542,
+      "N": 1048576,
+      "assignment": 643563,
+      "rows": 648156,
+      "instance": 6,
+      "a_entries": 1328134,
+      "b_entries": 658120,
+      "c_entries": 1480356,
+      "structural_cap_formula_bytes": 3472081280,
+      "matrix": "b88ecb8f071de579d6248471ec63c451fa6e8ad940e1cd3b5ae88c2b0b398058",
+      "circuit": "4ed8bc9915ac836bbeda833480fba8a5dea9cf58c198b1668c460743552b7e1e",
+      "pk": "2ca816e3f84f1e93aed0b2f5e49db05fab4d6e27a348f681ef1b237d9697d85c",
+      "vk": "1ae0864ab3bdbe39f912734ba8c11c65c02d3a9b3d56d8204fb00ddac57ab642",
+      "package": "57cea7ff53a711f8fbb2e8f256a21a852d087564c49df70b6065c6994765c0d5",
+      "profile_is_source_commitment": true
+    },
+    "all_source_tool_original_and_copied_fixture_pins_reverified": true,
+    "parser": "Strip only exact known Rust libtest prefix from first JSON event; ignore nonJSON status lines"
+  },
+  "2_outcome_resources": {
+    "runner": {
+      "schema": 1,
+      "owner": "engine-attribution-source003-runtime-001",
+      "started_at_utc": "2026-10-14T21:25:09.961024+00:00",
+      "ended_at_utc": "2026-10-14T21:27:35.786275+00:00",
+      "timezone": [
+        "EST",
+        "EDT"
+      ],
+      "duration_seconds": 145.82285904197488,
+      "limits": {
+        "runtime_seconds": 600.0,
+        "owned_tree_rss_bytes": 4294967296,
+        "storage_growth_bytes": 67108864,
+        "poll_seconds": 0.2
+      },
+      "stop_reason": null,
+      "exit_code": 0,
+      "runner_error_type": null,
+      "cleanup_remaining_owned_processes": 0,
+      "cleanup_status_unknown": false,
+      "sample_count": 658,
+      "sampled_peak_owned_tree_rss_bytes": 1201389568,
+      "sampled_peak_storage_growth_bytes": 13961,
+      "environment": {
+        "RAYON_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "TZ": null
+      },
+      "passed": true
+    },
+    "duplicate_report_equal": true,
+    "host_cleanup_verified": true,
+    "independent_groups_checked": [
+      57219
+    ],
+    "independent_live_processes": [],
+    "queue_released": true,
+    "rss_measure": "sampled workload-tree RSS, not requested heap",
+    "monitor_planning_reserve_bytes": 201326592,
+    "reserve_enforced": false
+  },
+  "3_correctness": {
+    "final_counters": {
+      "event": "attribution_complete",
+      "calls": 26,
+      "pairs": 147271800,
+      "proofs_verified": 26,
+      "original_and_decoded_verifications": 52,
+      "negative_public_attempts": 130,
+      "diagnostic_measured_pairs": 5,
+      "api_measured_pairs": 5,
+      "excluded_warm_pairs": 2,
+      "fresh_preprocessing_calls": 0
+    },
+    "component_equality": {
+      "event": "component_equivalence",
+      "raw_components_equal": 4,
+      "ordinary_original_and_decoded_verified": true,
+      "five_negative_public_checks_each": true,
+      "fresh_test_blinders_not_logged": true
+    },
+    "immutability": [
+      {
+        "event": "whole_anchor_immutability",
+        "label": "attribution-before",
+        "ns": 395826000,
+        "unchanged": true,
+        "streamed": true
+      },
+      {
+        "event": "whole_anchor_immutability",
+        "label": "attribution-after",
+        "ns": 509712292,
+        "unchanged": true,
+        "streamed": true
+      }
+    ],
+    "proofs": 26,
+    "proof_bytes_each": 128,
+    "shared_blinder_pair_encodings_equal": true,
+    "independent_API_12encodings_distinct": true,
+    "effective_Rayon_threads": 4
+  },
+  "4_uninstrumented_API": {
+    "cohorts": {
+      "serial": {
+        "whole_ns": {
+          "n": 5,
+          "median_ms": 1635.990584,
+          "mean_ms": 1655.3022919999999,
+          "min_ms": 1632.729917,
+          "max_ms": 1733.7855,
+          "sample_stdev_ms": 43.984860125766026,
+          "coefficient_of_variation": 0.026572101264127308,
+          "samples_ms": [
+            1635.990584,
+            1633.338334,
+            1632.729917,
+            1640.667125,
+            1733.7855
+          ]
+        }
+      },
+      "parallel": {
+        "whole_ns": {
+          "n": 5,
+          "median_ms": 871.564333,
+          "mean_ms": 872.2499666,
+          "min_ms": 862.3685,
+          "max_ms": 885.329666,
+          "sample_stdev_ms": 10.027101157483706,
+          "coefficient_of_variation": 0.01149567387955198,
+          "samples_ms": [
+            871.564333,
+            879.050417,
+            862.936917,
+            862.3685,
+            885.329666
+          ]
+        }
+      }
+    },
+    "ratio_of_medians": 1.8770738109128198,
+    "difference_of_medians_ms": 764.4262509999999,
+    "latency_reduction_fraction": 0.4672558989495993,
+    "independent_CSPRNG": true,
+    "full_target_validation": true,
+    "warm_pairs_excluded": 1
+  },
+  "5_diagnostic_stages": {
+    "cohorts": {
+      "serial": {
+        "whole_ns": {
+          "n": 5,
+          "median_ms": 1647.3705,
+          "mean_ms": 1691.47225,
+          "min_ms": 1630.764167,
+          "max_ms": 1789.7535,
+          "sample_stdev_ms": 74.89715444624427,
+          "coefficient_of_variation": 0.04427926881226947,
+          "samples_ms": [
+            1789.7535,
+            1647.3705,
+            1635.039875,
+            1754.433208,
+            1630.764167
+          ]
+        },
+        "validation_ns": {
+          "n": 5,
+          "median_ms": 59.947125,
+          "mean_ms": 60.2497748,
+          "min_ms": 59.664708,
+          "max_ms": 61.64175,
+          "sample_stdev_ms": 0.8012339166864457,
+          "coefficient_of_variation": 0.013298537950492817,
+          "samples_ms": [
+            61.64175,
+            60.18375,
+            59.947125,
+            59.811541,
+            59.664708
+          ]
+        },
+        "query_ns": {
+          "n": 5,
+          "median_ms": 848.877333,
+          "mean_ms": 890.5387584,
+          "min_ms": 840.836917,
+          "max_ms": 968.9755,
+          "sample_stdev_ms": 64.20082349698035,
+          "coefficient_of_variation": 0.07209211602685069,
+          "samples_ms": [
+            968.9755,
+            848.877333,
+            842.024,
+            951.980042,
+            840.836917
+          ]
+        },
+        "cross_ns": {
+          "n": 5,
+          "median_ms": 527.574833,
+          "mean_ms": 529.3121752,
+          "min_ms": 519.135209,
+          "max_ms": 548.186875,
+          "sample_stdev_ms": 11.573965311350731,
+          "coefficient_of_variation": 0.021866047776017097,
+          "samples_ms": [
+            548.186875,
+            527.574833,
+            520.894375,
+            530.769584,
+            519.135209
+          ]
+        },
+        "projection_ns": {
+          "n": 5,
+          "median_ms": 210.871417,
+          "mean_ms": 211.11075,
+          "min_ms": 210.478166,
+          "max_ms": 211.919542,
+          "sample_stdev_ms": 0.6205546293103518,
+          "coefficient_of_variation": 0.0029394743247814323,
+          "samples_ms": [
+            210.680375,
+            210.478166,
+            211.919542,
+            211.60425,
+            210.871417
+          ]
+        },
+        "reconstruction_ns": {
+          "n": 5,
+          "median_ms": 0.241417,
+          "mean_ms": 0.2433334,
+          "min_ms": 0.240333,
+          "max_ms": 0.25075,
+          "sample_stdev_ms": 0.004237021040778523,
+          "coefficient_of_variation": 0.017412410465552704,
+          "samples_ms": [
+            0.241375,
+            0.242792,
+            0.241417,
+            0.25075,
+            0.240333
+          ]
+        }
+      },
+      "parallel": {
+        "whole_ns": {
+          "n": 5,
+          "median_ms": 877.016333,
+          "mean_ms": 876.9268079999999,
+          "min_ms": 863.348083,
+          "max_ms": 890.563375,
+          "sample_stdev_ms": 12.641109087660467,
+          "coefficient_of_variation": 0.014415238503759448,
+          "samples_ms": [
+            877.016333,
+            863.348083,
+            890.563375,
+            888.446958,
+            865.259291
+          ]
+        },
+        "validation_ns": {
+          "n": 5,
+          "median_ms": 59.813166,
+          "mean_ms": 60.114333,
+          "min_ms": 59.683708,
+          "max_ms": 61.3665,
+          "sample_stdev_ms": 0.7045376101614448,
+          "coefficient_of_variation": 0.011719960531899186,
+          "samples_ms": [
+            59.683708,
+            59.799208,
+            59.909083,
+            61.3665,
+            59.813166
+          ]
+        },
+        "query_ns": {
+          "n": 5,
+          "median_ms": 222.698167,
+          "mean_ms": 225.6410502,
+          "min_ms": 219.807084,
+          "max_ms": 237.998375,
+          "sample_stdev_ms": 7.245939690632317,
+          "coefficient_of_variation": 0.03211268377012862,
+          "samples_ms": [
+            222.698167,
+            219.807084,
+            237.998375,
+            225.876333,
+            221.825292
+          ]
+        },
+        "cross_ns": {
+          "n": 5,
+          "median_ms": 535.997041,
+          "mean_ms": 534.5866332,
+          "min_ms": 527.259625,
+          "max_ms": 544.447208,
+          "sample_stdev_ms": 7.3009016609839055,
+          "coefficient_of_variation": 0.013657097292689855,
+          "samples_ms": [
+            537.739583,
+            527.259625,
+            535.997041,
+            544.447208,
+            527.489709
+          ]
+        },
+        "projection_ns": {
+          "n": 5,
+          "median_ms": 56.391458,
+          "mean_ms": 56.3199248,
+          "min_ms": 55.871958,
+          "max_ms": 56.627167,
+          "sample_stdev_ms": 0.2918006482698429,
+          "coefficient_of_variation": 0.005181126382999768,
+          "samples_ms": [
+            56.627167,
+            56.216666,
+            56.391458,
+            56.492375,
+            55.871958
+          ]
+        },
+        "reconstruction_ns": {
+          "n": 5,
+          "median_ms": 0.250917,
+          "mean_ms": 0.2502418,
+          "min_ms": 0.246375,
+          "max_ms": 0.253292,
+          "sample_stdev_ms": 0.002853006957580024,
+          "coefficient_of_variation": 0.011401000782363392,
+          "samples_ms": [
+            0.248333,
+            0.252292,
+            0.253292,
+            0.250917,
+            0.246375
+          ]
+        }
+      }
+    },
+    "separate_timing_cohort": true,
+    "shared_blinders_test_only": true,
+    "whole_mean_gain_ms": 814.5454420000001,
+    "query_mean_gain_ms": 664.8977082,
+    "projection_mean_gain_ms": 154.7908252,
+    "cross_and_validation_source_unchanged": true,
+    "warm_pairs_excluded": 1
+  },
+  "6_variability_order": {
+    "pairs": {
+      "attribution_api": [
+        {
+          "sample": 1,
+          "first": "serial",
+          "serial_ms": 1635.990584,
+          "parallel_ms": 871.564333,
+          "saving_ms": 764.426251,
+          "ratio": 1.87707381091282
+        },
+        {
+          "sample": 2,
+          "first": "parallel",
+          "serial_ms": 1633.338334,
+          "parallel_ms": 879.050417,
+          "saving_ms": 754.287917,
+          "ratio": 1.8580712805691098
+        },
+        {
+          "sample": 3,
+          "first": "serial",
+          "serial_ms": 1632.729917,
+          "parallel_ms": 862.936917,
+          "saving_ms": 769.793,
+          "ratio": 1.892061731089435
+        },
+        {
+          "sample": 4,
+          "first": "parallel",
+          "serial_ms": 1640.667125,
+          "parallel_ms": 862.3685,
+          "saving_ms": 778.298625,
+          "ratio": 1.9025128178962938
+        },
+        {
+          "sample": 5,
+          "first": "serial",
+          "serial_ms": 1733.7855,
+          "parallel_ms": 885.329666,
+          "saving_ms": 848.455834,
+          "ratio": 1.9583501678345432
+        }
+      ],
+      "attribution_diagnostic": [
+        {
+          "sample": 1,
+          "first": "parallel",
+          "serial_ms": 1789.7535,
+          "parallel_ms": 877.016333,
+          "saving_ms": 912.737167,
+          "ratio": 2.040729952973407
+        },
+        {
+          "sample": 2,
+          "first": "serial",
+          "serial_ms": 1647.3705,
+          "parallel_ms": 863.348083,
+          "saving_ms": 784.022417,
+          "ratio": 1.908118558942813
+        },
+        {
+          "sample": 3,
+          "first": "parallel",
+          "serial_ms": 1635.039875,
+          "parallel_ms": 890.563375,
+          "saving_ms": 744.4765,
+          "ratio": 1.8359612812507589
+        },
+        {
+          "sample": 4,
+          "first": "serial",
+          "serial_ms": 1754.433208,
+          "parallel_ms": 888.446958,
+          "saving_ms": 865.98625,
+          "ratio": 1.9747191345552448
+        },
+        {
+          "sample": 5,
+          "first": "parallel",
+          "serial_ms": 1630.764167,
+          "parallel_ms": 865.259291,
+          "saving_ms": 765.504876,
+          "ratio": 1.8847115355621187
+        }
+      ]
+    },
+    "all5APIpairs_favor_candidate": true,
+    "paired_API_median_saving_ms": 769.793,
+    "limitation": "Five exploratory paired measurements; one retained synthetic near key/fixture/hardware/fourthread setting; no population confidence claim"
+  },
+  "7_outside_warm_costs": {
+    "wrapper_auth_copy_seconds": 0.422354832990095,
+    "copied_public_bytes": 2623,
+    "rust_R1CS_UK_auth_seconds": 1.245661875,
+    "typed_public_package_import_seconds": 96.287975542,
+    "retention_seconds": 13.774507541,
+    "retention_boundary": "Validated beforeWTNS import + cachehash + legacyanchor import/statebinding, not isolated reload",
+    "commitment_seconds": [
+      0.395826,
+      0.509712292
+    ],
+    "fresh_preprocessing": 0,
+    "witness_generation": 0,
+    "complete_refresh_or_new_full_comparator_measured": false
+  },
+  "8_attribution_scope": {
+    "conclusion": "Lost query/projection parallelism is a demonstrated material contributor to validated anchored API slowdown for this warm fixture",
+    "serial_replay004_reproduced": true,
+    "remaining_candidate_cross_median_seconds": 0.535997041,
+    "historical_boundary": "Old0.389s omitted perupdate satisfaction and used parallelcross; full historical regression not claimed recovered",
+    "claim_limits": "No complete-refresh/fresh-prep economics, stronger security, originalzkey or Solana claim; current product patch not yet tested"
+  },
+  "9_minimum_adoption": {
+    "files": [
+      "crates/dynark-bn254/src/anchored.rs",
+      "crates/dynark-bn254/Cargo.toml",
+      "crates/dynark-bn254/Cargo.lock",
+      "crates/dynark-bn254/tests/anchored_parallel.rs"
+    ],
+    "scope": "Measured query fold+projection sums; pinned Rayon1.12 normaldependency; original serial algebra test-only; no validation/RNG/cross/metadata edits",
+    "tests": "Fivepublics, firstprivate,lastused,nonzero prepared/projection support,1/2/4pools,A-only/B-onlyoppositeempty,duplicatecancellation and existing actualAPI suite",
+    "future_dynamic_arithmetic": "Separate later scope; no dynamic module grant",
+    "stage_commit": "Parent owns, child does neither"
+  }
+}
