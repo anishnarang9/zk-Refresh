@@ -1,8 +1,16 @@
 # Performance hypotheses and accounting
 
-October 10–11, 2026. **No complete credential or session speed improvement is established yet.** Fresh isolated experiments below are negative for their tested admission conditions. Phase 1 values are retained historical measurements checked against primary JSON in this phase, not rerun measurements.
+Updated October 14, 2026. **A repeated near-fixture refresh benefit is measured; total-session economics remain open.** The actual credential dynamic sequence is still running. Isolated GLV and Fast experiments below were negative for their tested conditions. Phase 1 values remain historical measurements checked against primary JSON, not rerun measurements.
 
 E2 `e2-report.json` records public preparation 382,968.881750 ms, private preparation 510,322.833875 ms and validated warm-filesystem reload 63,452.820625 ms. E4 `profile-v1/summary.json` records 201,326,592 requested bytes retained by two private projection vectors, 747,917,192 requested bytes added by UK-with-PK load, and exact equality of both reprepared N=1,048,576 projection vectors. Instrumented proof timings are not substituted for E2 samples. Full satisfaction is included in the Phase 2 validated engine and must be charged symmetrically in any comparison.
+
+## Accepted fixed-budget credential results
+
+[Replay004](evidence/credential-replay-fixed-budget-results.md) completed under the fixed 4 GiB allowance. Thirty supplied-witness pairs had medians of 1.710784 seconds anchored and 2.254241 seconds full; ten complete-local-refresh pairs had medians of 5.067440 and 5.584775 seconds. Median paired Full/Anchor ratios were 1.317684 and 1.120560 respectively. The comparisons are repeated observations of one near fixture, with full validation charged, counterbalanced order and warm-ups excluded. They do not establish distinct-root churn or a session break-even point. Preparation/import costs remain separate, and these Phase 2 windows must not be treated as identical to Phase 1's historical windows.
+
+Actual near/middle/far support calculations matched the independent oracle. New-action reuse rejected before validation, entropy or cross work, followed by a verified full fallback; its 10.31-billion-pair support product was counted without traversal. [Population measurements](evidence/population-fixed-budget-results.md) established shared public allocations and distinct private storage for zero/one/two states. The normal retained-RSS sequence failed the preregistered admission condition for ten states, which remain unmeasured. Structural memory, requested heap, allocation traffic, serialized size and sampled RSS retain separate meanings.
+
+The dynamic trial and TRAIN/HOLDOUT session campaign must supply the remaining reconstruction, persistence and paid-session evidence. No partial dynamic timing or source-only selector fit supports a completed session claim.
 
 ## Ordered experiments
 
@@ -31,7 +39,7 @@ Separate allocation diagnostics observed zero cached-kernel allocation calls, ve
 
 The [frozen synthetic experiment](../../../results/dynark/phase-2/cross-term/synthetic-timing-report.md) completed exact coefficient and separate group comparisons within its finite budget. On 30 counterbalanced uninstrumented pairs per primary case, Fast lost every comparison for support unions of at least two. Synthetic far/middle/near median weighted quadratic times were 2.040/51.991/206.895 ms; Fast times were 168.507/1304.777/2730.016 ms. Median paired ratios were 84.28/25.05/13.20. Four intermediate sizes had only two exploratory pairs each and also lost. No reliable crossover was observed, so P2-D12 retains the direct quadratic production kernel without a threshold selector or dynamic schema change.
 
-The separate diagnostic observed 517,072,496 requested traffic bytes, 785,174 allocation calls and 8,122,696 additional peak live requested bytes for near Fast; remainder evaluation occupied 90.9% of the observed whole call. These quantities differ from RSS and normal timing. Combining coefficients reduced synthetic group calls for overlapping supports, but the near/middle/far disjoint cases had equal calls and nearly equal group time; no complete-update gain follows. Actual credential supports and total-session measurements remain open. The public synthetic tables and group bases are not a validated credential package or private preparation result.
+The separate diagnostic observed 517,072,496 requested traffic bytes, 785,174 allocation calls and 8,122,696 additional peak live requested bytes for near Fast; remainder evaluation occupied 90.9% of the observed whole call. These quantities differ from RSS and normal timing. Combining coefficients reduced synthetic group calls for overlapping supports, but the near/middle/far disjoint cases had equal calls and nearly equal group time; no complete-update gain follows. Replay004 subsequently established exact actual-support equality; its one field timing per case is not a new crossover distribution. Total-session measurements remain open. The public synthetic tables and group bases are not a validated credential package or private preparation result.
 
 ## Selective dependency hypothesis for T7 review
 
