@@ -1,0 +1,151 @@
+{
+  "status": "parent-reviewed-exact-fixed-far-candidate-relation-and-ordinary-proof-accepted",
+  "scope": "Exact fixed far candidate from independent final-component evaluator; one authenticated target/input/circuit/package. No product integration or generic incremental witness claim.",
+  "equivalence_aggregate": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/far-equivalence-scrubbed-aggregate-001.json",
+    "bytes": 3244,
+    "sha256": "c62fb120bf0003715b4f9ed4545d07ea8beb241c44f20e5664f00d5b56133ef2",
+    "mode": "0o600"
+  },
+  "candidate": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/far-comparator-output-001/candidate-unaccepted.wtns",
+    "bytes": 20594092,
+    "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447",
+    "mode": "0o600"
+  },
+  "target_input_sha256": "2d469223ba6be5c45c602b1eaf46d00871ef946149c4934a6244972e4d3c5d0f",
+  "candidate_full_relation": {
+    "satisfied": true,
+    "coordinates": 643563,
+    "rows": 648156,
+    "publics": 5,
+    "ns": 129649875
+  },
+  "fresh_full_proof": {
+    "proofs": 1,
+    "caller_os_rng": true,
+    "entropy_calls": 2,
+    "entropy_bytes": 64,
+    "proof_ns": 2383696292,
+    "artifact": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/ordinary-proof-output-001/candidate-ordinary.proof",
+      "bytes": 128,
+      "sha256": "b6a43005c19dc676290b60488eb51cb4a76122300c8537b16831fa2d679ad0be",
+      "mode": "0o600"
+    }
+  },
+  "independent_ordinary_verification": {
+    "original_verified": true,
+    "decoded_verified": true,
+    "five_wrong_publics_rejected": true,
+    "verification_ns": 6194917,
+    "compressed_bytes": 128,
+    "canonical_decode_eof": true
+  },
+  "existing_public_package_import": {
+    "ns": 97702158458,
+    "updating_material_dropped": true,
+    "anchor_preparation": false,
+    "setup_regeneration": false,
+    "preprocessing_regeneration": false
+  },
+  "bounded_measurement": {
+    "duration_seconds": 102.1629178749863,
+    "sampled_peak_owned_tree_rss_bytes": 1209417728,
+    "sample_count": 458,
+    "sampled_peak_storage_growth_bytes": 2114
+  },
+  "budgets": {
+    "runtime_seconds": 240,
+    "owned_tree_rss_bytes": 4294967296,
+    "output_growth_bytes": 134217728,
+    "poll_seconds": 0.2,
+    "rayon_threads": 4,
+    "heavy_owners": 1,
+    "retries": 0
+  },
+  "independent_worker_review": {
+    "full_five_events_read": true,
+    "stderr_empty": true,
+    "primary_duplicate_equal": true,
+    "all84_current_identity_type_owner_mode_and_no_symlink_rechecked": true,
+    "source_before_after_equal": true,
+    "proof_owner_mode_size_digest_verified": true,
+    "no_proof_rerun": true
+  },
+  "cleanup": {
+    "known_remaining": 0,
+    "unknown": false,
+    "host_verified": true,
+    "all84_postpins_verified": true
+  },
+  "raw_evidence": {
+    "primary": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/ordinary-proof-runtime-001/primary.json",
+      "bytes": 76862,
+      "sha256": "81a89bd2cd34972fff4a16a407e5002a6dbfaf4c67a4ed86801bc428d016f7eb",
+      "mode": "0o600"
+    },
+    "duplicate": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/ordinary-proof-runtime-001/bounded/report.json",
+      "bytes": 76862,
+      "sha256": "81a89bd2cd34972fff4a16a407e5002a6dbfaf4c67a4ed86801bc428d016f7eb",
+      "mode": "0o600"
+    },
+    "stdout": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/ordinary-proof-runtime-001/bounded/stdout.log",
+      "bytes": 714,
+      "sha256": "7770cf257fac0f48c9a08e29d9599fa0d69e15ea66cd9a980a242a2b61e94770",
+      "mode": "0o600"
+    },
+    "stderr": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/ordinary-proof-runtime-001/bounded/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "0o600"
+    },
+    "host": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/ordinary-proof-runtime-001/host/events.jsonl",
+      "bytes": 59583,
+      "sha256": "28c2138d1a61993b3bf83dfb8fa2bc3231993506637571ee5b9ed210da96e8ba",
+      "mode": "0o600"
+    },
+    "source_before": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/ordinary-proof-runtime-001/identities-before.json",
+      "bytes": 24484,
+      "sha256": "388fbfb9f4bd0477c9755995033e4a50bc5c6007809889ab4594ec41f25e0ffe",
+      "mode": "0o600"
+    },
+    "source_after": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/ordinary-proof-runtime-001/identities-after.json",
+      "bytes": 24484,
+      "sha256": "388fbfb9f4bd0477c9755995033e4a50bc5c6007809889ab4594ec41f25e0ffe",
+      "mode": "0o600"
+    }
+  },
+  "source_manifest": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/far-ordinary-proof-source-freeze-001.json",
+    "bytes": 21516,
+    "sha256": "39f76212f9cfea902c45f2ac949133e781be2074507b1cafa9c5b11df08f930a",
+    "mode": "0o600"
+  },
+  "compiled_artifact_receipt": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/far-ordinary-proof-compiled-artifact-001.json",
+    "bytes": 4304,
+    "sha256": "fe63a34d74ed810fd87af669b521996edec968ceeab35e727332f9f1b2b7e4e2",
+    "mode": "0o600"
+  },
+  "runtime_grant": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/far-ordinary-proof-runtime-001-granted-receipt.json",
+    "bytes": 9845,
+    "sha256": "e24b7a14564cb57e0df842f8591322073bfcd58859a4668f9842873f95c21c6d",
+    "mode": "0o600"
+  },
+  "limitations": [
+    "Single discriminating fixture/proof trial; no median/tail/speedup, CPU or matched benchmark claim.",
+    "Public package import is part of this bounded workload and dominated elapsed time; no new anchor/private projections/cache generated.",
+    "Existing setup contents and externally reviewed hashes do not establish honest setup ceremony or application current-root authorization.",
+    "Source prototype stays outside product; near/middle/other input changes remain unimplemented; no zkey/Solana interoperability claim."
+  ],
+  "private_values_indices_deltas_blinders_or_key_contents_included": false
+}
