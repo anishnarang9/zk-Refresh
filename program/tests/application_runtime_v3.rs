@@ -537,17 +537,19 @@ fn runtime_v3_rejects_cross_config_issuer_and_wrong_privileges_without_mutation(
     }
 }
 #[test]
-fn runtime_v3_staging_and_execute_stay_unavailable_and_do_not_mutate() {
+fn runtime_v3_execute_stays_unavailable_and_malformed_staging_accounts_do_not_mutate() {
     let x = fixture();
     let accounts = [x.ca.clone(), x.ia.clone()];
     let before = snapshot(&accounts);
     let mut execute = vec![PREFIX, 7];
     execute.extend([0; 448]);
-    for data in [execute, vec![PREFIX, 5], vec![PREFIX, 9]] {
-        assert_eq!(
-            process_instruction(&x.program, &accounts, &data),
-            Err(ProgramError::from(AppError::Unavailable))
-        );
+    assert_eq!(
+        process_instruction(&x.program, &accounts, &execute),
+        Err(ProgramError::from(AppError::Unavailable))
+    );
+    assert_eq!(snapshot(&accounts), before);
+    for data in [vec![PREFIX, 5], vec![PREFIX, 9]] {
+        assert!(process_instruction(&x.program, &accounts, &data).is_err());
         assert_eq!(snapshot(&accounts), before);
     }
 }

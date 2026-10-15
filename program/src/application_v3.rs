@@ -1,4 +1,4 @@
-//! Six-public-field queue state/parser contract. Runtime execution remains unavailable.
+//! Six-public-field queue state/parser and request staging. Execute remains unavailable.
 //! Account layout v3, BE integers; epoch extensions implement fresh-after-reenable.
 use solana_program::{program_error::ProgramError, pubkey::Pubkey};
 pub const PREFIX: u8 = 0x51;
@@ -680,6 +680,83 @@ impl Request {
             return Err(AppError::State);
         }
         Ok(x)
+    }
+    fn staging_at(&self, now: i64) -> Result<()> {
+        self.valid_shape()?;
+        if self.state != RequestState::Staging {
+            return Err(AppError::State);
+        }
+        if now < 0 || now > self.deadline {
+            return Err(AppError::Expired);
+        }
+        Ok(())
+    }
+    pub fn upload(&mut self, offset: u16, chunk: &[u8], now: i64) -> Result<()> {
+        self.staging_at(now)?;
+        let end = (offset as usize)
+            .checked_add(chunk.len())
+            .ok_or(AppError::Bounds)?;
+        if offset != self.uploaded
+            || chunk.is_empty()
+            || chunk.len() > MAX_CHUNK
+            || end > self.payload.len()
+        {
+            return Err(AppError::Bounds);
+        }
+        self.payload[offset as usize..end].copy_from_slice(chunk);
+        self.uploaded = end as u16;
+        Ok(())
+    }
+    pub fn upload_metas(&mut self, offset: u8, metas: &[RelevantMeta], now: i64) -> Result<()> {
+        self.staging_at(now)?;
+        let end = (offset as usize)
+            .checked_add(metas.len())
+            .ok_or(AppError::Bounds)?;
+        if offset != self.metas_uploaded
+            || metas.is_empty()
+            || metas.len() > MAX_META_CHUNK
+            || end > self.metas.len()
+        {
+            return Err(AppError::Bounds);
+        }
+        for (index, m) in metas.iter().enumerate() {
+            if m.flags > 3 {
+                return Err(AppError::Privileges);
+            }
+            if self.metas[..self.metas_uploaded as usize]
+                .iter()
+                .chain(metas[..index].iter())
+                .any(|prior| prior.key == m.key)
+            {
+                return Err(AppError::Accounts);
+            }
+        }
+        // Validate the entire chunk before the first mutation.
+        self.metas[offset as usize..end].clone_from_slice(metas);
+        self.metas_uploaded = end as u8;
+        Ok(())
+    }
+    pub fn finalize(&mut self, now: i64) -> Result<()> {
+        self.staging_at(now)?;
+        if self.uploaded != self.payload_len || self.metas_uploaded as usize != self.metas.len() {
+            return Err(AppError::State);
+        }
+        for (index, m) in self.metas.iter().enumerate() {
+            if self.metas[..index].iter().any(|prior| prior.key == m.key) {
+                return Err(AppError::Accounts);
+            }
+        }
+        self.state = RequestState::Finalized;
+        Ok(())
+    }
+    pub fn cancel(&mut self) -> Result<()> {
+        self.valid_shape()?;
+        if !matches!(self.state, RequestState::Staging | RequestState::Finalized) {
+            return Err(AppError::Consumed);
+        }
+        // Keep all immutable identity and partial upload bytes as a tombstone.
+        self.state = RequestState::Cancelled;
+        Ok(())
     }
 }
 impl Queue {

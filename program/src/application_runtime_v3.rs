@@ -1,6 +1,7 @@
-//! V3 administrative runtime only. Request staging and Execute remain unavailable.
+//! V3 administrative and request-staging runtime. Execute remains unavailable.
 use crate::application_v3::{
-    AppError, AppInstruction, Authority, Config, Issuer, Queue, CONFIG_LEN, ISSUER_LEN, QUEUE_LEN,
+    AppError, AppInstruction, Authority, Config, Issuer, Queue, RelevantMeta, Request,
+    RequestState, CONFIG_LEN, ISSUER_LEN, QUEUE_LEN, REQUEST_LEN,
 };
 use solana_program::{
     account_info::AccountInfo, clock::Clock, entrypoint::ProgramResult,
@@ -31,10 +32,12 @@ pub fn queue_address(program: &Pubkey, config: &Pubkey) -> (Pubkey, u8) {
 // 1 Enroll: admin signer+writable, config RO, issuer W, executable System RO.
 // 2 Publish: publisher signer, config W.
 // 3 Observe: source signer, config RO, issuer W.
+// 4 Create: creator signer+writable, config RO, issuer RO, request W, executable System RO.
+// 5/6/8/9 Finalize/Upload/UploadMetas/Cancel: creator signer, config RO, request W.
 // 10 SetConfigEnabled: admin signer, config W.
 // 11 BindCurrent: publisher signer, config RO, issuer W.
 // 12 SetIssuerEnabled: admin signer, config RO, issuer W.
-// Signer authorities may be writable fee payers. No request/proof handler exists.
+// Signer authorities may be writable fee payers. No proof handler exists.
 fn count(accounts: &[AccountInfo], expected: usize) -> ProgramResult {
     if accounts.len() != expected {
         return Err(AppError::Accounts.into());
@@ -94,13 +97,55 @@ fn load_issuer(
     program: &Pubkey,
     config: &AccountInfo,
     a: &AccountInfo,
+    writable: bool,
 ) -> Result<Issuer, ProgramError> {
-    owned(program, a, true)?;
+    owned(program, a, writable)?;
     let i = Issuer::decode(&a.try_borrow_data()?)?;
     if i.config != *config.key || issuer_address(program, config.key, &i.issuer_hash).0 != *a.key {
         return Err(AppError::Accounts.into());
     }
     Ok(i)
+}
+fn load_request(
+    program: &Pubkey,
+    config: &AccountInfo,
+    a: &AccountInfo,
+) -> Result<Request, ProgramError> {
+    owned(program, a, true)?;
+    let r = Request::decode(&a.try_borrow_data()?)?;
+    if r.config != *config.key
+        || request_address(program, config.key, &r.creator, &r.nonce).0 != *a.key
+    {
+        return Err(AppError::Accounts.into());
+    }
+    Ok(r)
+}
+fn finalized_metas(
+    program: &Pubkey,
+    config: &AccountInfo,
+    request: &Pubkey,
+    r: &Request,
+) -> ProgramResult {
+    let queue = queue_address(program, config.key).0;
+    let issuer = issuer_address(program, config.key, &r.issuer_hash).0;
+    if r.metas.len() < 2
+        || r.metas[0].key != *request
+        || r.metas[1].key != queue
+        || r.metas[..2]
+            .iter()
+            .any(|m| m.flags != 2 || m.owner != *program)
+    {
+        return Err(AppError::Accounts.into());
+    }
+    for (index, m) in r.metas.iter().enumerate() {
+        if m.key == *config.key
+            || m.key == issuer
+            || r.metas[..index].iter().any(|prior| prior.key == m.key)
+        {
+            return Err(AppError::Accounts.into());
+        }
+    }
+    Ok(())
 }
 fn epochs(c: &Config, i: &Issuer, expected_config: u64, expected_issuer: u64) -> ProgramResult {
     if c.eligibility_epoch != expected_config || i.eligibility_epoch != expected_issuer {
@@ -123,7 +168,8 @@ fn write(a: &AccountInfo, bytes: &[u8]) -> ProgramResult {
     Ok(())
 }
 pub fn process(program: &Pubkey, accounts: &[AccountInfo], bytes: &[u8]) -> ProgramResult {
-    match AppInstruction::parse(bytes)? {
+    let instruction = AppInstruction::parse(bytes)?;
+    match instruction {
         AppInstruction::Initialize {
             seed,
             publisher,
@@ -275,7 +321,7 @@ pub fn process(program: &Pubkey, accounts: &[AccountInfo], bytes: &[u8]) -> Prog
         } => {
             count(accounts, 3)?;
             let c = load_config(program, &accounts[1], false)?;
-            let mut i = load_issuer(program, &accounts[1], &accounts[2])?;
+            let mut i = load_issuer(program, &accounts[1], &accounts[2], true)?;
             authority(&accounts[0], &i.source)?;
             epochs(&c, &i, expected_config_epoch, expected_issuer_epoch)?;
             // Preserve the authenticated active/negative fact exactly; neither
@@ -310,7 +356,7 @@ pub fn process(program: &Pubkey, accounts: &[AccountInfo], bytes: &[u8]) -> Prog
         } => {
             count(accounts, 3)?;
             let c = load_config(program, &accounts[1], false)?;
-            let mut i = load_issuer(program, &accounts[1], &accounts[2])?;
+            let mut i = load_issuer(program, &accounts[1], &accounts[2], true)?;
             authority(&accounts[0], &c.publisher)?;
             epochs(&c, &i, expected_config_epoch, expected_issuer_epoch)?;
             i.bind_current(
@@ -327,14 +373,123 @@ pub fn process(program: &Pubkey, accounts: &[AccountInfo], bytes: &[u8]) -> Prog
         AppInstruction::SetIssuerEnabled { enabled } => {
             count(accounts, 3)?;
             let c = load_config(program, &accounts[1], false)?;
-            let mut i = load_issuer(program, &accounts[1], &accounts[2])?;
+            let mut i = load_issuer(program, &accounts[1], &accounts[2], true)?;
             authority(&accounts[0], &c.admin)?;
             i.set_enabled(&c, actor(&accounts[0]), enabled)?;
             write(&accounts[2], &i.encode())?;
         }
-        // No proof verification, queue append, request staging, upload, finalize,
-        // or cancellation exists in this slice. Parse bounds still apply.
-        _ => return Err(AppError::Unavailable.into()),
+        AppInstruction::Create {
+            nonce,
+            issuer_hash,
+            recipient,
+            request_type,
+            deadline,
+            payload_len,
+            meta_count,
+        } => {
+            count(accounts, 5)?;
+            let creator = &accounts[0];
+            let ca = &accounts[1];
+            let ia = &accounts[2];
+            let ra = &accounts[3];
+            let sys = &accounts[4];
+            authority(creator, creator.key)?;
+            if !creator.is_writable {
+                return Err(AppError::Privileges.into());
+            }
+            let c = load_config(program, ca, false)?;
+            let i = load_issuer(program, ca, ia, false)?;
+            // Creation is preparatory, not authorization. Do not require current
+            // status/binding/recorded epochs until the separate Execute gate.
+            if !c.enabled
+                || !i.enabled
+                || i.profile_id != c.profile_id
+                || i.issuer_hash != issuer_hash
+            {
+                return Err(AppError::Policy.into());
+            }
+            fresh_account(program, ra)?;
+            system(sys)?;
+            let now = Clock::get()?.unix_timestamp;
+            if now < 0 || now > deadline {
+                return Err(AppError::Expired.into());
+            }
+            let (expected, bump) = request_address(program, ca.key, creator.key, &nonce);
+            if expected != *ra.key {
+                return Err(AppError::Accounts.into());
+            }
+            let r = Request {
+                config: *ca.key,
+                creator: *creator.key,
+                nonce,
+                issuer_hash,
+                recipient,
+                request_type,
+                deadline,
+                payload_len,
+                uploaded: 0,
+                metas_uploaded: 0,
+                state: RequestState::Staging,
+                metas: vec![
+                    RelevantMeta {
+                        key: Pubkey::default(),
+                        flags: 0,
+                        owner: Pubkey::default()
+                    };
+                    meta_count as usize
+                ],
+                payload: vec![0; payload_len as usize],
+            };
+            let data = r.encode();
+            Request::decode(&data)?; // Exact bounded canonical account, before CPI.
+            crate::create_pda(
+                program,
+                creator,
+                ra,
+                sys,
+                REQUEST_LEN,
+                &[
+                    b"dyn-request-v3",
+                    ca.key.as_ref(),
+                    creator.key.as_ref(),
+                    &nonce,
+                    &[bump],
+                ],
+            )?;
+            owned(program, ra, true)?;
+            write(ra, &data)?;
+        }
+        AppInstruction::Upload { .. }
+        | AppInstruction::UploadMetas { .. }
+        | AppInstruction::Finalize
+        | AppInstruction::Cancel => {
+            count(accounts, 3)?;
+            let creator = &accounts[0];
+            let ca = &accounts[1];
+            let ra = &accounts[2];
+            load_config(program, ca, false)?;
+            let mut r = load_request(program, ca, ra)?;
+            authority(creator, &r.creator)?;
+            // Preparatory uploads/finalization may finish after disable; live
+            // eligibility is enforced by Execute. Cancel also survives expiry.
+            match instruction {
+                AppInstruction::Upload { offset, bytes } => {
+                    r.upload(offset, &bytes, Clock::get()?.unix_timestamp)?
+                }
+                AppInstruction::UploadMetas { offset, metas } => {
+                    r.upload_metas(offset, &metas, Clock::get()?.unix_timestamp)?
+                }
+                AppInstruction::Finalize => {
+                    finalized_metas(program, ca, ra.key, &r)?;
+                    r.finalize(Clock::get()?.unix_timestamp)?;
+                }
+                AppInstruction::Cancel => r.cancel()?,
+                _ => unreachable!(),
+            }
+            write(ra, &r.encode())?;
+        }
+        // No verifier, queue append or request consumption exists in this slice.
+        AppInstruction::Execute { .. } => return Err(AppError::Unavailable.into()),
     }
     Ok(())
 }
