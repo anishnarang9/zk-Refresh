@@ -10,6 +10,33 @@
 
 ---
 
+## Current progress, October 15
+
+The fixed-certificate v2 path has already appended and consumed one exact
+request through a locally loaded application ELF under a Full proof; its
+evidence is in `application-v2-local-full-execute-gate.md`. That is an
+integration milestone for the fixture, not the supported population.
+
+The bounded v3 profile, structural importer, eight-layout/independent-OpenSSL
+relation corpus, shared development setup, nine-pair randomized Full proof
+corpus and one independent OpenSSL Anchor pilot have separate gates. They
+demonstrate a reusable public proof shape, but no v3 application authorization
+or corpus-wide refresh economics. The v3 program has six-field state/parser
+and administrator host tests, including signed inactive-status handling;
+request staging, Execute, the loaded ELF and atomic queue effect are open.
+The registry has an authenticated per-issuer source gate and a publisher
+tests-first RED; authenticated current chain provenance and publisher
+checkpoint persistence are open. The native client has DER admission, a
+shareable setup loader, canonical action checks and a Full-envelope check;
+the real Full witness/proof workflow still rejects. The frozen unseen
+credential cohort has not been generated or run.
+
+For the v3 successor, Execute requires **six** ordered public fields and the
+matching seven-IC ordinary VK. Earlier v2 five-field steps below remain
+historical baseline work and cannot qualify the v3 product objective.
+
+---
+
 ## Track A: Versioned local Full application
 
 ### Task A1: Account and instruction contract
