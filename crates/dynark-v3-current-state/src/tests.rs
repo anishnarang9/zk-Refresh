@@ -425,3 +425,35 @@ fn current_source_expiry_minus_one_accepts_and_old_batch_cannot_be_reused() {
     assert!(verifier.verify_current(&f.selection,1002).is_ok());
     assert_eq!(verifier.verify_current(&f.selection,1002).err(),Some(Error::Transport));
 }
+
+#[test]
+fn accepts_zero_padded_programdata_allocation() {
+    let mut f=fixture();
+    let metadata=UpgradeableLoaderState::size_of_programdata_metadata();
+    assert_eq!(f.batch.accounts[1].bytes.len(),metadata+f.pins.elf_length);
+    // Allocation reserve is not part of the independently pinned ELF artifact.
+    // Keep its length/hash pins unchanged, including any genuine ELF end zeros.
+    f.batch.accounts[1].bytes.extend_from_slice(&[0;64]);
+    let (result,trace)=run(f,1002);
+    assert_eq!(trace,vec!["genesis","finalized_accounts"]);
+    assert_eq!(result.as_ref().map(|v|v.finalized_slot()),Ok(100),
+        "intentional RED: zero allocation reserve must not change pinned ELF identity");
+}
+
+#[test]
+fn rejects_nonzero_programdata_allocation_suffix() {
+    let mut f=fixture();
+    let mut reserve=[0;64];reserve[63]=1;
+    f.batch.accounts[1].bytes.extend_from_slice(&reserve);
+    assert_eq!(run(f,1002).0.err(),Some(Error::Deployment));
+}
+
+#[test]
+fn rejects_programdata_allocation_over_cap() {
+    let mut f=fixture();
+    let metadata=UpgradeableLoaderState::size_of_programdata_metadata();
+    // Bound allocated payload capacity separately from the small pinned ELF.
+    // Even an entirely zero reserve cannot exceed the supported4MiB capacity.
+    f.batch.accounts[1].bytes.resize(metadata+MAX_ELF_LENGTH+1,0);
+    assert_eq!(run(f,1002).0.err(),Some(Error::Deployment));
+}
