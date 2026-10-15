@@ -659,8 +659,11 @@ dependencies = [
 name = "dynark-v3-current-state"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "bincode",
+ "bs58",
  "credential-registry",
+ "serde_json",
  "sha2 0.10.9",
  "solana-program",
  "zk-fresh-program",

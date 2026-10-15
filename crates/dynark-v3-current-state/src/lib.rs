@@ -285,3 +285,5 @@ trait Transport {
 
 #[cfg(test)]
 mod tests;
+
+mod loopback_rpc;
