@@ -2360,6 +2360,13 @@ pub mod queue_v2 {
         );
         let q = state(&rpc, queue, program, 2090)?;
         ensure!(q == empty_queue(&p), "queue not initially empty");
+        let issuer_state = state(&rpc, p.issuer_account, p.program, 309)?;
+        ensure!(
+            &issuer_state[..8] == b"DYNIS2B1"
+                && issuer_state[140..172] == p.source
+                && issuer_state[229..].iter().all(|x| *x == 0),
+            "revised issuer enrollment/binding layout"
+        );
         let finalized_slot = wait_finalized(&rpc, &events)?;
         new_json(&out.join("plan.json"), &p)?;
         new_file(&out.join("action-preimage.bin"), &p.action_preimage()?)?;
@@ -2400,6 +2407,7 @@ pub mod queue_v2 {
         );
         let admin = load_key(&out, "admin.json", p.admin)?;
         let source = load_key(&out, "source.json", p.source)?;
+        let publisher = load_key(&out, "publisher.json", p.publisher)?;
         let wire = pinned(
             Path::new(&env("P5_QUEUE_FULL_WIRE")?),
             &env("P5_QUEUE_FULL_WIRE_SHA256")?,
@@ -2433,7 +2441,7 @@ pub mod queue_v2 {
         );
         let mut events = vec![];
         let cb = state(&rpc, p.config, p.program, 309)?;
-        let ib = state(&rpc, p.issuer_account, p.program, 229)?;
+        let ib = state(&rpc, p.issuer_account, p.program, 309)?;
         let public_context = context()?;
         ensure!(
             public_context[..4] == p.expected_inputs[..4],
@@ -2490,6 +2498,37 @@ pub mod queue_v2 {
             None,
             &mut events,
         )?;
+        let root_version = u64::from_be_bytes(cb[300..308].try_into()?);
+        let source_sequence = seq.checked_add(1).context("source sequence overflow")?;
+        let mut binding = root_version.to_be_bytes().to_vec();
+        binding.extend(source_sequence.to_be_bytes());
+        send(
+            &rpc,
+            &admin,
+            Some(&publisher),
+            ix(
+                &p,
+                11,
+                binding,
+                vec![
+                    AccountMeta::new_readonly(pk(p.publisher), true),
+                    AccountMeta::new_readonly(pk(p.config), false),
+                    AccountMeta::new(pk(p.issuer_account), false),
+                ],
+            ),
+            "publisher-bind-current-root-and-source",
+            None,
+            &mut events,
+        )?;
+        let bound = state(&rpc, p.issuer_account, p.program, 309)?;
+        ensure!(
+            &bound[..8] == b"DYNIS2B1"
+                && bound[229..261] == p.expected_inputs[0]
+                && bound[261..269] == root_version.to_be_bytes()
+                && bound[269..277] == source_sequence.to_be_bytes()
+                && bound[277..309] == observation_digest[..],
+            "publisher binding differs from exact current root/source"
+        );
         let good = p.execute_instruction(&wire)?;
         let mut bad_action = good.clone();
         bad_action.data[161] ^= 1;
@@ -2555,7 +2594,7 @@ pub mod queue_v2 {
         let finalized_slot = wait_finalized(&rpc, &events)?;
         new_json(
             &out.join("execute-report.json"),
-            &json!({"passed":true,"scope":"actual local loaded application Full proof and exact protected queue effect","finalized_slot":finalized_slot,"full_only":true,"synthetic_signed_source_observation":true,"upstream_issuer_check":false,"source_observation_digest":hex::encode(observation_digest),"public_context_sha256":env("P5_QUEUE_CONTEXT_SHA256")?,"loaded_program":loaded,"plan_sha256":env("P5_QUEUE_PLAN_SHA256")?,"wire_sha256":env("P5_QUEUE_FULL_WIRE_SHA256")?,"request":pk(p.request).to_string(),"queue":pk(p.queue).to_string(),"effect_count":1,"request_consumed":true,"request_sha256":hex::encode(Sha256::digest(expected_request)),"queue_sha256":hex::encode(Sha256::digest(completed_queue)),"transactions":events,"devnet":false,"anchor_refresh":false}),
+            &json!({"passed":true,"scope":"actual local loaded application Full proof and exact protected queue effect","finalized_slot":finalized_slot,"full_only":true,"synthetic_signed_source_observation":true,"upstream_issuer_check":false,"source_observation_digest":hex::encode(observation_digest),"public_context_sha256":env("P5_QUEUE_CONTEXT_SHA256")?,"loaded_program":loaded,"plan_sha256":env("P5_QUEUE_PLAN_SHA256")?,"wire_sha256":env("P5_QUEUE_FULL_WIRE_SHA256")?,"request":pk(p.request).to_string(),"queue":pk(p.queue).to_string(),"effect_count":1,"request_consumed":true,"publisher_binding_current":true,"bound_root_version":root_version,"bound_source_sequence":source_sequence,"request_sha256":hex::encode(Sha256::digest(expected_request)),"queue_sha256":hex::encode(Sha256::digest(completed_queue)),"transactions":events,"devnet":false,"anchor_refresh":false}),
         )?;
         Ok(())
     }
