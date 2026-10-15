@@ -273,8 +273,8 @@ fn action_v2_preimage_is_verbatim_despite_account_version_and_authority_epochs()
     assert_eq!(expected.len(), 361);
     assert_eq!(action_preimage(&program, &c, &r), Ok(expected.clone()));
     assert_eq!(
-        action_hash(&program, &c, &r),
-        old::action_hash(&program, &oldc, &oldr)
+        action_hash(&program, &c, &r).unwrap(),
+        old::action_hash(&program, &oldc, &oldr).unwrap()
     );
     let mut changed = c.clone();
     changed.eligibility_epoch += 1;
