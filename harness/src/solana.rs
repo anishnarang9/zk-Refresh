@@ -2045,6 +2045,41 @@ pub mod queue_v2 {
         );
         Ok(b)
     }
+    fn finalized_effect(rpc: &Rpc, p: &QueuePlan, request: &[u8], queue: &[u8]) -> Result<u64> {
+        let deadline = Instant::now() + Duration::from_secs(20);
+        loop {
+            let mut matches = true;
+            for (key, expected) in [(p.request, request), (p.queue, queue)] {
+                let result = rpc.call(
+                    "getAccountInfo",
+                    json!([pk(key).to_string(),{"encoding":"base64","commitment":"finalized"}]),
+                )?;
+                let info = &result["value"];
+                ensure!(
+                    info["owner"] == pk(p.program).to_string()
+                        && info["executable"] == false
+                        && info["data"][1] == "base64",
+                    "finalized effect account identity"
+                );
+                let encoded = info["data"][0]
+                    .as_str()
+                    .context("finalized account bytes missing")?;
+                ensure!(encoded.len() <= 4096, "finalized account size cap");
+                matches &= STANDARD.decode(encoded)? == expected;
+            }
+            if matches {
+                return rpc
+                    .call("getSlot", json!([{"commitment":"finalized"}]))?
+                    .as_u64()
+                    .context("finalized reconciliation slot missing");
+            }
+            ensure!(
+                Instant::now() < deadline,
+                "exact finalized effect reconciliation deadline"
+            );
+            thread::sleep(Duration::from_millis(250));
+        }
+    }
     fn send(
         rpc: &Rpc,
         payer: &Keypair,
@@ -2426,11 +2461,12 @@ pub mod queue_v2 {
         if current_request == consumed && current_queue == completed_queue {
             // Chain state was rechecked above on every reconciliation attempt.
             // Preserve an earlier successful report when another uncertain retry arrives.
+            let finalized_slot = finalized_effect(&rpc, &p, &consumed, &completed_queue)?;
             let report = out.join("reconciled-report.json");
             if !report.exists() {
                 new_json(
                     &report,
-                    &json!({"passed":true,"scope":"already confirmed exact queue effect","effect_count":1,"new_execute_transactions":0,"loaded_program":loaded}),
+                    &json!({"passed":true,"scope":"already confirmed exact queue effect","finalized_slot":finalized_slot,"effect_count":1,"new_execute_transactions":0,"loaded_program":loaded}),
                 )?;
             }
             return Ok(());
