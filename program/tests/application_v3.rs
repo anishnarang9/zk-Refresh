@@ -58,6 +58,8 @@ fn issuer(c: &Config, n: u8) -> Issuer {
         evidence_digest: [n; 32],
         observed_config_epoch: 0,
         status_valid: false,
+        eligibility_epoch: 0,
+        observed_issuer_epoch: 0,
     }
 }
 fn request() -> Request {
@@ -92,6 +94,8 @@ fn observe_and_bind(c: &Config, i: &mut Issuer, now: i64, digest: u8) {
     i.observe(
         c,
         actor(i.source),
+        c.eligibility_epoch,
+        i.eligibility_epoch,
         i.sequence,
         i.sequence + 1,
         [digest; 32],
@@ -100,8 +104,16 @@ fn observe_and_bind(c: &Config, i: &mut Issuer, now: i64, digest: u8) {
         now,
     )
     .unwrap();
-    i.bind_current(c, actor(c.publisher), c.root_version, i.sequence, now)
-        .unwrap();
+    i.bind_current(
+        c,
+        actor(c.publisher),
+        c.eligibility_epoch,
+        i.eligibility_epoch,
+        c.root_version,
+        i.sequence,
+        now,
+    )
+    .unwrap();
 }
 #[test]
 fn v3_parser_is_six_fields_exact_and_cannot_accept_v2_transport() {
@@ -166,12 +178,17 @@ fn issuer_codec_records_enrollment_and_observation_epoch_without_fixture_aki() {
     for n in [8, 9] {
         let i = issuer(&c, n);
         let bytes = i.encode();
-        assert_eq!(bytes.len(), 358);
+        assert_eq!(bytes.len(), 374);
         assert_eq!(&bytes[..8], b"DYNISS03");
         assert_eq!(&bytes[309..317], &1u64.to_be_bytes());
         assert_eq!(&bytes[317..349], &i.evidence_digest);
         assert_eq!(&bytes[349..357], &0u64.to_be_bytes());
         assert_eq!(bytes[357], 0);
+        assert_eq!(&bytes[358..366], &0u64.to_be_bytes());
+        assert_eq!(&bytes[366..374], &0u64.to_be_bytes());
+        let mut legacy_prefix = bytes.clone();
+        legacy_prefix.truncate(358);
+        assert!(Issuer::decode(&legacy_prefix).is_err());
         assert_eq!(Issuer::decode(&bytes), Ok(i.clone()));
         let mut old = bytes.clone();
         old[..8].copy_from_slice(b"DYNIS2B1");
@@ -340,7 +357,17 @@ fn unobserved_source_sequence_zero_cannot_bind_even_with_matching_zero_fields() 
     i.bound_root = c.root;
     assert_eq!(i.fresh(&c, 100), Err(AppError::Status));
     assert_eq!(i.binding_current(&c), Err(AppError::Binding));
-    assert!(i.bind_current(&c, actor(c.publisher), 0, 0, 100).is_err());
+    assert!(i
+        .bind_current(
+            &c,
+            actor(c.publisher),
+            c.eligibility_epoch,
+            i.eligibility_epoch,
+            0,
+            0,
+            100
+        )
+        .is_err());
 }
 #[test]
 fn status_and_publication_require_their_own_signed_authorities_and_exact_predecessors() {
@@ -348,16 +375,11 @@ fn status_and_publication_require_their_own_signed_authorities_and_exact_predece
     let mut i = issuer(&c, 8);
     let initial = i.clone();
     assert!(i
-        .observe(&c, actor(c.admin), 0, 1, [1; 32], 100, 400, 100)
-        .is_err());
-    assert_eq!(i, initial);
-    assert!(i
         .observe(
             &c,
-            Authority {
-                key: i.source,
-                is_signer: false
-            },
+            actor(c.admin),
+            c.eligibility_epoch,
+            i.eligibility_epoch,
             0,
             1,
             [1; 32],
@@ -367,16 +389,74 @@ fn status_and_publication_require_their_own_signed_authorities_and_exact_predece
         )
         .is_err());
     assert_eq!(i, initial);
-    i.observe(&c, actor(i.source), 0, 1, [1; 32], 100, 400, 100)
-        .unwrap();
+    assert!(i
+        .observe(
+            &c,
+            Authority {
+                key: i.source,
+                is_signer: false
+            },
+            c.eligibility_epoch,
+            i.eligibility_epoch,
+            0,
+            1,
+            [1; 32],
+            100,
+            400,
+            100
+        )
+        .is_err());
+    assert_eq!(i, initial);
+    i.observe(
+        &c,
+        actor(i.source),
+        c.eligibility_epoch,
+        i.eligibility_epoch,
+        0,
+        1,
+        [1; 32],
+        100,
+        400,
+        100,
+    )
+    .unwrap();
     assert_eq!(i.sequence, 1);
     assert!(i.status_valid);
     let saved = i.clone();
-    assert!(i.bind_current(&c, actor(c.admin), 0, 1, 100).is_err());
+    assert!(i
+        .bind_current(
+            &c,
+            actor(c.admin),
+            c.eligibility_epoch,
+            i.eligibility_epoch,
+            0,
+            1,
+            100
+        )
+        .is_err());
     assert_eq!(i, saved);
-    assert!(i.bind_current(&c, actor(c.publisher), 1, 1, 100).is_err());
+    assert!(i
+        .bind_current(
+            &c,
+            actor(c.publisher),
+            c.eligibility_epoch,
+            i.eligibility_epoch,
+            1,
+            1,
+            100
+        )
+        .is_err());
     assert_eq!(i, saved);
-    i.bind_current(&c, actor(c.publisher), 0, 1, 100).unwrap();
+    i.bind_current(
+        &c,
+        actor(c.publisher),
+        c.eligibility_epoch,
+        i.eligibility_epoch,
+        0,
+        1,
+        100,
+    )
+    .unwrap();
     assert_eq!(i.binding_current(&c), Ok(()));
     let savedc = c.clone();
     assert!(c.publish(actor(c.admin), 0, field(10)).is_err());
@@ -394,10 +474,32 @@ fn source_updates_only_its_issuer_and_never_retime_identical_evidence() {
     observe_and_bind(&c, &mut b, 100, 2);
     let oldb = b.clone();
     assert!(a
-        .observe(&c, actor(a.source), 1, 2, [1; 32], 101, 401, 101)
+        .observe(
+            &c,
+            actor(a.source),
+            c.eligibility_epoch,
+            a.eligibility_epoch,
+            1,
+            2,
+            [1; 32],
+            101,
+            401,
+            101
+        )
         .is_err());
-    a.observe(&c, actor(a.source), 1, 2, [3; 32], 101, 401, 101)
-        .unwrap();
+    a.observe(
+        &c,
+        actor(a.source),
+        c.eligibility_epoch,
+        a.eligibility_epoch,
+        1,
+        2,
+        [3; 32],
+        101,
+        401,
+        101,
+    )
+    .unwrap();
     assert!(a.binding_current(&c).is_err());
     assert_eq!(b, oldb);
     assert_eq!(b.binding_current(&c), Ok(()));
@@ -424,8 +526,28 @@ fn config_disable_reenable_fences_all_issuers_until_each_observes_and_binds_agai
     assert_eq!(c.eligibility_epoch, 1);
     c.set_enabled(actor(c.admin), true).unwrap();
     assert_eq!(c.eligibility_epoch, 2);
-    assert!(a.bind_current(&c, actor(c.publisher), 0, 1, 101).is_err());
-    assert!(b.bind_current(&c, actor(c.publisher), 0, 1, 101).is_err());
+    assert!(a
+        .bind_current(
+            &c,
+            actor(c.publisher),
+            c.eligibility_epoch,
+            a.eligibility_epoch,
+            0,
+            1,
+            101
+        )
+        .is_err());
+    assert!(b
+        .bind_current(
+            &c,
+            actor(c.publisher),
+            c.eligibility_epoch,
+            b.eligibility_epoch,
+            0,
+            1,
+            101
+        )
+        .is_err());
     observe_and_bind(&c, &mut a, 101, 3);
     assert_eq!(a.observed_config_epoch, 2);
     assert_eq!(a.binding_current(&c), Ok(()));
@@ -444,9 +566,30 @@ fn issuer_disable_reenable_retains_source_predecessor_and_does_not_disable_other
     assert_eq!((a.sequence, a.digest, a.observed_at), (1, [1; 32], 100));
     a.set_enabled(&c, actor(c.admin), true).unwrap();
     assert!(!a.status_valid);
-    assert!(a.bind_current(&c, actor(c.publisher), 0, 1, 101).is_err());
     assert!(a
-        .observe(&c, actor(a.source), 0, 1, [3; 32], 101, 401, 101)
+        .bind_current(
+            &c,
+            actor(c.publisher),
+            c.eligibility_epoch,
+            a.eligibility_epoch,
+            0,
+            1,
+            101
+        )
+        .is_err());
+    assert!(a
+        .observe(
+            &c,
+            actor(a.source),
+            c.eligibility_epoch,
+            a.eligibility_epoch,
+            0,
+            1,
+            [3; 32],
+            101,
+            401,
+            101
+        )
         .is_err());
     observe_and_bind(&c, &mut a, 101, 3);
     assert_eq!(a.sequence, 2);
@@ -503,4 +646,252 @@ fn independent_enable_controls_and_bounded_variable_instruction_parser() {
             bytes: vec![42]
         })
     );
+}
+
+#[test]
+fn presigned_observe_before_config_toggle_cannot_be_relabeled_to_current_epoch() {
+    let mut c = config();
+    let mut i = issuer(&c, 8);
+    observe_and_bind(&c, &mut i, 100, 1);
+    let signed_config_epoch = c.eligibility_epoch;
+    let signed_issuer_epoch = i.eligibility_epoch;
+    c.set_enabled(actor(c.admin), false).unwrap();
+    c.set_enabled(actor(c.admin), true).unwrap();
+    let unchanged = i.clone();
+    assert!(i
+        .observe(
+            &c,
+            actor(i.source),
+            signed_config_epoch,
+            signed_issuer_epoch,
+            1,
+            2,
+            [2; 32],
+            101,
+            401,
+            101
+        )
+        .is_err());
+    assert_eq!(i, unchanged);
+    assert!(i
+        .bind_current(
+            &c,
+            actor(c.publisher),
+            signed_config_epoch,
+            signed_issuer_epoch,
+            c.root_version,
+            1,
+            101
+        )
+        .is_err());
+    assert_eq!(i, unchanged);
+    assert!(i.admitted(&c).is_err());
+    assert!(i.fresh(&c, 101).is_err());
+    i.observe(
+        &c,
+        actor(i.source),
+        c.eligibility_epoch,
+        i.eligibility_epoch,
+        1,
+        2,
+        [2; 32],
+        101,
+        401,
+        101,
+    )
+    .unwrap();
+    assert_eq!(i.observed_config_epoch, 2);
+    assert_eq!(i.observed_issuer_epoch, 0);
+    assert!(i.binding_current(&c).is_err());
+    assert!(i
+        .bind_current(
+            &c,
+            actor(c.publisher),
+            signed_config_epoch,
+            signed_issuer_epoch,
+            c.root_version,
+            2,
+            101
+        )
+        .is_err());
+    i.bind_current(
+        &c,
+        actor(c.publisher),
+        c.eligibility_epoch,
+        i.eligibility_epoch,
+        c.root_version,
+        2,
+        101,
+    )
+    .unwrap();
+    assert_eq!(i.binding_current(&c), Ok(()));
+}
+#[test]
+fn presigned_observe_before_issuer_toggle_cannot_be_relabeled_to_current_epoch() {
+    let c = config();
+    let mut i = issuer(&c, 8);
+    observe_and_bind(&c, &mut i, 100, 1);
+    let signed_config_epoch = c.eligibility_epoch;
+    let signed_issuer_epoch = i.eligibility_epoch;
+    i.set_enabled(&c, actor(c.admin), false).unwrap();
+    i.set_enabled(&c, actor(c.admin), true).unwrap();
+    assert_eq!(i.eligibility_epoch, 2);
+    assert_eq!((i.sequence, i.digest, i.observed_at), (1, [1; 32], 100));
+    let unchanged = i.clone();
+    assert!(i
+        .observe(
+            &c,
+            actor(i.source),
+            signed_config_epoch,
+            signed_issuer_epoch,
+            1,
+            2,
+            [2; 32],
+            101,
+            401,
+            101
+        )
+        .is_err());
+    assert_eq!(i, unchanged);
+    assert!(i
+        .bind_current(
+            &c,
+            actor(c.publisher),
+            signed_config_epoch,
+            signed_issuer_epoch,
+            c.root_version,
+            1,
+            101
+        )
+        .is_err());
+    assert_eq!(i, unchanged);
+    assert!(i.admitted(&c).is_err());
+    assert!(i.fresh(&c, 101).is_err());
+    i.observe(
+        &c,
+        actor(i.source),
+        c.eligibility_epoch,
+        i.eligibility_epoch,
+        1,
+        2,
+        [2; 32],
+        101,
+        401,
+        101,
+    )
+    .unwrap();
+    assert_eq!(i.observed_config_epoch, 0);
+    assert_eq!(i.observed_issuer_epoch, 2);
+    assert!(i.binding_current(&c).is_err());
+    assert!(i
+        .bind_current(
+            &c,
+            actor(c.publisher),
+            signed_config_epoch,
+            signed_issuer_epoch,
+            c.root_version,
+            2,
+            101
+        )
+        .is_err());
+    i.bind_current(
+        &c,
+        actor(c.publisher),
+        c.eligibility_epoch,
+        i.eligibility_epoch,
+        c.root_version,
+        2,
+        101,
+    )
+    .unwrap();
+    assert_eq!(i.binding_current(&c), Ok(()));
+}
+#[test]
+fn issuer_epoch_changes_only_on_real_flips_and_checked_overflow_never_mutates() {
+    let c = config();
+    let mut i = issuer(&c, 8);
+    i.set_enabled(&c, actor(c.admin), true).unwrap();
+    assert_eq!(i.eligibility_epoch, 0);
+    i.set_enabled(&c, actor(c.admin), false).unwrap();
+    assert_eq!(i.eligibility_epoch, 1);
+    i.set_enabled(&c, actor(c.admin), false).unwrap();
+    assert_eq!(i.eligibility_epoch, 1);
+    i.eligibility_epoch = u64::MAX;
+    let unchanged = i.clone();
+    assert!(i.set_enabled(&c, actor(c.admin), true).is_err());
+    assert_eq!(i, unchanged);
+}
+#[test]
+fn observe_and_bind_wire_include_both_signed_epoch_predecessors() {
+    let mut observe = vec![0x51, 3];
+    for value in [2u64, 3, 4, 5] {
+        observe.extend(value.to_be_bytes());
+    }
+    observe.extend([9; 32]);
+    observe.extend(100i64.to_be_bytes());
+    observe.extend(400i64.to_be_bytes());
+    assert_eq!(observe.len(), 82);
+    assert_eq!(
+        AppInstruction::parse(&observe),
+        Ok(AppInstruction::Observe {
+            expected_config_epoch: 2,
+            expected_issuer_epoch: 3,
+            expected: 4,
+            sequence: 5,
+            digest: [9; 32],
+            observed: 100,
+            expires: 400
+        })
+    );
+    let mut bind = vec![0x51, 11];
+    for value in [2u64, 3, 4, 5] {
+        bind.extend(value.to_be_bytes());
+    }
+    assert_eq!(bind.len(), 34);
+    assert_eq!(
+        AppInstruction::parse(&bind),
+        Ok(AppInstruction::BindCurrent {
+            expected_config_epoch: 2,
+            expected_issuer_epoch: 3,
+            root_version: 4,
+            source_sequence: 5
+        })
+    );
+    let mut old_observe = observe.clone();
+    old_observe.drain(2..18);
+    assert!(AppInstruction::parse(&old_observe).is_err());
+    let mut old_bind = bind.clone();
+    old_bind.drain(2..18);
+    assert!(AppInstruction::parse(&old_bind).is_err());
+}
+
+#[test]
+fn admission_and_freshness_never_accept_mismatched_recorded_epochs() {
+    let c = config();
+    let mut i = issuer(&c, 8);
+    observe_and_bind(&c, &mut i, 100, 1);
+    for issuer_epoch in [false, true] {
+        let mut changed = i.clone();
+        if issuer_epoch {
+            changed.observed_issuer_epoch = 1;
+        } else {
+            changed.observed_config_epoch = 1;
+        }
+        let original = changed.clone();
+        assert!(changed.admitted(&c).is_err());
+        assert!(changed.fresh(&c, 100).is_err());
+        assert!(changed.binding_current(&c).is_err());
+        assert!(changed
+            .bind_current(
+                &c,
+                actor(c.publisher),
+                c.eligibility_epoch,
+                changed.eligibility_epoch,
+                c.root_version,
+                changed.sequence,
+                100
+            )
+            .is_err());
+        assert_eq!(changed, original);
+    }
 }

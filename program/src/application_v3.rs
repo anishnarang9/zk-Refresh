@@ -3,7 +3,7 @@
 use solana_program::{program_error::ProgramError, pubkey::Pubkey};
 pub const PREFIX: u8 = 0x51;
 pub const CONFIG_LEN: usize = 381;
-pub const ISSUER_LEN: usize = 358;
+pub const ISSUER_LEN: usize = 374;
 pub const REQUEST_LEN: usize = 2249;
 pub const QUEUE_LEN: usize = 2090;
 pub const QUEUE_CAPACITY: usize = 64;
@@ -14,7 +14,8 @@ pub const MAX_META_CHUNK: usize = 4;
 pub const STATUS_MAX_AGE: i64 = 300;
 // Layout: config profile268, VK300, root332, root_version364, eligibility_epoch372, enabled380.
 // Issuer preserves v2 revised offsets through309; enrollment_version309, evidence317,
-// observed_config_epoch349, status_valid357. These layouts are separately discriminated.
+// observed_config_epoch349, status_valid357; appended eligibility_epoch358..366,
+// observed_issuer_epoch366..374. Existing 358-byte prefix is preserved.
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppError {
@@ -86,6 +87,8 @@ pub struct Issuer {
     pub evidence_digest: [u8; 32],
     pub observed_config_epoch: u64,
     pub status_valid: bool,
+    pub eligibility_epoch: u64,
+    pub observed_issuer_epoch: u64,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RelevantMeta {
@@ -175,6 +178,8 @@ impl Issuer {
         &mut self,
         _config: &Config,
         _actor: Authority,
+        _expected_config_epoch: u64,
+        _expected_issuer_epoch: u64,
         _expected: u64,
         _sequence: u64,
         _digest: [u8; 32],
@@ -194,6 +199,8 @@ impl Issuer {
         &mut self,
         _config: &Config,
         _actor: Authority,
+        _expected_config_epoch: u64,
+        _expected_issuer_epoch: u64,
         _root_version: u64,
         _source_sequence: u64,
         _now: i64,
@@ -230,6 +237,10 @@ pub fn action_hash(_program: &Pubkey, _config: &Config, _request: &Request) -> R
     Err(AppError::Unavailable)
 }
 /// Prefix0x51; each wire variant is exact length with no trailing bytes.
+/// Observe body: config_epoch, issuer_epoch, expected_seq, next_seq (each u64 BE),
+/// digest32, observed_i64, expires_i64: 82 bytes including prefix/opcode.
+/// BindCurrent body: config_epoch, issuer_epoch, root_version, source_sequence:
+/// four u64 BE, 34 bytes including prefix/opcode. Epochs are signed predecessors.
 #[derive(Debug, PartialEq, Eq)]
 pub enum AppInstruction {
     Initialize {
@@ -257,6 +268,8 @@ pub enum AppInstruction {
         root: [u8; 32],
     },
     Observe {
+        expected_config_epoch: u64,
+        expected_issuer_epoch: u64,
         expected: u64,
         sequence: u64,
         digest: [u8; 32],
@@ -290,6 +303,8 @@ pub enum AppInstruction {
         enabled: bool,
     },
     BindCurrent {
+        expected_config_epoch: u64,
+        expected_issuer_epoch: u64,
         root_version: u64,
         source_sequence: u64,
     },
