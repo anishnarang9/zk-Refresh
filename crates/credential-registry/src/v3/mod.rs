@@ -1,5 +1,6 @@
-//! Separate bounded-v3 membership math. Protocol authentication is not
-//! implemented in this first slice; tree membership alone grants no authority.
+//! Separate bounded-v3 membership math and a rejecting protocol RED scaffold.
+//! Tree membership alone grants no issuer, policy or application authority.
+pub mod protocol;
 mod tree;
 pub use crate::{Error, Field};
 pub use tree::{leaf_hash, Tree};
