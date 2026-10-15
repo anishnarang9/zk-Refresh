@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "owner": "part5-v2-finalized-reconciliation-host-001",
+  "started_at_utc": "2026-10-15T14:18:32.827457+00:00",
+  "ended_at_utc": "2026-10-15T14:18:38.603521+00:00",
+  "timezone": [
+    "EST",
+    "EDT"
+  ],
+  "duration_seconds": 5.7760918750000005,
+  "limits": {
+    "runtime_seconds": 180.0,
+    "owned_tree_rss_bytes": 2147483648,
+    "storage_growth_bytes": 268435456,
+    "poll_seconds": 0.25
+  },
+  "stop_reason": null,
+  "exit_code": 0,
+  "runner_error_type": null,
+  "cleanup_remaining_owned_processes": 0,
+  "cleanup_status_unknown": false,
+  "sample_count": 5,
+  "samples": [
+    {
+      "elapsed_seconds": 0.018108874999999913,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 688128,
+      "storage_growth_bytes": 587
+    },
+    {
+      "elapsed_seconds": 0.98161325,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 206962688,
+      "storage_growth_bytes": 666
+    },
+    {
+      "elapsed_seconds": 2.2483794159999997,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 356155392,
+      "storage_growth_bytes": 666
+    },
+    {
+      "elapsed_seconds": 3.6405577499999997,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 0,
+      "storage_growth_bytes": 19597139
+    },
+    {
+      "elapsed_seconds": 4.869424,
+      "owned_process_count": 0,
+      "owned_tree_rss_bytes": 0,
+      "storage_growth_bytes": 19597139
+    }
+  ],
+  "sampled_peak_owned_tree_rss_bytes": 356155392,
+  "sampled_peak_storage_growth_bytes": 19597139,
+  "environment": {
+    "RAYON_NUM_THREADS": "4",
+    "OMP_NUM_THREADS": "1",
+    "TZ": null
+  },
+  "measurement_notes": [
+    "RSS from ps KiB converted to bytes; sum of live owned tree; not heap allocation",
+    "storage is positive logical file-size growth per supplied root; excludes deleted-file peak between samples",
+    "limits sampled; short spikes and daemonized ancestry escape between samples may be missed",
+    "samples exclude runner/ps RSS; storage report written after the measured command",
+    "child stdout/stderr/argv retained only in protected output"
+  ],
+  "passed": true
+}
