@@ -157,12 +157,12 @@ fn base64_length(value:&str,limit:usize)->Result<usize,Error> {
     if length>limit {return Err(Error::Account);} Ok(length)
 }
 
-fn decode_genesis_response(body: &[u8], expected_id: u64) -> Result<[u8;32],Error> {
+pub(super) fn decode_genesis_response(body: &[u8], expected_id: u64) -> Result<[u8;32],Error> {
     let root=parse(body,GENESIS_BODY_LIMIT)?;
     base58_word(envelope(&root,expected_id)?.string()?)
 }
 
-fn decode_accounts_response(body: &[u8], expected_id: u64, request: &FinalizedRequest)
+pub(super) fn decode_accounts_response(body: &[u8], expected_id: u64, request: &FinalizedRequest)
     -> Result<FinalizedBatch,Error>
 {
     if !matches!(request.keys.len(),4|8)

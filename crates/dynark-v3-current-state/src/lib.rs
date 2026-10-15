@@ -287,3 +287,4 @@ trait Transport {
 mod tests;
 
 mod loopback_rpc;
+mod loopback_http;
