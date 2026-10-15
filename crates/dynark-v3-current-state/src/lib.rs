@@ -46,11 +46,24 @@ impl VerifiedDeployment {
     pub fn finalized_slot(&self) -> u64 { self.finalized_slot }
 }
 
-/// Reserved authorization capability. There is no minting path in this slice.
+/// Reserved chain-current-state capability relative to separately trusted pins,
+/// as of one finalized batch. No minting path exists in the RED scaffold. This
+/// does NOT establish detached source/publisher signatures, holder proof, Merkle
+/// membership, relevant-extra-account authentication, or execution authorization.
 /// No public constructor, serde, Clone, Debug, From<JSON> or authority trait.
 pub struct AuthenticatedV3Current { finalized_slot: u64 }
 impl AuthenticatedV3Current {
     pub fn finalized_slot(&self) -> u64 { self.finalized_slot }
+}
+
+/// Address-discovery identifiers only, never current-state assertions. A future
+/// checked implementation must match publisher to Config, issuer hash to Issuer
+/// and request fields to their codecs/PDAs in the same finalized response.
+pub struct CurrentSelection {
+    pub issuer_hash: [u8;32],
+    pub creator: Pubkey,
+    pub nonce: [u8;32],
+    pub publisher: Pubkey,
 }
 
 pub struct ConfiguredVerifier { pins: DeploymentPins, transport: Box<dyn Transport> }
@@ -58,6 +71,27 @@ impl ConfiguredVerifier {
     /// Concrete bounded HTTP transport is a later reviewed slice. No caller
     /// supplied implementation can substitute for that trusted transport.
     pub fn new(_pins: DeploymentPins) -> Result<Self, Error> { Err(Error::Unavailable) }
+
+    /// Closed RED stub: request deployment+current accounts in ONE fresh batch,
+    /// then reject. No decoding, validation, caching or capability minting occurs.
+    /// GREEN must independently recheck deployment in this same context; calling
+    /// verify_deployment first and mixing a later current batch is insufficient.
+    pub fn verify_current(&self, selection: &CurrentSelection, _local_unix: i64)
+        -> Result<AuthenticatedV3Current, Error>
+    {
+        use zk_fresh_program::application_runtime_v3 as runtime;
+        let p=&self.pins;
+        let issuer=runtime::issuer_address(&p.program,&p.config,&selection.issuer_hash).0;
+        let _genesis=self.transport.genesis()?;
+        let _batch=self.transport.finalized_accounts(&FinalizedRequest {
+            keys:vec![p.program,p.programdata,p.config,sysvar::clock::id(),issuer,
+                runtime::publisher_head_address(&p.program,&p.config,&issuer,&selection.publisher).0,
+                runtime::request_address(&p.program,&p.config,&selection.creator,&selection.nonce).0,
+                runtime::queue_address(&p.program,&p.config).0],
+            commitment:Commitment::Finalized, minimum_context_slot:p.minimum_finalized_slot,
+        })?;
+        Err(Error::Unavailable)
+    }
 
     /// Deployment-only checks against separately trusted pins and a private
     /// finalized transport. Does not authenticate source/publisher/action state.

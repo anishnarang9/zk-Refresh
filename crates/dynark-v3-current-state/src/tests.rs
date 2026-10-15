@@ -208,3 +208,220 @@ fn immutable_authority_none_and_reserved_metadata_bytes() {
 fn public_constructor_remains_closed_even_with_coherent_pins() {
     assert_eq!(ConfiguredVerifier::new(fixture().pins).err(), Some(Error::Unavailable));
 }
+
+// Next tests-first slice: chain-current state only, as of a finalized context.
+// No detached signature, holder proof, path, action-execution or real RPC claim.
+use zk_fresh_program::{application_runtime_v3 as runtime, application_v3::{
+    Issuer, PublisherHead, Queue, RelevantMeta, Request, RequestState, QUEUE_CAPACITY,
+}};
+
+struct CurrentFixture { deployment: Fixture, selection: CurrentSelection }
+
+fn current_fixture() -> CurrentFixture {
+    let mut f = fixture();
+    let c = Config::decode(&f.batch.accounts[2].bytes).unwrap();
+    let selection = CurrentSelection { issuer_hash: field(21), creator: key(22), nonce: [23;32], publisher: c.publisher };
+    let issuer_key = runtime::issuer_address(&f.pins.program, &f.pins.config, &selection.issuer_hash).0;
+    let head_key = runtime::publisher_head_address(&f.pins.program, &f.pins.config, &issuer_key, &c.publisher).0;
+    let request_key = runtime::request_address(&f.pins.program, &f.pins.config, &selection.creator, &selection.nonce).0;
+    let queue_key = runtime::queue_address(&f.pins.program, &f.pins.config).0;
+    let mut aki = [0;32]; aki[..20].fill(24);
+    let issuer = Issuer {
+        config: f.pins.config, issuer_hash: selection.issuer_hash,
+        profile_id: c.profile_id, profile_version: 3, aki, source: key(25), enabled: true,
+        sequence: 7, digest: [26;32], observed_at: 990, expires_at: 1100,
+        bound_root: c.root, bound_root_version: c.root_version,
+        bound_source_sequence: 7, bound_source_digest: [26;32],
+        enrollment_version: 1, evidence_digest: [27;32],
+        observed_config_epoch: c.eligibility_epoch, status_valid: true,
+        eligibility_epoch: 3, observed_issuer_epoch: 3,
+    };
+    let head = PublisherHead {
+        config: f.pins.config, issuer: issuer_key, publisher: c.publisher,
+        publication_sequence: 2, envelope_digest: [28;32], previous_publication_digest: [29;32],
+        root: c.root, root_version: c.root_version, source_sequence: issuer.sequence, source_digest: issuer.digest,
+        config_epoch: c.eligibility_epoch, issuer_epoch: issuer.eligibility_epoch, committed_at: 995,
+    };
+    let request = Request {
+        config: f.pins.config, creator: selection.creator, nonce: selection.nonce,
+        issuer_hash: selection.issuer_hash, recipient: key(30), request_type: 1, deadline: 1200,
+        payload_len: 3, uploaded: 3, metas_uploaded: 2, state: RequestState::Finalized,
+        metas: vec![RelevantMeta { key: request_key, flags: 2, owner: f.pins.program },
+            RelevantMeta { key: queue_key, flags: 2, owner: f.pins.program }], payload: vec![1,2,3],
+    };
+    let queue = Queue::new(f.pins.config);
+    // Freeze valid owning-program codecs before the intended final RED. These
+    // modeled facts are synthetic, not signatures or transaction-history proof.
+    assert_eq!(Issuer::decode(&issuer.encode()).unwrap(), issuer);
+    assert_eq!(PublisherHead::decode(&head.encode()).unwrap(), head);
+    assert_eq!(Request::decode(&request.encode()).unwrap(), request);
+    assert_eq!(Queue::decode(&queue.encode()).unwrap(), queue);
+    assert_eq!(request.metas[0].key, request_key);
+    assert_eq!(request.metas[1].key, queue_key);
+    assert!(request.metas.iter().all(|m|m.flags==2 && m.owner==f.pins.program));
+    for (key, bytes) in [(issuer_key, issuer.encode()), (head_key, head.encode()),
+        (request_key, request.encode()), (queue_key, queue.encode())] {
+        f.batch.accounts.push(Account { key, owner: f.pins.program, executable: false, bytes });
+    }
+    CurrentFixture { deployment: f, selection }
+}
+
+fn run_current(f: CurrentFixture, now: i64) -> (Result<AuthenticatedV3Current, Error>, Vec<&'static str>) {
+    let p = &f.deployment.pins;
+    let issuer = runtime::issuer_address(&p.program, &p.config, &f.selection.issuer_hash).0;
+    let expected = FinalizedRequest { keys: vec![p.program,p.programdata,p.config,sysvar::clock::id(),
+        issuer, runtime::publisher_head_address(&p.program,&p.config,&issuer,&f.selection.publisher).0,
+        runtime::request_address(&p.program,&p.config,&f.selection.creator,&f.selection.nonce).0,
+        runtime::queue_address(&p.program,&p.config).0],
+        commitment: Commitment::Finalized, minimum_context_slot: p.minimum_finalized_slot };
+    let calls = Arc::new(Mutex::new(Vec::new()));
+    let transport = ScriptedTransport { expected, response: Mutex::new(Some(f.deployment.batch)),
+        genesis: f.deployment.genesis, calls: calls.clone() };
+    let verifier = ConfiguredVerifier { pins: f.deployment.pins, transport: Box::new(transport) };
+    let result = verifier.verify_current(&f.selection, now);
+    let trace = calls.lock().unwrap().clone();
+    (result,trace)
+}
+
+#[test]
+fn finalized_chain_current_gate() {
+    let (result,trace) = run_current(current_fixture(),1002);
+    assert_eq!(trace,vec!["genesis","finalized_accounts"],"must refresh deployment and current state in ONE batch");
+    assert_eq!(result.as_ref().map(|v|v.finalized_slot()),Ok(100),
+        "intentional RED: chain-current capability mint remains Unavailable");
+}
+
+fn issuer_mutate(f: &mut CurrentFixture, mutate: fn(&mut Issuer)) {
+    let a = &mut f.deployment.batch.accounts[4];
+    let mut value = Issuer::decode(&a.bytes).unwrap(); mutate(&mut value); a.bytes=value.encode();
+}
+fn head_mutate(f: &mut CurrentFixture, mutate: fn(&mut PublisherHead)) {
+    let a = &mut f.deployment.batch.accounts[5];
+    let mut value = PublisherHead::decode(&a.bytes).unwrap(); mutate(&mut value); a.bytes=value.encode();
+}
+fn request_mutate(f: &mut CurrentFixture, mutate: fn(&mut Request)) {
+    let a = &mut f.deployment.batch.accounts[6];
+    let mut value = Request::decode(&a.bytes).unwrap(); mutate(&mut value); a.bytes=value.encode();
+}
+fn queue_mutate(f: &mut CurrentFixture, mutate: fn(&mut Queue)) {
+    let a = &mut f.deployment.batch.accounts[7];
+    let mut value = Queue::decode(&a.bytes).unwrap(); mutate(&mut value); a.bytes=value.encode();
+}
+type CurrentMutation = fn(&mut CurrentFixture);
+fn current_rejects(cases: &[(&str,CurrentMutation)]) {
+    for (name,mutate) in cases {
+        let mut f = current_fixture(); mutate(&mut f);
+        let error = run_current(f,1002).0.err();
+        assert!(matches!(error,Some(Error::Deployment|Error::Finality|Error::Account|Error::Clock)),
+            "{name}: must reject by actual validation, not the Unavailable stub: {error:?}");
+    }
+}
+
+#[test]
+fn current_rejects_issuer_source_lifecycle_and_expiry_mismatches() {
+    current_rejects(&[
+        ("disabled config",|f|config_mutate(&mut f.deployment,|c|c.enabled=false)),
+        ("issuer config",|f|issuer_mutate(f,|i|i.config=key(50))),
+        ("issuer hash",|f|issuer_mutate(f,|i|i.issuer_hash=field(50))),
+        ("disabled issuer",|f|issuer_mutate(f,|i|i.enabled=false)),
+        ("inactive source",|f|issuer_mutate(f,|i|i.status_valid=false)),
+        ("zero source sequence",|f|issuer_mutate(f,|i|i.sequence=0)),
+        ("zero source digest",|f|issuer_mutate(f,|i|i.digest=[0;32])),
+        ("future observation",|f|issuer_mutate(f,|i|i.observed_at=1003)),
+        ("expired source",|f|issuer_mutate(f,|i|i.expires_at=1001)),
+        ("exact expiry",|f|issuer_mutate(f,|i|i.expires_at=1002)),
+        ("observed config epoch",|f|issuer_mutate(f,|i|i.observed_config_epoch=1)),
+        ("observed issuer epoch",|f|issuer_mutate(f,|i|i.observed_issuer_epoch=2)),
+        ("head issuer epoch",|f|head_mutate(f,|h|h.issuer_epoch=2)),
+        ("head config epoch",|f|head_mutate(f,|h|h.config_epoch=1)),
+        ("bound source seq",|f|issuer_mutate(f,|i|i.bound_source_sequence=6)),
+        ("bound source digest",|f|issuer_mutate(f,|i|i.bound_source_digest=[50;32])),
+    ]);
+}
+
+#[test]
+fn current_rejects_head_root_publisher_and_commitment_mismatches() {
+    current_rejects(&[
+        ("head config",|f|head_mutate(f,|h|h.config=key(50))),
+        ("head issuer",|f|head_mutate(f,|h|h.issuer=key(50))),
+        ("head publisher",|f|head_mutate(f,|h|h.publisher=key(50))),
+        ("head root",|f|head_mutate(f,|h|h.root=field(50))),
+        ("head root version",|f|head_mutate(f,|h|h.root_version=1)),
+        ("bound root",|f|issuer_mutate(f,|i|i.bound_root=field(50))),
+        ("bound root version",|f|issuer_mutate(f,|i|i.bound_root_version=1)),
+        ("head source seq",|f|head_mutate(f,|h|h.source_sequence=6)),
+        ("head source digest",|f|head_mutate(f,|h|h.source_digest=[50;32])),
+        ("missing envelope digest",|f|head_mutate(f,|h|h.envelope_digest=[0;32])),
+        ("replayed envelope",|f|head_mutate(f,|h|h.envelope_digest=h.previous_publication_digest)),
+        ("invalid predecessor",|f|head_mutate(f,|h|h.previous_publication_digest=[0;32])),
+        ("future commit",|f|head_mutate(f,|h|h.committed_at=1003)),
+        ("commit before observation",|f|head_mutate(f,|h|h.committed_at=989)),
+    ]);
+}
+
+#[test]
+fn current_rejects_request_queue_and_nonreplay_failures() {
+    current_rejects(&[
+        ("request config",|f|request_mutate(f,|r|r.config=key(50))),
+        ("request issuer",|f|request_mutate(f,|r|r.issuer_hash=field(50))),
+        ("request creator",|f|request_mutate(f,|r|r.creator=key(50))),
+        ("request nonce",|f|request_mutate(f,|r|r.nonce=[50;32])),
+        ("request staging",|f|request_mutate(f,|r|r.state=RequestState::Staging)),
+        ("request cancelled",|f|request_mutate(f,|r|r.state=RequestState::Cancelled)),
+        ("request consumed",|f|request_mutate(f,|r|r.state=RequestState::Consumed)),
+        ("request expired",|f|request_mutate(f,|r|r.deadline=1001)),
+        ("request partial upload",|f|request_mutate(f,|r|r.uploaded=2)),
+        ("request partial metas",|f|request_mutate(f,|r|r.metas_uploaded=1)),
+        ("request first meta PDA",|f|request_mutate(f,|r|r.metas[0].key=key(50))),
+        ("request second meta PDA",|f|request_mutate(f,|r|r.metas[1].key=key(50))),
+        ("request metas order",|f|request_mutate(f,|r|r.metas.swap(0,1))),
+        ("request first meta flags",|f|request_mutate(f,|r|r.metas[0].flags=0)),
+        ("request second meta flags",|f|request_mutate(f,|r|r.metas[1].flags=3)),
+        ("request first meta owner",|f|request_mutate(f,|r|r.metas[0].owner=key(50))),
+        ("request second meta owner",|f|request_mutate(f,|r|r.metas[1].owner=key(50))),
+        ("queue config",|f|queue_mutate(f,|q|q.config=key(50))),
+        ("queue replay",|f|{let request=f.deployment.batch.accounts[6].key; let a=&mut f.deployment.batch.accounts[7];let mut q=Queue::decode(&a.bytes).unwrap();q.entries.push(request);a.bytes=q.encode();}),
+        ("queue capacity",|f|queue_mutate(f,|q|q.entries=(100..100+QUEUE_CAPACITY).map(|n|key(n as u8)).collect())),
+    ]);
+}
+
+#[test]
+fn current_rejects_account_order_deployment_and_finality_failures() {
+    current_rejects(&[
+        ("wrong genesis",|f|f.deployment.genesis=[50;32]),
+        ("changed ELF",|f|*f.deployment.batch.accounts[1].bytes.last_mut().unwrap()^=1),
+        ("context below floor",|f|f.deployment.batch.context_slot=89),
+        ("clock context mismatch",|f|clock_mutate(&mut f.deployment,|c|c.slot=99)),
+        ("clock stale",|f|clock_mutate(&mut f.deployment,|c|c.unix_timestamp=996)),
+        ("issuer wrong owner",|f|f.deployment.batch.accounts[4].owner=key(50)),
+        ("head wrong owner",|f|f.deployment.batch.accounts[5].owner=key(50)),
+        ("request wrong owner",|f|f.deployment.batch.accounts[6].owner=key(50)),
+        ("queue wrong owner",|f|f.deployment.batch.accounts[7].owner=key(50)),
+        ("issuer executable",|f|f.deployment.batch.accounts[4].executable=true),
+        ("missing head",|f|{f.deployment.batch.accounts.remove(5);}),
+        ("wrong order",|f|f.deployment.batch.accounts.swap(4,5)),
+        ("wrong issuer PDA",|f|f.deployment.batch.accounts[4].key=key(50)),
+        ("wrong head PDA",|f|f.deployment.batch.accounts[5].key=key(50)),
+        ("wrong request PDA",|f|f.deployment.batch.accounts[6].key=key(50)),
+        ("wrong queue PDA",|f|f.deployment.batch.accounts[7].key=key(50)),
+        ("head trailing bytes",|f|f.deployment.batch.accounts[5].bytes.push(0)),
+        ("request truncated",|f|{f.deployment.batch.accounts[6].bytes.pop();}),
+    ]);
+}
+
+#[test]
+fn current_source_expiry_minus_one_accepts_and_old_batch_cannot_be_reused() {
+    let mut f=current_fixture(); issuer_mutate(&mut f,|i|i.expires_at=1003);
+    assert_eq!(run_current(f,1002).0.as_ref().map(|v|v.finalized_slot()),Ok(100));
+    // A second call must perform a fresh read. The one-shot private transport
+    // has no second response and must fail, rather than reuse a cached batch.
+    let f=current_fixture(); let p=&f.deployment.pins;
+    let expected=FinalizedRequest {keys:f.deployment.batch.accounts.iter().map(|a|a.key).collect(),
+        commitment:Commitment::Finalized,minimum_context_slot:p.minimum_finalized_slot};
+    let calls=Arc::new(Mutex::new(Vec::new()));
+    let verifier=ConfiguredVerifier {pins:f.deployment.pins,transport:Box::new(ScriptedTransport {
+        expected,response:Mutex::new(Some(f.deployment.batch)),genesis:f.deployment.genesis,calls,
+    })};
+    assert!(verifier.verify_current(&f.selection,1002).is_ok());
+    assert_eq!(verifier.verify_current(&f.selection,1002).err(),Some(Error::Transport));
+}
