@@ -1,0 +1,110 @@
+{
+  "status": "parent-reviewed-fixed-witness-measurement-protocol-unit-accepted",
+  "operation": "witness-measurement001-protocol-unit",
+  "source_manifest": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/witness-measurement-source-freeze-001.json",
+    "bytes": 27031,
+    "sha256": "da511c2443f57ead47e54e3b3c66a0e06691fcaa3693065401d3e3460bb85978"
+  },
+  "supervision_manifest": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/fixed-budget/supervision-repair/source-freeze-006.json",
+    "bytes": 2458,
+    "sha256": "8be0cd31f5627cfb41e63ac189d665da3c5bbe5ff6c9cad12eefee2de4359d79"
+  },
+  "proposal": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/witness-measurement-unit-001-proposal.json",
+    "bytes": 5762,
+    "sha256": "35820d5a4e0966a729ca842e4cf2fc6564c8456fa4b741d8ec1806e38d6551fa",
+    "mode": "0o600"
+  },
+  "grant": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/witness-measurement-unit-001-granted-receipt.json",
+    "bytes": 6028,
+    "sha256": "17c4f523d7d1dc94dfce20e1dd1343495c21fa37fcf4f5e1d8280cbe2d19e837",
+    "mode": "0o600"
+  },
+  "wrapper": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/witness-measurement-source-001/launchers/launch_unit.py",
+    "bytes": 9619,
+    "sha256": "9f4ad002b57d5edbc7827ae75c7d70d2be84f85649f3b582d84a9373bcc22638",
+    "mode": "0o700"
+  },
+  "raw_evidence": {
+    "primary": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/witness-measurement-unit-001/primary.json",
+      "bytes": 1926,
+      "sha256": "473e691e13d7363ca0a1c00593af6d9928762c3051a45422a40e9438569afc62",
+      "mode": "0o600"
+    },
+    "duplicate": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/witness-measurement-unit-001/bounded/report.json",
+      "bytes": 1926,
+      "sha256": "473e691e13d7363ca0a1c00593af6d9928762c3051a45422a40e9438569afc62",
+      "mode": "0o600"
+    },
+    "stdout": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/witness-measurement-unit-001/bounded/stdout.log",
+      "bytes": 67,
+      "sha256": "aa9ff07e70087c0b938bfad60f90b959e7d1ff0c0cd4292ac0be6595276171f6",
+      "mode": "0o600"
+    },
+    "stderr": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/witness-measurement-unit-001/bounded/stderr.log",
+      "bytes": 1977,
+      "sha256": "5550d571791c543f5ed4e60dfdc81aad54413e1c5d57cd091114562792b1192a",
+      "mode": "0o600"
+    },
+    "host_events": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/witness-measurement-unit-001/host/events.jsonl",
+      "bytes": 6026,
+      "sha256": "53fcb722c5cd498edc7ab8687902cf7ecddd44e287d83cb3f604a5382bcf72ca",
+      "mode": "0o600"
+    },
+    "identities_before": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/witness-measurement-unit-001/identities-before.json",
+      "bytes": 27817,
+      "sha256": "7db9ee264f1b6f5b54006c83fb56b945ed4a05607dc25687eb3f2e5abd02f0e0",
+      "mode": "0o600"
+    },
+    "identities_after": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/witness-measurement-unit-001/identities-after.json",
+      "bytes": 27817,
+      "sha256": "7db9ee264f1b6f5b54006c83fb56b945ed4a05607dc25687eb3f2e5abd02f0e0",
+      "mode": "0o600"
+    }
+  },
+  "checks": {
+    "python_methods_passed": 13,
+    "node_protocol_checks_passed": 21,
+    "node_worker_syntax_check_passed": true,
+    "tests_authored_before_relevant_implementation": true,
+    "synthetic_red_before_implementation_observed": false,
+    "root_executed_once": true,
+    "worker_reruns": 0
+  },
+  "bounded": {
+    "duration_seconds": 0.48547083290759474,
+    "sampled_peak_owned_tree_rss_bytes": 55001088,
+    "sample_count": 3,
+    "sampled_peak_storage_growth_bytes": 3384,
+    "exit_code": 0,
+    "stop_reason": null,
+    "runner_error_type": null,
+    "known_cleanup_remaining": 0,
+    "host_cleanup_verified": true,
+    "primary_duplicate_byte_equal": true,
+    "all94before_after_pins_byte_equal_and_current_rechecked": true
+  },
+  "external_metadata_postflight": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/witness-measurement-unit-external-metadata-postflight-001.json",
+    "bytes": 826,
+    "sha256": "bc33a896ec238e8b611a213a9d3a9022a82c28e3f31d2cd77067e5d700852def",
+    "mode": "0o600"
+  },
+  "scope": "Synthetic protocol/oracle corruption/timing contract tests and Node syntax only; no real fixture, WASM, generator, Rust validator, witness pilot, setup or proofs executed.",
+  "limits": [
+    "Only3RSS samples; sampled RSS is not exact peak.",
+    "No witness performance or end-to-end result follows from protocol tests.",
+    "Compile and runtime retain separate exact ROOT grants; no retry/cap expansion."
+  ]
+}

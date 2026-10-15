@@ -1,0 +1,20 @@
+{
+  "status": "current-external-metadata-postflight-passed",
+  "operation": "witness-measurement001-protocol-unit",
+  "identity_after": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/witness-measurement-unit-001/identities-after.json",
+    "bytes": 27817,
+    "sha256": "7db9ee264f1b6f5b54006c83fb56b945ed4a05607dc25687eb3f2e5abd02f0e0",
+    "mode": "0o600"
+  },
+  "current_pin_checks": 94,
+  "all_hash_size_type_owner_declared_mode_checks_passed": true,
+  "identity_before_after_byte_equal": true,
+  "primary_duplicate_byte_equal": true,
+  "private_output_tree_owner_modes_symlinks_checked": true,
+  "former_root_observed_pid_absent": true,
+  "source_or_adapter_modified": false,
+  "tests_rerun": false,
+  "compiler_or_workers_executed": false,
+  "main_or_admission_called": false
+}
