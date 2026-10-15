@@ -1,7 +1,17 @@
 //! Exact compiler input map only. A map authenticates no credential, state,
 //! complete witness relation, signer or application authorization.
 use crate::{ClientError, Digest, OperationControl};
-use std::{collections::BTreeMap, path::PathBuf};
+use sha2::{Digest as _, Sha256};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs::{self, File},
+    io::Read,
+    os::unix::fs::{MetadataExt, PermissionsExt},
+    path::PathBuf,
+};
+
+const SYMBOL_BYTES_CAP: u64 = 256 * 1024 * 1024;
+const ASSIGNMENT_FIELDS: usize = 784_796;
 
 pub const V3_INPUT_KEYS: [&str; 14] = [
     "root",
@@ -33,15 +43,162 @@ pub struct V3CompilerInputMap {
     coordinates: BTreeMap<String, usize>,
 }
 impl V3CompilerInputMap {
-    pub fn load(_: &V3CompilerSymbols, _: &OperationControl) -> Result<Self, ClientError> {
-        Err(ClientError::Unsupported)
+    pub fn load(
+        symbols: &V3CompilerSymbols,
+        control: &OperationControl,
+    ) -> Result<Self, ClientError> {
+        control.check()?;
+        const EXPECTED: Digest = [
+            0xd2, 0xd6, 0x6e, 0x23, 0x8b, 0xdc, 0x0a, 0x73, 0x1c, 0x86, 0xc1, 0x89, 0x7c, 0x29,
+            0x78, 0xd2, 0x39, 0x08, 0xdc, 0xc1, 0x94, 0x60, 0x58, 0x2c, 0xc8, 0x73, 0xdc, 0x2d,
+            0x41, 0xe5, 0xdb, 0xf0,
+        ];
+        let expected = EXPECTED;
+        let path = &symbols.path;
+        if symbols.asserted_sha256 != expected
+            || !path.is_absolute()
+            || fs::canonicalize(path).map_err(|_| ClientError::Identity)? != *path
+        {
+            return Err(ClientError::Identity);
+        }
+        let before = fs::symlink_metadata(path).map_err(|_| ClientError::Io)?;
+        if !before.is_file() || !matches!(before.permissions().mode() & 0o777, 0o600 | 0o644) {
+            return Err(ClientError::Identity);
+        }
+        if before.len() == 0 || before.len() > SYMBOL_BYTES_CAP {
+            return Err(ClientError::Bound);
+        }
+        let mut file = File::open(path).map_err(|_| ClientError::Io)?;
+        let identity = |meta: &fs::Metadata| {
+            (
+                meta.dev(),
+                meta.ino(),
+                meta.len(),
+                meta.uid(),
+                meta.mode(),
+                meta.mtime(),
+                meta.mtime_nsec(),
+                meta.ctime(),
+                meta.ctime_nsec(),
+            )
+        };
+        if identity(&file.metadata().map_err(|_| ClientError::Io)?) != identity(&before) {
+            return Err(ClientError::Identity);
+        }
+        // Parse this authenticated snapshot only; never reopen the pathname.
+        let mut bytes = Vec::new();
+        bytes
+            .try_reserve_exact(before.len() as usize)
+            .map_err(|_| ClientError::Bound)?;
+        let mut hash = Sha256::new();
+        let mut buffer = [0; 65_536];
+        loop {
+            control.check()?;
+            let count = file.read(&mut buffer).map_err(|_| ClientError::Io)?;
+            if count == 0 {
+                break;
+            }
+            if bytes.len() as u64 + count as u64 > before.len() {
+                return Err(ClientError::Bound);
+            }
+            hash.update(&buffer[..count]);
+            bytes.extend_from_slice(&buffer[..count]);
+        }
+        if bytes.len() as u64 != before.len()
+            || identity(&file.metadata().map_err(|_| ClientError::Io)?) != identity(&before)
+            || <Digest>::from(hash.finalize()) != expected
+        {
+            return Err(ClientError::Identity);
+        }
+        control.check()?;
+        let text = std::str::from_utf8(&bytes).map_err(|_| ClientError::Encoding)?;
+        let map = parse_symbols(text, Some(control))?;
+        control.check()?;
+        Ok(map)
     }
 }
 
 /// Pure structural parser. Product map admission must independently authenticate
 /// exact source bytes before invoking it; parser success supplies no authority.
-fn parse_declared_symbols(_: &str) -> Result<V3CompilerInputMap, ClientError> {
-    Err(ClientError::Unsupported)
+fn parse_declared_symbols(text: &str) -> Result<V3CompilerInputMap, ClientError> {
+    parse_symbols(text, None)
+}
+
+fn parse_symbols(
+    text: &str,
+    control: Option<&OperationControl>,
+) -> Result<V3CompilerInputMap, ClientError> {
+    if text.len() as u64 > SYMBOL_BYTES_CAP {
+        return Err(ClientError::Bound);
+    }
+    let mut required = BTreeSet::new();
+    for name in &V3_INPUT_KEYS[..8] {
+        required.insert(format!("main.{name}"));
+    }
+    for (name, length) in [
+        ("tbs", 672),
+        ("issuerModulus", 17),
+        ("issuerSignature", 17),
+        ("holderSignature", 17),
+        ("siblings", 10),
+        ("pathIndices", 10),
+    ] {
+        required.extend((0..length).map(|i| format!("main.{name}[{i}]")));
+    }
+    let mut coordinates = BTreeMap::new();
+    let mut indices = BTreeSet::new();
+    for (row, line) in text.lines().enumerate() {
+        if row % 1024 == 0 {
+            if let Some(control) = control {
+                control.check()?;
+            }
+        }
+        let mut fields = line.split(',');
+        let signal = fields.next().ok_or(ClientError::Encoding)?;
+        let witness = fields.next().ok_or(ClientError::Encoding)?;
+        let component = fields.next().ok_or(ClientError::Encoding)?;
+        let name = fields.next().ok_or(ClientError::Encoding)?;
+        let decimal = |value: &str| {
+            !value.is_empty()
+                && value.bytes().all(|byte| byte.is_ascii_digit())
+                && (value == "0" || !value.starts_with('0'))
+        };
+        if fields.next().is_some()
+            || !decimal(signal)
+            || signal.parse::<u64>().map_or(true, |index| index == 0)
+            || !(witness == "-1" || decimal(witness))
+            || witness.parse::<i64>().is_err()
+            || !decimal(component)
+            || component.parse::<u64>().is_err()
+            || name.is_empty()
+            || name
+                .bytes()
+                .any(|byte| byte.is_ascii_whitespace() || byte.is_ascii_control())
+        {
+            return Err(ClientError::Encoding);
+        }
+        if !required.contains(name) {
+            continue;
+        }
+        let index = witness
+            .parse::<usize>()
+            .map_err(|_| ClientError::Encoding)?;
+        if index == 0 || index >= ASSIGNMENT_FIELDS {
+            return Err(ClientError::Bound);
+        }
+        if coordinates.insert(name.to_owned(), index).is_some() || !indices.insert(index) {
+            return Err(ClientError::Identity);
+        }
+    }
+    if coordinates.len() != required.len()
+        || V3_INPUT_KEYS[..6]
+            .iter()
+            .enumerate()
+            .any(|(i, name)| coordinates.get(&format!("main.{name}")) != Some(&(i + 1)))
+    {
+        return Err(ClientError::Identity);
+    }
+    Ok(V3CompilerInputMap { coordinates })
 }
 
 #[cfg(test)]
