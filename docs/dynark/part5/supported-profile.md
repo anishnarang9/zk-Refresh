@@ -61,5 +61,8 @@ The source corpus covers eight layouts plus an OpenSSL-issued variation, two
 issuers and three holders, and explicit malformed/ineligible cases. Python
 admission tests and the compiled 52-case witness/relation corpus passed: all
 18 complete positive witnesses satisfied every R1CS row, and 34 negative cases
-were rejected. Full/Anchor proofs, setup reuse, application verification and
-frozen unseen-credential acceptance have not yet passed. No incremental witness path is exposed for this profile.
+were rejected. Nine retained credential pairs then shared one development
+setup and public package for 27 independently randomized Full proofs and 207
+ordinary verification checks. The DYNARK Anchor pilot, actual v3 registry,
+client and application authorization, and frozen unseen-credential acceptance
+remain separate gates. No incremental witness path is exposed for this profile.
