@@ -12,6 +12,7 @@ use solana_program::{
     system_instruction, system_program,
     sysvar::Sysvar,
 };
+pub mod application_preflight_v3;
 pub mod application_runtime_v2;
 pub mod application_runtime_v3;
 pub mod application_v2;
