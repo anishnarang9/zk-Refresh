@@ -1,0 +1,297 @@
+{
+  "status": "PROPOSAL ONLY; ROOT namedcompile grant required, mainqualification queue haspriority",
+  "operation": "projection-integration-source001-compile-only",
+  "resource_policy_id": "dynark-fixed-budget-v1",
+  "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+  "prerequisite": {
+    "accepted_supervision006": true,
+    "accepted_parent_policy_and_auth_unchanged": true,
+    "projection_pilot_design_accepted_by_ROOT_and_independent": true,
+    "source_and_binding_review_required": true,
+    "named_parent_compile_queue_grant": null
+  },
+  "source_manifest": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/projection-integration-source-manifest-001.json",
+    "bytes": 20298,
+    "sha256": "1fe4209c58d02f413b1c9a386f55e8bd59c0a375cb12b525df65219a6d4ab66f",
+    "mode": "0o600"
+  },
+  "fixture_crypto_work_in_compile": false,
+  "supervision_root": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/supervision-source-006",
+  "supervision_pins": [
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/supervision-source-006/bounded_host_supervisor.py",
+      "bytes": 26950,
+      "sha256": "c20e7765f547115b6a95d46078294321ac45e4605062970d86434ef916d3ef71",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/supervision-source-006/bounded_runner.py",
+      "bytes": 15365,
+      "sha256": "43a619d985615556438e441f06e3421755e6465238ca3bb056e036da02eb0747",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/supervision-source-006/fixed_policy.py",
+      "bytes": 2948,
+      "sha256": "35134b1b711f7c4dec0be76dbc592f537bb020c793ce7a5abf87936603221160",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/supervision-source-006/harmless_tree.py",
+      "bytes": 1112,
+      "sha256": "f55db8dc46ca805bc48ce0770802a3a7261133ec775beebfef0c20f61690a3be",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/supervision-source-006/supervisor_child.py",
+      "bytes": 1594,
+      "sha256": "d2dedbea0bb66014b74d0b7def86bbbf619cb8f4dd39726212983799edd751d4",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/supervision-source-006/test_supervision.py",
+      "bytes": 24359,
+      "sha256": "48201f7f28b3929a8d0ee40a6608ee6f1748478056e446679a74d6e74f95aafc",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/supervision-source-006/workload_guardian.py",
+      "bytes": 6296,
+      "sha256": "f16bd542b4dd6132e72e76a8c84b5b1a38abc2da89588e0cb614a62cf18ce72b",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/fixed-budget/supervision-repair/source-freeze-006.json",
+      "bytes": 2458,
+      "sha256": "8be0cd31f5627cfb41e63ac189d665da3c5bbe5ff6c9cad12eefee2de4359d79",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/host_guard.py",
+      "bytes": 9870,
+      "sha256": "2c5b640f14879c1b71e265c97a019eac3bb405b1c29df9fcc50cfd09e5d39567",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/host-guard-freeze.json",
+      "bytes": 745,
+      "sha256": "4b7ceaa83ca58b882a6d35bff7f3e36d348a57ab28022e4cb01b556e63c96fdc",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/fixed_policy.py",
+      "bytes": 2948,
+      "sha256": "35134b1b711f7c4dec0be76dbc592f537bb020c793ce7a5abf87936603221160",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/source-001/resource-policy.json",
+      "bytes": 1215,
+      "sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+      "mode": "0o600"
+    }
+  ],
+  "toolchain_pins": [
+    {
+      "path": "/Users/anishnarang/.rustup/toolchains/nightly-aarch64-apple-darwin/bin/cargo",
+      "bytes": 32100184,
+      "sha256": "619e58abcbc93f0a6b67e295fcc03b45f02fc2e7d088a77755821ca53456e1fe",
+      "mode": "0o755"
+    },
+    {
+      "path": "/Users/anishnarang/.rustup/toolchains/nightly-aarch64-apple-darwin/bin/rustc",
+      "bytes": 413480,
+      "sha256": "0c43651a112b23ebaecf7de11b0fa7956758052dc2d03a8cfd4d4bc05bbc3e6c",
+      "mode": "0o755"
+    },
+    {
+      "path": "/Library/Frameworks/Python.framework/Versions/3.14/bin/python3.14",
+      "bytes": 135696,
+      "sha256": "4fce274f0e60574ada0b53f17bceb49bbd804125ddae972c7674b8eb13d9e49d",
+      "mode": "0o775"
+    }
+  ],
+  "required_toolchain_paths": [
+    "/Users/anishnarang/.rustup/toolchains/nightly-aarch64-apple-darwin/bin/cargo",
+    "/Users/anishnarang/.rustup/toolchains/nightly-aarch64-apple-darwin/bin/rustc",
+    "/Library/Frameworks/Python.framework/Versions/3.14/bin/python3.14"
+  ],
+  "wrapper_pin": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/projection-integration-compile-launcher-source-001/launch_compile.py",
+    "bytes": 7738,
+    "sha256": "062b2106194c16c2b19217172f6aa7c87ff59014f6329ae142587496687967f9",
+    "mode": "0o600"
+  },
+  "exact_command": [
+    "/Library/Frameworks/Python.framework/Versions/3.14/bin/python3.14",
+    "-B",
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/supervision-source-006/bounded_runner.py",
+    "--owner",
+    "engine-projection-integration-source001-compile-j1-001",
+    "--cwd",
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/projection-integration-source-001/crates/dynark-bn254",
+    "--private-output",
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/projection-integration-compile-001/bounded",
+    "--report",
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/projection-integration-compile-001/primary.json",
+    "--runtime-seconds",
+    "600",
+    "--rss-bytes",
+    "4294967296",
+    "--storage-bytes",
+    "2147483648",
+    "--storage-path",
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/projection-integration-target-001",
+    "--poll-seconds",
+    "0.2",
+    "--",
+    "/usr/bin/env",
+    "-u",
+    "RUSTFLAGS",
+    "-u",
+    "CARGO_ENCODED_RUSTFLAGS",
+    "-u",
+    "CARGO_TARGET_DIR",
+    "-u",
+    "RUSTC_WRAPPER",
+    "-u",
+    "RUSTC_WORKSPACE_WRAPPER",
+    "RAYON_NUM_THREADS=4",
+    "RUST_TEST_THREADS=1",
+    "CARGO_BUILD_JOBS=1",
+    "CARGO_TARGET_DIR=/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/projection-integration-target-001",
+    "RUSTC=/Users/anishnarang/.rustup/toolchains/nightly-aarch64-apple-darwin/bin/rustc",
+    "/Users/anishnarang/.rustup/toolchains/nightly-aarch64-apple-darwin/bin/cargo",
+    "test",
+    "--manifest-path",
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/projection-integration-source-001/crates/dynark-bn254/Cargo.toml",
+    "--offline",
+    "--locked",
+    "--release",
+    "--lib",
+    "--no-run",
+    "-j",
+    "1",
+    "--message-format=json"
+  ],
+  "limits": {
+    "runtime_seconds": 600,
+    "sampled_owned_tree_rss_bytes": 4294967296,
+    "target_and_runner_output_growth_bytes": 2147483648,
+    "rayon_threads": 4,
+    "cargo_build_jobs": 1,
+    "rust_test_threads": 1,
+    "poll_seconds": 0.2,
+    "host_admission_seconds": 240,
+    "cleanup_allowance_seconds": 120,
+    "host_telemetry_queries": "real fixed policy; no injection"
+  },
+  "scope": "One offline locked release libtest --no-run compilation of isolated projection-integration arithmetic pilot; no tests/proofs/fixtures/preprocessing/benchmarks.",
+  "fresh_paths": [
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/projection-integration-compile-001",
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/projection-integration-target-001"
+  ],
+  "post_compile_selection_scope": "Unique compiler-artifact lib dynark_bn254/profile.test=true actual executable within fresh release subtree; hash/copy actual emitted artifact only without execution; no inferred build/deps layout",
+  "later_small_test_and_runtime_require_separate_exact_named_grants": true,
+  "failure_caps_do_not_expand": true,
+  "source_guardian_tool_pins_check_before_and_after": true,
+  "old_supervisor005_ineligible": true,
+  "no_commits_push_deploy_credentials": true,
+  "ownership_rule": "Exact singleton Python path/bytes/hash/mode with uid0 accepted; all other pins retain current-owner requirement; source/artifact/grant checks unchanged; no genericuid override",
+  "guard_caps_unchanged": {
+    "owned_live_processes": 8,
+    "tracked_live_births": 64,
+    "pruning": "supervisor006 successful census prunes known to currentlylive owned set;64 is not lifetime count"
+  },
+  "cold_dependency_build": "Fresh projection-integration-target-001, no cachecopy;600s4GiB2GiB1job unchanged",
+  "post_compile_artifacts": [
+    {
+      "reason": "compiler-artifact",
+      "target_name": "dynark_bn254",
+      "target_kind": [
+        "lib"
+      ],
+      "profile_test": true,
+      "executable_inside": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/projection-integration-target-001/release",
+      "freeze_path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/binaries/projection-integration-libtest-001"
+    }
+  ],
+  "no_product_code_change_during_build": true,
+  "future_runtime_inventory_only": {
+    "status": "source-only finite pilot inventory, no execution",
+    "test_filter": "projection_integration_pilot::run_projection_integration_pilot",
+    "ignored": true,
+    "exact_methods": 1,
+    "patterns": [
+      "dense",
+      "one_in_eight"
+    ],
+    "selected_indices": 8192,
+    "point_streams_generated_once": 3,
+    "reference_indices": [
+      0,
+      1,
+      8,
+      17,
+      256,
+      2049,
+      4096,
+      8191
+    ],
+    "full_field_scalars": "fixedseed draws retained only when bitwidth>=200; pointmultipliers distinct/nonzero, coefficients masked only for sparsepattern",
+    "expression": "q += (L*s + D*a), identical operand black_box both kernels",
+    "warm_pairs_per_pattern": 1,
+    "measured_counterbalanced_pairs_per_pattern": 5,
+    "order": "serialfirst iff(pattern+sample)%2==0",
+    "requested_G1_calls": {
+      "point_generation": 24576,
+      "warm": 65536,
+      "measured": 327680,
+      "independent_references": 32,
+      "whole": 417824,
+      "ceiling": 500000
+    },
+    "independent_references_computed_once_per_pattern": 8,
+    "raw_point_comparisons": 98304,
+    "raw_input_fingerprint_checks": 12,
+    "pool": "one globalfourthreadpool prebuilt+broadcastwarmed inside paid setup; no secondpool",
+    "capacity": {
+      "retained_nominal_payload_bytes": 4456448,
+      "retained_buffers": "5G1Vecs(3input2output)+2FrVecs",
+      "generation_scalar_vectors_and_uniqueness_keys": "actual peak counted separately, dropped before timingbuffers; only8fixedscalartriples retained",
+      "typed_capacity_plus_fixed_record_ceiling_strictly_less_than": 8388608,
+      "all_Vec_capacities_read": true,
+      "fixed_records": "size_of referencearrays, Vecheaders +4096bounded hash/timer/counterrecords",
+      "RSS_is_separate": true
+    },
+    "timing": "setup/reference/hash/reset/validation/output all paid under60s; resets separatelytimed immediatelybeforeeachkernel outsidewindow; kernel includes arithmetic and outputwrites; validation reads all outputs and raw inputhashes outsidekernel",
+    "runtime_limits": {
+      "seconds": 60,
+      "sampled_RSS_bytes": 536870912,
+      "output_growth_bytes": 4194304,
+      "Rayon": 4,
+      "test_threads": 1
+    },
+    "compile_limits": {
+      "seconds": 600,
+      "sampled_RSS_bytes": 4294967296,
+      "target_growth_bytes": 2147483648,
+      "jobs": 1,
+      "Rayon": 4,
+      "test_threads": 1
+    },
+    "no_fullN_or_proof_FFT_or_crypto_performance_claim": true,
+    "no_production_or_source007_change": true,
+    "no_observed_red_green_or_gain_claim": true,
+    "execution_owner": "ROOT only, separatecompile and actualbinary runtimegrants; behind mainqualification"
+  },
+  "execution_owner": "ROOT only",
+  "test_inventory": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/projection-integration-inventory-001.json",
+    "bytes": 2542,
+    "sha256": "194a68f54bb131461660c3a8243cbab2fd2c5c6d058b0a529b6600de4b213c64",
+    "mode": "0o600"
+  },
+  "external_pre_post_hash_bytes_uid_mode_regular_nosymlink_required": true
+}

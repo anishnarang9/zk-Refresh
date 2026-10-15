@@ -1,0 +1,59 @@
+{
+  "status": "INERT finite runtime plan; concreteproposal/grant only after ROOT acceptedcompile selectsactualbinary",
+  "operation": "projection-integration-source001-runtime-only",
+  "execution_owner": "ROOT only; mainqualificationpriority",
+  "source_manifest": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/projection-integration-source-manifest-001.json",
+    "bytes": 20298,
+    "sha256": "1fe4209c58d02f413b1c9a386f55e8bd59c0a375cb12b525df65219a6d4ab66f",
+    "mode": "0o600"
+  },
+  "wrapper_pin": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/projection-integration-runtime-launcher-source-001/launch_runtime.py",
+    "bytes": 8039,
+    "sha256": "fbfbe48a1dca1e372a950a412cf31aab0121962236769cb2d237a81997c0c15b",
+    "mode": "0o600"
+  },
+  "expected_compiled_binary_path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/binaries/projection-integration-libtest-001",
+  "required_binary_selection": "unique actual Cargo lib compiler-artifact/profile.test=true; hash+bytes+mode0700 frozen onlyafteracceptedcompile, no inferredartifact/no placeholderbinarypin",
+  "exact_filters": [
+    "--exact",
+    "projection_integration_pilot::run_projection_integration_pilot",
+    "--ignored",
+    "--nocapture",
+    "--test-threads=1"
+  ],
+  "limits": {
+    "seconds": 60,
+    "sampled_RSS_bytes": 536870912,
+    "output_growth_bytes": 4194304,
+    "Rayon": 4,
+    "test_threads": 1,
+    "poll_seconds": 0.2,
+    "realhost_admission_seconds": 240,
+    "cleanup_allowance_seconds": 120
+  },
+  "fresh_BASE": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/projection-integration-runtime-001",
+  "inventory": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/projection-integration-inventory-001.json",
+    "bytes": 2542,
+    "sha256": "194a68f54bb131461660c3a8243cbab2fd2c5c6d058b0a529b6600de4b213c64",
+    "mode": "0o600"
+  },
+  "expected_events": {
+    "setup": 1,
+    "pattern": 2,
+    "pair": 12,
+    "final": 1
+  },
+  "expected_tests": 1,
+  "expected_test_exit": 0,
+  "expected_total_requested_G1_calls": 417824,
+  "requested_G1_cap": 500000,
+  "expected_raw_point_comparisons": 98304,
+  "independent_references_computed_once": 16,
+  "independent_references_rechecked_per_pair": 8,
+  "all_computation_and_validation_paid": true,
+  "no_rerun_or_cap_expansion": true,
+  "no_execution_implied": true
+}

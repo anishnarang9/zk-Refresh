@@ -1,0 +1,31 @@
+{
+  "status": "ROOT review clarification; source001/manifest/inventory/proposal bytes unchanged",
+  "source_manifest": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/projection-integration-source-manifest-001.json",
+    "bytes": 20298,
+    "sha256": "1fe4209c58d02f413b1c9a386f55e8bd59c0a375cb12b525df65219a6d4ab66f",
+    "mode": "0o600"
+  },
+  "compile_proposal": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/projection-integration-compile-grant-proposal-001.json",
+    "bytes": 12980,
+    "sha256": "77f4ea4ec8cca774c8c40dc0afc602d0ddec0a765f00f724172e2dc4257019df",
+    "mode": "0o600"
+  },
+  "runtime_plan": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/projection-integration-runtime-plan-001.json",
+    "bytes": 2501,
+    "sha256": "c51d4d9616c997a7e5ba088b52e6b5c812db6ea793062f02e03d2695b1886ca9",
+    "mode": "0o600"
+  },
+  "capacity_boundary": "All recorded Vec capacities and the<8MiB actual typed scratch check cover harness-owned input/output/scalar/uniqueness buffers plus fixed records only. all_Vec_capacities_read is local to this harness.",
+  "not_exhaustive_total_heap": [
+    "arkworks scalar multiplication/GLV/BigInt internal allocations",
+    "allocator overhead/fragmentation",
+    "Rayon runtime and worker stacks",
+    "libtest/process/library state"
+  ],
+  "separate_sampled_RSS": "60s runtime retains512MiB sampled workload-tree RSS. No<8MiB totalheap/processpeak or allocatorclaim. Compilation remains600s4GiB RSS2GiB output.",
+  "source_and_execution_unchanged": true,
+  "ROOT_review_status": "ROOT read completepilot/counters/raw equality/reset/pool and found no sourceblocker; this supplementalboundary clarification must accompany anygrant"
+}

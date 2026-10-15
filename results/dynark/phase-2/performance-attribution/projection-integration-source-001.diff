@@ -1,0 +1,207 @@
+--- product54523c1/src/lib.rs
++++ projectionpilot001/src/lib.rs
+@@ -3,6 +3,10 @@
+ //! Full target validation is charged; quadratic correction has an explicit pair-work cap.
+ //! No raw/blinder, deterministic proof, vendor setup or RNG convenience API is re-exported.
+ #![forbid(unsafe_code)]
++
++#[cfg(test)]
++#[path = "../tests/private/projection_integration_pilot.rs"]
++mod projection_integration_pilot;
+ 
+ #[cfg(test)]
+ extern crate self as dynark_bn254;
+--- product54523c1/tests/private/projection_integration_pilot.rs
++++ projectionpilot001/tests/private/projection_integration_pilot.rs
+@@ -0,0 +1,191 @@
++use ark_bn254::{Fr, G1Projective as G1};
++use ark_ec::PrimeGroup;
++use ark_ff::{BigInteger, PrimeField, UniformRand, Zero};
++use ark_serialize::CanonicalSerialize;
++use rand::{rngs::StdRng, SeedableRng};
++use rayon::prelude::*;
++use sha2::{Digest, Sha256};
++use std::{hint::black_box, io::Write, mem::size_of, time::Instant};
++
++const BATCH: usize = 8192;
++const CALL_CAP: usize = 500_000;
++const CAPACITY_CAP: usize = 8 << 20;
++const SEED: u64 = 0x4459_4e41_524b_0011;
++const INDICES: [usize; 8] = [0, 1, 8, 17, 256, 2049, 4096, 8191];
++
++fn charge(calls: &mut usize, extra: usize) {
++    *calls = calls.checked_add(extra).unwrap();
++    assert!(*calls <= CALL_CAP);
++}
++
++fn full_scalar(rng: &mut StdRng) -> Fr {
++    loop {
++        let scalar = Fr::rand(rng);
++        if scalar.into_bigint().num_bits() >= 200 {
++            return scalar;
++        }
++    }
++}
++
++// The grouping is anchored.rs's q += (L*s + D*a), in both timed kernels.
++fn integrate(q: &mut G1, l: G1, d: G1, s: Fr, a: Fr) {
++    *q += black_box(l) * black_box(s) + black_box(d) * black_box(a);
++}
++
++fn serial(points: &[Vec<G1>; 3], scalars: &[Vec<Fr>; 2], out: &mut [G1]) {
++    for (i, q) in out.iter_mut().enumerate() {
++        integrate(q, points[1][i], points[2][i], scalars[0][i], scalars[1][i]);
++    }
++}
++
++fn parallel(points: &[Vec<G1>; 3], scalars: &[Vec<Fr>; 2], out: &mut [G1]) {
++    out.par_iter_mut().enumerate().for_each(|(i, q)| {
++        integrate(q, points[1][i], points[2][i], scalars[0][i], scalars[1][i]);
++    });
++}
++
++struct HashWriter(Sha256);
++impl Write for HashWriter {
++    fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
++        self.0.update(data);
++        Ok(data.len())
++    }
++    fn flush(&mut self) -> std::io::Result<()> {
++        Ok(())
++    }
++}
++
++// Hash raw projective coordinates, avoiding normalization/group arithmetic.
++fn fingerprint(points: &[Vec<G1>; 3], scalars: &[Vec<Fr>; 2]) -> [u8; 32] {
++    let mut hash = HashWriter(Sha256::new());
++    for vector in points {
++        for point in vector {
++            for coordinate in [&point.x, &point.y, &point.z] {
++                coordinate.serialize_compressed(&mut hash).unwrap();
++            }
++        }
++    }
++    for vector in scalars {
++        for scalar in vector {
++            scalar.serialize_compressed(&mut hash).unwrap();
++        }
++    }
++    hash.0.finalize().into()
++}
++
++fn run_kernel(
++    use_parallel: bool,
++    points: &[Vec<G1>; 3],
++    scalars: &[Vec<Fr>; 2],
++    out: &mut [G1],
++) -> (u128, u128) {
++    let start = Instant::now();
++    out.copy_from_slice(&points[0]);
++    let reset_ns = start.elapsed().as_nanos();
++    let start = Instant::now();
++    if use_parallel {
++        parallel(black_box(points), black_box(scalars), black_box(out));
++    } else {
++        serial(black_box(points), black_box(scalars), black_box(out));
++    }
++    (reset_ns, start.elapsed().as_nanos())
++}
++
++#[test]
++#[ignore = "requires exact finite ROOT queue grant"]
++fn run_projection_integration_pilot() {
++    let setup = Instant::now();
++    rayon::ThreadPoolBuilder::new().num_threads(4).build_global().unwrap();
++    assert_eq!(rayon::current_num_threads(), 4);
++    rayon::broadcast(|_| assert_eq!(rayon::current_num_threads(), 4));
++    let mut rng = StdRng::seed_from_u64(SEED);
++    let point_scalars: [Vec<Fr>; 3] = std::array::from_fn(|_| {
++        (0..BATCH).map(|_| full_scalar(&mut rng)).collect()
++    });
++    let mut keys: Vec<_> = point_scalars.iter().flatten().map(|x| x.into_bigint()).collect();
++    keys.sort_unstable();
++    assert!(keys.windows(2).all(|pair| pair[0] != pair[1]));
++    let scalar_bytes = point_scalars.iter().map(|v| v.capacity() * size_of::<Fr>()).sum::<usize>();
++    let uniqueness_peak = scalar_bytes + keys.capacity() * size_of::<ark_ff::BigInt<4>>();
++    assert!(uniqueness_peak < CAPACITY_CAP);
++    drop(keys);
++    let reference_scalars: [[Fr; 3]; 8] = std::array::from_fn(|j| {
++        std::array::from_fn(|stream| point_scalars[stream][INDICES[j]])
++    });
++    let mut calls = 0;
++    charge(&mut calls, 3 * BATCH);
++    let points: [Vec<G1>; 3] = std::array::from_fn(|stream| {
++        point_scalars[stream].iter().map(|x| G1::generator() * x).collect()
++    });
++    assert!(points.iter().flatten().all(|p| !p.is_zero()));
++    let generation_peak = scalar_bytes + points.iter().map(|v| v.capacity() * size_of::<G1>()).sum::<usize>();
++    assert!(generation_peak < CAPACITY_CAP);
++    drop(point_scalars);
++    let mut scalars: [Vec<Fr>; 2] = std::array::from_fn(|_| {
++        (0..BATCH).map(|_| full_scalar(&mut rng)).collect()
++    });
++    let mut serial_out = vec![G1::zero(); BATCH];
++    let mut parallel_out = vec![G1::zero(); BATCH];
++    let capacity = points.iter().map(|v| v.capacity() * size_of::<G1>()).sum::<usize>()
++        + scalars.iter().map(|v| v.capacity() * size_of::<Fr>()).sum::<usize>()
++        + (serial_out.capacity() + parallel_out.capacity()) * size_of::<G1>();
++    let fixed_bytes = size_of::<[[Fr; 3]; 8]>() + size_of::<[G1; 8]>()
++        + size_of::<[Vec<G1>; 3]>() + size_of::<[Vec<Fr>; 2]>() + 2 * size_of::<Vec<G1>>()
++        + 4096; // bounded hash/timer/counter/reference records; no growable log collection
++    let capacity_peak = uniqueness_peak.max(generation_peak).max(capacity) + fixed_bytes;
++    assert!(capacity_peak < CAPACITY_CAP);
++    println!("{{\"event\":\"projection_integration_setup\",\"seed\":{SEED},\"indices\":{BATCH},\"point_streams\":3,\"setup_requested_G1_calls\":{},\"setup_ns\":{},\"generation_capacity_bytes\":{generation_peak},\"uniqueness_capacity_bytes\":{uniqueness_peak},\"retained_capacity_bytes\":{capacity},\"fixed_record_bytes\":{fixed_bytes},\"tracked_peak_bytes\":{capacity_peak},\"global_threads\":4,\"scalar_min_bits\":200,\"no_FFT_or_proof_or_fullN_preparation\":true}}", calls, setup.elapsed().as_nanos());
++    let mut kernel_calls = 0;
++    let mut independent_calls = 0;
++    let mut comparisons = 0;
++    for pattern in 0..2 {
++        let pattern_setup = Instant::now();
++        if pattern == 1 {
++            for vector in &mut scalars {
++                for (i, scalar) in vector.iter_mut().enumerate() {
++                    if i % 8 != 0 { *scalar = Fr::zero(); }
++                }
++            }
++        }
++        let input_hash = fingerprint(&points, &scalars);
++        charge(&mut calls, 16);
++        // Independent generator relation: different group association from the kernel.
++        let references: [G1; 8] = std::array::from_fn(|j| {
++            let i = INDICES[j];
++            let [q, l, d] = reference_scalars[j];
++            G1::generator() * (q + l * scalars[0][i])
++                + G1::generator() * (d * scalars[1][i])
++        });
++        independent_calls += 16;
++        println!("{{\"event\":\"projection_integration_pattern\",\"pattern\":{pattern},\"active_scalars_per_stream\":{},\"setup_reference_hash_ns\":{},\"independent_checks\":8,\"independent_requested_G1_calls\":16,\"references_reused_all_pairs\":true}}", if pattern == 0 { BATCH } else { BATCH / 8 }, pattern_setup.elapsed().as_nanos());
++        for sample in 0..6 {
++            let serial_first = (pattern + sample) % 2 == 0;
++            charge(&mut calls, 4 * BATCH);
++            kernel_calls += 4 * BATCH;
++            let ((serial_reset_ns, serial_ns), (parallel_reset_ns, parallel_ns)) = if serial_first {
++                let a = run_kernel(false, &points, &scalars, &mut serial_out);
++                let b = run_kernel(true, &points, &scalars, &mut parallel_out);
++                (a, b)
++            } else {
++                let b = run_kernel(true, &points, &scalars, &mut parallel_out);
++                let a = run_kernel(false, &points, &scalars, &mut serial_out);
++                (a, b)
++            };
++            let validation = Instant::now();
++            for (a, b) in serial_out.iter().zip(&parallel_out) {
++                assert!(a.x == b.x && a.y == b.y && a.z == b.z);
++                comparisons += 1;
++            }
++            for (j, &i) in INDICES.iter().enumerate() {
++                assert!(serial_out[i] == references[j]);
++            }
++            assert_eq!(fingerprint(&points, &scalars), input_hash);
++            println!("{{\"event\":\"projection_integration_pair\",\"pattern\":{pattern},\"kind\":\"{}\",\"sample\":{sample},\"serial_first\":{serial_first},\"serial_reset_ns\":{serial_reset_ns},\"parallel_reset_ns\":{parallel_reset_ns},\"serial_ns\":{serial_ns},\"parallel_ns\":{parallel_ns},\"validation_ns\":{},\"requested_G1_calls\":{},\"raw_equal_points\":{BATCH},\"independent_checks\":8,\"inputs_unchanged\":true}}", if sample == 0 { "warm" } else { "measured" }, validation.elapsed().as_nanos(), 4 * BATCH);
++        }
++    }
++    assert_eq!(kernel_calls, 393_216);
++    assert_eq!(independent_calls, 32);
++    assert_eq!(comparisons, 98_304);
++    assert_eq!(calls, 417_824);
++    println!("{{\"event\":\"projection_integration_final\",\"patterns\":2,\"pairs\":12,\"measured_pairs\":10,\"warm_requested_G1_calls\":65536,\"measured_requested_G1_calls\":327680,\"kernel_requested_G1_calls\":{kernel_calls},\"independent_requested_G1_calls\":{independent_calls},\"total_requested_G1_calls\":{calls},\"requested_G1_cap\":{CALL_CAP},\"raw_point_comparisons\":{comparisons},\"independent_references\":16,\"tracked_peak_bytes\":{capacity_peak},\"wall_latency_only\":true,\"reset_reference_and_validation_paid_outside_kernels\":true,\"arithmetic_only\":true,\"no_fullN_preparation_or_product_gain_claim\":true}}");
++}
