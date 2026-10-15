@@ -55,7 +55,7 @@ pub fn publisher_head_address(
 // 12 SetIssuerEnabled: admin signer, config RO, issuer W.
 // 13/revision1 BindWithHead: publisher signer+writable, config RO, issuer W,
 // head W, executable System RO. Same metas for initial allocation and updates.
-// Signer authorities may be writable fee payers. No proof handler exists.
+// Signer authorities may be writable fee payers. Execute effects remain disabled.
 fn count(accounts: &[AccountInfo], expected: usize) -> ProgramResult {
     if accounts.len() != expected {
         return Err(AppError::Accounts.into());
@@ -618,8 +618,14 @@ pub fn process(program: &Pubkey, accounts: &[AccountInfo], bytes: &[u8]) -> Prog
             idst.copy_from_slice(&ib);
             hdst.copy_from_slice(&hb);
         }
-        // No verifier, queue append or request consumption exists in this slice.
-        AppInstruction::Execute { .. } => return Err(AppError::Unavailable.into()),
+        AppInstruction::Execute { inputs, proof } => {
+            let now = Clock::get()?.unix_timestamp;
+            crate::application_preflight_v3::check(program, accounts, &inputs, now)?;
+            verify(&inputs, &proof)?;
+            // A valid statement still cannot authorize an effect until a real
+            // request-bound Full proof and atomic append/consume tests exist.
+            return Err(AppError::Unavailable.into());
+        }
     }
     Ok(())
 }

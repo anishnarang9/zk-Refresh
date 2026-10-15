@@ -827,10 +827,25 @@ fn publisher_v3_old_bind_cannot_substitute_for_missing_publisher_head_and_execut
     );
     let mut execute = vec![PREFIX, 7];
     execute.extend([0; 448]);
+    let mut issuer = x.issuer.clone();
+    issuer.is_writable = false;
+    let mut head = x.head.clone();
+    head.is_writable = false;
+    // Supply Execute roles in order so the absent System-owned head is the
+    // rejection, before the deliberately empty request/queue placeholders.
+    let accounts = [
+        x.config.clone(),
+        issuer,
+        head,
+        ai(key(61), x.program, false, true, vec![], 1),
+        ai(key(62), x.program, false, true, vec![], 1),
+    ];
+    let before = snapshot(&accounts);
     assert_eq!(
-        process_instruction(&x.program, &x.accounts(), &execute),
-        Err(ProgramError::from(AppError::Unavailable))
+        process_instruction(&x.program, &accounts, &execute),
+        Err(ProgramError::from(AppError::Owner))
     );
+    assert_eq!(snapshot(&accounts), before);
 }
 
 #[test]

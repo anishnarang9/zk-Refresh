@@ -719,8 +719,8 @@ fn staging_v3_disabled_after_create_can_finish_preparation_but_consumed_request_
     }
     let mut execute = vec![PREFIX, 7];
     execute.extend([0; 448]);
-    assert_eq!(
-        x.run(&execute),
-        Err(ProgramError::from(AppError::Unavailable))
-    );
+    let before = snapshot(&x.accounts());
+    // Creator/config/request staging metas are not the complete Execute plan.
+    assert_eq!(x.run(&execute), Err(ProgramError::from(AppError::Accounts)));
+    assert_eq!(snapshot(&x.accounts()), before);
 }

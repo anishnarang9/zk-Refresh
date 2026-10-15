@@ -3,7 +3,13 @@
 //! Actual metas: config RO, issuer RO, publisher-head RO, request W, queue W,
 //! then exactly the ordered relevant extras. Every account appears once.
 #![allow(deprecated)]
-use solana_program::{account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey};
+use solana_program::{
+    account_info::AccountInfo,
+    clock::Clock,
+    program_error::ProgramError,
+    program_stubs::{set_syscall_stubs, SyscallStubs},
+    pubkey::Pubkey,
+};
 use zk_fresh_program::{
     application_preflight_v3::check,
     application_runtime_v3 as runtime,
@@ -247,6 +253,28 @@ fn reduced_hash(bytes: &[u8]) -> [u8; 32] {
 
 #[test]
 fn preflight_v3_exact_current_six_field_request_passes_without_authorizing_execute() {
+    struct FixedClock;
+    impl SyscallStubs for FixedClock {
+        fn sol_get_clock_sysvar(&self, destination: *mut u8) -> u64 {
+            unsafe {
+                std::ptr::write_unaligned(
+                    destination.cast::<Clock>(),
+                    Clock {
+                        unix_timestamp: 110,
+                        ..Clock::default()
+                    },
+                );
+            }
+            0
+        }
+    }
+    struct Restore(Option<Box<dyn SyscallStubs>>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            set_syscall_stubs(self.0.take().unwrap());
+        }
+    }
+    let _clock = Restore(Some(set_syscall_stubs(Box::new(FixedClock))));
     let x = Fixture::new();
     let inputs = x.inputs();
     let before = snapshot(&x.accounts);
@@ -269,7 +297,7 @@ fn preflight_v3_exact_current_six_field_request_passes_without_authorizing_execu
     assert_eq!(wire.len(), 450);
     assert_eq!(
         process_instruction(&x.program, &x.accounts, &wire),
-        Err(ProgramError::from(AppError::Unavailable))
+        Err(ProgramError::from(AppError::Proof))
     );
     assert_eq!(snapshot(&x.accounts), before);
     assert_eq!(

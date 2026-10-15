@@ -6,7 +6,13 @@ use groth16_solana::{
     decompression::{decompress_g1, decompress_g2},
     groth16::{Groth16Verifier, Groth16Verifyingkey},
 };
-use solana_program::{hash::hash, program_error::ProgramError, pubkey::Pubkey};
+use solana_program::{
+    clock::Clock,
+    hash::hash,
+    program_error::ProgramError,
+    program_stubs::{set_syscall_stubs, SyscallStubs},
+    pubkey::Pubkey,
+};
 use zk_fresh_program::{
     application_runtime_v2,
     application_runtime_v3::verify,
@@ -297,7 +303,7 @@ fn v3_raw_public_codec_rejects_wrong_count_length_and_noncanonical_words() {
 }
 
 #[test]
-fn v3_corpus_is_not_v1_or_v2_and_runtime_execute_remains_unavailable() {
+fn v3_corpus_is_not_v1_or_v2_and_cannot_execute_without_application_accounts() {
     let (inputs, proof) = encoded();
     for legacy in [&v1::VERIFYING_KEY, &v2::VERIFYING_KEY] {
         assert_eq!((legacy.nr_pubinputs, legacy.vk_ic.len()), (5, 6));
@@ -315,8 +321,31 @@ fn v3_corpus_is_not_v1_or_v2_and_runtime_execute_remains_unavailable() {
     }
     wire.extend(proof);
     assert_eq!(wire.len(), 450);
+    struct FixedClock;
+    impl SyscallStubs for FixedClock {
+        fn sol_get_clock_sysvar(&self, destination: *mut u8) -> u64 {
+            unsafe {
+                std::ptr::write_unaligned(
+                    destination.cast::<Clock>(),
+                    Clock {
+                        unix_timestamp: 100,
+                        ..Clock::default()
+                    },
+                );
+            }
+            0
+        }
+    }
+    struct Restore(Option<Box<dyn SyscallStubs>>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            set_syscall_stubs(self.0.take().unwrap());
+        }
+    }
+    let _clock = Restore(Some(set_syscall_stubs(Box::new(FixedClock))));
+    // A valid component proof does not supply the required application context.
     assert_eq!(
         process_instruction(&Pubkey::new_from_array([12; 32]), &[], &wire),
-        Err(ProgramError::from(AppError::Unavailable))
+        Err(ProgramError::from(AppError::Accounts))
     );
 }
