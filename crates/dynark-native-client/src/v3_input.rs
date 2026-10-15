@@ -5,6 +5,8 @@ use crate::{
     ClientError, Digest, FieldBytes, OperationControl, V3CredentialSummary, V3FullManifest,
     V3OrdinaryVkIdentity,
 };
+use ark_bn254::Fr;
+use ark_serialize::CanonicalDeserialize;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct V3SourceObservation {
@@ -83,12 +85,80 @@ impl V3StateSnapshot {
     /// call the manifest admission gate and the live authenticated capability.
     pub(crate) fn validate_record_coherence(
         &self,
-        _: &V3CredentialSummary,
-        _: &V3FullManifest,
-        _: u64,
+        credential: &V3CredentialSummary,
+        manifest: &V3FullManifest,
+        now: u64,
     ) -> Result<(), ClientError> {
-        // RED scaffold: no unimplemented authentication contract can authorize.
-        Err(ClientError::Unsupported)
+        manifest.check()?;
+        // This is only record-shape validation. Real key admission remains a
+        // separate fail-closed gate, even when all these records are coherent.
+        manifest.validate_adapter_record_shape(self.adapter_key)?;
+        if self.generation == 0 {
+            return Err(ClientError::Generation);
+        }
+        if self.enrollment.issuer_version == 0
+            || self.enrollment.policy_version == 0
+            || self.publication.allocation_epoch == 0
+        {
+            return Err(ClientError::Version);
+        }
+        if self.slot >= 1024 {
+            return Err(ClientError::Bound);
+        }
+        let canonical = |word: &FieldBytes| {
+            Fr::deserialize_compressed(&word[..])
+                .map(|_| ())
+                .map_err(|_| ClientError::Encoding)
+        };
+        for word in [
+            &self.publication.root,
+            &self.enrollment.issuer_hash,
+            &self.enrollment.policy_hash,
+            &credential.issuer_hash,
+            &credential.policy_hash,
+        ] {
+            canonical(word)?;
+        }
+        for word in &self.siblings {
+            canonical(word)?;
+        }
+        let mut action_le = self.action.action_be;
+        action_le.reverse();
+        canonical(&action_le)?;
+        if self.publication.issuer_account != self.enrollment.issuer_account
+            || self.source.issuer_account != self.enrollment.issuer_account
+            || self.action.config_account != self.enrollment.config_account
+            || self.enrollment.profile != manifest.admission.profile
+            || self.enrollment.circuit != manifest.package.circuit_digest
+            || self.enrollment.issuer_hash != credential.issuer_hash
+            || self.enrollment.policy_hash != credential.policy_hash
+            || !self.enrollment.policy_enabled
+        {
+            return Err(ClientError::Identity);
+        }
+        if !self.enrollment.issuer_enabled
+            || self.publication.source_sequence != self.source.sequence
+            || self.publication.source_digest != self.source.digest
+            || self.source.observed_at > self.clock.unix_timestamp
+            || self.source.valid_until < self.source.observed_at
+            || now > self.source.valid_until
+        {
+            return Err(ClientError::StaleIssuer);
+        }
+        if now < self.clock.unix_timestamp || now > self.clock.valid_until {
+            return Err(ClientError::Deadline);
+        }
+        if self.action.consumed {
+            return Err(ClientError::Completed);
+        }
+        if credential.not_before > credential.not_after
+            || now < credential.not_before
+            || now > credential.not_after
+            || now > self.action.deadline
+        {
+            return Err(ClientError::Expired);
+        }
+        Ok(())
     }
 }
 
