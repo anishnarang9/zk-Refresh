@@ -2152,15 +2152,21 @@ pub mod queue_v2 {
             thread::sleep(Duration::from_millis(250));
         }
     }
-    // RED extraction preserves the former normal-report slot-only behavior.
+    // Report success only after the exact effect is visible at finalized commitment.
     fn normal_finalized_report_slot(
         rpc: &Rpc,
-        _plan: &QueuePlan,
-        _request: &[u8],
-        _queue: &[u8],
+        plan: &QueuePlan,
+        request: &[u8],
+        queue: &[u8],
         events: &[Value],
     ) -> Result<u64> {
-        wait_finalized(rpc, events)
+        let waited_slot = wait_finalized(rpc, events)?;
+        let exact_slot = finalized_effect(rpc, plan, request, queue)?;
+        ensure!(
+            exact_slot >= waited_slot,
+            "finalized effect slot regressed below finalized replay slot"
+        );
+        Ok(exact_slot)
     }
 
     #[cfg(test)]

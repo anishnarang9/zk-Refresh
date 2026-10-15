@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "scope": "finite mocked loopback RPC normal-report finalized-bytes regression, no validator",
+  "review_state": "GREEN_source_only_await_ROOT_grant",
+  "source_pins": {
+    "harness/Cargo.toml": "e8c6d7b782f1c9c5a629783423b7e9999cba28c48636dd3abd231e1d8229a274",
+    "harness/Cargo.lock": "1e9ed2ece56706afe2e3e132d76e1f79b84d9236743249310a9d319f74019177",
+    "harness/src/solana.rs": "0dcb805c9012ce6bd8d154daf8df7d96c1f3cb034589bdc6fc19f90395afa88a"
+  },
+  "environment": {
+    "CARGO_BUILD_JOBS": "1",
+    "RAYON_NUM_THREADS": "4",
+    "OMP_NUM_THREADS": "1"
+  },
+  "argv": [
+    "/usr/bin/python3",
+    "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/bootstrap/bounded_runner.py",
+    "--owner",
+    "part5-v2-finalized-effect-green-001",
+    "--cwd",
+    "/Users/anishnarang/Zk-refresh",
+    "--private-output",
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v2-finalized-effect-green-monitor-001",
+    "--report",
+    "/Users/anishnarang/Zk-refresh/results/dynark/part5/v2-finalized-effect-green-bounded-001.json",
+    "--runtime-seconds",
+    "180",
+    "--rss-bytes",
+    "2147483648",
+    "--storage-bytes",
+    "268435456",
+    "--storage-path",
+    "/Users/anishnarang/Zk-refresh/harness/target",
+    "--poll-seconds",
+    "0.25",
+    "--",
+    "/Users/anishnarang/.cargo/bin/cargo",
+    "test",
+    "--offline",
+    "--locked",
+    "--manifest-path",
+    "/Users/anishnarang/Zk-refresh/harness/Cargo.toml",
+    "--lib",
+    "solana::queue_v2::finalized_report_tests",
+    "--",
+    "--test-threads=1"
+  ],
+  "expected": "2executedtests pass; no validator/transactions",
+  "post_RED_minimal_repair": "implemented: finalized replay slot wait, exact finalized_effect and nonregressing returnedslot"
+}
