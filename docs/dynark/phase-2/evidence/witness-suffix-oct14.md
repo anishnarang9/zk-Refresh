@@ -30,3 +30,33 @@ ROOT ran each original target generator once using the unchanged original WASM a
 Near WTNS SHA-256 is `fb304dfc489111a2b788aeff118fb3a980b6f3b42188c0f793949909877703c6`; middle is `64da64c1526f8651a9a8be4bc1cf23ca0c21ba1f055353829f61ff5ed0afb296`. Each file is 20,594,092 bytes. These runs establish independent original-generator provenance for later field-by-field comparison; they do not run the new evaluator or produce new proof evidence.
 
 Private baseline and producer receipts are under `artifacts/dynark/phase-3/witness-dependency/path-suffix-mapping-source-001/baseline-receipts/`. Original proposals, failed source001 extraction and every raw report remain preserved.
+
+## Successor evaluator and unit checks
+
+ROOT and the independent reviewer accepted the fixed-depth evaluator, comparator and exact launchers. For one changed sibling at level `k`, it recomputes levels `k` through 9, including the retained intermediate nodes and all compiler aliases. It emits sorted nonzero deltas, preserves every coordinate outside its conservative scope, and checks the computed final root against the supplied target. Every other input must remain unchanged. This is a fixed-circuit experiment bound to separately validated baseline artifacts, not a general certificate parser or production witness API.
+
+The source freeze is 5,412 bytes, SHA-256 `f70bd42159e648ef9839a2482e71428b5c548c05e281fb07279c801cfc8f38d2`. ROOT ran all 37 unit methods: the accepted 21 far tests and sixteen new suffix tests. They cover every changed level and both selectors, independent Poseidon root references, complete outside-scope preservation, malformed or inconsistent inputs, intermediate and retained aliases, and exact regression against the accepted far evaluator. All passed in 17.111 seconds reported by unittest. Synthetic fixtures do not establish relation satisfaction.
+
+The bounded workload took 17.481509 seconds with 269,631,488-byte sampled peak RSS, 79 samples, 7,196-byte observed growth and known clean cleanup. Primary and duplicate report SHA-256: `135edff3d56fabd5a8952041bd23bb97ff2281b51b30740b59dcafd35abe90f9`. All 31 pre/post identity and mode pins matched. The finite allowance remained 120 seconds, 1 GiB RSS and 128 MiB output. These unit results are not a speed measurement.
+
+## Actual near, middle and far field equivalence
+
+ROOT executed the three comparators serially under their unchanged 120-second / 1-GiB / 128-MiB limits. Each compared all 643,563 canonical fields against the independently produced original target and found **zero mismatches**. Every coordinate outside the conservative patch scope, the baseline bytes and all checked compiler aliases were preserved. Each additionally checked the one auxiliary slot alias.
+
+| Case | Recomputed levels | Named values | Selected aliases | Conservative coordinates | Direct nonzero deltas |
+|---|---:|---:|---:|---:|---:|
+| Near | 10 | 7,690 | 2,501 | 5,191 | 5,081 |
+| Middle | 5 | 3,845 | 1,251 | 2,596 | 2,541 |
+| Far | 1 | 769 | 251 | 520 | 509 |
+
+ROOT independently compared the complete candidate files to the original targets. Near and middle retain the target digests recorded above. Far has SHA-256 `e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447` and also matches the previously accepted far candidate byte for byte. The comparator confirmed identical far deltas and named values against the earlier evaluator. Its prior proof evidence can therefore be reused for the exact same witness, target and package; no additional far proof was run.
+
+| Case | Workload seconds | Sampled peak RSS, bytes | Raw report SHA-256 |
+|---|---:|---:|---|
+| Near | 0.926229 | 187,645,952 | `e153af4d70182de24a8943cf073fdef9642caac181801619b03c55dbfae29f4b` |
+| Middle | 0.927402 | 187,531,264 | `d280248b1fdee1e59f685437ef4939d393547c2577de6203a9cf81624b840a4c` |
+| Far | 1.154799 | 221,134,848 | `d819506db173f29825bf04327f1c76fb0939a9ae7f0f708f5ec9796426519aa4` |
+
+Primary/duplicate reports and pre/post identity receipts match for every case, with no cap or runner error and known clean cleanup. ROOT observed the former workload processes absent. These are one-shot correctness workloads, including authentication and complete oracle comparison; the far case also runs the old evaluator for regression. They are not matched latency measurements or evidence of a far-versus-near performance ordering.
+
+The [near acceptance](../../../../results/dynark/phase-3/witness-dependency/suffix-near-equivalence-accepted-001.json) and [middle acceptance](../../../../results/dynark/phase-3/witness-dependency/suffix-middle-equivalence-accepted-001.json) bind exact candidate, source and original-generator provenance. Their separate full relation validation and ordinary-proof gate remains pending. Its reviewed design imports the immutable package once, then independently validates, proves and verifies each candidate with fresh caller randomness. No key generation, anchor preparation, real credential parsing or Solana execution is included.

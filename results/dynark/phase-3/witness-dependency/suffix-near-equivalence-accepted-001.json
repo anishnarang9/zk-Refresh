@@ -1,0 +1,140 @@
+{
+  "status": "parent-reviewed-fixed-suffix-field-equivalence",
+  "case": "near",
+  "changed_level": 0,
+  "evaluator_source_manifest": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/suffix-evaluator-source-freeze-001.json",
+    "bytes": 5412,
+    "sha256": "f70bd42159e648ef9839a2482e71428b5c548c05e281fb07279c801cfc8f38d2"
+  },
+  "candidate": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/suffix-near-comparator-output-001/candidate-unaccepted.wtns",
+    "bytes": 20594092,
+    "sha256": "fb304dfc489111a2b788aeff118fb3a980b6f3b42188c0f793949909877703c6",
+    "mode": "0o600"
+  },
+  "target_input_sha256": "f4aea0344323499c51ff427a683050a7337949879b5541157e8996ffb4be019d",
+  "target_input": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/witnesses/near-after-input.json",
+    "bytes": 7239,
+    "sha256": "f4aea0344323499c51ff427a683050a7337949879b5541157e8996ffb4be019d",
+    "mode": "0o600"
+  },
+  "baseline_validation_receipt": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/path-suffix-mapping-source-001/baseline-receipts/near-validation.json",
+    "bytes": 7426,
+    "sha256": "b376a9d4bd421deae1d5062861d9a537008a89fda900317cab48ce860f770bd2",
+    "mode": "0o600"
+  },
+  "original_after_receipt": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/path-suffix-mapping-source-001/baseline-receipts/near-original-after-producer.json",
+    "bytes": 3913,
+    "sha256": "c848c51b18d7bd1235ab7b3002472bd2fbbc153aaf688824fd3465000c22beab",
+    "mode": "0o600"
+  },
+  "independent_original_after": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/path-suffix-mapping-source-001/original-near-output-001/near-after-original-full.wtns",
+    "bytes": 20594092,
+    "sha256": "fb304dfc489111a2b788aeff118fb3a980b6f3b42188c0f793949909877703c6",
+    "mode": "0o600"
+  },
+  "summary": {
+    "status": "all_fields_equal",
+    "changed_level": 0,
+    "suffix_components": 10,
+    "coordinates_checked": 643563,
+    "all_fields_equal": true,
+    "mismatches": 0,
+    "aliases_checked": 2501,
+    "auxiliary_aliases_checked": 1,
+    "baseline_unchanged": true,
+    "oracle_outside_scope_unchanged": true,
+    "named_signals": 7690,
+    "conservative_patch_coordinates": 5191,
+    "direct_nonzero_delta_coordinates": 5081,
+    "far_accepted_evaluator_regression": null,
+    "original_generator_executed_by_this_script": false,
+    "r1cs_validated_by_this_script": false,
+    "ordinary_proof_verified_by_this_script": false,
+    "baseline_trust": "Exact externally parent-reviewed fixture/validation pins; no caller validation assertion accepted."
+  },
+  "raw_evidence": {
+    "primary": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/suffix-near-comparator-run-001/primary.json",
+      "bytes": 2265,
+      "sha256": "e153af4d70182de24a8943cf073fdef9642caac181801619b03c55dbfae29f4b",
+      "mode": "0o600"
+    },
+    "duplicate": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/suffix-near-comparator-run-001/bounded/report.json",
+      "bytes": 2265,
+      "sha256": "e153af4d70182de24a8943cf073fdef9642caac181801619b03c55dbfae29f4b",
+      "mode": "0o600"
+    },
+    "stdout": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/suffix-near-comparator-run-001/bounded/stdout.log",
+      "bytes": 193,
+      "sha256": "9149aa2b2d7e8ef4cb20d946ca60cb37730e89eba1036142ca770393a4d144e8",
+      "mode": "0o600"
+    },
+    "stderr": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/suffix-near-comparator-run-001/bounded/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "0o600"
+    },
+    "host": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/suffix-near-comparator-run-001/host/events.jsonl",
+      "bytes": 6306,
+      "sha256": "2b540cd4796c04bdd4106170544d75ac57a6d58c55d7d116a40232d17b418854",
+      "mode": "0o600"
+    },
+    "identities_before": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/suffix-near-comparator-run-001/identities-before.json",
+      "bytes": 11179,
+      "sha256": "cf4c44ed4d273d972b064c55298b996bc6fcc4a4281f83d4a711a4465d9bc40f",
+      "mode": "0o600"
+    },
+    "identities_after": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/suffix-near-comparator-run-001/identities-after.json",
+      "bytes": 11179,
+      "sha256": "cf4c44ed4d273d972b064c55298b996bc6fcc4a4281f83d4a711a4465d9bc40f",
+      "mode": "0o600"
+    }
+  },
+  "metrics": {
+    "duration_seconds": 0.926229125005193,
+    "sampled_peak_owned_tree_rss_bytes": 187645952,
+    "sample_count": 5,
+    "sampled_peak_storage_growth_bytes": 21224003
+  },
+  "measurement_limits": [
+    "RSS from ps KiB converted to bytes; sum of live owned tree; not heap allocation",
+    "storage is positive logical file-size growth per supplied root; excludes deleted-file peak between samples",
+    "limits sampled; short spikes and daemonized ancestry escape between samples may be missed",
+    "samples include guardian and its helpers; exclude runner and runner ps RSS; original deadline includes guardian setup",
+    "EOF guardian receipts are distinct from final runner reports; deliberate group escape is unsupported",
+    "child stdout/stderr/argv retained only in protected output"
+  ],
+  "independent_worker_review": {
+    "full_summary_and_stdout_stderr_read": true,
+    "primary_duplicate_equal": true,
+    "current_identity_mode_pins_rechecked": 42,
+    "pre_post_receipts_equal": true,
+    "entire_candidate_byte_compared_to_independent_original": true,
+    "canonical_full_field_and_alias_comparison_per_accepted_driver": true,
+    "no_comparator_rerun": true
+  },
+  "cleanup": {
+    "remaining_owned": 0,
+    "unknown": false,
+    "root_host_verified": true
+  },
+  "r1cs_validation_executed_by_this_comparator": false,
+  "ordinary_proof_executed": false,
+  "limits": [
+    "Exact fixed credential fixture/single sibling suffix only.",
+    "One field-equivalence trial; no matched benchmark/speedup claim.",
+    "Separate full relation and ordinary proof gate still required for this candidate."
+  ]
+}

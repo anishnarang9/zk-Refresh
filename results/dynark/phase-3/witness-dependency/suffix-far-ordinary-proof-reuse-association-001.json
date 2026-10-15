@@ -1,0 +1,95 @@
+{
+  "status": "parent-reviewed-existing-far-proof-exact-identity-reuse-association",
+  "suffix_equivalence_receipt": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/suffix-far-equivalence-accepted-001.json",
+    "bytes": 6370,
+    "sha256": "dd76775e34cdea03c14139155053f157d6c8ffe59cb77dedbc17b84f09bbe556",
+    "mode": "0o600"
+  },
+  "suffix_candidate": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/suffix-far-comparator-output-001/candidate-unaccepted.wtns",
+    "bytes": 20594092,
+    "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447",
+    "mode": "0o600"
+  },
+  "accepted_far_proof_aggregate": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/far-candidate-proof-scrubbed-acceptance-001.json",
+    "bytes": 6408,
+    "sha256": "0b2f8e62f2c7ce3dd85b012d9454c06e94934d04605daec500d5426ff609ac05",
+    "mode": "0o600"
+  },
+  "prior_proof_candidate": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/far-comparator-output-001/candidate-unaccepted.wtns",
+    "bytes": 20594092,
+    "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447",
+    "mode": "0o600"
+  },
+  "candidate_whole_bytes_equal": true,
+  "target_input_sha256": "2d469223ba6be5c45c602b1eaf46d00871ef946149c4934a6244972e4d3c5d0f",
+  "target_input_sha_matches_accepted_proof": true,
+  "original_reduction_package_commitments": {
+    "matrix_digest": "b88ecb8f071de579d6248471ec63c451fa6e8ad940e1cd3b5ae88c2b0b398058",
+    "circuit_digest": "4ed8bc9915ac836bbeda833480fba8a5dea9cf58c198b1668c460743552b7e1e",
+    "proving_key_digest": "2ca816e3f84f1e93aed0b2f5e49db05fab4d6e27a348f681ef1b237d9697d85c",
+    "verifying_key_digest": "1ae0864ab3bdbe39f912734ba8c11c65c02d3a9b3d56d8204fb00ddac57ab642",
+    "package_digest": "57cea7ff53a711f8fbb2e8f256a21a852d087564c49df70b6065c6994765c0d5"
+  },
+  "fixed_package_artifacts": [
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/circuit/credential.r1cs",
+      "bytes": 137724448,
+      "sha256": "ff4ee937061ee60e4d4043f1213ff562f72e0828986462e8ebbec8cdfabb326d",
+      "mode": "0o644"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/circuit/credential_js/credential.wasm",
+      "bytes": 7878457,
+      "sha256": "fd5bfce8aa51fe89fb8f2783153666a65fb7a2c2a17753f75910d8a3aa891960",
+      "mode": "0o644"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-1/near-e2-v1/updating-key.bin",
+      "bytes": 427598901,
+      "sha256": "ab377a3a727a1a716c180ac184f50f3057ceaf2c80d6ccb4334881ed0ab5a5ff",
+      "mode": "0o600"
+    }
+  ],
+  "accepted_proof_artifact": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/ordinary-proof-output-001/candidate-ordinary.proof",
+    "bytes": 128,
+    "sha256": "b6a43005c19dc676290b60488eb51cb4a76122300c8537b16831fa2d679ad0be",
+    "mode": "0o600"
+  },
+  "accepted_full_relation": {
+    "satisfied": true,
+    "coordinates": 643563,
+    "rows": 648156,
+    "publics": 5,
+    "ns": 129649875
+  },
+  "accepted_independent_ordinary_verification": {
+    "original_verified": true,
+    "decoded_verified": true,
+    "five_wrong_publics_rejected": true,
+    "verification_ns": 6194917,
+    "compressed_bytes": 128,
+    "canonical_decode_eof": true
+  },
+  "source_and_binary_receipts": {
+    "source": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/far-ordinary-proof-source-freeze-001.json",
+      "bytes": 21516,
+      "sha256": "39f76212f9cfea902c45f2ac949133e781be2074507b1cafa9c5b11df08f930a",
+      "mode": "0o600"
+    },
+    "compiled": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/far-ordinary-proof-compiled-artifact-001.json",
+      "bytes": 4304,
+      "sha256": "fe63a34d74ed810fd87af669b521996edec968ceeab35e727332f9f1b2b7e4e2",
+      "mode": "0o600"
+    }
+  },
+  "fresh_far_proof_executed": false,
+  "fresh_relation_execution": false,
+  "reuse_scope": "Identical full assignment bytes, target/public association, fixed original-reduction package and existing accepted proof; no new proof generation/entropy/timing claim."
+}

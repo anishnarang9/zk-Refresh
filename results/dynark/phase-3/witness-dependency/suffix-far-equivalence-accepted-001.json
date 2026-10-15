@@ -1,0 +1,139 @@
+{
+  "status": "parent-reviewed-fixed-suffix-field-equivalence",
+  "case": "far",
+  "changed_level": 9,
+  "evaluator_source_manifest": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/suffix-evaluator-source-freeze-001.json",
+    "bytes": 5412,
+    "sha256": "f70bd42159e648ef9839a2482e71428b5c548c05e281fb07279c801cfc8f38d2"
+  },
+  "candidate": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/suffix-far-comparator-output-001/candidate-unaccepted.wtns",
+    "bytes": 20594092,
+    "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447",
+    "mode": "0o600"
+  },
+  "target_input_sha256": "2d469223ba6be5c45c602b1eaf46d00871ef946149c4934a6244972e4d3c5d0f",
+  "target_input": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/witnesses/far-after-input.json",
+    "bytes": 7167,
+    "sha256": "2d469223ba6be5c45c602b1eaf46d00871ef946149c4934a6244972e4d3c5d0f",
+    "mode": "0o600"
+  },
+  "baseline_validation_receipt": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/far-comparator-fixture-001/baseline-validation-receipt.json",
+    "bytes": 7535,
+    "sha256": "de32efcf06b30d50cf3513ec6b1da27a947b44908cd6ac4c18ab1b4f9a75c6cf",
+    "mode": "0o600"
+  },
+  "original_after_receipt": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/far-comparator-fixture-001/original-after-producer-receipt.json",
+    "bytes": 3707,
+    "sha256": "28f7f31c27552bbd27f2af686a11923f1f4dbdc2b89210c4cb6f4302d6f435f8",
+    "mode": "0o600"
+  },
+  "independent_original_after": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/original-full-output-002/far-after-original-full.wtns",
+    "bytes": 20594092,
+    "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447",
+    "mode": "0o600"
+  },
+  "summary": {
+    "status": "all_fields_equal",
+    "changed_level": 9,
+    "suffix_components": 1,
+    "coordinates_checked": 643563,
+    "all_fields_equal": true,
+    "mismatches": 0,
+    "aliases_checked": 251,
+    "auxiliary_aliases_checked": 1,
+    "baseline_unchanged": true,
+    "oracle_outside_scope_unchanged": true,
+    "named_signals": 769,
+    "conservative_patch_coordinates": 520,
+    "direct_nonzero_delta_coordinates": 509,
+    "far_accepted_evaluator_regression": true,
+    "original_generator_executed_by_this_script": false,
+    "r1cs_validated_by_this_script": false,
+    "ordinary_proof_verified_by_this_script": false,
+    "baseline_trust": "Exact externally parent-reviewed fixture/validation pins; no caller validation assertion accepted."
+  },
+  "raw_evidence": {
+    "primary": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/suffix-far-comparator-run-001/primary.json",
+      "bytes": 2432,
+      "sha256": "d819506db173f29825bf04327f1c76fb0939a9ae7f0f708f5ec9796426519aa4",
+      "mode": "0o600"
+    },
+    "duplicate": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/suffix-far-comparator-run-001/bounded/report.json",
+      "bytes": 2432,
+      "sha256": "d819506db173f29825bf04327f1c76fb0939a9ae7f0f708f5ec9796426519aa4",
+      "mode": "0o600"
+    },
+    "stdout": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/suffix-far-comparator-run-001/bounded/stdout.log",
+      "bytes": 192,
+      "sha256": "f148167adadd9df8a09051aaec2c4232f1a04ee696b52a1f6dce1669436a8c2a",
+      "mode": "0o600"
+    },
+    "stderr": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/suffix-far-comparator-run-001/bounded/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "0o600"
+    },
+    "host": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/suffix-far-comparator-run-001/host/events.jsonl",
+      "bytes": 7159,
+      "sha256": "b637b2a8ac79a8f5c0751b3efb406c9bb5f1c1b3b8844e1851af08bf0305f5fc",
+      "mode": "0o600"
+    },
+    "identities_before": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/suffix-far-comparator-run-001/identities-before.json",
+      "bytes": 11081,
+      "sha256": "de8076e6187d09bc736afdb52402b4fe3c0af10234bd81d9a8f1348fe11418f7",
+      "mode": "0o600"
+    },
+    "identities_after": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/suffix-far-comparator-run-001/identities-after.json",
+      "bytes": 11081,
+      "sha256": "de8076e6187d09bc736afdb52402b4fe3c0af10234bd81d9a8f1348fe11418f7",
+      "mode": "0o600"
+    }
+  },
+  "metrics": {
+    "duration_seconds": 1.1547991660190746,
+    "sampled_peak_owned_tree_rss_bytes": 221134848,
+    "sample_count": 6,
+    "sampled_peak_storage_growth_bytes": 20659477
+  },
+  "measurement_limits": [
+    "RSS from ps KiB converted to bytes; sum of live owned tree; not heap allocation",
+    "storage is positive logical file-size growth per supplied root; excludes deleted-file peak between samples",
+    "limits sampled; short spikes and daemonized ancestry escape between samples may be missed",
+    "samples include guardian and its helpers; exclude runner and runner ps RSS; original deadline includes guardian setup",
+    "EOF guardian receipts are distinct from final runner reports; deliberate group escape is unsupported",
+    "child stdout/stderr/argv retained only in protected output"
+  ],
+  "independent_worker_review": {
+    "full_summary_and_stdout_stderr_read": true,
+    "primary_duplicate_equal": true,
+    "current_identity_mode_pins_rechecked": 42,
+    "pre_post_receipts_equal": true,
+    "entire_candidate_byte_compared_to_independent_original_and_prior_proof_candidate": true,
+    "no_comparator_rerun": true
+  },
+  "cleanup": {
+    "remaining_owned": 0,
+    "unknown": false,
+    "root_host_verified": true
+  },
+  "r1cs_validation_executed_by_this_comparator": false,
+  "ordinary_proof_executed": false,
+  "limits": [
+    "Exact fixed credential far single sibling suffix only.",
+    "One field-equivalence trial; no matched benchmark/speedup claim.",
+    "Existing ordinary proof may be reused only with exact candidate/target/package identity association."
+  ]
+}

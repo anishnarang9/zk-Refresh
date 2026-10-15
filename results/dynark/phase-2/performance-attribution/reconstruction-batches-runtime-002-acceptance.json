@@ -1,0 +1,213 @@
+{
+  "status": "focused correctness gate passed; integrated timing/product adoption still pending",
+  "1_identities": {
+    "source_manifest": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-source-manifest-002.json",
+      "bytes": 20266,
+      "sha256": "7542e7857ba7de36f268d2d6b94f6b7bd2316db6bef1696be3afeae1f236c4e2",
+      "mode": "0o600"
+    },
+    "binary": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/binaries/reconstruction-batches-libtest-002",
+      "bytes": 4702672,
+      "sha256": "15ab7771ea3e592fae19cc2990064b853c4808784c2f663973fd80ff4f5c1168",
+      "mode": "0o700"
+    },
+    "wrapper": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-runtime-launcher-source-002/launch_runtime.py",
+      "bytes": 8436,
+      "sha256": "31a321ac3ce80efe70464fe301f3cfb66c5ae275f53cd53a7ccece31b4cc666f",
+      "mode": "0o600"
+    },
+    "grant": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-runtime-grant-002.json",
+      "bytes": 8970,
+      "sha256": "2bbe8f4c2b3f167586ba44a5f2690c0fbe5e5a50e347e0eaed231e691a03befe",
+      "mode": "0o600"
+    },
+    "compile_receipt": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-compile-002-artifact-freeze.json",
+      "bytes": 3725,
+      "sha256": "61781faff1430bbf0c4024b121f69b842d54222c0bc8ff8dd0f3fbfcb3046a87",
+      "mode": "0o600"
+    }
+  },
+  "2_execution": {
+    "executor": "ROOT only",
+    "methods": 8,
+    "passed": 8,
+    "failed": 0,
+    "ignored": 0,
+    "libtest_seconds": 40.72,
+    "primary_report": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-runtime-002/focused/primary.json",
+      "bytes": 31873,
+      "sha256": "dbb9884d3cd0f4f65c92b946a0444689ee34b2b7308b150be78e2ba0d4eeb05c",
+      "mode": "0o600"
+    },
+    "duplicate_report": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-runtime-002/focused/bounded/report.json",
+      "bytes": 31873,
+      "sha256": "dbb9884d3cd0f4f65c92b946a0444689ee34b2b7308b150be78e2ba0d4eeb05c",
+      "mode": "0o600"
+    },
+    "duplicate_equal": true,
+    "stdout": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-runtime-002/focused/bounded/stdout.log",
+      "bytes": 1380,
+      "sha256": "dd7d0e76ab3ad1d01d802dd03a981d62dfd9a8d56a76adb5265fe4bec9527a46",
+      "mode": "0o600"
+    },
+    "stderr": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-runtime-002/focused/bounded/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "0o600"
+    },
+    "stderr_empty": true,
+    "no_auto_rerun": true
+  },
+  "3_fullsize_equivalence": {
+    "matrix_cases": 72,
+    "domain": 32768,
+    "full8192_batches": 72,
+    "dimensions": "Forward1/Forward10/Inverse15/Scale xbothgroupstreams xdense/sparse/zero x1/2/4pools",
+    "all_raw_pool_and_Fr_cursor_journal_checks_passed": true,
+    "independent_selected_outputs_checked": true,
+    "requested_group_calls_including_setup_and_references": 1212776
+  },
+  "4_boundaries_and_discard": {
+    "boundary_matched_cases": 21,
+    "budgets": [
+      0,
+      1,
+      8191,
+      8192,
+      8193
+    ],
+    "boundary_requested_calls": 278538,
+    "failure_cases": 5,
+    "failure_requested_calls": 73732,
+    "early_late_first_second_store_after_prior_progress": true,
+    "both_preimages_before_first_store": true,
+    "one_preimage_capacity_exhaustion_no_store": true,
+    "joined_discarded_work_charged_separately_from_published_prefix": true
+  },
+  "5_real_api_and_small_state": {
+    "actual_domain": 16384,
+    "checked_A_only_empty_B_C": true,
+    "actual_joined_route_counts": [
+      0,
+      0,
+      1
+    ],
+    "prefix_requested_calls": 98304,
+    "API_window_requested_calls": 24575,
+    "all_three_wholetransaction_cancellations_restore_own_raw_original": true,
+    "small_domain": 8,
+    "passed_checks": [
+      "observed-red four-prefetch discriminator",
+      "private/global scratch refusal vs invalidbase error",
+      "publiccallback serial first-write count",
+      "zero-budget no-op",
+      "cancel between calls",
+      "attempt saturation",
+      "committedpartial canonical recovery",
+      "postpromotion recycled-slot raw rollback",
+      "unchanged committed counters",
+      "ordinary positive and wrongpublic negative verification"
+    ],
+    "recovery_contract": "canonical group values and same metadata after compressed codec normalization; raw x/y/z retained for live batch and same-state rollback"
+  },
+  "6_work_inventory": {
+    "direct_kernel_setup_reference_total_asserted": 1565046,
+    "actual_api_setup_and_proof_group_operand_conservative_bound": 1500000,
+    "all_small_setup_proof_group_operand_conservative_bound": 100000,
+    "total_modeled_bound": 3165046,
+    "initial_ceiling": 3500000,
+    "upstream_boundary": "scalar-output/MSM-input equivalents and declared group FFT work; not exact machine multiplication count",
+    "inventory": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-test-inventory-001.json",
+      "bytes": 4909,
+      "sha256": "ff47b38eee12f75039a2e592bb1aeca86eb4f17d5e775531cf7efeab1dbb8a6c",
+      "mode": "0o600"
+    }
+  },
+  "7_resources_and_cleanup": {
+    "duration_seconds": 41.27868033305276,
+    "sample_count": 185,
+    "sampled_peak_owned_tree_rss_bytes": 100499456,
+    "sampled_peak_storage_growth_bytes": 2642,
+    "exit_code": 0,
+    "stop_reason": null,
+    "runner_error_type": null,
+    "cleanup_remaining_owned_processes": 0,
+    "cleanup_status_unknown": false,
+    "limits": {
+      "runtime_seconds": 120.0,
+      "owned_tree_rss_bytes": 536870912,
+      "storage_growth_bytes": 4194304,
+      "poll_seconds": 0.2
+    },
+    "host_complete": {
+      "event": "host_supervisor_complete",
+      "primary_host_cause": null,
+      "cleanup_verified": true,
+      "runner_returncode": 0,
+      "primary_runner_report_present": true,
+      "measurement_outcome": "completed_under_fixed_budget",
+      "additional_monitoring_planning_bytes": 201326592,
+      "monitoring_reserve_is_enforced": false,
+      "raw_runner_report_sha256": "dbb9884d3cd0f4f65c92b946a0444689ee34b2b7308b150be78e2ba0d4eeb05c",
+      "whole_monitor_seconds": 42.29151879204437,
+      "runner_report_fields_unmodified": true,
+      "samples_retained_in_original_files_only": true,
+      "resource_policy_id": "dynark-fixed-budget-v1",
+      "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+      "utc": "2026-10-15T00:16:20Z"
+    },
+    "wrapper_complete": {
+      "event": "reconstruction_focused_complete",
+      "case": "focused",
+      "primary_cause": null,
+      "cleanup_verified": true,
+      "primary_report_unmodified": true,
+      "resource_policy_id": "dynark-fixed-budget-v1",
+      "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+      "utc": "2026-10-15T00:16:20Z"
+    },
+    "all_within_original_caps": true
+  },
+  "8_preservation_and_postpins": {
+    "external_post_pins": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-runtime-002-external-post-pins.json",
+      "bytes": 38160,
+      "sha256": "e1b15d49c2704e099d3c4a45fea301daf74c68e100b532cd28c7e9cd612e98bd",
+      "mode": "0o600"
+    },
+    "entries_unchanged": 78,
+    "all_hash_uid_mode_no_symlink_checks_passed": true,
+    "source001_compile_and_binary_preserved": true,
+    "runtime001_revoked_and_never_executed": true,
+    "red_runtime_failed101_preserved": true,
+    "static_recovery_oracle_diagnosis": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-static-recovery-oracle-001.json",
+      "bytes": 945,
+      "sha256": "d38785ccd0b0ef08df7ffaa38ec1557d111b9b81c006c2ddb96a647c719152e2",
+      "mode": "0o600"
+    }
+  },
+  "9_next_gate": {
+    "root_authorized_timing_source_only_after_these_pins_pass": true,
+    "timing_authoring_plan": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-timing-authoring-plan-001.json",
+      "bytes": 5982,
+      "sha256": "3ab585a025c44975d355909908137423bc6dcc0a97ceea68e1e5b96e2df6b4ea",
+      "mode": "0o600"
+    },
+    "source_changes": "isolated cfgtest pending equality/invariant seam plus one ignored timing method; no production changes",
+    "compile_and_runtime_need_new_exact_ROOT_grants": true,
+    "no_production_latency_or_CPU_claim_from_correctness_gate": true,
+    "actual_credential_promotion_recovery_gate_still_separate": true
+  }
+}

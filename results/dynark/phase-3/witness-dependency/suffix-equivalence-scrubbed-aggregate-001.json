@@ -1,0 +1,169 @@
+{
+  "status": "parent-reviewed-fixed-ten-level-single-sibling-suffix-field-equivalence-three-fixtures",
+  "scope": "Offline fixed credential circuit experimental evaluator. Exactly one changed sibling and suppliedroot; allother inputs/selectors/slot/certificate/action fixed and bound to reviewed baseline. Actual near0/middle5/far9; everyk/bothselectors synthetic unit coverage.",
+  "evaluator_source": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/suffix-evaluator-source-freeze-001.json",
+    "bytes": 5412,
+    "sha256": "f70bd42159e648ef9839a2482e71428b5c548c05e281fb07279c801cfc8f38d2",
+    "mode": "0o600"
+  },
+  "compiler_mapping_acceptance": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/path-suffix-mapping-scrubbed-acceptance-002.json",
+    "bytes": 3350,
+    "sha256": "4ee47357fb0fe4503d5172954792aa2a2a365a3cb780eeef4d98614ae940e072",
+    "mode": "0o600"
+  },
+  "unit_gate": {
+    "test_methods": 37,
+    "accepted_far_regression_methods": 21,
+    "new_suffix_methods": 16,
+    "all_passed": true,
+    "new_tests_authored_before_source": true,
+    "new_red_observed": false,
+    "primary": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/suffix-evaluator-unit-run-001/primary.json",
+      "bytes": 14504,
+      "sha256": "135edff3d56fabd5a8952041bd23bb97ff2281b51b30740b59dcafd35abe90f9",
+      "mode": "0o600"
+    },
+    "stderr": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/suffix-evaluator-unit-run-001/bounded/stderr.log",
+      "bytes": 5865,
+      "sha256": "27e11eb069efcefcc286e8119925661b38e1b990319a8847efc89e46a5711922",
+      "mode": "0o600"
+    },
+    "identities_before": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/suffix-evaluator-unit-run-001/identities-before.json",
+      "bytes": 8254,
+      "sha256": "34b10f7839294eeca23b050964cd0ad52d24f5d5745d0ba2466880364feca851",
+      "mode": "0o600"
+    },
+    "identities_after": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/suffix-evaluator-unit-run-001/identities-after.json",
+      "bytes": 8254,
+      "sha256": "34b10f7839294eeca23b050964cd0ad52d24f5d5745d0ba2466880364feca851",
+      "mode": "0o600"
+    },
+    "duration_seconds": 17.48150904092472,
+    "sampled_peak_owned_tree_rss_bytes": 269631488,
+    "sample_count": 79,
+    "sampled_peak_storage_growth_bytes": 7196
+  },
+  "cases": [
+    {
+      "case": "near",
+      "changed_sibling": 0,
+      "suffix_components": 10,
+      "coordinates_compared": 643563,
+      "mismatches": 0,
+      "selected_aliases": 2501,
+      "auxiliary_aliases": 1,
+      "named_signals": 7690,
+      "conservative_scope": 5191,
+      "direct_nonzero_deltas": 5081,
+      "baseline_and_outside_unchanged": true,
+      "accepted_equivalence_receipt": {
+        "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/suffix-near-equivalence-accepted-001.json",
+        "bytes": 6479,
+        "sha256": "020584fb3fd6bef9279b5cfcf3a1e841492c39d68da6f10b371f85b789f7ab7b",
+        "mode": "0o600"
+      },
+      "metrics": {
+        "duration_seconds": 0.926229125005193,
+        "sampled_peak_owned_tree_rss_bytes": 187645952,
+        "sample_count": 5,
+        "sampled_peak_storage_growth_bytes": 21224003
+      }
+    },
+    {
+      "case": "middle",
+      "changed_sibling": 5,
+      "suffix_components": 5,
+      "coordinates_compared": 643563,
+      "mismatches": 0,
+      "selected_aliases": 1251,
+      "auxiliary_aliases": 1,
+      "named_signals": 3845,
+      "conservative_scope": 2596,
+      "direct_nonzero_deltas": 2541,
+      "baseline_and_outside_unchanged": true,
+      "accepted_equivalence_receipt": {
+        "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/suffix-middle-equivalence-accepted-001.json",
+        "bytes": 6506,
+        "sha256": "5f7ae046906d747f743971a5e2bff391330df315ff614462886818397799aae0",
+        "mode": "0o600"
+      },
+      "metrics": {
+        "duration_seconds": 0.927401875029318,
+        "sampled_peak_owned_tree_rss_bytes": 187531264,
+        "sample_count": 5,
+        "sampled_peak_storage_growth_bytes": 20910480
+      }
+    },
+    {
+      "case": "far",
+      "changed_sibling": 9,
+      "suffix_components": 1,
+      "coordinates_compared": 643563,
+      "mismatches": 0,
+      "selected_aliases": 251,
+      "auxiliary_aliases": 1,
+      "named_signals": 769,
+      "conservative_scope": 520,
+      "direct_nonzero_deltas": 509,
+      "baseline_and_outside_unchanged": true,
+      "accepted_equivalence_receipt": {
+        "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/suffix-far-equivalence-accepted-001.json",
+        "bytes": 6370,
+        "sha256": "dd76775e34cdea03c14139155053f157d6c8ffe59cb77dedbc17b84f09bbe556",
+        "mode": "0o600"
+      },
+      "metrics": {
+        "duration_seconds": 1.1547991660190746,
+        "sampled_peak_owned_tree_rss_bytes": 221134848,
+        "sample_count": 6,
+        "sampled_peak_storage_growth_bytes": 20659477
+      }
+    }
+  ],
+  "accepted_invariants": [
+    "Load exact accepted per-level767name/518retained/249alias mappings; do not copy alias offsets.",
+    "Scope519L+1; selectednamed769L andaliases250L+1; auxiliaryslotBits.in1separate.",
+    "Start reviewed baseline node[k], use stable selectors and unchanged upper siblings, recompute full suffix k..9. Assert computedroot matches independently suppliedtargetroot.",
+    "All643563canonical fields equal independently generated original full target, all selected aliases/intermediates and retained values checked, every outside coordinate including0/tail unchanged and baseline immutable.",
+    "Direct sorted unique nonzero modular deltas; no evaluator WASM re-entry, proof cache, anchor/preprocessing generation or product integration."
+  ],
+  "ordinary_proof_status": {
+    "far": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/suffix-far-ordinary-proof-reuse-association-001.json",
+      "bytes": 4269,
+      "sha256": "a9860c9c6843f406782188094f1685cd6af8f75d3d1f900b151adaeb9067391a",
+      "mode": "0o600"
+    },
+    "near": "New shared-import full relation/ordinary proof gate source accepted; compile queued separately, runtime not granted or executed.",
+    "middle": "Same pending separate two-candidate gate.",
+    "new_near_middle_proofs_executed": false,
+    "new_far_proof_executed": false
+  },
+  "proof_source": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/suffix-ordinary-proof-source-freeze-001.json",
+    "bytes": 23567,
+    "sha256": "90721f7b1c74ab7e12faa7937c4bee4dae557702e0f453da284ee08ed4795c02",
+    "mode": "0o600"
+  },
+  "limits": [
+    "Three exact actual fixtures and public/synthetic discriminators, no arbitrary-circuit/depth/multi-sibling support.",
+    "Single bounded correctness trials, not matched witness-generation benchmark, speedup, tail or end-to-end economics.",
+    "Existing baseline relation validations reused with reviewed raw/source provenance; no baseline regeneration or fresh full-relation checks by these comparators.",
+    "Proof validity and application current-root authorization remain separate; no product/zkey/Solana interoperability claim."
+  ],
+  "measurement_notes": [
+    "RSS from ps KiB converted to bytes; sum of live owned tree; not heap allocation",
+    "storage is positive logical file-size growth per supplied root; excludes deleted-file peak between samples",
+    "limits sampled; short spikes and daemonized ancestry escape between samples may be missed",
+    "samples include guardian and its helpers; exclude runner and runner ps RSS; original deadline includes guardian setup",
+    "EOF guardian receipts are distinct from final runner reports; deliberate group escape is unsupported",
+    "child stdout/stderr/argv retained only in protected output"
+  ],
+  "private_values_or_delta_contents_included": false
+}
