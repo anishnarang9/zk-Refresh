@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "scope": "finite mocked loopback RPC normal-report finalized-bytes regression, no validator",
+  "review_state": "RED_source_only_awaiting_ROOT_grant",
+  "source_pins": {
+    "harness/Cargo.toml": "e8c6d7b782f1c9c5a629783423b7e9999cba28c48636dd3abd231e1d8229a274",
+    "harness/Cargo.lock": "1e9ed2ece56706afe2e3e132d76e1f79b84d9236743249310a9d319f74019177",
+    "harness/src/solana.rs": "11f808e49a235c56cca7bc4a5bc6f093ff0240c3c4adc2bcf2bd29ae7002a970"
+  },
+  "environment": {
+    "CARGO_BUILD_JOBS": "1",
+    "RAYON_NUM_THREADS": "4",
+    "OMP_NUM_THREADS": "1"
+  },
+  "argv": [
+    "/usr/bin/python3",
+    "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/bootstrap/bounded_runner.py",
+    "--owner",
+    "part5-v2-finalized-effect-red-001",
+    "--cwd",
+    "/Users/anishnarang/Zk-refresh",
+    "--private-output",
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v2-finalized-effect-red-monitor-001",
+    "--report",
+    "/Users/anishnarang/Zk-refresh/results/dynark/part5/v2-finalized-effect-red-bounded-001.json",
+    "--runtime-seconds",
+    "180",
+    "--rss-bytes",
+    "2147483648",
+    "--storage-bytes",
+    "268435456",
+    "--storage-path",
+    "/Users/anishnarang/Zk-refresh/harness/target",
+    "--poll-seconds",
+    "0.25",
+    "--",
+    "/Users/anishnarang/.cargo/bin/cargo",
+    "test",
+    "--offline",
+    "--locked",
+    "--manifest-path",
+    "/Users/anishnarang/Zk-refresh/harness/Cargo.toml",
+    "--lib",
+    "solana::queue_v2::finalized_report_tests",
+    "--",
+    "--test-threads=1"
+  ],
+  "expected": "2 executed assertion failures from old slot-only helper; compile/resource failure is not RED",
+  "post_RED_minimal_repair": "normal_finalized_report_slot first calls wait_finalized then existing finalized_effect(p, exact consumed request, exact one-entry queue), verifies returned slot >= rooted replay slot, and returns exact helper slot before normal report"
+}

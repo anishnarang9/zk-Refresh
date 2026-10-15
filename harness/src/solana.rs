@@ -2152,6 +2152,171 @@ pub mod queue_v2 {
             thread::sleep(Duration::from_millis(250));
         }
     }
+    // RED extraction preserves the former normal-report slot-only behavior.
+    fn normal_finalized_report_slot(
+        rpc: &Rpc,
+        _plan: &QueuePlan,
+        _request: &[u8],
+        _queue: &[u8],
+        events: &[Value],
+    ) -> Result<u64> {
+        wait_finalized(rpc, events)
+    }
+
+    #[cfg(test)]
+    mod finalized_report_tests {
+        use super::*;
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+        use std::sync::{Arc, Mutex};
+
+        // A finite loopback JSON-RPC script. No validator, keys or transactions.
+        fn scripted_rpc(
+            request: Vec<u8>,
+            queue: Vec<u8>,
+            program: [u8; 32],
+        ) -> (Rpc, Arc<Mutex<Vec<Value>>>, thread::JoinHandle<()>) {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            listener.set_nonblocking(true).unwrap();
+            let address = listener.local_addr().unwrap();
+            let calls = Arc::new(Mutex::new(Vec::new()));
+            let recorded = calls.clone();
+            let server = thread::spawn(move || {
+                let end = Instant::now() + Duration::from_secs(2);
+                for index in 0..4 {
+                    let mut connection = loop {
+                        match listener.accept() {
+                            Ok((stream, _)) => break stream,
+                            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                                if Instant::now() >= end {
+                                    return;
+                                }
+                                thread::sleep(Duration::from_millis(5));
+                            }
+                            Err(e) => panic!("mock RPC accept: {e}"),
+                        }
+                    };
+                    connection
+                        .set_read_timeout(Some(Duration::from_secs(1)))
+                        .unwrap();
+                    let mut raw = Vec::new();
+                    let body = loop {
+                        let mut b = [0u8; 4096];
+                        let n = connection.read(&mut b).unwrap();
+                        assert!(n > 0);
+                        raw.extend(&b[..n]);
+                        assert!(raw.len() < 32768);
+                        if let Some(split) = raw.windows(4).position(|w| w == b"\r\n\r\n") {
+                            let headers = String::from_utf8(raw[..split].to_vec()).unwrap();
+                            let length = headers
+                                .lines()
+                                .find_map(|line| {
+                                    line.to_ascii_lowercase()
+                                        .strip_prefix("content-length:")
+                                        .map(|v| v.trim().parse::<usize>().unwrap())
+                                })
+                                .unwrap();
+                            if raw.len() >= split + 4 + length {
+                                break raw[split + 4..split + 4 + length].to_vec();
+                            }
+                        }
+                    };
+                    let call: Value = serde_json::from_slice(&body).unwrap();
+                    recorded.lock().unwrap().push(call.clone());
+                    let result = match (index, call["method"].as_str()) {
+                        (0, Some("getSlot")) => json!({"jsonrpc":"2.0","id":1,"result":100}),
+                        (1 | 2, Some("getAccountInfo")) => {
+                            let bytes = if index == 1 { &request } else { &queue };
+                            json!({"jsonrpc":"2.0","id":1,"result":{"context":{"slot":100},"value":{"owner":pk(program).to_string(),"executable":false,"data":[STANDARD.encode(bytes),"base64"]}}})
+                        }
+                        (3, Some("getSlot")) => json!({"jsonrpc":"2.0","id":1,"result":101}),
+                        _ => {
+                            json!({"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"finite mock ended while exact finalized bytes still differ"}})
+                        }
+                    };
+                    let response = serde_json::to_vec(&result).unwrap();
+                    write!(connection,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",response.len()).unwrap();
+                    connection.write_all(&response).unwrap();
+                }
+            });
+            let rpc = Rpc {
+                endpoint: format!("http://{address}"),
+                client: Client::builder()
+                    .no_proxy()
+                    .timeout(Duration::from_secs(1))
+                    .build()
+                    .unwrap(),
+            };
+            (rpc, calls, server)
+        }
+        fn plan() -> QueuePlan {
+            QueuePlan {
+                genesis: [1; 32],
+                program: [2; 32],
+                config: [3; 32],
+                queue: [4; 32],
+                request: [5; 32],
+                issuer_account: [6; 32],
+                admin: [7; 32],
+                publisher: [8; 32],
+                source: [9; 32],
+                seed: [10; 32],
+                nonce: [11; 32],
+                recipient: [12; 32],
+                policy_id: [13; 32],
+                deadline: 1000,
+                payload: vec![],
+                expected_inputs: [[0; 32]; 5],
+            }
+        }
+        #[test]
+        fn advanced_finalized_slot_with_different_finalized_bytes_cannot_report_success() {
+            let p = plan();
+            let expected_request = vec![2; 2249];
+            let expected_queue = vec![3; 2090];
+            let mut wrong_request = expected_request.clone();
+            wrong_request[183] ^= 1;
+            let (rpc, calls, server) =
+                scripted_rpc(wrong_request, expected_queue.clone(), p.program);
+            let result = normal_finalized_report_slot(
+                &rpc,
+                &p,
+                &expected_request,
+                &expected_queue,
+                &[json!({"slot":90})],
+            );
+            server.join().unwrap();
+            assert!(
+                result.is_err(),
+                "slot100>=replay90 must not attest divergent finalized bytes"
+            );
+            let calls = calls.lock().unwrap();
+            assert!(
+                calls
+                    .iter()
+                    .filter(|c| c["method"] == "getAccountInfo")
+                    .count()
+                    >= 2
+            );
+            assert!(calls
+                .iter()
+                .all(|c| c["params"][0]["commitment"] == "finalized"
+                    || c["params"][1]["commitment"] == "finalized"));
+        }
+        #[test]
+        fn normal_report_uses_slot_returned_after_exact_finalized_bytes() {
+            let p = plan();
+            let request = vec![2; 2249];
+            let queue = vec![3; 2090];
+            let (rpc, calls, server) = scripted_rpc(request.clone(), queue.clone(), p.program);
+            let result =
+                normal_finalized_report_slot(&rpc, &p, &request, &queue, &[json!({"slot":90})]);
+            server.join().unwrap();
+            assert_eq!(result.unwrap(), 101);
+            assert_eq!(calls.lock().unwrap().len(), 4);
+        }
+    }
+
     #[derive(serde::Deserialize)]
     #[serde(deny_unknown_fields)]
     struct PublicContext {
@@ -2633,7 +2798,8 @@ pub mod queue_v2 {
                 && state(&rpc, p.queue, p.program, 2090)? == completed_queue,
             "replay changed exact completed state"
         );
-        let finalized_slot = wait_finalized(&rpc, &events)?;
+        let finalized_slot =
+            normal_finalized_report_slot(&rpc, &p, &expected_request, &completed_queue, &events)?;
         new_json(
             &out.join("execute-report.json"),
             &json!({"passed":true,"scope":"actual local loaded application Full proof and exact protected queue effect","finalized_slot":finalized_slot,"full_only":true,"synthetic_signed_source_observation":true,"upstream_issuer_check":false,"source_observation_digest":hex::encode(observation_digest),"public_context_sha256":env("P5_QUEUE_CONTEXT_SHA256")?,"loaded_program":loaded,"plan_sha256":env("P5_QUEUE_PLAN_SHA256")?,"wire_sha256":env("P5_QUEUE_FULL_WIRE_SHA256")?,"request":pk(p.request).to_string(),"queue":pk(p.queue).to_string(),"effect_count":1,"request_consumed":true,"publisher_binding_current":true,"bound_root_version":root_version,"bound_source_sequence":source_sequence,"request_sha256":hex::encode(Sha256::digest(expected_request)),"queue_sha256":hex::encode(Sha256::digest(completed_queue)),"transactions":events,"devnet":false,"anchor_refresh":false}),
