@@ -99,6 +99,7 @@ fn observe_and_bind(c: &Config, i: &mut Issuer, now: i64, digest: u8) {
         i.sequence,
         i.sequence + 1,
         [digest; 32],
+        true,
         now,
         now + 300,
         now,
@@ -383,6 +384,7 @@ fn status_and_publication_require_their_own_signed_authorities_and_exact_predece
             0,
             1,
             [1; 32],
+            true,
             100,
             400,
             100
@@ -401,6 +403,7 @@ fn status_and_publication_require_their_own_signed_authorities_and_exact_predece
             0,
             1,
             [1; 32],
+            true,
             100,
             400,
             100
@@ -415,6 +418,7 @@ fn status_and_publication_require_their_own_signed_authorities_and_exact_predece
         0,
         1,
         [1; 32],
+        true,
         100,
         400,
         100,
@@ -482,6 +486,7 @@ fn source_updates_only_its_issuer_and_never_retime_identical_evidence() {
             1,
             2,
             [1; 32],
+            true,
             101,
             401,
             101
@@ -495,6 +500,7 @@ fn source_updates_only_its_issuer_and_never_retime_identical_evidence() {
         1,
         2,
         [3; 32],
+        true,
         101,
         401,
         101,
@@ -586,6 +592,7 @@ fn issuer_disable_reenable_retains_source_predecessor_and_does_not_disable_other
             0,
             1,
             [3; 32],
+            true,
             101,
             401,
             101
@@ -667,6 +674,7 @@ fn presigned_observe_before_config_toggle_cannot_be_relabeled_to_current_epoch()
             1,
             2,
             [2; 32],
+            true,
             101,
             401,
             101
@@ -695,6 +703,7 @@ fn presigned_observe_before_config_toggle_cannot_be_relabeled_to_current_epoch()
         1,
         2,
         [2; 32],
+        true,
         101,
         401,
         101,
@@ -747,6 +756,7 @@ fn presigned_observe_before_issuer_toggle_cannot_be_relabeled_to_current_epoch()
             1,
             2,
             [2; 32],
+            true,
             101,
             401,
             101
@@ -775,6 +785,7 @@ fn presigned_observe_before_issuer_toggle_cannot_be_relabeled_to_current_epoch()
         1,
         2,
         [2; 32],
+        true,
         101,
         401,
         101,
@@ -828,9 +839,10 @@ fn observe_and_bind_wire_include_both_signed_epoch_predecessors() {
         observe.extend(value.to_be_bytes());
     }
     observe.extend([9; 32]);
+    observe.push(1);
     observe.extend(100i64.to_be_bytes());
     observe.extend(400i64.to_be_bytes());
-    assert_eq!(observe.len(), 82);
+    assert_eq!(observe.len(), 83);
     assert_eq!(
         AppInstruction::parse(&observe),
         Ok(AppInstruction::Observe {
@@ -839,6 +851,7 @@ fn observe_and_bind_wire_include_both_signed_epoch_predecessors() {
             expected: 4,
             sequence: 5,
             digest: [9; 32],
+            active: true,
             observed: 100,
             expires: 400
         })
@@ -927,6 +940,7 @@ fn freshness_and_observation_boundaries_are_inclusive_and_checked_without_mutati
                 expected,
                 next,
                 digest,
+                true,
                 observed,
                 expires,
                 now
@@ -945,6 +959,7 @@ fn freshness_and_observation_boundaries_are_inclusive_and_checked_without_mutati
             u64::MAX,
             0,
             [2; 32],
+            true,
             101,
             401,
             101
@@ -1031,6 +1046,7 @@ fn disabled_states_cannot_observe_and_same_root_publication_still_invalidates_bi
             1,
             2,
             [2; 32],
+            true,
             101,
             401,
             101
@@ -1049,6 +1065,7 @@ fn disabled_states_cannot_observe_and_same_root_publication_still_invalidates_bi
             1,
             2,
             [2; 32],
+            true,
             101,
             401,
             101

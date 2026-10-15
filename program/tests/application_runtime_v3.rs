@@ -153,6 +153,7 @@ fn observe(ce: u64, ie: u64, expected: u64, next: u64, digest: u8, time: i64) ->
         b.extend(n.to_be_bytes());
     }
     b.extend([digest; 32]);
+    b.push(1); // Existing administrative cases explicitly authenticate active.
     b.extend(time.to_be_bytes());
     b.extend((time + 300).to_be_bytes());
     b

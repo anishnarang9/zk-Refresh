@@ -269,6 +269,7 @@ pub fn process(program: &Pubkey, accounts: &[AccountInfo], bytes: &[u8]) -> Prog
             expected,
             sequence,
             digest,
+            active,
             observed,
             expires,
         } => {
@@ -277,9 +278,8 @@ pub fn process(program: &Pubkey, accounts: &[AccountInfo], bytes: &[u8]) -> Prog
             let mut i = load_issuer(program, &accounts[1], &accounts[2])?;
             authority(&accounts[0], &i.source)?;
             epochs(&c, &i, expected_config_epoch, expected_issuer_epoch)?;
-            // This frozen administrative wire records authenticated observation
-            // validity only. It has no issuer-active bit. A separately reviewed
-            // status revision is REQUIRED before any Execute handler is enabled.
+            // Preserve the authenticated active/negative fact exactly; neither
+            // current epochs nor the source signature imply active status.
             i.observe(
                 &c,
                 actor(&accounts[0]),
@@ -288,6 +288,7 @@ pub fn process(program: &Pubkey, accounts: &[AccountInfo], bytes: &[u8]) -> Prog
                 expected,
                 sequence,
                 digest,
+                active,
                 observed,
                 expires,
                 Clock::get()?.unix_timestamp,

@@ -46,12 +46,13 @@ Every root publication invalidates bindings to the previous root. An Observe
 for an issuer invalidates that issuer's old source binding. Source sequence
 zero is unobserved, even if a zero-valued publisher field matches it.
 An authenticated source observation can report `issuer_status_active=false`.
-The program must retain its signed sequence/head as a negative fact while
-blocking authorization and current binding. It must not turn that observation
-into a valid active status simply because its source signature is authentic.
-The current state model's `observe` method has no active-status argument and
-always sets `status_valid=true`; this is a required tests-first repair before
-Execute is enabled.
+The exact 83-byte Observe wire carries a canonical signed active byte at
+offset 66, after the digest. The program retains the signed sequence, digest
+and times for an inactive observation as a negative fact while setting
+`status_valid=false`; authorization and Bind reject it. A later active
+observation must advance the sequence and still requires an explicit Bind.
+The previous 82-byte wire is rejected. This host-tested repair does not
+authenticate the upstream source envelope or enable Execute by itself.
 
 ## Execute checks and effect
 

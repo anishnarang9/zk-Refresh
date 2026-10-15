@@ -453,6 +453,7 @@ impl Issuer {
         expected: u64,
         sequence: u64,
         digest: [u8; 32],
+        active: bool,
         observed: i64,
         expires: i64,
         now: i64,
@@ -489,7 +490,10 @@ impl Issuer {
         self.expires_at = expires;
         self.observed_config_epoch = expected_config_epoch;
         self.observed_issuer_epoch = expected_issuer_epoch;
-        self.status_valid = true;
+        // A negative source fact advances the authenticated observation without
+        // granting authorization. Any previous binding is invalidated by the new
+        // sequence/digest (and, for inactive status, by status_valid itself).
+        self.status_valid = active;
         Ok(())
     }
     pub fn fresh(&self, config: &Config, now: i64) -> Result<()> {
@@ -756,7 +760,8 @@ pub fn action_hash(program: &Pubkey, c: &Config, r: &Request) -> Result<[u8; 32]
 
 /// Prefix0x51; each wire variant is exact length with no trailing bytes.
 /// Observe body: config_epoch, issuer_epoch, expected_seq, next_seq (each u64 BE),
-/// digest32, observed_i64, expires_i64: 82 bytes including prefix/opcode.
+/// digest32, active_bool at offset66, observed_i64, expires_i64: 83 bytes including
+/// prefix/opcode. Active is a signed canonical byte (0 or 1), never inferred.
 /// BindCurrent body: config_epoch, issuer_epoch, root_version, source_sequence:
 /// four u64 BE, 34 bytes including prefix/opcode. Epochs are signed predecessors.
 #[derive(Debug, PartialEq, Eq)]
@@ -791,6 +796,7 @@ pub enum AppInstruction {
         expected: u64,
         sequence: u64,
         digest: [u8; 32],
+        active: bool,
         observed: i64,
         expires: i64,
     },
@@ -870,6 +876,7 @@ impl AppInstruction {
                 expected: r.u64()?,
                 sequence: r.u64()?,
                 digest: r.take()?,
+                active: r.boolean()?,
                 observed: r.i64()?,
                 expires: r.i64()?,
             },
