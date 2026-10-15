@@ -24,19 +24,24 @@ demonstrate a reusable public proof shape, but no v3 application authorization
 or corpus-wide refresh economics. The v3 program has six-field state/parser
 and administrator host tests, including signed inactive-status handling,
 bounded request staging and a per-config/issuer/publisher head commitment.
-Its 69 focused host tests pass, including a read-only, non-authorizing Execute
-preflight. Publisher-head CPI, proof-verifying Execute, the loaded ELF and
-atomic queue effect still need local-validator evidence. The registry
+Its read-only Execute preflight, canonical six-input ordinary VK, and direct
+Full-proof component verification now pass host tests. The full program host
+regression passes 109 tests. Publisher-head CPI, proof-verifying Execute, the
+loaded ELF and atomic queue effect still need local-validator evidence. The registry
 verifies per-issuer source and private publisher-envelope signatures/claims;
-caller-JSON authorization stays closed. A separate six-test finalized
-deployment consistency checker now validates loader, ELF, config and Clock
-against supplied pins; the production transport and authenticated current
-issuer/head/request capability remain open. The native client has DER admission, a shareable setup
+caller-JSON authorization stays closed. A finalized chain-current checker
+now validates one ordered account batch for deployment, issuer, head, request,
+queue and Clock against supplied pins. Its production RPC constructor remains
+closed; a bounded loopback JSON-RPC response parser is in tests-first RED.
+These supplied pins do not constitute independent deployment authority. The
+native client has DER admission, a shareable setup
 loader, canonical action checks, a Full-envelope check and the pinned
 751-coordinate compiler map. Its pure complete-input builder and private CLI
-passed seven and twelve tests respectively. The Rust client still does not
-consume that candidate through complete-WTNS/R1CS comparison, and its real
-Full witness/proof workflow still rejects. The frozen unseen credential cohort
+passed seven and twelve tests respectively. The Rust client now has a
+private worker transport and independent 751-coordinate candidate comparison;
+its first genuine worker roundtrip qualification is in progress. It still
+does not import a complete WTNS or validate an R1CS in the standard client,
+and its real Full witness/proof workflow still rejects. The frozen unseen credential cohort
 has not been generated or run.
 
 For the v3 successor, Execute requires **six** ordered public fields and the
