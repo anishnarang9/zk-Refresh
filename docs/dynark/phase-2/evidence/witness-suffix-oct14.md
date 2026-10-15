@@ -1,6 +1,6 @@
 # Fixed-depth witness suffix prerequisites, October 14
 
-The fixed ten-level evaluator has matched all 643,563 original witness coordinates for near, middle and far revocation fixtures, including compiler aliases and intermediate values. All three candidates have ordinary Groth16 proof evidence. This record follows the mapping prerequisites through those correctness gates; matched performance and product integration remain open.
+The fixed ten-level evaluator has matched all 643,563 original witness coordinates for near, middle and far revocation fixtures, including compiler aliases and intermediate values. All three candidates have ordinary Groth16 proof evidence. The matched witness pilot below is now accepted; product integration and a combined refresh benchmark remain open.
 
 ## Preserved mapping failure and diagnosed cause
 
@@ -77,4 +77,22 @@ ROOT and the independent reviewer accepted the isolated 74-file benchmark source
 
 The finite protocol gate passed all thirteen Python methods, twenty-one Node checks and the Node worker syntax check. ROOT executed once under supervisor006, read all output and checked cleanup; all 94 identity/mode pins matched. Bounded duration was 0.485471 seconds with only three RSS samples, so this is correctness evidence only. Primary/duplicate report SHA-256: `473e691e13d7363ca0a1c00593af6d9928762c3051a45422a40e9438569afc62`. [Protocol acceptance](../../../../results/dynark/phase-3/witness-dependency/witness-measurement-unit-scrubbed-acceptance-001.json).
 
-The exact offline locked single-job baseline-validator build completed in 67.723827 seconds with 539,459,584-byte sampled peak RSS and known clean cleanup. Cargo emitted one matching bin artifact and `build-finished: success`; all 96 checked pins matched. Primary/duplicate report SHA-256: `bd87514938c003c03620180a91d64ca9b4391d9184345216fcfc2e622c0815d8`. Cargo retained a nonfatal debug-stripping tool warning along with unused-code warnings; no rebuild was performed. The actual emitted binary and a separate runtime grant must be bound before the 300-second / 4-GiB / 1-GiB measurement. No speed result follows from these prerequisites.
+The exact offline locked single-job baseline-validator build completed in 67.723827 seconds with 539,459,584-byte sampled peak RSS and known clean cleanup. Cargo emitted one matching bin artifact and `build-finished: success`; all 96 checked pins matched. Primary/duplicate report SHA-256: `bd87514938c003c03620180a91d64ca9b4391d9184345216fcfc2e622c0815d8`. Cargo retained a nonfatal debug-stripping tool warning along with unused-code warnings; no rebuild was performed. ROOT compared the emitted executable with its frozen copy, SHA-256 `6d4a1cfd5c4f2e43d1d96126a00f3b0b14d0affc192ee4a54d43641a02c8e63e`, before granting the measurement.
+
+## Accepted matched witness pilot
+
+All 48 complete outputs matched the accepted original targets byte for byte. ROOT read the complete result and independently calculated the five-pair warm medians below; independent postflight rechecked every output and all 127 source/tool/input/receipt identities and modes. Six excluded warmup outputs remain paid and checked. Each case also has two fresh generator/evaluator process pairs, with OS caches uncontrolled.
+
+| Case | Full warm median | Incremental warm median | Ratio of medians | Paired wins |
+|---|---:|---:|---:|---:|
+| Near | 3.168751 s | 0.202172 s | 15.67× | 5/5 |
+| Middle | 3.121085 s | 0.196901 s | 15.85× | 5/5 |
+| Far | 3.187004 s | 0.199047 s | 16.01× | 5/5 |
+
+The windows include a complete 20,594,092-byte WTNS output and file write/close. Incremental generation retains input authentication, full canonical scans, compiler-alias and unaffected-coordinate checks, and full witness plus sparse-delta materialization. The full control uses the unchanged original calculator. There is no durable-fsync or delta-only consumer claim.
+
+The whole pilot took 189.240558 seconds, with 989,118,464-byte sampled peak workload-tree RSS, 847 samples and 988,568,922-byte observed output growth, within its unchanged 300-second / 4-GiB / 1-GiB limits. Primary and duplicate report SHA-256: `599c4073c751128845e3a72730adf2f179f9982218aa680595909d30bf24d52c`. It exited zero with empty stderr, no stop/error and known clean cleanup; ROOT observed all 32 former workload processes absent. RSS includes the resident validator and idle workers and is not a per-lane peak.
+
+Shared validation-context startup cost 103.133312 seconds once, including package import. Nine baseline admissions cost 1.256472 seconds; all 24 full-generation windows cost 77.336912 seconds and all 24 incremental windows 5.544847 seconds. These disjoint paid components, warm process setup, all 48 external comparisons and residual overhead reconcile to the whole workload. Child component times are nested, not added twice. Fresh evaluator windows ranged from 0.265377 to 0.335217 seconds; adding the separately measured context and admission gives only a composed first-use estimate. Initial baseline generation and earlier preparation are not silently treated as free.
+
+The [scrubbed aggregate](../../../../results/dynark/phase-3/witness-dependency/witness-measurement-scrubbed-aggregate-001.json), SHA-256 `54468485b6df1da54f22833860ccc00e75cab07a8bbbbb79461cf407085d54ca`, preserves all 21 measured pairs, 48 lane records, both ratio definitions and paid costs. This one fixed-fixture pilot establishes a witness-stage improvement on this host. It does not establish average-laptop, chained-update, general-circuit, combined-proof or end-to-end performance. Incremental witness reuse also benefits ordinary full reproving; the gain is not exclusive to DYNARK.

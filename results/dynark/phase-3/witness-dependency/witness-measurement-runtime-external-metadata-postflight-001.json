@@ -1,0 +1,26 @@
+{
+  "status": "current-external-metadata-output-postflight-passed",
+  "operation": "witness-measurement001-paired-pilot",
+  "current_pin_checks": 127,
+  "all_current_hash_size_type_owner_declared_mode_checks_passed": true,
+  "identity_before_after_byte_equal": true,
+  "primary_duplicate_byte_equal": true,
+  "identity_receipt": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-3/witness-dependency/witness-measurement-runtime-001/identities-after.json",
+    "bytes": 36726,
+    "sha256": "0f9b2e18be65f74ca1cfa0af4e4bac7ee9fb61103d856a3b569ca442f5e069c2",
+    "mode": "0o600"
+  },
+  "output_inventory_and_equality": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-3/witness-dependency/witness-measurement-output-inventory-postflight-001.json",
+    "bytes": 30347,
+    "sha256": "53dfbfa7fe768210f0c9c654209a80c9df5015681f448004ee59dfc3a134aecb",
+    "mode": "0o600"
+  },
+  "current_former_host_observed_pids_absent": 32,
+  "parent_all32observed_pids_absent": true,
+  "source_or_adapter_modified": false,
+  "rerun": false,
+  "binary_worker_or_evaluator_executed": false,
+  "main_or_admission_called": false
+}

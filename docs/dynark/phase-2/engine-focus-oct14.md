@@ -10,7 +10,7 @@ Work continues on `codex/engine-focus-oct14` in the existing checkout. Immutable
 |---|---|---|
 | `engine_performance`, Sol high | Anchored and bounded reconstruction optimizations accepted; isolated credential successor next | Preserve the existing ten transitions, two promotions and checkpoint/recovery gate against the adopted engine |
 | `supervision_repair`, Sol medium, completed | Fresh successor runner/supervisor and finite real-child regression tests | Source006 accepted after worker and independent parent checks |
-| `witness_dependency`, Sol high | Ten-level mapping, 37 unit tests, all three full-field comparisons and ordinary proof gates accepted | Matched witness-cost design, with incremental witness reuse available to full reproving too |
+| `witness_dependency`, Sol high | Ten-level mapping, unit/field/proof checks and matched full-output witness pilot accepted | Full warm medians 3.12–3.19 s versus incremental 0.197–0.202 s; all 48 outputs exact; product integration remains open |
 | `engine_gate_review`, Sol high, read-only | Independent algorithm and adoption review | No code ownership or competing execution |
 | Parent | Review, queue, paid-cost interpretation and evidence | Keep accepted, exploratory, interrupted and pending results distinct |
 
@@ -19,6 +19,8 @@ The first performance hypothesis was lost parallelism in group-query sums and pr
 The supervision failure is independently observed: chat interruption removed the outer monitor/runner but left the separately created workload process group alive. The parent stopped and verified cleanup of that exact group. The old dynamic run remains incomplete, with four completed targets and no completed checkpoint/recovery. A successor must handle owner loss before another long trial; no automatic retry is permitted.
 
 ## Execution and reporting
+
+**Latest witness measurement, October 14 evening:** the paired pilot passed all 48 complete output comparisons. Five warm pairs per case measured a 15.67–16.01× ratio of full-generation to incremental-generation medians, including full WTNS materialization/write/close. Startup remains paid: the shared validation context took 103.133 seconds. All 127 postflight pins and known clean cleanup passed. This closes the earlier pending witness-performance item, while combined refresh, product integration and general-circuit claims remain open. [Full witness evidence](evidence/witness-suffix-oct14.md).
 
 **Latest batch adoption, October 14 evening:** the bounded reconstruction patch is accepted after eight focused and nineteen existing regression methods, including 911 checkpoint round trips, 140 resumed proof updates and the 1,000-transition integration sequence. Five matched API pairs measured 0.369258 seconds serial versus 0.099390 seconds bounded median for one eligible 8,192-operation batch. All final identities and cleanup checks passed. This supersedes the pending timing/adoption status in the chronological paragraph below; credential-scale promotion/recovery remains open. See the [adoption evidence](reconstruction-batches-oct14.md).
 

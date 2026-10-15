@@ -1,0 +1,1092 @@
+{
+  "status": "independent-current-output-inventory-and-byte-equivalence-passed",
+  "directories": 3,
+  "regular_files": 88,
+  "worker_stdout_logs": 19,
+  "worker_stderr_logs": 19,
+  "worker_protocol_frames": 95,
+  "worker_stderr_empty": true,
+  "full_witness_files": 48,
+  "each_witness_bytes": 20594092,
+  "total_witness_bytes": 988516416,
+  "all_output_fields_inherit_accepted_canonical_full_relation_targets_by_complete_byte_equality": true,
+  "all_private_owner_modes_and_no_symlinks": true,
+  "outputs": [
+    {
+      "case": "near",
+      "session": "fresh0",
+      "lane": "full",
+      "run": 0,
+      "excluded_warmup": false,
+      "name": "near-fresh0-full-00.wtns",
+      "bytes": 20594092,
+      "sha256": "fb304dfc489111a2b788aeff118fb3a980b6f3b42188c0f793949909877703c6",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "near",
+      "session": "fresh0",
+      "lane": "suffix",
+      "run": 0,
+      "excluded_warmup": false,
+      "name": "near-fresh0-suffix-00.wtns",
+      "bytes": 20594092,
+      "sha256": "fb304dfc489111a2b788aeff118fb3a980b6f3b42188c0f793949909877703c6",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "near",
+      "session": "fresh1",
+      "lane": "suffix",
+      "run": 0,
+      "excluded_warmup": false,
+      "name": "near-fresh1-suffix-00.wtns",
+      "bytes": 20594092,
+      "sha256": "fb304dfc489111a2b788aeff118fb3a980b6f3b42188c0f793949909877703c6",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "near",
+      "session": "fresh1",
+      "lane": "full",
+      "run": 0,
+      "excluded_warmup": false,
+      "name": "near-fresh1-full-00.wtns",
+      "bytes": 20594092,
+      "sha256": "fb304dfc489111a2b788aeff118fb3a980b6f3b42188c0f793949909877703c6",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "middle",
+      "session": "fresh0",
+      "lane": "full",
+      "run": 0,
+      "excluded_warmup": false,
+      "name": "middle-fresh0-full-00.wtns",
+      "bytes": 20594092,
+      "sha256": "64da64c1526f8651a9a8be4bc1cf23ca0c21ba1f055353829f61ff5ed0afb296",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "middle",
+      "session": "fresh0",
+      "lane": "suffix",
+      "run": 0,
+      "excluded_warmup": false,
+      "name": "middle-fresh0-suffix-00.wtns",
+      "bytes": 20594092,
+      "sha256": "64da64c1526f8651a9a8be4bc1cf23ca0c21ba1f055353829f61ff5ed0afb296",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "middle",
+      "session": "fresh1",
+      "lane": "suffix",
+      "run": 0,
+      "excluded_warmup": false,
+      "name": "middle-fresh1-suffix-00.wtns",
+      "bytes": 20594092,
+      "sha256": "64da64c1526f8651a9a8be4bc1cf23ca0c21ba1f055353829f61ff5ed0afb296",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "middle",
+      "session": "fresh1",
+      "lane": "full",
+      "run": 0,
+      "excluded_warmup": false,
+      "name": "middle-fresh1-full-00.wtns",
+      "bytes": 20594092,
+      "sha256": "64da64c1526f8651a9a8be4bc1cf23ca0c21ba1f055353829f61ff5ed0afb296",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "far",
+      "session": "fresh0",
+      "lane": "full",
+      "run": 0,
+      "excluded_warmup": false,
+      "name": "far-fresh0-full-00.wtns",
+      "bytes": 20594092,
+      "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "far",
+      "session": "fresh0",
+      "lane": "suffix",
+      "run": 0,
+      "excluded_warmup": false,
+      "name": "far-fresh0-suffix-00.wtns",
+      "bytes": 20594092,
+      "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "far",
+      "session": "fresh1",
+      "lane": "suffix",
+      "run": 0,
+      "excluded_warmup": false,
+      "name": "far-fresh1-suffix-00.wtns",
+      "bytes": 20594092,
+      "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "far",
+      "session": "fresh1",
+      "lane": "full",
+      "run": 0,
+      "excluded_warmup": false,
+      "name": "far-fresh1-full-00.wtns",
+      "bytes": 20594092,
+      "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "near",
+      "session": "warm",
+      "lane": "full",
+      "run": 0,
+      "excluded_warmup": true,
+      "name": "near-warm-full-00.wtns",
+      "bytes": 20594092,
+      "sha256": "fb304dfc489111a2b788aeff118fb3a980b6f3b42188c0f793949909877703c6",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "near",
+      "session": "warm",
+      "lane": "suffix",
+      "run": 0,
+      "excluded_warmup": true,
+      "name": "near-warm-suffix-00.wtns",
+      "bytes": 20594092,
+      "sha256": "fb304dfc489111a2b788aeff118fb3a980b6f3b42188c0f793949909877703c6",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "near",
+      "session": "warm",
+      "lane": "suffix",
+      "run": 1,
+      "excluded_warmup": false,
+      "name": "near-warm-suffix-01.wtns",
+      "bytes": 20594092,
+      "sha256": "fb304dfc489111a2b788aeff118fb3a980b6f3b42188c0f793949909877703c6",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "near",
+      "session": "warm",
+      "lane": "full",
+      "run": 1,
+      "excluded_warmup": false,
+      "name": "near-warm-full-01.wtns",
+      "bytes": 20594092,
+      "sha256": "fb304dfc489111a2b788aeff118fb3a980b6f3b42188c0f793949909877703c6",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "near",
+      "session": "warm",
+      "lane": "full",
+      "run": 2,
+      "excluded_warmup": false,
+      "name": "near-warm-full-02.wtns",
+      "bytes": 20594092,
+      "sha256": "fb304dfc489111a2b788aeff118fb3a980b6f3b42188c0f793949909877703c6",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "near",
+      "session": "warm",
+      "lane": "suffix",
+      "run": 2,
+      "excluded_warmup": false,
+      "name": "near-warm-suffix-02.wtns",
+      "bytes": 20594092,
+      "sha256": "fb304dfc489111a2b788aeff118fb3a980b6f3b42188c0f793949909877703c6",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "near",
+      "session": "warm",
+      "lane": "suffix",
+      "run": 3,
+      "excluded_warmup": false,
+      "name": "near-warm-suffix-03.wtns",
+      "bytes": 20594092,
+      "sha256": "fb304dfc489111a2b788aeff118fb3a980b6f3b42188c0f793949909877703c6",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "near",
+      "session": "warm",
+      "lane": "full",
+      "run": 3,
+      "excluded_warmup": false,
+      "name": "near-warm-full-03.wtns",
+      "bytes": 20594092,
+      "sha256": "fb304dfc489111a2b788aeff118fb3a980b6f3b42188c0f793949909877703c6",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "near",
+      "session": "warm",
+      "lane": "full",
+      "run": 4,
+      "excluded_warmup": false,
+      "name": "near-warm-full-04.wtns",
+      "bytes": 20594092,
+      "sha256": "fb304dfc489111a2b788aeff118fb3a980b6f3b42188c0f793949909877703c6",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "near",
+      "session": "warm",
+      "lane": "suffix",
+      "run": 4,
+      "excluded_warmup": false,
+      "name": "near-warm-suffix-04.wtns",
+      "bytes": 20594092,
+      "sha256": "fb304dfc489111a2b788aeff118fb3a980b6f3b42188c0f793949909877703c6",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "near",
+      "session": "warm",
+      "lane": "suffix",
+      "run": 5,
+      "excluded_warmup": false,
+      "name": "near-warm-suffix-05.wtns",
+      "bytes": 20594092,
+      "sha256": "fb304dfc489111a2b788aeff118fb3a980b6f3b42188c0f793949909877703c6",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "near",
+      "session": "warm",
+      "lane": "full",
+      "run": 5,
+      "excluded_warmup": false,
+      "name": "near-warm-full-05.wtns",
+      "bytes": 20594092,
+      "sha256": "fb304dfc489111a2b788aeff118fb3a980b6f3b42188c0f793949909877703c6",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "middle",
+      "session": "warm",
+      "lane": "full",
+      "run": 0,
+      "excluded_warmup": true,
+      "name": "middle-warm-full-00.wtns",
+      "bytes": 20594092,
+      "sha256": "64da64c1526f8651a9a8be4bc1cf23ca0c21ba1f055353829f61ff5ed0afb296",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "middle",
+      "session": "warm",
+      "lane": "suffix",
+      "run": 0,
+      "excluded_warmup": true,
+      "name": "middle-warm-suffix-00.wtns",
+      "bytes": 20594092,
+      "sha256": "64da64c1526f8651a9a8be4bc1cf23ca0c21ba1f055353829f61ff5ed0afb296",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "middle",
+      "session": "warm",
+      "lane": "suffix",
+      "run": 1,
+      "excluded_warmup": false,
+      "name": "middle-warm-suffix-01.wtns",
+      "bytes": 20594092,
+      "sha256": "64da64c1526f8651a9a8be4bc1cf23ca0c21ba1f055353829f61ff5ed0afb296",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "middle",
+      "session": "warm",
+      "lane": "full",
+      "run": 1,
+      "excluded_warmup": false,
+      "name": "middle-warm-full-01.wtns",
+      "bytes": 20594092,
+      "sha256": "64da64c1526f8651a9a8be4bc1cf23ca0c21ba1f055353829f61ff5ed0afb296",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "middle",
+      "session": "warm",
+      "lane": "full",
+      "run": 2,
+      "excluded_warmup": false,
+      "name": "middle-warm-full-02.wtns",
+      "bytes": 20594092,
+      "sha256": "64da64c1526f8651a9a8be4bc1cf23ca0c21ba1f055353829f61ff5ed0afb296",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "middle",
+      "session": "warm",
+      "lane": "suffix",
+      "run": 2,
+      "excluded_warmup": false,
+      "name": "middle-warm-suffix-02.wtns",
+      "bytes": 20594092,
+      "sha256": "64da64c1526f8651a9a8be4bc1cf23ca0c21ba1f055353829f61ff5ed0afb296",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "middle",
+      "session": "warm",
+      "lane": "suffix",
+      "run": 3,
+      "excluded_warmup": false,
+      "name": "middle-warm-suffix-03.wtns",
+      "bytes": 20594092,
+      "sha256": "64da64c1526f8651a9a8be4bc1cf23ca0c21ba1f055353829f61ff5ed0afb296",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "middle",
+      "session": "warm",
+      "lane": "full",
+      "run": 3,
+      "excluded_warmup": false,
+      "name": "middle-warm-full-03.wtns",
+      "bytes": 20594092,
+      "sha256": "64da64c1526f8651a9a8be4bc1cf23ca0c21ba1f055353829f61ff5ed0afb296",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "middle",
+      "session": "warm",
+      "lane": "full",
+      "run": 4,
+      "excluded_warmup": false,
+      "name": "middle-warm-full-04.wtns",
+      "bytes": 20594092,
+      "sha256": "64da64c1526f8651a9a8be4bc1cf23ca0c21ba1f055353829f61ff5ed0afb296",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "middle",
+      "session": "warm",
+      "lane": "suffix",
+      "run": 4,
+      "excluded_warmup": false,
+      "name": "middle-warm-suffix-04.wtns",
+      "bytes": 20594092,
+      "sha256": "64da64c1526f8651a9a8be4bc1cf23ca0c21ba1f055353829f61ff5ed0afb296",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "middle",
+      "session": "warm",
+      "lane": "suffix",
+      "run": 5,
+      "excluded_warmup": false,
+      "name": "middle-warm-suffix-05.wtns",
+      "bytes": 20594092,
+      "sha256": "64da64c1526f8651a9a8be4bc1cf23ca0c21ba1f055353829f61ff5ed0afb296",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "middle",
+      "session": "warm",
+      "lane": "full",
+      "run": 5,
+      "excluded_warmup": false,
+      "name": "middle-warm-full-05.wtns",
+      "bytes": 20594092,
+      "sha256": "64da64c1526f8651a9a8be4bc1cf23ca0c21ba1f055353829f61ff5ed0afb296",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "far",
+      "session": "warm",
+      "lane": "full",
+      "run": 0,
+      "excluded_warmup": true,
+      "name": "far-warm-full-00.wtns",
+      "bytes": 20594092,
+      "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "far",
+      "session": "warm",
+      "lane": "suffix",
+      "run": 0,
+      "excluded_warmup": true,
+      "name": "far-warm-suffix-00.wtns",
+      "bytes": 20594092,
+      "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "far",
+      "session": "warm",
+      "lane": "suffix",
+      "run": 1,
+      "excluded_warmup": false,
+      "name": "far-warm-suffix-01.wtns",
+      "bytes": 20594092,
+      "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "far",
+      "session": "warm",
+      "lane": "full",
+      "run": 1,
+      "excluded_warmup": false,
+      "name": "far-warm-full-01.wtns",
+      "bytes": 20594092,
+      "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "far",
+      "session": "warm",
+      "lane": "full",
+      "run": 2,
+      "excluded_warmup": false,
+      "name": "far-warm-full-02.wtns",
+      "bytes": 20594092,
+      "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "far",
+      "session": "warm",
+      "lane": "suffix",
+      "run": 2,
+      "excluded_warmup": false,
+      "name": "far-warm-suffix-02.wtns",
+      "bytes": 20594092,
+      "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "far",
+      "session": "warm",
+      "lane": "suffix",
+      "run": 3,
+      "excluded_warmup": false,
+      "name": "far-warm-suffix-03.wtns",
+      "bytes": 20594092,
+      "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "far",
+      "session": "warm",
+      "lane": "full",
+      "run": 3,
+      "excluded_warmup": false,
+      "name": "far-warm-full-03.wtns",
+      "bytes": 20594092,
+      "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "far",
+      "session": "warm",
+      "lane": "full",
+      "run": 4,
+      "excluded_warmup": false,
+      "name": "far-warm-full-04.wtns",
+      "bytes": 20594092,
+      "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "far",
+      "session": "warm",
+      "lane": "suffix",
+      "run": 4,
+      "excluded_warmup": false,
+      "name": "far-warm-suffix-04.wtns",
+      "bytes": 20594092,
+      "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "far",
+      "session": "warm",
+      "lane": "suffix",
+      "run": 5,
+      "excluded_warmup": false,
+      "name": "far-warm-suffix-05.wtns",
+      "bytes": 20594092,
+      "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447",
+      "whole_output_equals_authenticated_original_target": true
+    },
+    {
+      "case": "far",
+      "session": "warm",
+      "lane": "full",
+      "run": 5,
+      "excluded_warmup": false,
+      "name": "far-warm-full-05.wtns",
+      "bytes": 20594092,
+      "sha256": "e4a72ebe72f4b48112c28f5c2dcfb8ac8ad1d39b0ed862a2f6b943d39d50e447",
+      "whole_output_equals_authenticated_original_target": true
+    }
+  ],
+  "private_inventory": [
+    {
+      "relative_path": ".",
+      "type": "directory",
+      "mode": "0o700",
+      "bytes": null
+    },
+    {
+      "relative_path": "wtns",
+      "type": "directory",
+      "mode": "0o700",
+      "bytes": null
+    },
+    {
+      "relative_path": "summary.json",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 10007
+    },
+    {
+      "relative_path": "samples-private.json",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 25661
+    },
+    {
+      "relative_path": "workers",
+      "type": "directory",
+      "mode": "0o700",
+      "bytes": null
+    },
+    {
+      "relative_path": "wtns/middle-warm-suffix-00.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/near-warm-suffix-05.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/far-warm-suffix-05.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/middle-warm-full-03.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/middle-fresh1-suffix-00.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/middle-fresh0-suffix-00.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/middle-warm-full-02.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/far-warm-suffix-04.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/middle-warm-suffix-01.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/near-warm-suffix-04.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/far-warm-full-01.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/near-warm-full-00.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/near-warm-suffix-03.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/far-warm-suffix-03.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/middle-fresh1-full-00.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/middle-warm-full-05.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/middle-warm-full-04.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/far-warm-suffix-02.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/near-warm-suffix-02.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/near-warm-full-01.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/far-warm-full-00.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/middle-fresh0-full-00.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/near-warm-full-02.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/far-warm-full-03.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/near-fresh0-suffix-00.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/far-warm-suffix-01.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/near-warm-suffix-01.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/middle-warm-suffix-04.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/near-warm-suffix-00.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/middle-warm-suffix-05.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/far-warm-suffix-00.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/near-fresh1-suffix-00.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/far-warm-full-02.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/near-warm-full-03.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/middle-warm-full-01.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/middle-warm-suffix-02.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/near-warm-full-04.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/far-fresh0-suffix-00.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/far-fresh0-full-00.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/far-warm-full-05.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/near-fresh0-full-00.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/far-warm-full-04.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/far-fresh1-suffix-00.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/near-warm-full-05.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/far-fresh1-full-00.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/middle-warm-suffix-03.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/near-fresh1-full-00.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "wtns/middle-warm-full-00.wtns",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 20594092
+    },
+    {
+      "relative_path": "workers/near-fresh0-full-stderr.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 0
+    },
+    {
+      "relative_path": "workers/far-fresh1-suffix-stderr.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 0
+    },
+    {
+      "relative_path": "workers/validator-stdout.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 1867
+    },
+    {
+      "relative_path": "workers/far-warm-full-stderr.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 0
+    },
+    {
+      "relative_path": "workers/far-fresh0-full-stdout.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 402
+    },
+    {
+      "relative_path": "workers/far-fresh0-suffix-stderr.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 0
+    },
+    {
+      "relative_path": "workers/middle-warm-full-stdout.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 1416
+    },
+    {
+      "relative_path": "workers/middle-fresh1-full-stderr.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 0
+    },
+    {
+      "relative_path": "workers/middle-warm-suffix-stdout.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 1440
+    },
+    {
+      "relative_path": "workers/near-fresh0-suffix-stderr.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 0
+    },
+    {
+      "relative_path": "workers/far-warm-suffix-stderr.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 0
+    },
+    {
+      "relative_path": "workers/far-fresh1-full-stdout.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 402
+    },
+    {
+      "relative_path": "workers/middle-fresh0-suffix-stderr.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 0
+    },
+    {
+      "relative_path": "workers/middle-fresh0-full-stderr.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 0
+    },
+    {
+      "relative_path": "workers/near-fresh1-suffix-stderr.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 0
+    },
+    {
+      "relative_path": "workers/near-warm-suffix-stdout.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 1409
+    },
+    {
+      "relative_path": "workers/near-fresh1-full-stderr.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 0
+    },
+    {
+      "relative_path": "workers/middle-fresh1-suffix-stderr.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 0
+    },
+    {
+      "relative_path": "workers/near-warm-full-stderr.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 0
+    },
+    {
+      "relative_path": "workers/validator-stderr.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 0
+    },
+    {
+      "relative_path": "workers/far-fresh1-suffix-stdout.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 409
+    },
+    {
+      "relative_path": "workers/near-fresh0-full-stdout.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 409
+    },
+    {
+      "relative_path": "workers/middle-fresh1-full-stdout.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 414
+    },
+    {
+      "relative_path": "workers/middle-warm-full-stderr.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 0
+    },
+    {
+      "relative_path": "workers/middle-warm-suffix-stderr.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 0
+    },
+    {
+      "relative_path": "workers/far-fresh0-full-stderr.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 0
+    },
+    {
+      "relative_path": "workers/far-warm-full-stdout.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 1374
+    },
+    {
+      "relative_path": "workers/far-fresh0-suffix-stdout.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 408
+    },
+    {
+      "relative_path": "workers/middle-fresh0-full-stdout.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 414
+    },
+    {
+      "relative_path": "workers/middle-fresh0-suffix-stdout.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 420
+    },
+    {
+      "relative_path": "workers/near-fresh0-suffix-stdout.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 413
+    },
+    {
+      "relative_path": "workers/far-warm-suffix-stdout.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 1395
+    },
+    {
+      "relative_path": "workers/far-fresh1-full-stderr.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 0
+    },
+    {
+      "relative_path": "workers/middle-fresh1-suffix-stdout.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 420
+    },
+    {
+      "relative_path": "workers/near-warm-full-stdout.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 1388
+    },
+    {
+      "relative_path": "workers/near-warm-suffix-stderr.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 0
+    },
+    {
+      "relative_path": "workers/near-fresh1-suffix-stdout.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 412
+    },
+    {
+      "relative_path": "workers/near-fresh1-full-stdout.log",
+      "type": "regular_file",
+      "mode": "0o600",
+      "bytes": 406
+    }
+  ]
+}
