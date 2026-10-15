@@ -22,14 +22,16 @@ relation corpus, shared development setup, nine-pair randomized Full proof
 corpus and one independent OpenSSL Anchor pilot have separate gates. They
 demonstrate a reusable public proof shape, but no v3 application authorization
 or corpus-wide refresh economics. The v3 program has six-field state/parser
-and administrator host tests, including signed inactive-status handling and
-bounded request staging; Execute, the loaded ELF and atomic queue effect are open.
-The registry has an authenticated per-issuer source gate and a publisher
-tests-first RED; authenticated current chain provenance and publisher
-checkpoint persistence are open. The native client has DER admission, a
-shareable setup loader, canonical action checks and a Full-envelope check;
-the real Full witness/proof workflow still rejects. The frozen unseen
-credential cohort has not been generated or run.
+and administrator host tests, including signed inactive-status handling,
+bounded request staging and a per-config/issuer/publisher head commitment.
+Its 61 focused host tests pass; publisher-head CPI, Execute, the loaded ELF
+and atomic queue effect still need local-validator evidence. The registry
+verifies per-issuer source and private publisher-envelope signatures/claims;
+caller-JSON authorization stays closed, and a concrete finalized chain
+verifier remains open. The native client has DER admission, a shareable setup
+loader, canonical action checks, a Full-envelope check and the pinned
+751-coordinate compiler map. Its real Full witness/proof workflow still
+rejects. The frozen unseen credential cohort has not been generated or run.
 
 For the v3 successor, Execute requires **six** ordered public fields and the
 matching seven-IC ordinary VK. Earlier v2 five-field steps below remain
