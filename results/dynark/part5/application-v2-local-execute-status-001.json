@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "phase": "execute",
+  "status": "passed",
+  "config_sha256": "4cdd4be2af383348edd9cdff59583835b5a46cf9f6d9a505c4493a5ccd70a380",
+  "scope": "local application development only",
+  "devnet": false,
+  "program": "FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha",
+  "genesis": "DDeEBprS6FPndW11NfgMS3RjUoQh9BJoBBa2KgAt4znD",
+  "elf_sha256": "e20d0df801e49e211a5b791d2f1c284240568049656edf8991b7cc00dbe7e639",
+  "runner_report": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v2-local-runtime-001/private/execute-report.json",
+  "finalized_slot": 47,
+  "cleanup": {
+    "runner": {
+      "spawned": true,
+      "reaped": true,
+      "graceful": true,
+      "exit_code": 0
+    },
+    "validator": {
+      "spawned": true,
+      "reaped": true,
+      "graceful": true,
+      "exit_code": -2
+    }
+  },
+  "whole_tree_cleanup_authority": "external bounded_runner; direct child reaping alone is insufficient",
+  "elapsed_seconds": 19.290129916043952
+}

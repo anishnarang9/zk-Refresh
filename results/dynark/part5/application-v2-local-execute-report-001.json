@@ -1,0 +1,185 @@
+{
+  "anchor_refresh": false,
+  "bound_root_version": 0,
+  "bound_source_sequence": 1,
+  "devnet": false,
+  "effect_count": 1,
+  "finalized_slot": 47,
+  "full_only": true,
+  "loaded_program": {
+    "elf_match": true,
+    "elf_sha256": "e20d0df801e49e211a5b791d2f1c284240568049656edf8991b7cc00dbe7e639",
+    "loader": "BPFLoaderUpgradeab1e11111111111111111111111",
+    "local_bytes": 186984,
+    "remote_bytes": 186984
+  },
+  "passed": true,
+  "plan_sha256": "783c1c8c9110e41e1cf3d1cd79d6bb10c07c79f81aa3d17774b60fb6f7bd4c4b",
+  "public_context_sha256": "0ee2fb693640dfcd430af7cb59a2162e35902f35a4c97c39eb067c074925cb4d",
+  "publisher_binding_current": true,
+  "queue": "EJ57n9WXqKuqsEETdwubnUpT8ttZYswh5ko3TeD7gNpi",
+  "queue_sha256": "c07619bf42b78ff35b81ff07ad1f9e1649b409a34355b563465e805757b5b74f",
+  "request": "DWUQKBnr2ith584jDPJZ9m9UD8ysvDFjsmeK3Nm33q5C",
+  "request_consumed": true,
+  "request_sha256": "4c73b9203867f1d6268631d72fab00a9798a3ce41369cfccc2be675d3360d489",
+  "scope": "actual local loaded application Full proof and exact protected queue effect",
+  "source_observation_digest": "492fb2b37b0d606d0859e712e309a6ac05a24c3946482750f23cf5e01146bc4f",
+  "synthetic_signed_source_observation": true,
+  "transactions": [
+    {
+      "blockTime": 1792070316,
+      "computeUnits": 7811,
+      "confirmationMs": 506.414334,
+      "confirmedAtUnixMs": 1792072971256,
+      "customError": null,
+      "err": null,
+      "feeLamports": 10000,
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha invoke [1]",
+        "Program FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha consumed 7661 of 1399850 compute units",
+        "Program FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha success"
+      ],
+      "scenario": "synthetic-signed-source-observation",
+      "signature": "4jp5myZbZz5gRLkfYoc6KQHzPW3hHeV31sTbgT3yAJF3xdBaTWEhVSoMxZPnHegSeXzKzog1iAV3Hf56jZQuFwf8",
+      "slot": 42,
+      "submittedAtUnixMs": 1792072970749,
+      "submittedMs": 0.419209,
+      "transactionBytes": 438
+    },
+    {
+      "blockTime": 1792070338,
+      "computeUnits": 7878,
+      "confirmationMs": 506.82174999999995,
+      "confirmedAtUnixMs": 1792072971778,
+      "customError": null,
+      "err": null,
+      "feeLamports": 10000,
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha invoke [1]",
+        "Program FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha consumed 7728 of 1399849 compute units",
+        "Program FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha success"
+      ],
+      "scenario": "publisher-bind-current-root-and-source",
+      "signature": "58EA5U7QC5D9Xy2SVgvSfygi7sJDdwTWrpxZnDpEhJyut8LfRYXTLKspxYwBZzd8j7iDHbaoDYQBq3YRPNPbchSn",
+      "slot": 43,
+      "submittedAtUnixMs": 1792072971271,
+      "submittedMs": 0.419709,
+      "transactionBytes": 390
+    },
+    {
+      "blockTime": 1792070339,
+      "computeUnits": 40077,
+      "confirmationMs": 503.747708,
+      "confirmedAtUnixMs": 1792072972289,
+      "customError": 512,
+      "err": {
+        "InstructionError": [
+          1,
+          {
+            "Custom": 512
+          }
+        ]
+      },
+      "feeLamports": 5000,
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha invoke [1]",
+        "Program FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha consumed 39927 of 1399848 compute units",
+        "Program FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha failed: custom program error: 0x200"
+      ],
+      "scenario": "wrong-action",
+      "signature": "4Scaor5Ygc3U7RqykQGmgRv6LUYph3GxrRUTM2BcYngwMWskJ2WjtdcSGyfW5YUXMvDKjh77ogtt1iCmBouuWTCP",
+      "slot": 44,
+      "submittedAtUnixMs": 1792072971785,
+      "submittedMs": 0.220167,
+      "transactionBytes": 760
+    },
+    {
+      "blockTime": 1792070341,
+      "computeUnits": 40664,
+      "confirmationMs": 502.243416,
+      "confirmedAtUnixMs": 1792072972799,
+      "customError": 514,
+      "err": {
+        "InstructionError": [
+          1,
+          {
+            "Custom": 514
+          }
+        ]
+      },
+      "feeLamports": 5000,
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha invoke [1]",
+        "Program FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha consumed 40514 of 1399847 compute units",
+        "Program FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha failed: custom program error: 0x202"
+      ],
+      "scenario": "invalid-proof",
+      "signature": "4zb9VdFGyCkFkshPU9BJgDdv6CMr8aornRiLyJXyncyiXSu2DgC5Au1RoG87K5HHbsTo1hwW8c5RVEjJ9s8XNWDs",
+      "slot": 45,
+      "submittedAtUnixMs": 1792072972297,
+      "submittedMs": 0.26825,
+      "transactionBytes": 760
+    },
+    {
+      "blockTime": 1792070341,
+      "computeUnits": 144445,
+      "confirmationMs": 503.4155,
+      "confirmedAtUnixMs": 1792072973309,
+      "customError": null,
+      "err": null,
+      "feeLamports": 5000,
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha invoke [1]",
+        "Program FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha consumed 144295 of 1399846 compute units",
+        "Program FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha success"
+      ],
+      "scenario": "valid-full-exact-queue-append",
+      "signature": "2hAH9N4swECBfN81EqRhME2mFBUuJsSwVCuYX6Pr33hh3K2sjTjvxwRfiESbaoKxAMobYerj8vhZ4EkzMSfoac1G",
+      "slot": 46,
+      "submittedAtUnixMs": 1792072972805,
+      "submittedMs": 0.222292,
+      "transactionBytes": 760
+    },
+    {
+      "blockTime": 1792070342,
+      "computeUnits": 35818,
+      "confirmationMs": 506.164167,
+      "confirmedAtUnixMs": 1792072973821,
+      "customError": 507,
+      "err": {
+        "InstructionError": [
+          1,
+          {
+            "Custom": 507
+          }
+        ]
+      },
+      "feeLamports": 5000,
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha invoke [1]",
+        "Program FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha consumed 35668 of 1399845 compute units",
+        "Program FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha failed: custom program error: 0x1fb"
+      ],
+      "scenario": "replay-new-transaction",
+      "signature": "6LVmUpPXG74ViqeScVV3YXqMn6eva19z4TC6RyPFNTPWyE55qZhDNYv6KVuh3QJy5eFPXqGYR26ccPx64GkZWxu",
+      "slot": 47,
+      "submittedAtUnixMs": 1792072973315,
+      "submittedMs": 0.243833,
+      "transactionBytes": 760
+    }
+  ],
+  "upstream_issuer_check": false,
+  "wire_sha256": "80f7ddf91e6f6de2dd4dfb405fafe10d89eaea5aab127ea89db79ccec0dc152d"
+}
