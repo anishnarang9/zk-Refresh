@@ -1,0 +1,41 @@
+{
+  "status": "TEST SOURCES AUTHORED BEFORE ANCHOR HELPER/MODEL CHANGES; UNEXECUTED",
+  "rust_test": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/session-source-004/crates/dynark-bn254/tests/private/session_invariants.rs",
+    "bytes": 6577,
+    "sha256": "3c2c110c42d572cf0c3b587ffa2f6375bef59d67abe553b8594dd993a372d95d",
+    "mode": "0o600"
+  },
+  "planner_test": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/sessions/tooling-source-003/test_anchor_reservations.py",
+    "bytes": 4834,
+    "sha256": "313fb42bfe29be3dcffc3ac97e9988b86d77266dba20f6f9e690bfa42def443c",
+    "mode": "0o600"
+  },
+  "Rust_harness_before": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/session-source-004/crates/dynark-bn254/tests/private/session_measurement.rs",
+    "bytes": 37288,
+    "sha256": "41d8b9bd73ad947af614ff99f8adfc88866db8ff3e08db3b442a65c81a7d66d7",
+    "mode": "0o600"
+  },
+  "planner_before": [
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/sessions/tooling-source-003/session_plan.py",
+      "bytes": 13778,
+      "sha256": "228e0d8e1d77fca8c12efe54310f12e7e781f3b4711271e59d59a7ff699647ae",
+      "mode": "0o600"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/sessions/tooling-source-003/session_work_inventory.py",
+      "bytes": 6174,
+      "sha256": "fc53f362abbcfca0b034b4890eb27671b4750ae64401a77bde0edd84b32694b0",
+      "mode": "0o600"
+    }
+  ],
+  "new_rust_methods": 4,
+  "new_planner_methods": 9,
+  "observed_red": false,
+  "observed_green": false,
+  "Selective_G2_gate": "Unresolved; no Selective accounting change authorized or authored.",
+  "final_source_freeze_held": true
+}
