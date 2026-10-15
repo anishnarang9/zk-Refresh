@@ -53,6 +53,15 @@ RED receipt is `results/dynark/part5/v2-finalized-effect-red-bounded-001.json`;
 it had no cap stop or residual owned process. No validator or transaction was
 run in this regression.
 
+Commit `47cf121` changes the normal success helper to wait for the replay slot,
+check the exact consumed request and one-entry queue at finalized commitment,
+and report the slot returned after those account reads. Both focused mocked-RPC
+tests passed in the bounded GREEN gate, recorded at
+`results/dynark/part5/v2-finalized-effect-green-bounded-001.json`. The original
+local execution predates this code change. A rebuilt integration runner and
+read-only consumed-state restart are still required to attest its exact
+finalized account bytes without sending another Execute.
+
 This is a **Full-only local integration result for the fixed development
 certificate**. The source observation is controlled and synthetic; it does not
 show an upstream issuer check. This gate does not verify Anchor refresh through
