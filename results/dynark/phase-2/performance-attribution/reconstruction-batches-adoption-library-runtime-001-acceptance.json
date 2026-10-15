@@ -1,0 +1,549 @@
+{
+  "status": "Existing14library adoption methods passed; fiveintegration gate still pending. No claim of wholeproduct acceptance yet.",
+  "executor": "ROOT only",
+  "source_manifest": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-timing-source-manifest-001.json",
+    "bytes": 20342,
+    "sha256": "7a3e11fa24f246c65198c7e337170dad164314b2895211c8d0382fab2d41b560",
+    "mode": "0o600"
+  },
+  "binary": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/binaries/reconstruction-batches-timing-libtest-001",
+    "bytes": 4732592,
+    "sha256": "06d49f50bc7694bd0dc8cc534935964c3d0e7fd2d8f812c45fabc7fbe0e7c4e0",
+    "mode": "0o700"
+  },
+  "wrapper": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-launcher-source-001/launch_runtime.py",
+    "bytes": 9273,
+    "sha256": "f12f90b6ea6d620d87f89c9f6ca041bb7271925e656da5c50263fddc4298707c",
+    "mode": "0o600"
+  },
+  "grant": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-grant-001.json",
+    "bytes": 15905,
+    "sha256": "579e076ff97b4298ea134bc4e9de846d0023bc85b778d5d6efc5022d838796ca",
+    "mode": "0o600"
+  },
+  "coverage": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-coverage-001.json",
+    "bytes": 16619,
+    "sha256": "a9c13bb48492ef17aed97a968fbb9f0c8eb3ae6b88eecaa6013aa15598fc6be9",
+    "mode": "0o600"
+  },
+  "cases": [
+    {
+      "name": "dynamic",
+      "methods": 8,
+      "passed": 8,
+      "failed": 0,
+      "ignored": 0,
+      "primary": {
+        "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001/dynamic/primary.json",
+        "bytes": 8527,
+        "sha256": "51ac35c755924dea91c2081ad64f6ddadca7a6dd995800866467a72fea7dfaa4",
+        "mode": "0o600"
+      },
+      "duplicate": {
+        "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001/dynamic/bounded/report.json",
+        "bytes": 8527,
+        "sha256": "51ac35c755924dea91c2081ad64f6ddadca7a6dd995800866467a72fea7dfaa4",
+        "mode": "0o600"
+      },
+      "duplicate_equal": true,
+      "stdout": {
+        "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001/dynamic/bounded/stdout.log",
+        "bytes": 1107,
+        "sha256": "c1c212ad330ae25d8490bd2cbd87e4c403f8aff919301ba2337d88ee473cc4e6",
+        "mode": "0o600"
+      },
+      "stderr": {
+        "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001/dynamic/bounded/stderr.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "mode": "0o600"
+      },
+      "libtest_seconds_rounded": 9.14,
+      "resources": {
+        "duration_seconds": 9.49901041702833,
+        "sample_count": 43,
+        "sampled_peak_owned_tree_rss_bytes": 30244864,
+        "sampled_peak_storage_growth_bytes": 2403,
+        "exit_code": 0,
+        "stop_reason": null,
+        "runner_error_type": null,
+        "cleanup_remaining_owned_processes": 0,
+        "cleanup_status_unknown": false,
+        "limits": {
+          "runtime_seconds": 120.0,
+          "owned_tree_rss_bytes": 536870912,
+          "storage_growth_bytes": 4194304,
+          "poll_seconds": 0.2
+        }
+      },
+      "host_complete": {
+        "event": "host_supervisor_complete",
+        "primary_host_cause": null,
+        "cleanup_verified": true,
+        "runner_returncode": 0,
+        "primary_runner_report_present": true,
+        "measurement_outcome": "completed_under_fixed_budget",
+        "additional_monitoring_planning_bytes": 201326592,
+        "monitoring_reserve_is_enforced": false,
+        "raw_runner_report_sha256": "51ac35c755924dea91c2081ad64f6ddadca7a6dd995800866467a72fea7dfaa4",
+        "whole_monitor_seconds": 10.119360417011194,
+        "runner_report_fields_unmodified": true,
+        "samples_retained_in_original_files_only": true,
+        "resource_policy_id": "dynark-fixed-budget-v1",
+        "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+        "utc": "2026-10-15T00:53:31Z"
+      },
+      "wrapper_complete": {
+        "event": "reconstruction_adoption_library_complete",
+        "case": "dynamic",
+        "primary_cause": null,
+        "cleanup_verified": true,
+        "primary_report_unmodified": true,
+        "resource_policy_id": "dynark-fixed-budget-v1",
+        "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+        "utc": "2026-10-15T00:53:31Z"
+      }
+    },
+    {
+      "name": "reconstruction",
+      "methods": 3,
+      "passed": 3,
+      "failed": 0,
+      "ignored": 0,
+      "primary": {
+        "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001/reconstruction/primary.json",
+        "bytes": 2614,
+        "sha256": "ebd9f4d64633f6fccea27003de9e92eccb1207c6137db666875f1aaddc601efb",
+        "mode": "0o600"
+      },
+      "duplicate": {
+        "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001/reconstruction/bounded/report.json",
+        "bytes": 2614,
+        "sha256": "ebd9f4d64633f6fccea27003de9e92eccb1207c6137db666875f1aaddc601efb",
+        "mode": "0o600"
+      },
+      "duplicate_equal": true,
+      "stdout": {
+        "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001/reconstruction/bounded/stdout.log",
+        "bytes": 978,
+        "sha256": "05d9f2139142b814085f74b53289b9686bf191e1147928694ddfe39794698184",
+        "mode": "0o600"
+      },
+      "stderr": {
+        "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001/reconstruction/bounded/stderr.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "mode": "0o600"
+      },
+      "libtest_seconds_rounded": 1.15,
+      "resources": {
+        "duration_seconds": 1.3629137079697102,
+        "sample_count": 7,
+        "sampled_peak_owned_tree_rss_bytes": 31784960,
+        "sampled_peak_storage_growth_bytes": 2288,
+        "exit_code": 0,
+        "stop_reason": null,
+        "runner_error_type": null,
+        "cleanup_remaining_owned_processes": 0,
+        "cleanup_status_unknown": false,
+        "limits": {
+          "runtime_seconds": 120.0,
+          "owned_tree_rss_bytes": 536870912,
+          "storage_growth_bytes": 4194304,
+          "poll_seconds": 0.2
+        }
+      },
+      "host_complete": {
+        "event": "host_supervisor_complete",
+        "primary_host_cause": null,
+        "cleanup_verified": true,
+        "runner_returncode": 0,
+        "primary_runner_report_present": true,
+        "measurement_outcome": "completed_under_fixed_budget",
+        "additional_monitoring_planning_bytes": 201326592,
+        "monitoring_reserve_is_enforced": false,
+        "raw_runner_report_sha256": "ebd9f4d64633f6fccea27003de9e92eccb1207c6137db666875f1aaddc601efb",
+        "whole_monitor_seconds": 2.0740337499883026,
+        "runner_report_fields_unmodified": true,
+        "samples_retained_in_original_files_only": true,
+        "resource_policy_id": "dynark-fixed-budget-v1",
+        "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+        "utc": "2026-10-15T00:53:33Z"
+      },
+      "wrapper_complete": {
+        "event": "reconstruction_adoption_library_complete",
+        "case": "reconstruction",
+        "primary_cause": null,
+        "cleanup_verified": true,
+        "primary_report_unmodified": true,
+        "resource_policy_id": "dynark-fixed-budget-v1",
+        "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+        "utc": "2026-10-15T00:53:33Z"
+      }
+    },
+    {
+      "name": "persistence-phase",
+      "methods": 1,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "primary": {
+        "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001/persistence-phase/primary.json",
+        "bytes": 7381,
+        "sha256": "b4382a398e2b9598581fba32eb2776146adadd0810d25bfc86bdc637025a973b",
+        "mode": "0o600"
+      },
+      "duplicate": {
+        "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001/persistence-phase/bounded/report.json",
+        "bytes": 7381,
+        "sha256": "b4382a398e2b9598581fba32eb2776146adadd0810d25bfc86bdc637025a973b",
+        "mode": "0o600"
+      },
+      "duplicate_equal": true,
+      "stdout": {
+        "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001/persistence-phase/bounded/stdout.log",
+        "bytes": 432,
+        "sha256": "c8d2678bcf39fd7abc57a7a5f5657ad1f4e8316297ad84110cbbd185e25f9454",
+        "mode": "0o600"
+      },
+      "stderr": {
+        "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001/persistence-phase/bounded/stderr.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "mode": "0o600"
+      },
+      "libtest_seconds_rounded": 7.68,
+      "resources": {
+        "duration_seconds": 7.827645416953601,
+        "sample_count": 36,
+        "sampled_peak_owned_tree_rss_bytes": 32342016,
+        "sampled_peak_storage_growth_bytes": 1835,
+        "exit_code": 0,
+        "stop_reason": null,
+        "runner_error_type": null,
+        "cleanup_remaining_owned_processes": 0,
+        "cleanup_status_unknown": false,
+        "limits": {
+          "runtime_seconds": 120.0,
+          "owned_tree_rss_bytes": 536870912,
+          "storage_growth_bytes": 4194304,
+          "poll_seconds": 0.2
+        }
+      },
+      "host_complete": {
+        "event": "host_supervisor_complete",
+        "primary_host_cause": null,
+        "cleanup_verified": true,
+        "runner_returncode": 0,
+        "primary_runner_report_present": true,
+        "measurement_outcome": "completed_under_fixed_budget",
+        "additional_monitoring_planning_bytes": 201326592,
+        "monitoring_reserve_is_enforced": false,
+        "raw_runner_report_sha256": "b4382a398e2b9598581fba32eb2776146adadd0810d25bfc86bdc637025a973b",
+        "whole_monitor_seconds": 8.11361795803532,
+        "runner_report_fields_unmodified": true,
+        "samples_retained_in_original_files_only": true,
+        "resource_policy_id": "dynark-fixed-budget-v1",
+        "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+        "utc": "2026-10-15T00:53:41Z"
+      },
+      "wrapper_complete": {
+        "event": "reconstruction_adoption_library_complete",
+        "case": "persistence-phase",
+        "primary_cause": null,
+        "cleanup_verified": true,
+        "primary_report_unmodified": true,
+        "resource_policy_id": "dynark-fixed-budget-v1",
+        "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+        "utc": "2026-10-15T00:53:41Z"
+      }
+    },
+    {
+      "name": "persistence-resume",
+      "methods": 1,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "primary": {
+        "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001/persistence-resume/primary.json",
+        "bytes": 7542,
+        "sha256": "327bcca1718d905bb00371fc9f86eeeff01220cf804738af1c0c09150f9db674",
+        "mode": "0o600"
+      },
+      "duplicate": {
+        "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001/persistence-resume/bounded/report.json",
+        "bytes": 7542,
+        "sha256": "327bcca1718d905bb00371fc9f86eeeff01220cf804738af1c0c09150f9db674",
+        "mode": "0o600"
+      },
+      "duplicate_equal": true,
+      "stdout": {
+        "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001/persistence-resume/bounded/stdout.log",
+        "bytes": 447,
+        "sha256": "70aa5a65a181e62c67b1756b673ed6460b0177f6b99a03c45261bf0420af1a68",
+        "mode": "0o600"
+      },
+      "stderr": {
+        "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001/persistence-resume/bounded/stderr.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "mode": "0o600"
+      },
+      "libtest_seconds_rounded": 7.86,
+      "resources": {
+        "duration_seconds": 8.11651337496005,
+        "sample_count": 37,
+        "sampled_peak_owned_tree_rss_bytes": 31981568,
+        "sampled_peak_storage_growth_bytes": 1840,
+        "exit_code": 0,
+        "stop_reason": null,
+        "runner_error_type": null,
+        "cleanup_remaining_owned_processes": 0,
+        "cleanup_status_unknown": false,
+        "limits": {
+          "runtime_seconds": 120.0,
+          "owned_tree_rss_bytes": 536870912,
+          "storage_growth_bytes": 4194304,
+          "poll_seconds": 0.2
+        }
+      },
+      "host_complete": {
+        "event": "host_supervisor_complete",
+        "primary_host_cause": null,
+        "cleanup_verified": true,
+        "runner_returncode": 0,
+        "primary_runner_report_present": true,
+        "measurement_outcome": "completed_under_fixed_budget",
+        "additional_monitoring_planning_bytes": 201326592,
+        "monitoring_reserve_is_enforced": false,
+        "raw_runner_report_sha256": "327bcca1718d905bb00371fc9f86eeeff01220cf804738af1c0c09150f9db674",
+        "whole_monitor_seconds": 9.124507167027332,
+        "runner_report_fields_unmodified": true,
+        "samples_retained_in_original_files_only": true,
+        "resource_policy_id": "dynark-fixed-budget-v1",
+        "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+        "utc": "2026-10-15T00:53:50Z"
+      },
+      "wrapper_complete": {
+        "event": "reconstruction_adoption_library_complete",
+        "case": "persistence-resume",
+        "primary_cause": null,
+        "cleanup_verified": true,
+        "primary_report_unmodified": true,
+        "resource_policy_id": "dynark-fixed-budget-v1",
+        "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+        "utc": "2026-10-15T00:53:50Z"
+      }
+    },
+    {
+      "name": "persistence-full-only",
+      "methods": 1,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "primary": {
+        "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001/persistence-full-only/primary.json",
+        "bytes": 1792,
+        "sha256": "0b83a618e1e6b99adecac4428c8ee893ca3d672463518cec8be8f3fd8db400b6",
+        "mode": "0o600"
+      },
+      "duplicate": {
+        "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001/persistence-full-only/bounded/report.json",
+        "bytes": 1792,
+        "sha256": "0b83a618e1e6b99adecac4428c8ee893ca3d672463518cec8be8f3fd8db400b6",
+        "mode": "0o600"
+      },
+      "duplicate_equal": true,
+      "stdout": {
+        "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001/persistence-full-only/bounded/stdout.log",
+        "bytes": 221,
+        "sha256": "f3ec266a665bc316b8f98c3dbee428789b10eb04be1fe8a9bfe60745a132ea1d",
+        "mode": "0o600"
+      },
+      "stderr": {
+        "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001/persistence-full-only/bounded/stderr.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "mode": "0o600"
+      },
+      "libtest_seconds_rounded": 0.04,
+      "resources": {
+        "duration_seconds": 0.29933095804881305,
+        "sample_count": 2,
+        "sampled_peak_owned_tree_rss_bytes": 3538944,
+        "sampled_peak_storage_growth_bytes": 1623,
+        "exit_code": 0,
+        "stop_reason": null,
+        "runner_error_type": null,
+        "cleanup_remaining_owned_processes": 0,
+        "cleanup_status_unknown": false,
+        "limits": {
+          "runtime_seconds": 120.0,
+          "owned_tree_rss_bytes": 536870912,
+          "storage_growth_bytes": 4194304,
+          "poll_seconds": 0.2
+        }
+      },
+      "host_complete": {
+        "event": "host_supervisor_complete",
+        "primary_host_cause": null,
+        "cleanup_verified": true,
+        "runner_returncode": 0,
+        "primary_runner_report_present": true,
+        "measurement_outcome": "completed_under_fixed_budget",
+        "additional_monitoring_planning_bytes": 201326592,
+        "monitoring_reserve_is_enforced": false,
+        "raw_runner_report_sha256": "0b83a618e1e6b99adecac4428c8ee893ca3d672463518cec8be8f3fd8db400b6",
+        "whole_monitor_seconds": 1.1066420840797946,
+        "runner_report_fields_unmodified": true,
+        "samples_retained_in_original_files_only": true,
+        "resource_policy_id": "dynark-fixed-budget-v1",
+        "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+        "utc": "2026-10-15T00:53:52Z"
+      },
+      "wrapper_complete": {
+        "event": "reconstruction_adoption_library_complete",
+        "case": "persistence-full-only",
+        "primary_cause": null,
+        "cleanup_verified": true,
+        "primary_report_unmodified": true,
+        "resource_policy_id": "dynark-fixed-budget-v1",
+        "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+        "utc": "2026-10-15T00:53:52Z"
+      }
+    }
+  ],
+  "total_methods": 14,
+  "total_passed": 14,
+  "failed": 0,
+  "ignored_selected": 0,
+  "new8_focused_not_rerun": true,
+  "timing_and_arithmetic_ignored_methods_not_selected": true,
+  "retained_features": {
+    "canonical_phase_roundtrips_final_cumulative": 911,
+    "cumulative_checkpoints_per_domain": [
+      [
+        2,
+        29
+      ],
+      [
+        8,
+        80
+      ],
+      [
+        16,
+        147
+      ],
+      [
+        32,
+        238
+      ],
+      [
+        64,
+        369
+      ],
+      [
+        128,
+        572
+      ],
+      [
+        256,
+        911
+      ]
+    ],
+    "resumed_proofs": 140,
+    "resumed_swaps_sum": 49,
+    "resumed_per_domain": [
+      [
+        2,
+        20,
+        7
+      ],
+      [
+        8,
+        20,
+        7
+      ],
+      [
+        16,
+        20,
+        7
+      ],
+      [
+        32,
+        20,
+        7
+      ],
+      [
+        64,
+        20,
+        7
+      ],
+      [
+        128,
+        20,
+        7
+      ],
+      [
+        256,
+        20,
+        7
+      ]
+    ],
+    "five_public_original_and_augmented_distinct_snapshots_each": 7,
+    "all_raw_eager_oracle_callback_rollback_caps_saturation_assertions_passed": true
+  },
+  "external_pre": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001-external-pre-pins.json",
+    "bytes": 44497,
+    "sha256": "2645679eef9a83029268199c7c98c03a8abb117b9398a55111d86aea73268b8f",
+    "mode": "0o600"
+  },
+  "external_post": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-library-runtime-001-external-post-pins.json",
+    "bytes": 44225,
+    "sha256": "3ae74ebc32ff02991b32d5f5bd61b6e4560a379b35e2ad10624a972e3fb91502",
+    "mode": "0o600"
+  },
+  "all90pins_unchanged": true,
+  "live_candidate_byteequal_accepted002": [
+    {
+      "path": "/Users/anishnarang/Zk-refresh/crates/dynark-bn254/src/dynamic.rs",
+      "bytes": 60590,
+      "sha256": "bc9ea67f9289d5bfad1bf6e683174ced82cd76438c3a0de47478400d93ae9616",
+      "mode": "0o644"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/crates/dynark-bn254/src/reconstruction.rs",
+      "bytes": 42363,
+      "sha256": "91fb0495cb1c778ba8297365c80cc28e207516cb8a863fb2632d118889496335",
+      "mode": "0o644"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/crates/dynark-bn254/src/lib.rs",
+      "bytes": 2640,
+      "sha256": "30daa578e8e4dbc96f84929f836f8af7d752d0879b1365c21da53ed3be685270",
+      "mode": "0o644"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/crates/dynark-bn254/tests/private/reconstruction_parallel.rs",
+      "bytes": 41949,
+      "sha256": "3fda48112b15673e0a9a1e5889ffca13caba829396cb2adff8d7a0568fc7f92c",
+      "mode": "0o644"
+    }
+  ],
+  "all_case_reports_duplicate_equal": true,
+  "all_case_stderr_empty": true,
+  "all_known_cleanup0": true,
+  "root_independent_all18former_workload_processes_absent": true,
+  "sum_runner_case_seconds": 27.105413874960504,
+  "peak_case_sampled_RSS_bytes": 32342016,
+  "RSS_note": "Sampled workload-treeRSS, notheap. FullOnly case only2samples; do not infer allocation or compare methods from tiny RSS sample.",
+  "no_rerun": true,
+  "next": "ROOT cached integration compile is active; freeze actual unique emitted binary only after ROOT completion notice, then separate exact5method runtimeproposal/grant."
+}

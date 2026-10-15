@@ -10,6 +10,10 @@ extern crate self as dynark_bn254;
 #[path = "../tests/support/mod.rs"]
 mod test_fixture;
 
+#[cfg(test)]
+#[path = "../tests/private/reconstruction_parallel.rs"]
+mod reconstruction_parallel_tests;
+
 mod artifact;
 mod anchored;
 mod delta;

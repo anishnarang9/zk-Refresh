@@ -8,7 +8,7 @@ Work continues on `codex/engine-focus-oct14` in the existing checkout. Immutable
 
 | Owner | Scope | Initial acceptance |
 |---|---|---|
-| `engine_performance`, Sol high | Anchored optimization accepted; bounded reconstruction batches in the non-callback pending-update path | Tests-first discarded-work/rollback discriminator, actual 8,192-operation equivalence, scratch/cancellation/recovery checks and integrated timing before adoption |
+| `engine_performance`, Sol high | Anchored and bounded reconstruction optimizations accepted; isolated credential successor next | Preserve the existing ten transitions, two promotions and checkpoint/recovery gate against the adopted engine |
 | `supervision_repair`, Sol medium, completed | Fresh successor runner/supervisor and finite real-child regression tests | Source006 accepted after worker and independent parent checks |
 | `witness_dependency`, Sol high | Ten-level mapping, 37 unit tests, all three full-field comparisons and ordinary proof gates accepted | Matched witness-cost design, with incremental witness reuse available to full reproving too |
 | `engine_gate_review`, Sol high, read-only | Independent algorithm and adoption review | No code ownership or competing execution |
@@ -19,6 +19,8 @@ The first performance hypothesis was lost parallelism in group-query sums and pr
 The supervision failure is independently observed: chat interruption removed the outer monitor/runner but left the separately created workload process group alive. The parent stopped and verified cleanup of that exact group. The old dynamic run remains incomplete, with four completed targets and no completed checkpoint/recovery. A successor must handle owner loss before another long trial; no automatic retry is permitted.
 
 ## Execution and reporting
+
+**Latest batch adoption, October 14 evening:** the bounded reconstruction patch is accepted after eight focused and nineteen existing regression methods, including 911 checkpoint round trips, 140 resumed proof updates and the 1,000-transition integration sequence. Five matched API pairs measured 0.369258 seconds serial versus 0.099390 seconds bounded median for one eligible 8,192-operation batch. All final identities and cleanup checks passed. This supersedes the pending timing/adoption status in the chronological paragraph below; credential-scale promotion/recovery remains open. See the [adoption evidence](reconstruction-batches-oct14.md).
 
 `dynark-fixed-budget-v1` remains unchanged: 4 GiB sampled workload-tree RSS, four Rayon workers, one test thread, and one named heavy execution owner. New builds use one job following the recorded two-job process-cap interruption. Workload-specific runtime/output/arithmetic ceilings are fixed before each run. Warning pressure is telemetry; critical or unknown host observations remain separately classified interruptions. Smaller finite tests retain their recorded lower bounds. New sources and failures receive new paths; no overwritten evidence or expanded failed cap.
 

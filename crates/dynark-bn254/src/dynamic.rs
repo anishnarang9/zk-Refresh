@@ -179,6 +179,31 @@ struct Pending {
     field_calls: u64,
 }
 
+#[derive(Clone, Copy)]
+enum BatchPolicy {
+    Serial,
+    Bounded,
+    #[cfg(test)]
+    Four,
+}
+impl BatchPolicy {
+    fn len(self) -> Option<usize> {
+        match self {
+            Self::Serial => None,
+            Self::Bounded => Some(reconstruction::GROUP_BATCH_LEN),
+            #[cfg(test)]
+            Self::Four => Some(4),
+        }
+    }
+}
+#[derive(Clone, Copy)]
+struct BatchAdmission<'a> {
+    old: &'a Root,
+    config: DynamicConfig,
+    public: usize,
+    len: usize,
+}
+
 pub struct DynamicPreparation {
     package: PublicPackage,
     tables: ReconstructionMaterial,
@@ -753,12 +778,20 @@ impl DynamicState {
         Ok(())
     }
     pub fn advance_update(&mut self, budget: usize) -> Result<UpdateProgress, Error> {
-        self.advance_update_with(budget, |_| false)
+        self.advance_update_inner(budget, |_| false, BatchPolicy::Bounded)
     }
     pub fn advance_update_with(
         &mut self,
         budget: usize,
+        cancel: impl FnMut(WorkEvent) -> bool,
+    ) -> Result<UpdateProgress, Error> {
+        self.advance_update_inner(budget, cancel, BatchPolicy::Serial)
+    }
+    fn advance_update_inner(
+        &mut self,
+        budget: usize,
         mut cancel: impl FnMut(WorkEvent) -> bool,
+        policy: BatchPolicy,
     ) -> Result<UpdateProgress, Error> {
         let mut pending = self.pending.take().ok_or(Error::NotReady)?;
         if budget == 0 {
@@ -769,15 +802,27 @@ impl DynamicState {
             self.pending = Some(pending);
             return Ok(progress);
         }
-        let attempt = advance_pending(
-            &mut pending,
-            self.pool.as_mut(),
-            &mut self.journal,
-            &self.tables,
-            budget,
-            &mut cancel,
-            &mut self.ledger,
-        );
+        let attempt = (|| {
+            let batch = match policy.len() {
+                Some(len) => Some(BatchAdmission {
+                    old: &self.root,
+                    config: self.config,
+                    public: public_bytes(&self.package, &self.tables)?,
+                    len,
+                }),
+                None => None,
+            };
+            advance_pending(
+                &mut pending,
+                self.pool.as_mut(),
+                &mut self.journal,
+                &self.tables,
+                budget,
+                &mut cancel,
+                &mut self.ledger,
+                batch,
+            )
+        })();
         if let Err(error) = attempt {
             self.ledger.group_preimages = self.journal.group_logs as u64;
             self.ledger.field_preimages = self.journal.field_logs as u64;
@@ -1064,6 +1109,7 @@ fn advance_pending(
     budget: usize,
     o: &mut impl FnMut(WorkEvent) -> bool,
     ledger: &mut WorkLedger,
+    batch: Option<BatchAdmission<'_>>,
 ) -> Result<(), Error> {
     if p.full || p.remaining == 0 {
         return Ok(());
@@ -1071,7 +1117,7 @@ fn advance_pending(
     let pool = pool.ok_or(Error::NotReady)?;
     let mut left = budget;
     while left > 0 && p.remaining > 0 {
-        let builder = p.root.builder.as_mut().ok_or(Error::NotReady)?;
+        let builder = p.root.builder.as_ref().ok_or(Error::NotReady)?;
         if p.crossing && !p.promoted && builder.cursor.ready() {
             let alias = builder.cursor.phase == ReconstructionPhase::InitialReadyAlias;
             if !alias {
@@ -1112,6 +1158,69 @@ fn advance_pending(
                 return Err(Error::Cancelled);
             }
         } else {
+            if let Some(admission) = batch {
+                let plan = reconstruction::group_batch_plan(
+                    pool,
+                    &p.root.roles,
+                    builder,
+                    &tables.0,
+                    left.min(p.remaining),
+                    admission.len,
+                )?;
+                if let Some(plan) = plan {
+                    let base = private_bytes(Some(pool), journal, admission.old, Some(&p.root))?
+                        .checked_add(
+                            p.proof
+                                .public_values
+                                .capacity()
+                                .checked_mul(size_of::<Fr>())
+                                .ok_or(Error::Bound("batch statement bytes"))?,
+                        )
+                        .ok_or(Error::Bound("batch base bytes"))?;
+                    check_bytes(admission.config, base, admission.public)?;
+                    let room = (admission.config.max_private_bytes - base).min(
+                        admission
+                            .config
+                            .max_global_bytes
+                            .checked_sub(admission.public)
+                            .and_then(|x| x.checked_sub(base))
+                            .ok_or(Error::Bound("batch global room"))?,
+                    );
+                    let mut work = reconstruction::BatchWork::default();
+                    let builder = p.root.builder.as_mut().ok_or(Error::NotReady)?;
+                    let result = reconstruction::group_batch(
+                        pool,
+                        journal,
+                        &p.root.roles,
+                        builder,
+                        &tables.0,
+                        plan,
+                        room,
+                        o,
+                        &mut work,
+                    );
+                    telemetry_add(
+                        &mut ledger.attempted_reconstruction_actions,
+                        work.attempted_actions as u64,
+                        &mut ledger.saturated,
+                    );
+                    telemetry_add(
+                        &mut ledger.attempted_group_scalar_calls,
+                        work.requested_group_calls,
+                        &mut ledger.saturated,
+                    );
+                    p.group_calls = p
+                        .group_calls
+                        .checked_add(work.published_actions as u64)
+                        .ok_or(Error::Bound("maintenance group calls"))?;
+                    p.remaining -= work.published_actions;
+                    left -= work.published_actions;
+                    if result? {
+                        continue;
+                    }
+                }
+            }
+            let builder = p.root.builder.as_mut().ok_or(Error::NotReady)?;
             telemetry_add(
                 &mut ledger.attempted_reconstruction_actions,
                 1,
@@ -1424,6 +1533,132 @@ fn full_token(base: &AnchorBinding, c: &Current, p: &PublicPackage) -> Result<[u
 #[cfg(test)]
 #[path = "../tests/private/dynamic_private.rs"]
 mod tests;
+
+#[cfg(test)]
+impl DynamicState {
+    pub(crate) fn parallel_test_set_config(&mut self, config: DynamicConfig) -> DynamicConfig {
+        std::mem::replace(&mut self.config, config)
+    }
+
+    pub(crate) fn parallel_test_pending_bytes(&self) -> Result<(usize, usize), Error> {
+        let pending = self.pending.as_ref().ok_or(Error::NotReady)?;
+        let private = private_bytes(
+            self.pool.as_ref(),
+            &self.journal,
+            &self.root,
+            Some(&pending.root),
+        )?
+        .checked_add(
+            pending
+                .proof
+                .public_values
+                .capacity()
+                .checked_mul(size_of::<Fr>())
+                .ok_or(Error::Bound("test statement bytes"))?,
+        )
+        .ok_or(Error::Bound("test pending bytes"))?;
+        Ok((private, public_bytes(&self.package, &self.tables)?))
+    }
+
+    pub(crate) fn parallel_test_saturate_attempts(&mut self) {
+        self.ledger.attempted_reconstruction_actions = u64::MAX;
+        self.ledger.attempted_group_scalar_calls = u64::MAX;
+    }
+
+    pub(crate) fn parallel_test_advance_four(
+        &mut self,
+        budget: usize,
+        cancel: impl FnMut(WorkEvent) -> bool,
+    ) -> Result<UpdateProgress, Error> {
+        self.advance_update_inner(budget, cancel, BatchPolicy::Four)
+    }
+
+    pub(crate) fn parallel_test_snapshot(&self) -> Result<Vec<u8>, Error> {
+        self.parallel_test_snapshot_inner(false)
+    }
+
+    pub(crate) fn parallel_test_canonical_snapshot(&self) -> Result<Vec<u8>, Error> {
+        self.parallel_test_snapshot_inner(true)
+    }
+
+    fn parallel_test_snapshot_inner(&self, canonical_groups: bool) -> Result<Vec<u8>, Error> {
+        if self.pending.is_some() {
+            return Err(Error::Busy);
+        }
+        let mut bytes = Vec::new();
+        if let Some(pool) = &self.pool {
+            for slot in &pool.g {
+                for point in slot {
+                    if canonical_groups {
+                        point.serialize_compressed(&mut bytes)?;
+                    } else {
+                        for coordinate in [point.x, point.y, point.z] {
+                            coordinate.serialize_compressed(&mut bytes)?;
+                        }
+                    }
+                }
+            }
+            for slot in &pool.f {
+                slot.serialize_compressed(&mut bytes)?;
+            }
+        }
+        self.journal.marks.serialize_compressed(&mut bytes)?;
+        let root = &self.root;
+        let mut current = HashWriter(Sha256::new());
+        hash_current(&mut current, &root.current, &self.package)?;
+        bytes.extend(current.0.finalize());
+        root.current
+            .assignment
+            .values
+            .serialize_compressed(&mut bytes)?;
+        for value in [root.t, root.distance] {
+            bytes.extend(value.to_le_bytes());
+        }
+        for slot in root
+            .roles
+            .active_g
+            .into_iter()
+            .chain(root.roles.build_g)
+            .chain(root.roles.active_f)
+            .chain(root.roles.build_f)
+        {
+            bytes.extend((slot as u64).to_le_bytes());
+        }
+        if let Some(active) = &root.active {
+            bytes.extend(active.generation.to_le_bytes());
+            bytes.extend(active.distance.to_le_bytes());
+            bytes.extend(active.token);
+            for map in &active.maps {
+                map.as_ref().serialize_compressed(&mut bytes)?;
+            }
+        }
+        if let Some(builder) = &root.builder {
+            bytes.push(builder.cursor.phase as u8);
+            bytes.extend(builder.generation.to_le_bytes());
+            bytes.extend(builder.distance.to_le_bytes());
+            bytes.extend(builder.token);
+            for value in [
+                builder.cursor.done as u64,
+                builder.cursor.group_scalar_calls,
+                builder.cursor.field_mul_calls,
+            ] {
+                bytes.extend(value.to_le_bytes());
+            }
+            for value in builder
+                .cursor
+                .persistence_parts()
+                .into_iter()
+                .chain(builder.source)
+            {
+                bytes.extend((value as u64).to_le_bytes());
+            }
+            for map in builder.overlays.iter().chain(&builder.pending) {
+                map.as_ref().serialize_compressed(&mut bytes)?;
+            }
+        }
+        Ok(bytes)
+    }
+}
 
 // Internal codec owns no public raw-state access.
 pub(crate) mod persistence_codec;

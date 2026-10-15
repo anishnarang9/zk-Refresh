@@ -1,0 +1,258 @@
+{
+  "status": "Five default integration methods passed; all95postpins matched",
+  "executor": "ROOT only",
+  "source_manifest": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-timing-source-manifest-001.json",
+    "bytes": 20342,
+    "sha256": "7a3e11fa24f246c65198c7e337170dad164314b2895211c8d0382fab2d41b560",
+    "mode": "0o600"
+  },
+  "compile_receipt": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-integration-compile-001-artifact-freeze.json",
+    "bytes": 4938,
+    "sha256": "95b7a4cd7d96e6da8c02828e831765fa1d9c43f3c1a044cca39dc4dfcb457745",
+    "mode": "0o600"
+  },
+  "binary": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/binaries/reconstruction-batches-adoption-dynamic-conformance-001",
+    "bytes": 3661256,
+    "sha256": "f2f5c3ce738a63fdabf6239239c01f4cf53e4c19ec204dac332ef9c9a2e67acc",
+    "mode": "0o700"
+  },
+  "wrapper": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-integration-runtime-launcher-source-001/launch_runtime.py",
+    "bytes": 8528,
+    "sha256": "39e1711561411b2faeeda737b1b8fd2ebcc8295bc8d936fffb5832265ea2c3d7",
+    "mode": "0o600"
+  },
+  "grant": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-integration-runtime-grant-001.json",
+    "bytes": 10450,
+    "sha256": "2d171b6cf9aa4adbc78e8cb4e1c5b88027d19f013cbe8a686e5da6fd5f9f97e1",
+    "mode": "0o600"
+  },
+  "methods": [
+    "thousand_valid_transitions_multiple_distinct_reconstructions_and_independent_verification",
+    "exact_threshold_overshoot_reverse_zero_and_whole_call_cancellation",
+    "oversized_full_only_action_invalidation_and_replay_rejection",
+    "both_entropy_failures_preserve_committed_generation_and_progress",
+    "full_only_from_explicit_binding_remains_full_proving_even_with_reject_cap_policy"
+  ],
+  "passed": 5,
+  "failed": 0,
+  "ignored": 0,
+  "primary_report": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-integration-runtime-001/integration/primary.json",
+    "bytes": 5745,
+    "sha256": "ed87e105a58f138a246bb6d1e91ed436aea93cf96f57dd726c5f5ec642695a1d",
+    "mode": "0o600"
+  },
+  "duplicate_report": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-integration-runtime-001/integration/bounded/report.json",
+    "bytes": 5745,
+    "sha256": "ed87e105a58f138a246bb6d1e91ed436aea93cf96f57dd726c5f5ec642695a1d",
+    "mode": "0o600"
+  },
+  "duplicate_equal": true,
+  "stdout": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-integration-runtime-001/integration/bounded/stdout.log",
+    "bytes": 2607,
+    "sha256": "01f37a22124273e41662e93d410020b398fdfaf835211c95fd97543ae5dde6da",
+    "mode": "0o600"
+  },
+  "stderr": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-integration-runtime-001/integration/bounded/stderr.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mode": "0o600"
+  },
+  "stderr_empty": true,
+  "libtest_seconds_rounded": 4.81,
+  "resources": {
+    "duration_seconds": 5.816545541980304,
+    "sample_count": 26,
+    "sampled_peak_owned_tree_rss_bytes": 29409280,
+    "sampled_peak_storage_growth_bytes": 3905,
+    "limits": {
+      "runtime_seconds": 180.0,
+      "owned_tree_rss_bytes": 536870912,
+      "storage_growth_bytes": 4194304,
+      "poll_seconds": 0.2
+    },
+    "exit_code": 0,
+    "stop_reason": null,
+    "runner_error_type": null,
+    "cleanup_remaining_owned_processes": 0,
+    "cleanup_status_unknown": false
+  },
+  "host_complete": {
+    "event": "host_supervisor_complete",
+    "primary_host_cause": null,
+    "cleanup_verified": true,
+    "runner_returncode": 0,
+    "primary_runner_report_present": true,
+    "measurement_outcome": "completed_under_fixed_budget",
+    "additional_monitoring_planning_bytes": 201326592,
+    "monitoring_reserve_is_enforced": false,
+    "raw_runner_report_sha256": "ed87e105a58f138a246bb6d1e91ed436aea93cf96f57dd726c5f5ec642695a1d",
+    "whole_monitor_seconds": 6.101014957996085,
+    "runner_report_fields_unmodified": true,
+    "samples_retained_in_original_files_only": true,
+    "resource_policy_id": "dynark-fixed-budget-v1",
+    "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+    "utc": "2026-10-15T00:57:34Z"
+  },
+  "wrapper_complete": {
+    "event": "reconstruction_adoption_integration_complete",
+    "case": "integration",
+    "primary_cause": null,
+    "cleanup_verified": true,
+    "primary_report_unmodified": true,
+    "resource_policy_id": "dynark-fixed-budget-v1",
+    "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+    "utc": "2026-10-15T00:57:34Z"
+  },
+  "observed1000transition_aggregate": [
+    {
+      "N": 2,
+      "variables": 5,
+      "dense": false,
+      "transitions": 360,
+      "private_bytes": 5752,
+      "shared_public_bytes": 4160,
+      "ledger": {
+        "saturated": false,
+        "initialization_actions": 13,
+        "adopted_cells": 8,
+        "header_actions": 163,
+        "attempted_reconstruction_actions": 7615,
+        "committed_reconstruction_actions": 7615,
+        "attempted_group_scalar_calls": 3888,
+        "attempted_field_mul_calls": 1944,
+        "committed_group_scalar_calls": 3888,
+        "committed_field_mul_calls": 1944,
+        "validation_entries": 2520,
+        "assignment_copied_elements": 1800,
+        "map_merge_elements": 4560,
+        "quadratic_pair_visits": 2604,
+        "group_preimages": 1296,
+        "field_preimages": 1944,
+        "mark_clear_visits": 3240,
+        "rollback_cells": 0,
+        "full_fallbacks": 0,
+        "completed_distinct_snapshots": 162
+      }
+    },
+    {
+      "N": 8,
+      "variables": 5,
+      "dense": false,
+      "transitions": 360,
+      "private_bytes": 13392,
+      "shared_public_bytes": 7280,
+      "ledger": {
+        "saturated": false,
+        "initialization_actions": 50,
+        "adopted_cells": 32,
+        "header_actions": 163,
+        "attempted_reconstruction_actions": 40339,
+        "committed_reconstruction_actions": 40339,
+        "attempted_group_scalar_calls": 20736,
+        "attempted_field_mul_calls": 12960,
+        "committed_group_scalar_calls": 20736,
+        "committed_field_mul_calls": 12960,
+        "validation_entries": 3600,
+        "assignment_copied_elements": 1800,
+        "map_merge_elements": 7980,
+        "quadratic_pair_visits": 7812,
+        "group_preimages": 5184,
+        "field_preimages": 7776,
+        "mark_clear_visits": 12960,
+        "rollback_cells": 0,
+        "full_fallbacks": 0,
+        "completed_distinct_snapshots": 162
+      }
+    },
+    {
+      "N": 16,
+      "variables": 21,
+      "dense": true,
+      "transitions": 280,
+      "private_bytes": 25288,
+      "shared_public_bytes": 24712,
+      "ledger": {
+        "saturated": false,
+        "initialization_actions": 99,
+        "adopted_cells": 64,
+        "header_actions": 210,
+        "attempted_reconstruction_actions": 117716,
+        "committed_reconstruction_actions": 117716,
+        "attempted_group_scalar_calls": 60384,
+        "attempted_field_mul_calls": 40274,
+        "committed_group_scalar_calls": 60384,
+        "committed_field_mul_calls": 40274,
+        "validation_entries": 24640,
+        "assignment_copied_elements": 5880,
+        "map_merge_elements": 10400,
+        "quadratic_pair_visits": 21210,
+        "group_preimages": 13408,
+        "field_preimages": 14784,
+        "mark_clear_visits": 28192,
+        "rollback_cells": 0,
+        "full_fallbacks": 0,
+        "completed_distinct_snapshots": 209
+      }
+    }
+  ],
+  "total_main_transitions": 1000,
+  "main_distinct_snapshots": [
+    162,
+    162,
+    209
+  ],
+  "external_pre": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-integration-runtime-001-external-pre-pins.json",
+    "bytes": 46840,
+    "sha256": "493d0256128104ab9633f5d9bda885deded3da435ffc69a76c0d17012f9ab463",
+    "mode": "0o600"
+  },
+  "external_post": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-integration-runtime-001-external-post-pins.json",
+    "bytes": 46694,
+    "sha256": "c60ff7e587a747851bf27ba26221caacefc6b73133da464ad3409f438ade1e4d",
+    "mode": "0o600"
+  },
+  "all95pins_matched": true,
+  "root_independent_former_process_ids_absent": [
+    93710,
+    93716,
+    93719
+  ],
+  "live4files_equal_accepted002": [
+    {
+      "path": "/Users/anishnarang/Zk-refresh/crates/dynark-bn254/src/dynamic.rs",
+      "bytes": 60590,
+      "sha256": "bc9ea67f9289d5bfad1bf6e683174ced82cd76438c3a0de47478400d93ae9616",
+      "mode": "0o644"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/crates/dynark-bn254/src/reconstruction.rs",
+      "bytes": 42363,
+      "sha256": "91fb0495cb1c778ba8297365c80cc28e207516cb8a863fb2632d118889496335",
+      "mode": "0o644"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/crates/dynark-bn254/src/lib.rs",
+      "bytes": 2640,
+      "sha256": "30daa578e8e4dbc96f84929f836f8af7d752d0879b1365c21da53ed3be685270",
+      "mode": "0o644"
+    },
+    {
+      "path": "/Users/anishnarang/Zk-refresh/crates/dynark-bn254/tests/private/reconstruction_parallel.rs",
+      "bytes": 41949,
+      "sha256": "3fda48112b15673e0a9a1e5889ffca13caba829396cb2adff8d7a0568fc7f92c",
+      "mode": "0o644"
+    }
+  ],
+  "no_rerun": true
+}

@@ -2,6 +2,7 @@ use crate::{Error, Limits, PublicPackage, UpdatingMaterial};
 use ark_bn254::{Fr, G1Projective as G1};
 use ark_ff::AdditiveGroup;
 use ark_poly::EvaluationDomain;
+use rayon::prelude::*;
 use std::{mem::size_of, sync::Arc};
 
 pub(crate) type Map = Arc<Vec<(usize, Fr)>>;
@@ -92,6 +93,38 @@ impl ReconstructionMaterial {
             return Err(Error::UpdatingPackage);
         }
         self.0.uk.check(p)
+    }
+}
+
+#[cfg(test)]
+impl Tables {
+    // Arithmetic-only fixtures: these unused key vectors are not proof/preparation evidence.
+    pub(crate) fn parallel_test(n: usize) -> Self {
+        use ark_poly::GeneralEvaluationDomain;
+        let domain = GeneralEvaluationDomain::<Fr>::new(n).unwrap();
+        assert_eq!(domain.size(), n);
+        let package = crate::PackageIdentity {
+            matrix_digest: [0; 32],
+            circuit_digest: [0; 32],
+            proving_key_digest: [0; 32],
+            verifying_key_digest: [0; 32],
+            package_digest: [0; 32],
+        };
+        Self {
+            package,
+            uk: UpdatingMaterial(Arc::new(crate::anchored::MaterialInner {
+                package,
+                lagrange: vec![G1::ZERO; n],
+                diagonal: vec![G1::ZERO; n],
+                weights: vec![Fr::ZERO; n],
+            })),
+            roots: domain.elements().collect(),
+            forward: vec![Fr::ZERO; n],
+            reverse: vec![Fr::ZERO; n],
+            inverse_n: domain.size_inv(),
+            public_bytes: n * (2 * size_of::<G1>() + 4 * size_of::<Fr>()),
+            public_scan_entries: 0,
+        }
     }
 }
 fn package_bytes(p: &PublicPackage, uk: &UpdatingMaterial) -> Result<(usize, usize), Error> {
@@ -557,6 +590,15 @@ impl Journal {
     pub(crate) fn lengths(&self) -> (usize, usize) {
         (self.gi.len(), self.fi.len())
     }
+    #[cfg(test)]
+    pub(crate) fn parallel_test_one_group_cell(n: usize) -> Self {
+        let mut journal = Self::empty(vec![0; (10 * n).div_ceil(64)]);
+        journal.gv = reserved(1).unwrap();
+        journal.gi = reserved(1).unwrap();
+        assert_eq!(journal.gv.capacity(), 1);
+        assert_eq!(journal.gi.capacity(), 1);
+        journal
+    }
 }
 fn observe(observer: &mut impl FnMut(WorkEvent) -> bool, event: WorkEvent) -> Result<(), Error> {
     if observer(event) {
@@ -608,6 +650,199 @@ fn field_writes(
         )?;
     }
     Ok(())
+}
+
+pub(crate) const GROUP_BATCH_LEN: usize = 8192;
+
+#[cfg(test)]
+std::thread_local! {
+    static JOINED_GROUP_BATCHES: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+#[cfg(test)]
+pub(crate) fn parallel_test_joined_batches() -> u64 {
+    JOINED_GROUP_BATCHES.with(std::cell::Cell::get)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct GroupBatchPlan {
+    phase: ReconstructionPhase,
+    n: usize,
+    slot: usize,
+    stream: usize,
+    stage: usize,
+    start: usize,
+    len: usize,
+}
+
+#[derive(Default, Debug)]
+pub(crate) struct BatchWork {
+    pub(crate) attempted_actions: usize,
+    pub(crate) requested_group_calls: u64,
+    pub(crate) published_actions: usize,
+    pub(crate) scratch_capacity_bytes: usize,
+}
+
+pub(crate) fn group_batch_plan(
+    p: &Pool,
+    r: &Roles,
+    b: &Builder,
+    t: &Tables,
+    budget: usize,
+    len: usize,
+) -> Result<Option<GroupBatchPlan>, Error> {
+    if len == 0 || budget < len {
+        return Ok(None);
+    }
+    let c = &b.cursor;
+    let tail = match c.phase {
+        ReconstructionPhase::Forward | ReconstructionPhase::Inverse
+            if c.stage > 0 && c.stream < 2 =>
+        {
+            p.n / 2
+        }
+        ReconstructionPhase::Scale if c.stream < 2 => p.n,
+        _ => return Ok(None),
+    };
+    p.validate(r, b)?;
+    validate_cursor(c, p.n, &b.overlays)?;
+    if t.roots.len() != p.n {
+        return Err(Error::Bound("batch root table length"));
+    }
+    if c.index.checked_add(len).is_none_or(|end| end > tail) {
+        return Ok(None);
+    }
+    Ok(Some(GroupBatchPlan {
+        phase: c.phase,
+        n: p.n,
+        slot: r.build_g[c.stream],
+        stream: c.stream,
+        stage: c.stage,
+        start: c.index,
+        len,
+    }))
+}
+
+pub(crate) fn group_batch(
+    p: &mut Pool,
+    j: &mut Journal,
+    r: &Roles,
+    b: &mut Builder,
+    t: &Tables,
+    plan: GroupBatchPlan,
+    scratch_room: usize,
+    o: &mut impl FnMut(WorkEvent) -> bool,
+    work: &mut BatchWork,
+) -> Result<bool, Error> {
+    *work = BatchWork::default();
+    if group_batch_plan(p, r, b, t, plan.len, plan.len)? != Some(plan) {
+        return Err(Error::Bound("batch plan binding"));
+    }
+    let requested = plan
+        .len
+        .checked_mul(size_of::<[G1; 2]>())
+        .ok_or(Error::Bound("batch scratch bytes"))?;
+    if requested > scratch_room {
+        return Ok(false);
+    }
+    let mut values = Vec::new();
+    if values.try_reserve_exact(plan.len).is_err() {
+        return Ok(false);
+    }
+    let actual = values
+        .capacity()
+        .checked_mul(size_of::<[G1; 2]>())
+        .ok_or(Error::Bound("actual batch scratch bytes"))?;
+    if actual > scratch_room {
+        return Ok(false);
+    }
+    values.resize(plan.len, [G1::ZERO; 2]);
+    values.par_iter_mut().enumerate().for_each(|(offset, out)| {
+        let i = plan.start + offset;
+        if plan.phase == ReconstructionPhase::Scale {
+            *out = [p.g[plan.slot][i] * t.inverse_n, G1::ZERO];
+        } else {
+            let len = 1usize << plan.stage;
+            let half = len / 2;
+            let jj = i % half;
+            let left = (i / half) * len + jj;
+            let exponent = jj * (plan.n / len);
+            let root = t.roots[if plan.phase == ReconstructionPhase::Inverse {
+                (plan.n - exponent) % plan.n
+            } else {
+                exponent
+            }];
+            let u = p.g[plan.slot][left];
+            let v = p.g[plan.slot][left + half] * root;
+            *out = [u + v, u - v];
+        }
+    });
+    // These requested calls have joined even if publication subsequently fails.
+    work.attempted_actions = plan.len;
+    work.requested_group_calls = plan.len as u64;
+    work.scratch_capacity_bytes = actual;
+    #[cfg(test)]
+    JOINED_GROUP_BATCHES.with(|count| count.set(count.get().checked_add(1).unwrap()));
+    for (offset, value) in values.iter().enumerate() {
+        let i = plan.start + offset;
+        let next_done = b
+            .cursor
+            .done
+            .checked_add(1)
+            .ok_or(Error::Bound("cursor work"))?;
+        let next_groups = b
+            .cursor
+            .group_scalar_calls
+            .checked_add(1)
+            .ok_or(Error::Bound("cursor group calls"))?;
+        observe(o, WorkEvent::Action(plan.phase))?;
+        if plan.phase == ReconstructionPhase::Scale {
+            group_writes(p, j, plan.phase, &[(plan.slot, i, value[0])], o)?;
+        } else {
+            let len = 1usize << plan.stage;
+            let half = len / 2;
+            let left = (i / half) * len + i % half;
+            group_writes(
+                p,
+                j,
+                plan.phase,
+                &[
+                    (plan.slot, left, value[0]),
+                    (plan.slot, left + half, value[1]),
+                ],
+                o,
+            )?;
+        }
+        let c = &mut b.cursor;
+        c.done = next_done;
+        c.group_scalar_calls = next_groups;
+        c.index += 1;
+        if plan.phase == ReconstructionPhase::Scale {
+            if c.index == plan.n {
+                c.index = 0;
+                c.stream += 1;
+                if c.stream == 4 {
+                    c.next_phase(ReconstructionPhase::Integrate);
+                }
+            }
+        } else if c.index == plan.n / 2 {
+            c.index = 0;
+            c.stage += 1;
+            if c.stage > plan.n.ilog2() as usize {
+                c.stage = 0;
+                c.stream += 1;
+                if c.stream == 4 {
+                    c.next_phase(if plan.phase == ReconstructionPhase::Inverse {
+                        ReconstructionPhase::Scale
+                    } else {
+                        ReconstructionPhase::Pointwise
+                    });
+                }
+            }
+        }
+        work.published_actions += 1;
+    }
+    drop(values);
+    Ok(true)
 }
 /// One action is exactly one reviewed joint row, stream element, visit or butterfly.
 pub(crate) fn step(
