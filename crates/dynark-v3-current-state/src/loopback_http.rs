@@ -1,5 +1,5 @@
-//! Private loopback-only HTTP RED scaffold. No public transport injection and no
-//! authority minting. ConfiguredVerifier::new remains closed. GREEN must use the
+//! Private loopback-only HTTP transport. No public transport injection and no
+//! authority minting. ConfiguredVerifier::new remains closed. This uses the
 //! committed duplicate-aware parser, exact request IDs/ordered keys, and a fresh
 //! getGenesisHash + finalized getMultipleAccounts(minContextSlot) sequence.
 //!
@@ -13,7 +13,7 @@
 //! monotone with checked overflow. Only4/8 distinct ordered requested keys.
 #![allow(dead_code)]
 use super::{Error, FinalizedBatch, FinalizedRequest, Transport};
-use std::{sync::atomic::AtomicU64,time::Duration};
+use std::{io::Read,sync::atomic::{AtomicU64,Ordering},time::{Duration,Instant}};
 
 const CONNECT_TIMEOUT:Duration=Duration::from_millis(250);
 const REQUEST_TIMEOUT:Duration=Duration::from_secs(2);
@@ -27,11 +27,87 @@ struct LoopbackRpc {
     next_id:AtomicU64,
 }
 impl LoopbackRpc {
-    fn new(_endpoint:&str)->Result<Self,Error> {Err(Error::Unavailable)}
+    fn new(endpoint:&str)->Result<Self,Error> {
+        // Validate the original spelling before reqwest URL normalization can
+        // turn shorthand/numeric/userinfo hosts into an apparently allowed URL.
+        let text=endpoint.strip_prefix("http://127.0.0.1:")
+            .and_then(|v|v.strip_suffix('/')).ok_or(Error::Transport)?;
+        let port=text.parse::<u16>().map_err(|_|Error::Transport)?;
+        if port==0 || text!=port.to_string() {return Err(Error::Transport);}
+        let client=reqwest::blocking::Client::builder()
+            .no_proxy()
+            .redirect(reqwest::redirect::Policy::none())
+            .retry(reqwest::retry::never())
+            .http1_only()
+            .no_gzip().no_brotli().no_zstd().no_deflate()
+            .connect_timeout(CONNECT_TIMEOUT)
+            .timeout(REQUEST_TIMEOUT)
+            .pool_max_idle_per_host(0)
+            .build().map_err(|_|Error::Transport)?;
+        Ok(Self {endpoint:endpoint.into(),client,next_id:AtomicU64::new(1)})
+    }
+
+    fn call(&self,method:&str,params:serde_json::Value,limit:usize)->Result<(u64,Vec<u8>),Error> {
+        let started=Instant::now();
+        let id=self.next_id.fetch_update(Ordering::Relaxed,Ordering::Relaxed,|id|id.checked_add(1))
+            .map_err(|_|Error::Transport)?;
+        let body=serde_json::to_vec(&serde_json::json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}))
+            .map_err(|_|Error::Transport)?;
+        if body.len()>REQUEST_LIMIT {return Err(Error::Transport);}
+        let remaining=REQUEST_TIMEOUT.checked_sub(started.elapsed()).filter(|v|!v.is_zero()).ok_or(Error::Transport)?;
+        let mut response=self.client.post(&self.endpoint)
+            .header(reqwest::header::CONTENT_TYPE,"application/json")
+            .header(reqwest::header::ACCEPT,"application/json")
+            .header(reqwest::header::ACCEPT_ENCODING,"identity")
+            .header(reqwest::header::CONNECTION,"close")
+            // Request-level timeout also sets reqwest's async total-body timer;
+            // the blocking Client timeout alone can reset between Read calls.
+            .timeout(remaining).body(body).send().map_err(|_|Error::Transport)?;
+        if response.status()!=reqwest::StatusCode::OK {return Err(Error::Transport);}
+        let headers=response.headers();
+        let content_types=headers.get_all(reqwest::header::CONTENT_TYPE);
+        if content_types.iter().count()!=1 {return Err(Error::Transport);}
+        let content_type=content_types.iter().next().ok_or(Error::Transport)?;
+        if content_type.as_bytes().len()>128
+            || !content_type.to_str().map_err(|_|Error::Transport)?.split(';').next()
+                .ok_or(Error::Transport)?.trim().eq_ignore_ascii_case("application/json")
+        {return Err(Error::Transport);}
+        let encodings=headers.get_all(reqwest::header::CONTENT_ENCODING);
+        if encodings.iter().count()>1 {return Err(Error::Transport);}
+        if let Some(encoding)=encodings.iter().next() {
+            if !encoding.as_bytes().eq_ignore_ascii_case(b"identity") {return Err(Error::Transport);}
+        }
+        if response.content_length().is_some_and(|length|length>limit as u64) {return Err(Error::Transport);}
+        let mut bytes=Vec::with_capacity(limit.min(8192));
+        let mut buffer=[0u8;8192];
+        loop {
+            if started.elapsed()>=REQUEST_TIMEOUT {return Err(Error::Transport);}
+            let available=(limit+1).checked_sub(bytes.len()).ok_or(Error::Transport)?.min(buffer.len());
+            if available==0 {return Err(Error::Transport);}
+            let count=response.read(&mut buffer[..available]).map_err(|_|Error::Transport)?;
+            if started.elapsed()>=REQUEST_TIMEOUT {return Err(Error::Transport);}
+            if count==0 {break;}
+            if count>limit-bytes.len() {return Err(Error::Transport);}
+            bytes.extend_from_slice(&buffer[..count]);
+        }
+        Ok((id,bytes))
+    }
 }
 impl Transport for LoopbackRpc {
-    fn genesis(&self)->Result<[u8;32],Error> {Err(Error::Unavailable)}
-    fn finalized_accounts(&self,_request:&FinalizedRequest)->Result<FinalizedBatch,Error> {Err(Error::Unavailable)}
+    fn genesis(&self)->Result<[u8;32],Error> {
+        let (id,body)=self.call("getGenesisHash",serde_json::json!([]),GENESIS_LIMIT)?;
+        super::loopback_rpc::decode_genesis_response(&body,id)
+    }
+    fn finalized_accounts(&self,request:&FinalizedRequest)->Result<FinalizedBatch,Error> {
+        if !matches!(request.keys.len(),4|8) || request.commitment!=super::Commitment::Finalized
+            || request.keys.iter().enumerate().any(|(i,k)|request.keys[..i].contains(k))
+        {return Err(Error::Transport);}
+        let keys=request.keys.iter().map(|key|key.to_string()).collect::<Vec<_>>();
+        let (id,body)=self.call("getMultipleAccounts",serde_json::json!([keys,{
+            "encoding":"base64","commitment":"finalized","minContextSlot":request.minimum_context_slot
+        }]),ACCOUNTS_LIMIT)?;
+        super::loopback_rpc::decode_accounts_response(&body,id,request)
+    }
 }
 
 #[cfg(test)]
