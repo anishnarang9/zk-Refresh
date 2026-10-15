@@ -295,6 +295,48 @@ mod tests {
         );
     }
     #[test]
+    fn zero_source_sequence_is_not_an_authenticated_observation() {
+        let (credential, manifest, mut state) = fixture();
+        // Enrollment starts at sequence zero. Only an authenticated Observe
+        // increments it, so a zero/zero publisher match is insufficient.
+        state.source.sequence = 0;
+        state.publication.source_sequence = 0;
+        assert_eq!(
+            state.validate_record_coherence(&credential, &manifest, 150),
+            Err(ClientError::StaleIssuer)
+        );
+    }
+    #[test]
+    fn initialized_root_version_zero_can_bind_a_genuine_observation() {
+        let (credential, manifest, mut state) = fixture();
+        // The trusted adapter must establish that this is the current initialized
+        // root. Version zero itself is valid when publication binds Observe #1.
+        state.publication.root_version = 0;
+        state.source.sequence = 1;
+        state.publication.source_sequence = 1;
+        assert_eq!(
+            state.validate_record_coherence(&credential, &manifest, 150),
+            Ok(())
+        );
+        state.publication.source_digest[0] ^= 1;
+        assert_eq!(
+            state.validate_record_coherence(&credential, &manifest, 150),
+            Err(ClientError::StaleIssuer)
+        );
+    }
+    #[test]
+    fn coherent_records_never_authorize_adapter_key_admission() {
+        let (credential, manifest, state) = fixture();
+        assert_eq!(
+            state.validate_record_coherence(&credential, &manifest, 150),
+            Ok(())
+        );
+        assert_eq!(
+            manifest.admit_adapter_key(state.adapter_key, &[]),
+            Err(ClientError::Unsupported)
+        );
+    }
+    #[test]
     fn expired_clock_source_action_and_consumed_requests_are_rejected() {
         let (credential, manifest, state) = fixture();
         assert_eq!(

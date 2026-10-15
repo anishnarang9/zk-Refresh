@@ -15,6 +15,14 @@ pub struct V3OrdinaryVkIdentity {
     pub root_receipt_sha256: Digest,
 }
 
+/// Public development-key identity accepted against a fixed ROOT receipt.
+/// Its private field prevents callers constructing admission from record data.
+/// This token authenticates no issuer, status source, credential or application.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct V3AdmittedAdapterKey {
+    identity: V3OrdinaryVkIdentity,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct V3FullManifest {
     pub admission: V3AdmissionIdentity,
@@ -87,9 +95,13 @@ impl V3FullManifest {
         }
         Ok(())
     }
-    /// No accepted external key-gate receipt exists yet. This must remain closed
-    /// until exact tagged/receipt pins are independently measured and reviewed.
-    pub fn admit_adapter_key(&self, _: V3OrdinaryVkIdentity) -> Result<(), ClientError> {
+    /// RED scaffold: receipt authentication remains closed until its focused
+    /// test has failed and the exact reviewed receipt pins are implemented.
+    pub fn admit_adapter_key(
+        &self,
+        _: V3OrdinaryVkIdentity,
+        _: &[u8],
+    ) -> Result<V3AdmittedAdapterKey, ClientError> {
         Err(ClientError::Unsupported)
     }
 }
@@ -98,6 +110,104 @@ impl V3FullManifest {
 mod tests {
     use super::*;
     use crate::decode_digest;
+
+    // Public identity evidence only. No PK, credential, holder key or assignment.
+    const KEY_RECEIPT: &[u8] =
+        include_bytes!("../../../results/dynark/part5/v3-ordinary-vk-identity-001.json");
+
+    fn actual_key_identity() -> V3OrdinaryVkIdentity {
+        V3OrdinaryVkIdentity {
+            file_sha256: decode_digest(
+                "87edb4608c2140f3c7fddc8503e49b68931cda973711ce2c831bd44f1b98a875",
+            )
+            .unwrap(),
+            tagged_digest: decode_digest(
+                "2f9b770ff51ac399619a3127ddb32efad67697402f10c4549441a3578e4f9a4e",
+            )
+            .unwrap(),
+            root_receipt_sha256: decode_digest(
+                "6a6fd9d207c778b085f56de3327ec15ccee886ab127de1e90e970da039fef429",
+            )
+            .unwrap(),
+        }
+    }
+
+    #[test]
+    fn accepted_adapter_key_requires_exact_authenticated_receipt() {
+        let manifest = V3FullManifest::frozen_development().unwrap();
+        let identity = actual_key_identity();
+        assert_eq!(KEY_RECEIPT.len(), 1458);
+        let token = manifest
+            .admit_adapter_key(identity, KEY_RECEIPT)
+            .expect("reviewed actual-key receipt admits its exact development identity");
+        assert_eq!(token.identity, identity);
+    }
+
+    #[test]
+    fn absent_adapter_receipt_cannot_admit_even_the_actual_key_identity() {
+        let manifest = V3FullManifest::frozen_development().unwrap();
+        assert_eq!(
+            manifest.validate_adapter_record_shape(actual_key_identity()),
+            Ok(())
+        );
+        assert_eq!(
+            manifest.admit_adapter_key(actual_key_identity(), &[]),
+            Err(ClientError::Unsupported)
+        );
+    }
+
+    #[test]
+    fn altered_adapter_receipt_and_identity_substitutions_fail_admission() {
+        let manifest = V3FullManifest::frozen_development().unwrap();
+        let identity = actual_key_identity();
+        let mut altered = KEY_RECEIPT.to_vec();
+        altered[0] ^= 1;
+        let mut extended = KEY_RECEIPT.to_vec();
+        extended.push(b'\n');
+        for receipt in [
+            altered.as_slice(),
+            &KEY_RECEIPT[..KEY_RECEIPT.len() - 1],
+            extended.as_slice(),
+        ] {
+            assert_eq!(
+                manifest.admit_adapter_key(identity, receipt),
+                Err(ClientError::Identity)
+            );
+        }
+        for wrong in [
+            V3OrdinaryVkIdentity {
+                tagged_digest: [7; 32],
+                ..identity
+            },
+            V3OrdinaryVkIdentity {
+                file_sha256: [8; 32],
+                ..identity
+            },
+            V3OrdinaryVkIdentity {
+                root_receipt_sha256: [9; 32],
+                ..identity
+            },
+            V3OrdinaryVkIdentity {
+                tagged_digest: identity.file_sha256,
+                ..identity
+            },
+            V3OrdinaryVkIdentity {
+                tagged_digest: manifest.package.verifying_key_digest,
+                ..identity
+            },
+        ] {
+            assert_eq!(
+                manifest.admit_adapter_key(wrong, KEY_RECEIPT),
+                Err(ClientError::Identity)
+            );
+        }
+        let mut wrong = manifest;
+        wrong.package.package_digest = [0; 32];
+        assert_eq!(
+            wrong.admit_adapter_key(identity, KEY_RECEIPT),
+            Err(ClientError::Identity)
+        );
+    }
 
     fn shape() -> Shape {
         Shape {
@@ -173,7 +283,7 @@ mod tests {
         };
         assert_eq!(manifest.validate_adapter_record_shape(identity), Ok(()));
         assert_eq!(
-            manifest.admit_adapter_key(identity),
+            manifest.admit_adapter_key(identity, &[]),
             Err(ClientError::Unsupported)
         );
         for wrong in [
