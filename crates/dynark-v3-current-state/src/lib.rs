@@ -222,7 +222,9 @@ impl ConfiguredVerifier {
             _ => return Err(Error::Deployment),
         }
         let metadata_len = UpgradeableLoaderState::size_of_programdata_metadata();
-        if programdata.bytes.len() != metadata_len.checked_add(p.elf_length).ok_or(Error::Deployment)? {
+        let image_end=metadata_len.checked_add(p.elf_length).ok_or(Error::Deployment)?;
+        let allocation_end=metadata_len.checked_add(MAX_ELF_LENGTH).ok_or(Error::Deployment)?;
+        if programdata.bytes.len()<image_end || programdata.bytes.len()>allocation_end {
             return Err(Error::Deployment);
         }
         match canonical_loader(&programdata.bytes[..metadata_len], true)? {
@@ -230,9 +232,14 @@ impl ConfiguredVerifier {
                 if slot <= batch.context_slot && upgrade_authority_address == p.upgrade_authority => (),
             _ => return Err(Error::Deployment),
         }
-        let image = &programdata.bytes[metadata_len..];
+        // Loader allocation capacity may exceed the reviewed artifact length.
+        // Preserve that exact pinned prefix (including genuine ELF end zeros);
+        // reserve bytes are accepted only when zero and within the capacity cap.
+        let image = &programdata.bytes[metadata_len..image_end];
         let digest: [u8;32] = Sha256::digest(image).into();
-        if !image.starts_with(b"\x7fELF") || digest != p.elf_sha256 { return Err(Error::Deployment); }
+        if !image.starts_with(b"\x7fELF") || digest != p.elf_sha256
+            || programdata.bytes[image_end..].iter().any(|byte|*byte!=0)
+        { return Err(Error::Deployment); }
         if config.owner != p.program || config.executable { return Err(Error::Account); }
         // Owning program codec validates exact length/magic/canonical fields and
         // the compiled profile/circuit/schema/package/ordinary-VK identities.
