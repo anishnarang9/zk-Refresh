@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "owner": "v3-current-state-green-full-001",
+  "started_at_utc": "2026-10-15T17:15:28.042846+00:00",
+  "ended_at_utc": "2026-10-15T17:15:28.675085+00:00",
+  "timezone": [
+    "EST",
+    "EDT"
+  ],
+  "duration_seconds": 0.6322674580151215,
+  "limits": {
+    "runtime_seconds": 180.0,
+    "owned_tree_rss_bytes": 2147483648,
+    "storage_growth_bytes": 536870912,
+    "poll_seconds": 0.2
+  },
+  "stop_reason": null,
+  "exit_code": 0,
+  "runner_error_type": null,
+  "cleanup_remaining_owned_processes": 0,
+  "cleanup_status_unknown": false,
+  "sample_count": 3,
+  "samples": [
+    {
+      "elapsed_seconds": 0.015968624968081713,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 507904,
+      "storage_growth_bytes": 796
+    },
+    {
+      "elapsed_seconds": 0.29527825000695884,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 80166912,
+      "storage_growth_bytes": 1367
+    },
+    {
+      "elapsed_seconds": 0.574194582994096,
+      "owned_process_count": 0,
+      "owned_tree_rss_bytes": 0,
+      "storage_growth_bytes": 2009
+    }
+  ],
+  "sampled_peak_owned_tree_rss_bytes": 80166912,
+  "sampled_peak_storage_growth_bytes": 2009,
+  "environment": {
+    "RAYON_NUM_THREADS": null,
+    "OMP_NUM_THREADS": null,
+    "TZ": null
+  },
+  "measurement_notes": [
+    "RSS from ps KiB converted to bytes; sum of live owned tree; not heap allocation",
+    "storage is positive logical file-size growth per supplied root; excludes deleted-file peak between samples",
+    "limits sampled; short spikes and daemonized ancestry escape between samples may be missed",
+    "samples exclude runner/ps RSS; storage report written after the measured command",
+    "child stdout/stderr/argv retained only in protected output"
+  ],
+  "passed": true
+}

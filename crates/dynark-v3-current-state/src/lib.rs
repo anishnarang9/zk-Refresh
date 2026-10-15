@@ -6,7 +6,9 @@ use solana_program::{
     bpf_loader_upgradeable::{self, UpgradeableLoaderState},
     clock::Clock, pubkey::Pubkey, sysvar,
 };
-use zk_fresh_program::{application_runtime_v3::config_address, application_v3::Config};
+use zk_fresh_program::{application_runtime_v3::config_address, application_v3::{
+    Config, Issuer, PublisherHead, Request, RequestState, Queue, QUEUE_CAPACITY,
+}};
 
 const MAX_ELF_LENGTH: usize = 4 * 1024 * 1024;
 const MAX_CLOCK_AGE_SECONDS: u64 = 300;
@@ -46,14 +48,36 @@ impl VerifiedDeployment {
     pub fn finalized_slot(&self) -> u64 { self.finalized_slot }
 }
 
-/// Reserved chain-current-state capability relative to separately trusted pins,
-/// as of one finalized batch. No minting path exists in the RED scaffold. This
+/// Chain-current-state capability relative to separately trusted pins, as of
+/// one finalized batch. It is not a promise about a later execution context. This
 /// does NOT establish detached source/publisher signatures, holder proof, Merkle
 /// membership, relevant-extra-account authentication, or execution authorization.
 /// No public constructor, serde, Clone, Debug, From<JSON> or authority trait.
-pub struct AuthenticatedV3Current { finalized_slot: u64 }
+pub struct AuthenticatedV3Current {
+    deployment: VerifiedDeployment,
+    current_accounts: [Pubkey;4],
+    config: Config,
+    issuer: Issuer,
+    publisher_head: PublisherHead,
+    request: Request,
+    queue: Queue,
+    clock: Clock,
+    validated_at: i64,
+}
 impl AuthenticatedV3Current {
-    pub fn finalized_slot(&self) -> u64 { self.finalized_slot }
+    pub fn finalized_slot(&self) -> u64 { self.deployment.finalized_slot }
+    pub fn deployment(&self) -> &VerifiedDeployment { &self.deployment }
+    pub fn issuer_account(&self) -> &Pubkey { &self.current_accounts[0] }
+    pub fn publisher_head_account(&self) -> &Pubkey { &self.current_accounts[1] }
+    pub fn request_account(&self) -> &Pubkey { &self.current_accounts[2] }
+    pub fn queue_account(&self) -> &Pubkey { &self.current_accounts[3] }
+    pub fn config(&self) -> &Config { &self.config }
+    pub fn issuer(&self) -> &Issuer { &self.issuer }
+    pub fn publisher_head(&self) -> &PublisherHead { &self.publisher_head }
+    pub fn request(&self) -> &Request { &self.request }
+    pub fn queue(&self) -> &Queue { &self.queue }
+    pub fn clock(&self) -> &Clock { &self.clock }
+    pub fn validated_at(&self) -> i64 { self.validated_at }
 }
 
 /// Address-discovery identifiers only, never current-state assertions. A future
@@ -72,30 +96,88 @@ impl ConfiguredVerifier {
     /// supplied implementation can substitute for that trusted transport.
     pub fn new(_pins: DeploymentPins) -> Result<Self, Error> { Err(Error::Unavailable) }
 
-    /// Closed RED stub: request deployment+current accounts in ONE fresh batch,
-    /// then reject. No decoding, validation, caching or capability minting occurs.
-    /// GREEN must independently recheck deployment in this same context; calling
-    /// verify_deployment first and mixing a later current batch is insufficient.
-    pub fn verify_current(&self, selection: &CurrentSelection, _local_unix: i64)
+    /// Authenticate deployment and current records from ONE fresh finalized
+    /// batch. There is no batch cache or caller-provided account/JSON input.
+    /// Production construction stays closed until real transport qualification.
+    pub fn verify_current(&self, selection: &CurrentSelection, local_unix: i64)
         -> Result<AuthenticatedV3Current, Error>
     {
         use zk_fresh_program::application_runtime_v3 as runtime;
         let p=&self.pins;
         let issuer=runtime::issuer_address(&p.program,&p.config,&selection.issuer_hash).0;
-        let _genesis=self.transport.genesis()?;
-        let _batch=self.transport.finalized_accounts(&FinalizedRequest {
-            keys:vec![p.program,p.programdata,p.config,sysvar::clock::id(),issuer,
+        let keys=vec![p.program,p.programdata,p.config,sysvar::clock::id(),issuer,
                 runtime::publisher_head_address(&p.program,&p.config,&issuer,&selection.publisher).0,
                 runtime::request_address(&p.program,&p.config,&selection.creator,&selection.nonce).0,
-                runtime::queue_address(&p.program,&p.config).0],
+                runtime::queue_address(&p.program,&p.config).0];
+        let genesis=self.transport.genesis()?;
+        let batch=self.transport.finalized_accounts(&FinalizedRequest {
+            keys:keys.clone(),
             commitment:Commitment::Finalized, minimum_context_slot:p.minimum_finalized_slot,
         })?;
-        Err(Error::Unavailable)
+        let (config,clock)=self.check_deployment_batch(genesis,&batch,&keys,local_unix)?;
+        for account in &batch.accounts[4..] {
+            if account.owner!=p.program || account.executable { return Err(Error::Account); }
+        }
+        let issuer=Issuer::decode(&batch.accounts[4].bytes).map_err(|_|Error::Account)?;
+        let head=PublisherHead::decode(&batch.accounts[5].bytes).map_err(|_|Error::Account)?;
+        let request=Request::decode(&batch.accounts[6].bytes).map_err(|_|Error::Account)?;
+        let queue=Queue::decode(&batch.accounts[7].bytes).map_err(|_|Error::Account)?;
+        if config.publisher!=selection.publisher || issuer.config!=p.config
+            || issuer.issuer_hash!=selection.issuer_hash
+            || head.config!=p.config || head.issuer!=keys[4] || head.publisher!=config.publisher
+            || request.config!=p.config || request.creator!=selection.creator
+            || request.nonce!=selection.nonce || request.issuer_hash!=issuer.issuer_hash
+            || queue.config!=p.config
+        { return Err(Error::Account); }
+        issuer.binding_current(&config).map_err(|_|Error::Account)?;
+        // The program's legacy fresh() has an inclusive endpoint. Authorization
+        // use here is deliberately strict, agreeing with BindWithHead/preflight.
+        if !issuer.status_valid || issuer.sequence==0 || issuer.digest==[0;32]
+            || issuer.observed_at>clock.unix_timestamp || local_unix>=issuer.expires_at
+            || local_unix.checked_sub(issuer.observed_at).ok_or(Error::Clock)? > 300
+        { return Err(Error::Clock); }
+        if head.root!=config.root || head.root_version!=config.root_version
+            || head.source_sequence!=issuer.sequence || head.source_digest!=issuer.digest
+            || head.config_epoch!=config.eligibility_epoch || head.issuer_epoch!=issuer.eligibility_epoch
+            || head.committed_at<issuer.observed_at || head.committed_at>clock.unix_timestamp
+        { return Err(Error::Account); }
+        if request.state!=RequestState::Finalized || local_unix>request.deadline
+            || queue.entries.contains(&keys[6]) || queue.entries.len()>=QUEUE_CAPACITY
+        { return Err(Error::Account); }
+        // Owning codec already checks upload completeness and distinct metas.
+        // Check stored writable roles and owners for the two included accounts.
+        // Actual transaction privileges, extra-account authentication and action
+        // execution remain outside this capability.
+        if request.metas[0].key!=keys[6] || request.metas[1].key!=keys[7]
+            || request.metas[..2].iter().any(|m|m.flags!=2 || m.owner!=p.program)
+            || request.metas.iter().any(|m|m.key==p.config || m.key==keys[4] || m.key==keys[5])
+        { return Err(Error::Account); }
+        Ok(AuthenticatedV3Current {
+            deployment:VerifiedDeployment {program:p.program,config:p.config,finalized_slot:batch.context_slot},
+            current_accounts:[keys[4],keys[5],keys[6],keys[7]], config,issuer,publisher_head:head,
+            request,queue,clock,validated_at:local_unix,
+        })
     }
 
     /// Deployment-only checks against separately trusted pins and a private
     /// finalized transport. Does not authenticate source/publisher/action state.
     pub fn verify_deployment(&self, local_unix: i64) -> Result<VerifiedDeployment, Error> {
+        let p=&self.pins;
+        let keys=vec![p.program,p.programdata,p.config,sysvar::clock::id()];
+        let genesis=self.transport.genesis()?;
+        let batch=self.transport.finalized_accounts(&FinalizedRequest {
+            keys:keys.clone(),commitment:Commitment::Finalized,
+            minimum_context_slot:p.minimum_finalized_slot,
+        })?;
+        self.check_deployment_batch(genesis,&batch,&keys,local_unix)?;
+        Ok(VerifiedDeployment {program:p.program,config:p.config,finalized_slot:batch.context_slot})
+    }
+
+    /// Shared in-memory validator: never makes another RPC read or uses an
+    /// earlier VerifiedDeployment token to stand in for this batch's deployment.
+    fn check_deployment_batch(&self, genesis:[u8;32], batch:&FinalizedBatch,
+        keys:&[Pubkey], local_unix:i64) -> Result<(Config,Clock),Error>
+    {
         let p = &self.pins;
         if p.elf_length < 4 || p.elf_length > MAX_ELF_LENGTH {
             return Err(Error::Deployment);
@@ -112,22 +194,16 @@ impl ConfiguredVerifier {
         {
             return Err(Error::Deployment);
         }
-        if self.transport.genesis()? != p.genesis { return Err(Error::Deployment); }
-        let keys = vec![p.program, p.programdata, p.config, sysvar::clock::id()];
+        if genesis != p.genesis { return Err(Error::Deployment); }
         // Avoid ambiguous role/account aliasing even under caller-chosen pins.
         for (i, key) in keys.iter().enumerate() {
             if keys[..i].contains(key) { return Err(Error::Account); }
         }
-        let batch = self.transport.finalized_accounts(&FinalizedRequest {
-            keys: keys.clone(),
-            commitment: Commitment::Finalized,
-            minimum_context_slot: p.minimum_finalized_slot,
-        })?;
         if batch.context_slot == 0 || batch.context_slot < p.minimum_finalized_slot {
             return Err(Error::Finality);
         }
         if batch.accounts.len() != keys.len()
-            || batch.accounts.iter().zip(&keys).any(|(a,k)| a.key != *k)
+            || batch.accounts.iter().zip(keys).any(|(a,k)| a.key != *k)
         {
             return Err(Error::Account);
         }
@@ -160,8 +236,8 @@ impl ConfiguredVerifier {
         if config.owner != p.program || config.executable { return Err(Error::Account); }
         // Owning program codec validates exact length/magic/canonical fields and
         // the compiled profile/circuit/schema/package/ordinary-VK identities.
-        let decoded = Config::decode(&config.bytes).map_err(|_| Error::Account)?;
-        if decoded.admin != p.admin || decoded.seed != p.seed || decoded.genesis != p.genesis {
+        let decoded_config = Config::decode(&config.bytes).map_err(|_| Error::Account)?;
+        if decoded_config.admin != p.admin || decoded_config.seed != p.seed || decoded_config.genesis != p.genesis {
             return Err(Error::Deployment);
         }
         if clock.owner != sysvar::id() || clock.executable || clock.bytes.len() != 40 {
@@ -176,7 +252,7 @@ impl ConfiguredVerifier {
         {
             return Err(Error::Clock);
         }
-        Ok(VerifiedDeployment { program: p.program, config: p.config, finalized_slot: batch.context_slot })
+        Ok((decoded_config,decoded))
     }
 }
 
