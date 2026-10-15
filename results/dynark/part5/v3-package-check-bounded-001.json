@@ -1,0 +1,1030 @@
+{
+  "schema": 1,
+  "owner": "part5-v3-package-check-001",
+  "started_at_utc": "2026-10-15T13:24:11.473253+00:00",
+  "ended_at_utc": "2026-10-15T13:24:56.024826+00:00",
+  "timezone": [
+    "EST",
+    "EDT"
+  ],
+  "duration_seconds": 44.5517878329847,
+  "limits": {
+    "runtime_seconds": 600.0,
+    "owned_tree_rss_bytes": 4294967296,
+    "storage_growth_bytes": 67108864,
+    "poll_seconds": 0.25
+  },
+  "stop_reason": null,
+  "exit_code": 0,
+  "runner_error_type": null,
+  "cleanup_remaining_owned_processes": 0,
+  "cleanup_status_unknown": false,
+  "sample_count": 165,
+  "samples": [
+    {
+      "elapsed_seconds": 0.01582270802464336,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 1540096,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 0.2918155830120668,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 2473984,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 0.566591165959835,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 181551104,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 0.8378928330494091,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 576012288,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 1.114136666059494,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 576012288,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 1.3842981660272926,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 576012288,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 1.6610612910008058,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 577028096,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 1.9305295000085607,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 413384704,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 2.200750541058369,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 419037184,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 2.4706298749661073,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 424378368,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 2.7404327080585063,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 430145536,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 3.0082412500632927,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 433995776,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 3.27767462504562,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 437633024,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 3.547269665985368,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 441286656,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 3.814135374967009,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 445218816,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 4.083434458007105,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 448905216,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 4.353549583000131,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 452558848,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 4.623828290961683,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 456212480,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 4.897563040954992,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 415367168,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 5.167505040997639,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 410910720,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 5.436947208014317,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 213532672,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 5.707838125061244,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 222347264,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 5.977223041001707,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 226967552,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 6.251831874949858,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 231735296,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 6.521855750004761,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 179994624,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 6.79164195805788,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 185778176,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 7.061435415991582,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 190939136,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 7.3313359579769894,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 196132864,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 7.601704832981341,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 201392128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 7.871213415986858,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 207929344,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 8.140508624957874,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 213680128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 8.409568708040752,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 221003776,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 8.679308249964379,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 230211584,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 8.949673625058495,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 235782144,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 9.219365458004177,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 241631232,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 9.489581290981732,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 241795072,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 9.759857916040346,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 247365632,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 10.039769332972355,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 250003456,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 10.309163208003156,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 254754816,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 10.578630000003614,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 256753664,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 10.848500499967486,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 258752512,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 11.117114415974356,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 260718592,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 11.387580291018821,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 262701056,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 11.660035207984038,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 264667136,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 11.929909541038796,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 266649600,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 12.200210832990706,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 268599296,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 12.469334125053138,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 270516224,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 12.739526666002348,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 272465920,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 13.009342749952339,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 274366464,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 13.27925787505228,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 276348928,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 13.549037500051782,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 278347776,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 13.818600291037,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 280428544,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 14.088500499958172,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 283066368,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 14.35873212502338,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 285065216,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 14.62530545797199,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 286932992,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 14.89522816601675,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 288866304,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 15.165295582963154,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 290832384,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 15.435666249948554,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 292732928,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 15.704891041037627,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 294649856,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 15.969985291012563,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 296615936,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 16.2398087909678,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 298631168,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 16.508915500016883,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 300580864,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 16.778189333039336,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 302579712,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 17.049694832996465,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 304594944,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 17.31998362496961,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 306610176,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 17.59195416595321,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 309641216,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 17.862769708037376,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 312639488,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 18.13312474999111,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 316178432,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 18.403666083002463,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 319733760,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 18.67398070800118,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 323289088,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 18.943592707975768,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 326860800,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 19.21325200004503,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 330416128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 19.482624333002605,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 333971456,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 19.75222279096488,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 337526784,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 20.021905333036557,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 341082112,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 20.291329625062644,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 344653824,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 20.560524082975462,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 348209152,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 20.830003791023046,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 351748096,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 21.098040999961086,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 355287040,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 21.36721233301796,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 358744064,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 21.63689429103397,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 362315776,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 21.906472041038796,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 365871104,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 22.177770250011235,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 369426432,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 22.447197083034553,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 372785152,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 22.717375749954954,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 376356864,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 22.987343625049107,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 379895808,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 23.25720737501979,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 383467520,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 23.52524320804514,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 386924544,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 23.795909833046608,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 390463488,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 24.065409832983278,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 394018816,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 24.334496124996804,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 397492224,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 24.603083958034404,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 401031168,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 24.873669250053354,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 404455424,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 25.14793020801153,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 407879680,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 25.418113499996252,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 408698880,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 25.68760750000365,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 412123136,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 25.957301083020866,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 415563776,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 26.226750707952306,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 418988032,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 26.497706040972844,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 422428672,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 26.77369991596788,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 425852928,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 27.043724333052523,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 429375488,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 27.31935337500181,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 434028544,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 27.58922700001858,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 439238656,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 27.859824707964435,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 735510528,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 28.13162745803129,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 750862336,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 28.40115499997046,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 750862336,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 28.674077415955253,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 750862336,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 28.946539666038007,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 29.21776991605293,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 29.48847704101354,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 29.759420500020497,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 30.031800625030883,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 30.304641082999296,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 30.581963832955807,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 30.85612858296372,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 31.128184666042216,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 31.400026708026417,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 31.671852290979587,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 31.943909500027075,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 32.21655341598671,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 32.48942224995699,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 32.760162582970224,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 33.03262604097836,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 33.306008415995166,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 33.57882816600613,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 33.85076258296613,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 34.12167508294806,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 34.3938494999893,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 34.666728624957614,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 34.93813833303284,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 35.21092929097358,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 35.48308133298997,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 35.753224250045605,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 36.02526170795318,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 36.29720537504181,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 36.5692416660022,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 36.84280304098502,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 37.11740404099692,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 37.38821858295705,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 37.65817483305,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 37.92902091599535,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 38.20123395801056,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 38.471575125004165,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 38.74298991600517,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 39.014285790966824,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 39.28612904099282,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 39.558800915954635,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 39.83028479095083,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 40.100095791043714,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 40.3704937499715,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 40.64124062506016,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 596656128,
+      "storage_growth_bytes": 1217
+    },
+    {
+      "elapsed_seconds": 40.95006254105829,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 915243008,
+      "storage_growth_bytes": 1302
+    },
+    {
+      "elapsed_seconds": 41.219941499992274,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 926400512,
+      "storage_growth_bytes": 1442
+    },
+    {
+      "elapsed_seconds": 41.48990483302623,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 858324992,
+      "storage_growth_bytes": 1508
+    },
+    {
+      "elapsed_seconds": 41.777941290987656,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 882671616,
+      "storage_growth_bytes": 1648
+    },
+    {
+      "elapsed_seconds": 42.04828129103407,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 946978816,
+      "storage_growth_bytes": 1713
+    },
+    {
+      "elapsed_seconds": 42.318971290951595,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 973373440,
+      "storage_growth_bytes": 1853
+    },
+    {
+      "elapsed_seconds": 42.6034157499671,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 992870400,
+      "storage_growth_bytes": 1927
+    },
+    {
+      "elapsed_seconds": 42.87331020797137,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 1035681792,
+      "storage_growth_bytes": 2067
+    },
+    {
+      "elapsed_seconds": 43.15305637498386,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 1036943360,
+      "storage_growth_bytes": 2133
+    },
+    {
+      "elapsed_seconds": 43.422930250060745,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 1061552128,
+      "storage_growth_bytes": 2199
+    },
+    {
+      "elapsed_seconds": 43.70839966600761,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 1086128128,
+      "storage_growth_bytes": 2339
+    },
+    {
+      "elapsed_seconds": 43.97790445794817,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 1091469312,
+      "storage_growth_bytes": 2413
+    },
+    {
+      "elapsed_seconds": 44.24869362497702,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 712638464,
+      "storage_growth_bytes": 3831
+    },
+    {
+      "elapsed_seconds": 44.53589658299461,
+      "owned_process_count": 0,
+      "owned_tree_rss_bytes": 0,
+      "storage_growth_bytes": 3831
+    }
+  ],
+  "sampled_peak_owned_tree_rss_bytes": 1091469312,
+  "sampled_peak_storage_growth_bytes": 3831,
+  "environment": {
+    "RAYON_NUM_THREADS": "4",
+    "OMP_NUM_THREADS": "1",
+    "TZ": null
+  },
+  "measurement_notes": [
+    "RSS from ps KiB converted to bytes; sum of live owned tree; not heap allocation",
+    "storage is positive logical file-size growth per supplied root; excludes deleted-file peak between samples",
+    "limits sampled; short spikes and daemonized ancestry escape between samples may be missed",
+    "samples exclude runner/ps RSS; storage report written after the measured command",
+    "child stdout/stderr/argv retained only in protected output"
+  ],
+  "passed": true
+}

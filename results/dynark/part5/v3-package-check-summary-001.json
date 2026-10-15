@@ -1,0 +1,27 @@
+{
+  "accepted_complete_assignments": 18,
+  "admitted": false,
+  "assignment_fields": 784796,
+  "constraints": 793681,
+  "development_only": true,
+  "elapsed_ms": 43758.976625,
+  "identity": {
+    "circuit": "eae99530daf7331037f2d1c6dc93ccc582603bd448f38d06e6469c734e8252fe",
+    "engine_extended_vk": "2611d58c8c8d0b0c1f2c3f0facc4516e5c08e1fb3a7f14b16e32b948bc8f3c70",
+    "matrix": "da82ee7cfbe33f6780032bece071a4c2a11d84d4744ba230f4c5149ceb72a471",
+    "package": "61d941890d823433468048dd1bd91da80c1bf7e1b3d2b6f5d509077a47ed06c8",
+    "pk": "14ddfd5773edda5cf02771ebfe2ac4e7af18437848d7822d6d28e2e0085bb671"
+  },
+  "matrix_entries": 4257583,
+  "ordinary_vk_file_sha256": "87edb4608c2140f3c7fddc8503e49b68931cda973711ce2c831bd44f1b98a875",
+  "ordinary_vk_ic_count": 7,
+  "passed": true,
+  "public_package_loads": 1,
+  "public_schema_sha256": "ebb3ce4b4eef3ad43c5e21ad76d1bf9f0883a8ebc9e1a37c55c9894f1c00444b",
+  "root_refresh_pairs": 9,
+  "schema": "credential-v3-bounded-public-package-check-v1",
+  "semantic_schema_sha256": "eabfaa2d95e4abc9126b87a04e94397091c103891e92dbaefaafba79cf3b26d4",
+  "setup_or_proofs_executed": false,
+  "single_shared_package": true,
+  "six_field_adapter_qualified": false
+}
