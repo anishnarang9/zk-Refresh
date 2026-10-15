@@ -24,14 +24,20 @@ demonstrate a reusable public proof shape, but no v3 application authorization
 or corpus-wide refresh economics. The v3 program has six-field state/parser
 and administrator host tests, including signed inactive-status handling,
 bounded request staging and a per-config/issuer/publisher head commitment.
-Its 61 focused host tests pass; publisher-head CPI, Execute, the loaded ELF
-and atomic queue effect still need local-validator evidence. The registry
+Its 69 focused host tests pass, including a read-only, non-authorizing Execute
+preflight. Publisher-head CPI, proof-verifying Execute, the loaded ELF and
+atomic queue effect still need local-validator evidence. The registry
 verifies per-issuer source and private publisher-envelope signatures/claims;
-caller-JSON authorization stays closed, and a concrete finalized chain
-verifier remains open. The native client has DER admission, a shareable setup
+caller-JSON authorization stays closed. A separate six-test finalized
+deployment consistency checker now validates loader, ELF, config and Clock
+against supplied pins; the production transport and authenticated current
+issuer/head/request capability remain open. The native client has DER admission, a shareable setup
 loader, canonical action checks, a Full-envelope check and the pinned
-751-coordinate compiler map. Its real Full witness/proof workflow still
-rejects. The frozen unseen credential cohort has not been generated or run.
+751-coordinate compiler map. Its pure complete-input builder and private CLI
+passed seven and twelve tests respectively. The Rust client still does not
+consume that candidate through complete-WTNS/R1CS comparison, and its real
+Full witness/proof workflow still rejects. The frozen unseen credential cohort
+has not been generated or run.
 
 For the v3 successor, Execute requires **six** ordered public fields and the
 matching seven-IC ordinary VK. Earlier v2 five-field steps below remain
