@@ -1,7 +1,9 @@
-//! Bounded-v3 shared setup identity. These records do not authenticate a setup
-//! receipt or admit an issuer. No accepted tagged adapter-key digest is invented.
+//! Bounded-v3 identity records and exact reviewed ordinary-key receipt admission.
+//! Receipt admission authenticates ordinary key identity only; it does not
+//! authenticate the full PK/setup, issuer enrollment or application authorization.
 use crate::{decode_digest, ClientError, Digest, V3AdmissionIdentity};
 use dynark_bn254::{PackageIdentity, Shape};
+use sha2::{Digest as _, Sha256};
 
 pub const V3_COORDINATES: usize = 784_796;
 pub const V3_WITNESS_BYTES: usize = 76 + 32 * V3_COORDINATES;
@@ -95,14 +97,40 @@ impl V3FullManifest {
         }
         Ok(())
     }
-    /// RED scaffold: receipt authentication remains closed until its focused
-    /// test has failed and the exact reviewed receipt pins are implemented.
+    /// Admit only the exact ROOT-reviewed development-key receipt and identity.
+    /// Exact byte authentication preserves its canonical schema/public order and
+    /// package/profile/raw/tagged/engine commitments. This reads no key material
+    /// and authenticates no issuer, status source, credential or application.
     pub fn admit_adapter_key(
         &self,
-        _: V3OrdinaryVkIdentity,
-        _: &[u8],
+        identity: V3OrdinaryVkIdentity,
+        receipt: &[u8],
     ) -> Result<V3AdmittedAdapterKey, ClientError> {
-        Err(ClientError::Unsupported)
+        self.check()?;
+        if receipt.is_empty() {
+            return Err(ClientError::Unsupported);
+        }
+        let expected = V3OrdinaryVkIdentity {
+            file_sha256: self.ordinary_vk_file_sha256,
+            tagged_digest: decode_digest(
+                "2f9b770ff51ac399619a3127ddb32efad67697402f10c4549441a3578e4f9a4e",
+            )?,
+            root_receipt_sha256: decode_digest(
+                "6a6fd9d207c778b085f56de3327ec15ccee886ab127de1e90e970da039fef429",
+            )?,
+        };
+        // The expected receipt hash comes from reviewed source policy, never
+        // from the caller's record or from a receipt's own declarations. Hashing
+        // the exact 1458 canonical bytes authenticates every reviewed JSON field;
+        // semantically equivalent reserialization is intentionally not admitted.
+        if identity != expected
+            || receipt.len() != 1458
+            || <Digest>::from(Sha256::digest(receipt)) != expected.root_receipt_sha256
+        {
+            return Err(ClientError::Identity);
+        }
+        self.validate_adapter_record_shape(identity)?;
+        Ok(V3AdmittedAdapterKey { identity })
     }
 }
 
@@ -207,6 +235,31 @@ mod tests {
             wrong.admit_adapter_key(identity, KEY_RECEIPT),
             Err(ClientError::Identity)
         );
+    }
+
+    #[test]
+    fn canonical_receipt_contents_cannot_be_rebound_by_caller_hashes() {
+        let manifest = V3FullManifest::frozen_development().unwrap();
+        let canonical = std::str::from_utf8(KEY_RECEIPT).unwrap();
+        for (before, after) in [
+            ("[\"root\",\"issuerHash\"", "[\"issuerHash\",\"root\""),
+            ("\"ordinary_vk_ic_count\":7", "\"ordinary_vk_ic_count\":6"),
+            ("\"profile_admitted\":false", "\"profile_admitted\": true"),
+        ] {
+            let altered = canonical.replace(before, after);
+            assert_ne!(altered.as_bytes(), KEY_RECEIPT);
+            assert_eq!(altered.len(), KEY_RECEIPT.len());
+            let mut claimed = actual_key_identity();
+            claimed.root_receipt_sha256 = Sha256::digest(altered.as_bytes()).into();
+            assert_eq!(
+                manifest.admit_adapter_key(actual_key_identity(), altered.as_bytes()),
+                Err(ClientError::Identity)
+            );
+            assert_eq!(
+                manifest.admit_adapter_key(claimed, altered.as_bytes()),
+                Err(ClientError::Identity)
+            );
+        }
     }
 
     fn shape() -> Shape {
