@@ -26,8 +26,10 @@ and administrator host tests, including signed inactive-status handling,
 bounded request staging and a per-config/issuer/publisher head commitment.
 Its read-only Execute preflight, canonical six-input ordinary VK, and direct
 Full-proof component verification now pass host tests. Execute also checks
-preflight and proof together and fails closed before an effect. The full program
-host regression passes 111 tests. Publisher-head CPI, a request-bound Full proof,
+preflight and proof together and fails closed before an effect. A private
+atomic queue append/request-consumption helper passes synthetic effect tests
+but is not connected to Execute. The full program host regression passes 113
+tests. Publisher-head CPI, a request-bound Full proof,
 the loaded v3 ELF and atomic queue effect still need local-validator evidence. The registry
 verifies per-issuer source and private publisher-envelope signatures/claims;
 caller-JSON authorization stays closed. A finalized chain-current checker
