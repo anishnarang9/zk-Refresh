@@ -1,0 +1,794 @@
+{
+  "status": "ROOT observed timing gate passed; worker independently verified reports/stdout and88postpins. Product adoption19-method gate remains pending.",
+  "one_identities": {
+    "source_manifest": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-timing-source-manifest-001.json",
+      "bytes": 20342,
+      "sha256": "7a3e11fa24f246c65198c7e337170dad164314b2895211c8d0382fab2d41b560",
+      "mode": "0o600"
+    },
+    "binary": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/binaries/reconstruction-batches-timing-libtest-001",
+      "bytes": 4732592,
+      "sha256": "06d49f50bc7694bd0dc8cc534935964c3d0e7fd2d8f812c45fabc7fbe0e7c4e0",
+      "mode": "0o700"
+    },
+    "wrapper": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-timing-runtime-launcher-source-001/launch_runtime.py",
+      "bytes": 8528,
+      "sha256": "0bb099d85fdeeb4e40e8e76773752fe6f1f288b0da41a96d0291488d049bcdbb",
+      "mode": "0o600"
+    },
+    "grant": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-timing-runtime-grant-001.json",
+      "bytes": 10002,
+      "sha256": "532b4660a0bdf384e2b722b2f4f84a80b60be306ed4c2ef2d2f274b231357c59",
+      "mode": "0o600"
+    },
+    "compile_receipt": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-timing-compile-001-artifact-freeze.json",
+      "bytes": 4311,
+      "sha256": "510bdfa7889a44f9252e1e988a25cb91fe421d94199a97d199b3e03ce026e81c",
+      "mode": "0o600"
+    },
+    "inventory": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-timing-test-inventory-001.json",
+      "bytes": 5759,
+      "sha256": "30de391aa3174edcb1fa9a0eb9f0fcb17b448ae7b4650181cce74e039185f24f",
+      "mode": "0o600"
+    }
+  },
+  "two_execution": {
+    "executor": "ROOT only",
+    "methods": 1,
+    "passed": 1,
+    "failed": 0,
+    "ignored": 0,
+    "libtest_seconds_rounded": 50.22,
+    "primary_report": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-timing-runtime-001/timing/primary.json",
+      "bytes": 39217,
+      "sha256": "ede79d4d6e44fcd1ab8a340a8361ec813c280d1323316d83316701a7c478d3cb",
+      "mode": "0o600"
+    },
+    "duplicate_report": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-timing-runtime-001/timing/bounded/report.json",
+      "bytes": 39217,
+      "sha256": "ede79d4d6e44fcd1ab8a340a8361ec813c280d1323316d83316701a7c478d3cb",
+      "mode": "0o600"
+    },
+    "duplicate_equal": true,
+    "stdout": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-timing-runtime-001/timing/bounded/stdout.log",
+      "bytes": 5545,
+      "sha256": "7f1ffe342a5dc91be54018f0df8968e5d6af42b31437262a3311587a7d18f99b",
+      "mode": "0o600"
+    },
+    "stderr": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/reconstruction-batches-timing-runtime-001/timing/bounded/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "0o600"
+    },
+    "stderr_empty": true,
+    "all6pairs_and12windows_retained": true,
+    "no_rerun": true
+  },
+  "three_measured_batch_latency": {
+    "boundary": "Actual8192-operation API windows: serial advance_update_with(observerfalse) vs bounded advance_update; index/root/admission/scratch/arithmetic/orderedjournal/publication/cursor/ledger included.",
+    "serial": {
+      "n": 5,
+      "median_seconds": 0.369257875,
+      "min_seconds": 0.364967417,
+      "max_seconds": 0.378966625,
+      "sum_seconds": 1.855959334,
+      "all_seconds": [
+        0.37745475,
+        0.378966625,
+        0.365312667,
+        0.369257875,
+        0.364967417
+      ]
+    },
+    "bounded": {
+      "n": 5,
+      "median_seconds": 0.099390042,
+      "min_seconds": 0.096660084,
+      "max_seconds": 0.102523666,
+      "sum_seconds": 0.497369959,
+      "all_seconds": [
+        0.102523666,
+        0.102127292,
+        0.099390042,
+        0.096660084,
+        0.096668875
+      ]
+    },
+    "ratio_of_medians": 3.7152401545418403,
+    "bounded_median_reduction_fraction": 0.7308383957958919,
+    "paired_ratios": [
+      3.6816353211559956,
+      3.7107282253210045,
+      3.6755459566059945,
+      3.8201691920731213,
+      3.775438754200874
+    ],
+    "paired_deltas_seconds": [
+      0.274931084,
+      0.276839333,
+      0.26592262499999997,
+      0.27259779100000003,
+      0.26829854200000003
+    ],
+    "paired_wins": 5,
+    "warm_pair": {
+      "record": "pair",
+      "sample": -1,
+      "warm": true,
+      "order": "serial,bounded",
+      "serial_seconds": 0.363227041,
+      "bounded_seconds": 0.097225833,
+      "restore_seconds": 0.400527417,
+      "original_snapshots_seconds": 0.008030583,
+      "begin_seconds": 0.002268292,
+      "target_validation_seconds": 0.0047595,
+      "prefix_seconds": 5.085728875,
+      "precheck_seconds": 0.001150667,
+      "postcheck_seconds": 0.000673167,
+      "cancel_seconds": 0.000342666,
+      "cancel_check_seconds": 0.00656875,
+      "structural_peak_bound": 168443320,
+      "pending_exact_equal": true,
+      "own_current_unchanged": true,
+      "own_full_raw_rollback": true
+    },
+    "measured_pairs": [
+      {
+        "record": "pair",
+        "sample": 0,
+        "warm": false,
+        "order": "bounded,serial",
+        "serial_seconds": 0.37745475,
+        "bounded_seconds": 0.102523666,
+        "restore_seconds": 0.401698209,
+        "original_snapshots_seconds": 0.006592959,
+        "begin_seconds": 0.002141833,
+        "target_validation_seconds": 0.00479625,
+        "prefix_seconds": 5.200455667,
+        "precheck_seconds": 0.000786167,
+        "postcheck_seconds": 0.000658541,
+        "cancel_seconds": 0.000388667,
+        "cancel_check_seconds": 0.0064395,
+        "structural_peak_bound": 168443320,
+        "pending_exact_equal": true,
+        "own_current_unchanged": true,
+        "own_full_raw_rollback": true
+      },
+      {
+        "record": "pair",
+        "sample": 1,
+        "warm": false,
+        "order": "serial,bounded",
+        "serial_seconds": 0.378966625,
+        "bounded_seconds": 0.102127292,
+        "restore_seconds": 0.403951541,
+        "original_snapshots_seconds": 0.007267083,
+        "begin_seconds": 0.002173875,
+        "target_validation_seconds": 0.00504825,
+        "prefix_seconds": 5.255317708,
+        "precheck_seconds": 0.000544042,
+        "postcheck_seconds": 0.000500416,
+        "cancel_seconds": 0.000346,
+        "cancel_check_seconds": 0.007407375,
+        "structural_peak_bound": 168443320,
+        "pending_exact_equal": true,
+        "own_current_unchanged": true,
+        "own_full_raw_rollback": true
+      },
+      {
+        "record": "pair",
+        "sample": 2,
+        "warm": false,
+        "order": "bounded,serial",
+        "serial_seconds": 0.365312667,
+        "bounded_seconds": 0.099390042,
+        "restore_seconds": 0.4125465,
+        "original_snapshots_seconds": 0.006056208,
+        "begin_seconds": 0.002519208,
+        "target_validation_seconds": 0.005124375,
+        "prefix_seconds": 5.224564375,
+        "precheck_seconds": 0.000526667,
+        "postcheck_seconds": 0.000492916,
+        "cancel_seconds": 0.000329209,
+        "cancel_check_seconds": 0.007114084,
+        "structural_peak_bound": 168443320,
+        "pending_exact_equal": true,
+        "own_current_unchanged": true,
+        "own_full_raw_rollback": true
+      },
+      {
+        "record": "pair",
+        "sample": 3,
+        "warm": false,
+        "order": "serial,bounded",
+        "serial_seconds": 0.369257875,
+        "bounded_seconds": 0.096660084,
+        "restore_seconds": 0.395202542,
+        "original_snapshots_seconds": 0.006195,
+        "begin_seconds": 0.002236833,
+        "target_validation_seconds": 0.005038,
+        "prefix_seconds": 5.102936583,
+        "precheck_seconds": 0.00049225,
+        "postcheck_seconds": 0.000556791,
+        "cancel_seconds": 0.000329709,
+        "cancel_check_seconds": 0.007287541,
+        "structural_peak_bound": 168443320,
+        "pending_exact_equal": true,
+        "own_current_unchanged": true,
+        "own_full_raw_rollback": true
+      },
+      {
+        "record": "pair",
+        "sample": 4,
+        "warm": false,
+        "order": "bounded,serial",
+        "serial_seconds": 0.364967417,
+        "bounded_seconds": 0.096668875,
+        "restore_seconds": 0.399837833,
+        "original_snapshots_seconds": 0.006003875,
+        "begin_seconds": 0.002210292,
+        "target_validation_seconds": 0.004796041,
+        "prefix_seconds": 5.227370208,
+        "precheck_seconds": 0.00159325,
+        "postcheck_seconds": 0.000638417,
+        "cancel_seconds": 0.000335917,
+        "cancel_check_seconds": 0.013717958,
+        "structural_peak_bound": 168443320,
+        "pending_exact_equal": true,
+        "own_current_unchanged": true,
+        "own_full_raw_rollback": true
+      }
+    ],
+    "window_records": [
+      {
+        "record": "window",
+        "sample": -1,
+        "warm": true,
+        "position": 0,
+        "method": "serial",
+        "seconds": 0.363227041
+      },
+      {
+        "record": "window",
+        "sample": -1,
+        "warm": true,
+        "position": 1,
+        "method": "bounded",
+        "seconds": 0.097225833
+      },
+      {
+        "record": "window",
+        "sample": 0,
+        "warm": false,
+        "position": 0,
+        "method": "bounded",
+        "seconds": 0.102523666
+      },
+      {
+        "record": "window",
+        "sample": 0,
+        "warm": false,
+        "position": 1,
+        "method": "serial",
+        "seconds": 0.37745475
+      },
+      {
+        "record": "window",
+        "sample": 1,
+        "warm": false,
+        "position": 0,
+        "method": "serial",
+        "seconds": 0.378966625
+      },
+      {
+        "record": "window",
+        "sample": 1,
+        "warm": false,
+        "position": 1,
+        "method": "bounded",
+        "seconds": 0.102127292
+      },
+      {
+        "record": "window",
+        "sample": 2,
+        "warm": false,
+        "position": 0,
+        "method": "bounded",
+        "seconds": 0.099390042
+      },
+      {
+        "record": "window",
+        "sample": 2,
+        "warm": false,
+        "position": 1,
+        "method": "serial",
+        "seconds": 0.365312667
+      },
+      {
+        "record": "window",
+        "sample": 3,
+        "warm": false,
+        "position": 0,
+        "method": "serial",
+        "seconds": 0.369257875
+      },
+      {
+        "record": "window",
+        "sample": 3,
+        "warm": false,
+        "position": 1,
+        "method": "bounded",
+        "seconds": 0.096660084
+      },
+      {
+        "record": "window",
+        "sample": 4,
+        "warm": false,
+        "position": 0,
+        "method": "bounded",
+        "seconds": 0.096668875
+      },
+      {
+        "record": "window",
+        "sample": 4,
+        "warm": false,
+        "position": 1,
+        "method": "serial",
+        "seconds": 0.364967417
+      }
+    ]
+  },
+  "four_paid_costs": {
+    "setup_once": {
+      "record": "setup",
+      "domain": 16384,
+      "setup_seconds": 13.74654725,
+      "package_digest": "1a39051e1d056d230f934a6ac91bd4accf645fa5b86d4d8a4a96f8be8355b149",
+      "checkpoint_bytes": 5244376,
+      "checkpoint_capacity": 5244376,
+      "modeled_group_bound": 2886256,
+      "modeled_group_ceiling": 3000000
+    },
+    "stages_outside_api_window": {
+      "restore_seconds": {
+        "all6_pairs": {
+          "n": 6,
+          "median_seconds": 0.401112813,
+          "min_seconds": 0.395202542,
+          "max_seconds": 0.4125465,
+          "sum_seconds": 2.413764042,
+          "all_seconds": [
+            0.400527417,
+            0.401698209,
+            0.403951541,
+            0.4125465,
+            0.395202542,
+            0.399837833
+          ]
+        },
+        "measured5_pairs": {
+          "n": 5,
+          "median_seconds": 0.401698209,
+          "min_seconds": 0.395202542,
+          "max_seconds": 0.4125465,
+          "sum_seconds": 2.013236625,
+          "all_seconds": [
+            0.401698209,
+            0.403951541,
+            0.4125465,
+            0.395202542,
+            0.399837833
+          ]
+        }
+      },
+      "original_snapshots_seconds": {
+        "all6_pairs": {
+          "n": 6,
+          "median_seconds": 0.0063939795,
+          "min_seconds": 0.006003875,
+          "max_seconds": 0.008030583,
+          "sum_seconds": 0.040145708,
+          "all_seconds": [
+            0.008030583,
+            0.006592959,
+            0.007267083,
+            0.006056208,
+            0.006195,
+            0.006003875
+          ]
+        },
+        "measured5_pairs": {
+          "n": 5,
+          "median_seconds": 0.006195,
+          "min_seconds": 0.006003875,
+          "max_seconds": 0.007267083,
+          "sum_seconds": 0.032115125,
+          "all_seconds": [
+            0.006592959,
+            0.007267083,
+            0.006056208,
+            0.006195,
+            0.006003875
+          ]
+        }
+      },
+      "begin_seconds": {
+        "all6_pairs": {
+          "n": 6,
+          "median_seconds": 0.0022235625,
+          "min_seconds": 0.002141833,
+          "max_seconds": 0.002519208,
+          "sum_seconds": 0.013550333000000001,
+          "all_seconds": [
+            0.002268292,
+            0.002141833,
+            0.002173875,
+            0.002519208,
+            0.002236833,
+            0.002210292
+          ]
+        },
+        "measured5_pairs": {
+          "n": 5,
+          "median_seconds": 0.002210292,
+          "min_seconds": 0.002141833,
+          "max_seconds": 0.002519208,
+          "sum_seconds": 0.011282041,
+          "all_seconds": [
+            0.002141833,
+            0.002173875,
+            0.002519208,
+            0.002236833,
+            0.002210292
+          ]
+        }
+      },
+      "target_validation_seconds": {
+        "all6_pairs": {
+          "n": 6,
+          "median_seconds": 0.004917125,
+          "min_seconds": 0.0047595,
+          "max_seconds": 0.005124375,
+          "sum_seconds": 0.029562416,
+          "all_seconds": [
+            0.0047595,
+            0.00479625,
+            0.00504825,
+            0.005124375,
+            0.005038,
+            0.004796041
+          ]
+        },
+        "measured5_pairs": {
+          "n": 5,
+          "median_seconds": 0.005038,
+          "min_seconds": 0.004796041,
+          "max_seconds": 0.005124375,
+          "sum_seconds": 0.024802916,
+          "all_seconds": [
+            0.00479625,
+            0.00504825,
+            0.005124375,
+            0.005038,
+            0.004796041
+          ]
+        }
+      },
+      "prefix_seconds": {
+        "all6_pairs": {
+          "n": 6,
+          "median_seconds": 5.212510021,
+          "min_seconds": 5.085728875,
+          "max_seconds": 5.255317708,
+          "sum_seconds": 31.096373416,
+          "all_seconds": [
+            5.085728875,
+            5.200455667,
+            5.255317708,
+            5.224564375,
+            5.102936583,
+            5.227370208
+          ]
+        },
+        "measured5_pairs": {
+          "n": 5,
+          "median_seconds": 5.224564375,
+          "min_seconds": 5.102936583,
+          "max_seconds": 5.255317708,
+          "sum_seconds": 26.010644540999998,
+          "all_seconds": [
+            5.200455667,
+            5.255317708,
+            5.224564375,
+            5.102936583,
+            5.227370208
+          ]
+        }
+      },
+      "precheck_seconds": {
+        "all6_pairs": {
+          "n": 6,
+          "median_seconds": 0.0006651045000000001,
+          "min_seconds": 0.00049225,
+          "max_seconds": 0.00159325,
+          "sum_seconds": 0.005093043,
+          "all_seconds": [
+            0.001150667,
+            0.000786167,
+            0.000544042,
+            0.000526667,
+            0.00049225,
+            0.00159325
+          ]
+        },
+        "measured5_pairs": {
+          "n": 5,
+          "median_seconds": 0.000544042,
+          "min_seconds": 0.00049225,
+          "max_seconds": 0.00159325,
+          "sum_seconds": 0.003942376,
+          "all_seconds": [
+            0.000786167,
+            0.000544042,
+            0.000526667,
+            0.00049225,
+            0.00159325
+          ]
+        }
+      },
+      "postcheck_seconds": {
+        "all6_pairs": {
+          "n": 6,
+          "median_seconds": 0.000597604,
+          "min_seconds": 0.000492916,
+          "max_seconds": 0.000673167,
+          "sum_seconds": 0.003520248,
+          "all_seconds": [
+            0.000673167,
+            0.000658541,
+            0.000500416,
+            0.000492916,
+            0.000556791,
+            0.000638417
+          ]
+        },
+        "measured5_pairs": {
+          "n": 5,
+          "median_seconds": 0.000556791,
+          "min_seconds": 0.000492916,
+          "max_seconds": 0.000658541,
+          "sum_seconds": 0.002847081,
+          "all_seconds": [
+            0.000658541,
+            0.000500416,
+            0.000492916,
+            0.000556791,
+            0.000638417
+          ]
+        }
+      },
+      "cancel_seconds": {
+        "all6_pairs": {
+          "n": 6,
+          "median_seconds": 0.0003392915,
+          "min_seconds": 0.000329209,
+          "max_seconds": 0.000388667,
+          "sum_seconds": 0.002072168,
+          "all_seconds": [
+            0.000342666,
+            0.000388667,
+            0.000346,
+            0.000329209,
+            0.000329709,
+            0.000335917
+          ]
+        },
+        "measured5_pairs": {
+          "n": 5,
+          "median_seconds": 0.000335917,
+          "min_seconds": 0.000329209,
+          "max_seconds": 0.000388667,
+          "sum_seconds": 0.001729502,
+          "all_seconds": [
+            0.000388667,
+            0.000346,
+            0.000329209,
+            0.000329709,
+            0.000335917
+          ]
+        }
+      },
+      "cancel_check_seconds": {
+        "all6_pairs": {
+          "n": 6,
+          "median_seconds": 0.0072008125,
+          "min_seconds": 0.0064395,
+          "max_seconds": 0.013717958,
+          "sum_seconds": 0.048535207999999996,
+          "all_seconds": [
+            0.00656875,
+            0.0064395,
+            0.007407375,
+            0.007114084,
+            0.007287541,
+            0.013717958
+          ]
+        },
+        "measured5_pairs": {
+          "n": 5,
+          "median_seconds": 0.007287541,
+          "min_seconds": 0.0064395,
+          "max_seconds": 0.013717958,
+          "sum_seconds": 0.041966458,
+          "all_seconds": [
+            0.0064395,
+            0.007407375,
+            0.007114084,
+            0.007287541,
+            0.013717958
+          ]
+        }
+      }
+    },
+    "total_all12_api_windows_seconds": 2.813782167,
+    "total_all6_pair_paid_stages_seconds": 33.652616582,
+    "sum_setup_stages_all_windows_seconds": 50.212945999,
+    "rounded_libtest_unattributed_residual_seconds": 0.0070540010000001985,
+    "runner_minus_reported_sections_seconds": 0.49787970899626544,
+    "accounting_notes": "Pair stage times include bothstates and are summed once perpair. Setup is once, not perpair. Residuals include drops, loop/format/harness and runner setup/cleanup plus rounded/printed timer boundaries; not assigned to crypto stages. All paid outsidewindow costs remain charged to wholejob."
+  },
+  "five_correctness": {
+    "complete": {
+      "record": "complete",
+      "pairs": 6,
+      "measured_pairs": 5,
+      "prefix_requested_group_calls": 1277952,
+      "window_requested_group_calls": 98304,
+      "decode_group_checks": 786480,
+      "decode_field_checks": 1179756,
+      "codec_group_scalar_calls": 273,
+      "explicit_ordinary_positives": 13,
+      "explicit_wrong_public_negatives": 13,
+      "decoded_and_encoded_current_proof_checks": 13,
+      "joined_batches": 6,
+      "modeled_group_bound": 2886256,
+      "modeled_group_ceiling": 3000000
+    },
+    "raw_pool_full_journal_roles_builder_maps_cursor_pending_ledger_exact": true,
+    "own_pending_current_full_fingerprint_unchanged": true,
+    "own_full_raw_cancel_restore": true,
+    "production_join_counts_serial0_bounded1": true,
+    "full8192_attempted_and_published_actions_calls": true,
+    "field_and_committed_counts_unchanged": true,
+    "fresh_CSPRNG_pending_proofs": true,
+    "comparison_exclusions": "Only independently randomized pendingcurrent a/b1/b2/c/r/s and derivedcurrent token/proofbinding excluded crossmethod; each own fingerprint fixed acrosswindow. Full own original committedsnapshot used forcancel."
+  },
+  "six_resources": {
+    "duration_seconds": 50.710825707996264,
+    "sample_count": 229,
+    "sampled_peak_owned_tree_rss_bytes": 156205056,
+    "sampled_peak_storage_growth_bytes": 6901,
+    "exit_code": 0,
+    "stop_reason": null,
+    "runner_error_type": null,
+    "cleanup_remaining_owned_processes": 0,
+    "cleanup_status_unknown": false,
+    "limits": {
+      "runtime_seconds": 180.0,
+      "owned_tree_rss_bytes": 536870912,
+      "storage_growth_bytes": 4194304,
+      "poll_seconds": 0.2
+    },
+    "host_complete": {
+      "event": "host_supervisor_complete",
+      "primary_host_cause": null,
+      "cleanup_verified": true,
+      "runner_returncode": 0,
+      "primary_runner_report_present": true,
+      "measurement_outcome": "completed_under_fixed_budget",
+      "additional_monitoring_planning_bytes": 201326592,
+      "monitoring_reserve_is_enforced": false,
+      "raw_runner_report_sha256": "ede79d4d6e44fcd1ab8a340a8361ec813c280d1323316d83316701a7c478d3cb",
+      "whole_monitor_seconds": 51.31873841700144,
+      "runner_report_fields_unmodified": true,
+      "samples_retained_in_original_files_only": true,
+      "resource_policy_id": "dynark-fixed-budget-v1",
+      "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+      "utc": "2026-10-15T00:48:14Z"
+    },
+    "wrapper_complete": {
+      "event": "reconstruction_timing_complete",
+      "case": "timing",
+      "primary_cause": null,
+      "cleanup_verified": true,
+      "primary_report_unmodified": true,
+      "resource_policy_id": "dynark-fixed-budget-v1",
+      "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+      "utc": "2026-10-15T00:48:14Z"
+    },
+    "structural_peak_guard_bytes": 201326592,
+    "observed_source_guard_bound_bytes": 168443320,
+    "nominal_batch_buffer_bytes": 1572864,
+    "host_pressure_values": [
+      2
+    ],
+    "whole_host_swapins_delta": 3953,
+    "whole_host_swapouts_delta": 0,
+    "host_counters_not_workload_attributed": true,
+    "CPU_metric_collected": false
+  },
+  "seven_postflight": {
+    "external_pre": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-timing-runtime-001-external-pre-pins.json",
+      "bytes": 43416,
+      "sha256": "1b5d2aa9bce711184abf38315b3ee17ab1c683be5fd1e8a4de29b531c0fef458",
+      "mode": "0o600"
+    },
+    "external_post": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-timing-runtime-001-external-post-pins.json",
+      "bytes": 43259,
+      "sha256": "aa9da32a9eed2143dfbb34adfb5b7e723cc2d77cfd9c7dc7655922ba00725eab",
+      "mode": "0o600"
+    },
+    "entries": 88,
+    "all_hash_uid_mode_regular_nosymlink_matched": true,
+    "live_candidate_still_byteequal_accepted002": [
+      {
+        "path": "/Users/anishnarang/Zk-refresh/crates/dynark-bn254/src/dynamic.rs",
+        "bytes": 60590,
+        "sha256": "bc9ea67f9289d5bfad1bf6e683174ced82cd76438c3a0de47478400d93ae9616",
+        "mode": "0o644"
+      },
+      {
+        "path": "/Users/anishnarang/Zk-refresh/crates/dynark-bn254/src/reconstruction.rs",
+        "bytes": 42363,
+        "sha256": "91fb0495cb1c778ba8297365c80cc28e207516cb8a863fb2632d118889496335",
+        "mode": "0o644"
+      },
+      {
+        "path": "/Users/anishnarang/Zk-refresh/crates/dynark-bn254/src/lib.rs",
+        "bytes": 2640,
+        "sha256": "30daa578e8e4dbc96f84929f836f8af7d752d0879b1365c21da53ed3be685270",
+        "mode": "0o644"
+      },
+      {
+        "path": "/Users/anishnarang/Zk-refresh/crates/dynark-bn254/tests/private/reconstruction_parallel.rs",
+        "bytes": 41949,
+        "sha256": "3fda48112b15673e0a9a1e5889ffca13caba829396cb2adff8d7a0568fc7f92c",
+        "mode": "0o644"
+      }
+    ]
+  },
+  "eight_interpretation": {
+    "measured": "One synthetic real-engine eligible Forward10/groupstream0/8192batch atN16384,v6,A-only emptyB/C; exploratory1warm+5counterbalancedpaired timings, all5faster.",
+    "supported": "Measured lower latency for this bounded actualAPI batch including serial publication/accounting; focused8correctness gate accepted separately.",
+    "not_established": [
+      "fullcredential or wholemaintenance walltime/economics",
+      "allphases or shapes performance",
+      "CPU efficiency or lower totalCPU work",
+      "productadoption19-method regression gate",
+      "long-run defaultselection/session economics"
+    ]
+  },
+  "nine_next": {
+    "adoption_coverage": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/reconstruction-batches-adoption-coverage-001.json",
+      "bytes": 16619,
+      "sha256": "a9c13bb48492ef17aed97a968fbb9f0c8eb3ae6b88eecaa6013aa15598fc6be9",
+      "mode": "0o600"
+    },
+    "required": "ROOT review timing aggregate; separately grant14existinglibrary methods and cached compile/freeze/runtime5integration methods before productcommit/longcredential. No timingrerun or unchanged8focusedrerun.",
+    "no_product_source_edits": true,
+    "no_worker_execution": true
+  }
+}
