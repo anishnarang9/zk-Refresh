@@ -219,17 +219,47 @@ pub fn verify(inputs: &[[u8; 32]; 6], proof: &[u8; 256]) -> ProgramResult {
     verifier.verify().map_err(|_| AppError::Proof.into())
 }
 
-/// Private effect-only RED stub, intentionally disconnected from Execute.
+/// Private effect-only mechanics, intentionally disconnected from Execute.
 /// Synthetic unit tests exercise commit mechanics without proving authorization.
 /// A future caller must first authenticate current accounts and verify the real
 /// request-bound proof. No public API or dispatch route bypasses that boundary.
 #[allow(dead_code)]
 fn apply_execute_effect(
-    _request_account: &AccountInfo,
-    _queue_account: &AccountInfo,
-    _now: i64,
+    request_account: &AccountInfo,
+    queue_account: &AccountInfo,
+    now: i64,
 ) -> ProgramResult {
-    Err(AppError::Unavailable.into())
+    let mut request = Request::decode(&request_account.try_borrow_data()?)?;
+    let mut queue = Queue::decode(&queue_account.try_borrow_data()?)?;
+    if request.state != RequestState::Finalized || queue.entries.contains(request_account.key) {
+        return Err(AppError::Consumed.into());
+    }
+    if now < 0 || now > request.deadline {
+        return Err(AppError::Expired.into());
+    }
+    if queue.config != request.config {
+        return Err(AppError::Accounts.into());
+    }
+    if queue.entries.len() >= crate::application_v3::QUEUE_CAPACITY {
+        return Err(AppError::Capacity.into());
+    }
+    // Prepare complete owned encodings before touching either destination.
+    queue.entries.push(*request_account.key);
+    request.state = RequestState::Consumed;
+    let queue_bytes = queue.encode();
+    let request_bytes = request.encode();
+    let mut queue_destination = queue_account.try_borrow_mut_data()?;
+    let mut request_destination = request_account.try_borrow_mut_data()?;
+    if queue_destination.len() != queue_bytes.len()
+        || request_destination.len() != request_bytes.len()
+    {
+        return Err(AppError::State.into());
+    }
+    // A failed second borrow returns before any write. Both borrows and lengths
+    // are now established; no fallible work follows the first copy.
+    queue_destination.copy_from_slice(&queue_bytes);
+    request_destination.copy_from_slice(&request_bytes);
+    Ok(())
 }
 
 #[cfg(test)]
