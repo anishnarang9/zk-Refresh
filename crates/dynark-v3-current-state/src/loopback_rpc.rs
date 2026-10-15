@@ -1,7 +1,6 @@
 //! Private JSON-RPC RESPONSE parser contract; no HTTP or authority factory.
 //!
-//! Both decoders deliberately return Unavailable until the focused RED is
-//! accepted. GREEN must enforce the following BEFORE returning raw records:
+//! The decoders enforce the following before returning raw records:
 //! * body <=1KiB genesis /8MiB accounts, one complete JSON object, duplicate
 //!   object keys rejected at every depth (Value alone loses duplicates);
 //! * exactly jsonrpc="2.0", expected unsigned integer id and result; reject
@@ -22,19 +21,186 @@
 //! deployment, codecs, PDAs, signatures or application authority. They return
 //! private raw records for later verifier checks, never a capability.
 #![allow(dead_code)]
-use super::{Error, FinalizedBatch, FinalizedRequest};
+use super::{Account, Error, FinalizedBatch, FinalizedRequest, Pubkey};
+use base64::{engine::general_purpose::STANDARD, Engine as _};
+use serde::de::{DeserializeSeed, Error as DeError, MapAccess, SeqAccess, Visitor};
+use std::{borrow::Cow, collections::BTreeMap, fmt};
 
 const GENESIS_BODY_LIMIT: usize = 1024;
 const ACCOUNTS_BODY_LIMIT: usize = 8 * 1024 * 1024;
+const ROLE_LIMITS: [usize;8] = [36,45+4*1024*1024,381,40,374,280,2249,2090];
+const MAX_ENCODED: usize = (ROLE_LIMITS[1]+2)/3*4;
 
-fn decode_genesis_response(_body: &[u8], _expected_id: u64) -> Result<[u8;32],Error> {
-    Err(Error::Unavailable)
+type Object<'de> = BTreeMap<Cow<'de,str>,Node<'de>>;
+enum Node<'de> {
+    Object(Object<'de>), Array(Vec<Node<'de>>), String(Cow<'de,str>),
+    Uint(u64), Bool(bool), Other,
+}
+impl<'de> Node<'de> {
+    fn object(&self)->Result<&Object<'de>,Error> {match self {Self::Object(v)=>Ok(v),_=>Err(Error::Transport)}}
+    fn array(&self)->Result<&[Self],Error> {match self {Self::Array(v)=>Ok(v),_=>Err(Error::Transport)}}
+    fn string(&self)->Result<&str,Error> {match self {Self::String(v)=>Ok(v),_=>Err(Error::Transport)}}
+    fn uint(&self)->Result<u64,Error> {match self {Self::Uint(v)=>Ok(*v),_=>Err(Error::Transport)}}
+    fn boolean(&self)->Result<bool,Error> {match self {Self::Bool(v)=>Ok(*v),_=>Err(Error::Transport)}}
 }
 
-fn decode_accounts_response(_body: &[u8], _expected_id: u64, _request: &FinalizedRequest)
+// From-slice JSON borrows unescaped strings. Escaped strings may use serde's
+// bounded-by-body scratch, then copy only after this explicit string bound.
+struct StringSeed { max:usize }
+impl<'de> DeserializeSeed<'de> for StringSeed {
+    type Value=Cow<'de,str>;
+    fn deserialize<D:serde::Deserializer<'de>>(self,d:D)->Result<Self::Value,D::Error> {
+        struct Strings {max:usize}
+        impl<'de> Visitor<'de> for Strings {
+            type Value=Cow<'de,str>;
+            fn expecting(&self,f:&mut fmt::Formatter)->fmt::Result {f.write_str("bounded string")}
+            fn visit_borrowed_str<E:DeError>(self,v:&'de str)->Result<Self::Value,E> {
+                if v.len()>self.max {return Err(E::custom("string bound"));} Ok(Cow::Borrowed(v))
+            }
+            fn visit_str<E:DeError>(self,v:&str)->Result<Self::Value,E> {
+                if v.len()>self.max {return Err(E::custom("string bound"));} Ok(Cow::Owned(v.to_owned()))
+            }
+        }
+        d.deserialize_str(Strings {max:self.max})
+    }
+}
+struct Budget {nodes:usize}
+struct NodeSeed<'a> {budget:&'a mut Budget,depth:usize}
+impl<'de> DeserializeSeed<'de> for NodeSeed<'_> {
+    type Value=Node<'de>;
+    fn deserialize<D:serde::Deserializer<'de>>(self,d:D)->Result<Self::Value,D::Error> {
+        if self.depth>12 || self.budget.nodes>=512 {return Err(D::Error::custom("JSON traversal bound"));}
+        self.budget.nodes+=1;
+        d.deserialize_any(NodeVisitor {budget:self.budget,depth:self.depth})
+    }
+}
+struct NodeVisitor<'a> {budget:&'a mut Budget,depth:usize}
+impl<'de> Visitor<'de> for NodeVisitor<'_> {
+    type Value=Node<'de>;
+    fn expecting(&self,f:&mut fmt::Formatter)->fmt::Result {f.write_str("bounded duplicate-free JSON")}
+    fn visit_map<M:MapAccess<'de>>(self,mut map:M)->Result<Self::Value,M::Error> {
+        let mut out=BTreeMap::new();
+        while let Some(key)=map.next_key_seed(StringSeed {max:64})? {
+            if out.len()>=16 || out.contains_key(&key) {return Err(M::Error::custom("object bound/duplicate key"));}
+            let value=map.next_value_seed(NodeSeed {budget:&mut *self.budget,depth:self.depth+1})?;
+            out.insert(key,value);
+        }
+        Ok(Node::Object(out))
+    }
+    fn visit_seq<S:SeqAccess<'de>>(self,mut seq:S)->Result<Self::Value,S::Error> {
+        let mut out=Vec::new();
+        while let Some(value)=seq.next_element_seed(NodeSeed {budget:&mut *self.budget,depth:self.depth+1})? {
+            if out.len()>=8 {return Err(S::Error::custom("array bound"));} out.push(value);
+        }
+        Ok(Node::Array(out))
+    }
+    fn visit_borrowed_str<E:DeError>(self,v:&'de str)->Result<Self::Value,E> {
+        if v.len()>MAX_ENCODED {return Err(E::custom("string bound"));} Ok(Node::String(Cow::Borrowed(v)))
+    }
+    fn visit_str<E:DeError>(self,v:&str)->Result<Self::Value,E> {
+        if v.len()>MAX_ENCODED {return Err(E::custom("string bound"));} Ok(Node::String(Cow::Owned(v.to_owned())))
+    }
+    fn visit_u64<E:DeError>(self,v:u64)->Result<Self::Value,E> {Ok(Node::Uint(v))}
+    fn visit_i64<E:DeError>(self,_v:i64)->Result<Self::Value,E> {Ok(Node::Other)}
+    fn visit_f64<E:DeError>(self,_v:f64)->Result<Self::Value,E> {Ok(Node::Other)}
+    fn visit_bool<E:DeError>(self,v:bool)->Result<Self::Value,E> {Ok(Node::Bool(v))}
+    fn visit_unit<E:DeError>(self)->Result<Self::Value,E> {Ok(Node::Other)}
+    fn visit_none<E:DeError>(self)->Result<Self::Value,E> {Ok(Node::Other)}
+}
+
+fn parse(body:&[u8],limit:usize)->Result<Node<'_>,Error> {
+    if body.len()>limit {return Err(Error::Transport);}
+    let mut decoder=serde_json::Deserializer::from_slice(body);
+    let mut budget=Budget {nodes:0};
+    let node=NodeSeed {budget:&mut budget,depth:0}.deserialize(&mut decoder).map_err(|_|Error::Transport)?;
+    decoder.end().map_err(|_|Error::Transport)?;
+    Ok(node)
+}
+fn fields(object:&Object<'_>,required:&[&str],optional:&[&str])->Result<(),Error> {
+    if required.iter().any(|key|!object.contains_key(*key))
+        || object.keys().any(|key|!required.contains(&key.as_ref()) && !optional.contains(&key.as_ref()))
+    {return Err(Error::Transport);} Ok(())
+}
+fn get<'a,'de>(object:&'a Object<'de>,key:&str)->Result<&'a Node<'de>,Error> {
+    object.get(key).ok_or(Error::Transport)
+}
+fn envelope<'a,'de>(root:&'a Node<'de>,id:u64)->Result<&'a Node<'de>,Error> {
+    let object=root.object()?;
+    fields(object,&["jsonrpc","id","result"],&[])?;
+    if get(object,"jsonrpc")?.string()?!="2.0" || get(object,"id")?.uint()!=Ok(id) {return Err(Error::Transport);}
+    get(object,"result")
+}
+fn base58_word(value:&str)->Result<[u8;32],Error> {
+    if value.is_empty() || value.len()>44 {return Err(Error::Transport);}
+    let mut out=[0;32];
+    if bs58::decode(value).onto(&mut out[..]).map_err(|_|Error::Transport)?!=32
+        || bs58::encode(out).into_string()!=value {return Err(Error::Transport);}
+    Ok(out)
+}
+
+// Validate every character, required padding and unused bits before allocating
+// decoded bytes. This also supplies the exact output bound to decode_slice.
+fn base64_length(value:&str,limit:usize)->Result<usize,Error> {
+    let bytes=value.as_bytes();
+    if bytes.len()>(limit+2)/3*4 || bytes.len()%4!=0 {return Err(Error::Account);}
+    let padding=if bytes.ends_with(b"==") {2} else if bytes.ends_with(b"=") {1} else {0};
+    let data_len=bytes.len().checked_sub(padding).ok_or(Error::Account)?;
+    let mut last=0;
+    for &byte in &bytes[..data_len] {
+        last=match byte {
+            b'A'..=b'Z'=>byte-b'A', b'a'..=b'z'=>byte-b'a'+26,
+            b'0'..=b'9'=>byte-b'0'+52, b'+'=>62, b'/'=>63, _=>return Err(Error::Account),
+        };
+    }
+    if (padding==1 && last&3!=0) || (padding==2 && last&15!=0) {return Err(Error::Account);}
+    let length=(bytes.len()/4*3).checked_sub(padding).ok_or(Error::Account)?;
+    if length>limit {return Err(Error::Account);} Ok(length)
+}
+
+fn decode_genesis_response(body: &[u8], expected_id: u64) -> Result<[u8;32],Error> {
+    let root=parse(body,GENESIS_BODY_LIMIT)?;
+    base58_word(envelope(&root,expected_id)?.string()?)
+}
+
+fn decode_accounts_response(body: &[u8], expected_id: u64, request: &FinalizedRequest)
     -> Result<FinalizedBatch,Error>
 {
-    Err(Error::Unavailable)
+    if !matches!(request.keys.len(),4|8)
+        || request.keys.iter().enumerate().any(|(i,k)|request.keys[..i].contains(k))
+    {return Err(Error::Transport);}
+    let root=parse(body,ACCOUNTS_BODY_LIMIT)?;
+    let result=envelope(&root,expected_id)?.object()?;
+    fields(result,&["context","value"],&[])?;
+    let context=get(result,"context")?.object()?;
+    fields(context,&["slot"],&["apiVersion"])?;
+    let slot=get(context,"slot")?.uint()?;
+    if slot==0 || slot<request.minimum_context_slot {return Err(Error::Finality);}
+    if let Some(version)=context.get("apiVersion") {if version.string()?.len()>64 {return Err(Error::Transport);}}
+    let values=get(result,"value")?.array()?;
+    if values.len()!=request.keys.len() {return Err(Error::Account);}
+    // Validate all account shapes/canonical strings and sizes first. The second
+    // pass allocates only bounded, already validated decoded byte buffers.
+    let mut prepared=Vec::with_capacity(values.len());
+    for (i,value) in values.iter().enumerate() {
+        let object=value.object()?;
+        fields(object,&["owner","executable","data","lamports","rentEpoch"],&["space"])?;
+        let owner=Pubkey::new_from_array(base58_word(get(object,"owner")?.string()?)?);
+        let executable=get(object,"executable")?.boolean()?;
+        get(object,"lamports")?.uint()?;get(object,"rentEpoch")?.uint()?;
+        let data=get(object,"data")?.array()?;
+        if data.len()!=2 || data[1].string()?!="base64" {return Err(Error::Transport);}
+        let encoded=data[0].string()?;
+        let length=base64_length(encoded,ROLE_LIMITS[i])?;
+        if let Some(space)=object.get("space") {if space.uint()?!=length as u64 {return Err(Error::Account);}}
+        prepared.push((owner,executable,encoded,length));
+    }
+    let mut accounts=Vec::with_capacity(prepared.len());
+    for (i,(owner,executable,encoded,length)) in prepared.into_iter().enumerate() {
+        let mut bytes=vec![0;length];
+        if STANDARD.decode_slice(encoded,&mut bytes).map_err(|_|Error::Account)?!=length {return Err(Error::Account);}
+        accounts.push(Account {key:request.keys[i],owner,executable,bytes});
+    }
+    Ok(FinalizedBatch {context_slot:slot,accounts})
 }
 
 #[cfg(test)]
@@ -207,5 +373,24 @@ mod tests {
         rejected_genesis(b"{\"jsonrpc\":\"2.0\",\"id\":42,\"id\":42,\"result\":\"11111111111111111111111111111111\"}","duplicate id");
         rejected_genesis(&wire(&json!({"jsonrpc":"2.0","id":43,"result":bs58::encode([9;32]).into_string()})),"wrong id");
         rejected_genesis(&wire(&json!({"jsonrpc":"2.0","id":ID,"error":{"code":-1}})),"RPC error");
+    }
+
+    #[test]
+    fn rejects_escaped_duplicate_keys_and_unknown_nested_fields() {
+        // A Value-only parser would silently overwrite these identical known
+        // keys and pass shape checks: distinguish duplicate detection itself.
+        for (needle,replacement) in [
+            ("\"id\":42","\"id\":42,\"i\\u0064\":42"),
+            ("\"slot\":100","\"slot\":100,\"sl\\u006ft\":100"),
+        ] {
+            let source=String::from_utf8(wire(&response(4))).unwrap();assert!(source.contains(needle));
+            rejected(source.replacen(needle,replacement,1).as_bytes(),&request(4),"escaped duplicate");
+        }
+        for parent in ["result","context"] {
+            let mut value=response(4);
+            if parent=="result" {value["result"]["unknown"]=json!(1);}
+            else {value["result"]["context"]["unknown"]=json!(1);}
+            rejected(&wire(&value),&request(4),"unknown nested field");
+        }
     }
 }
