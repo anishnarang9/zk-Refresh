@@ -32,6 +32,16 @@ before computing that digest. The onchain program enforces the administrator's
 signed enrollment, not general PKIX parsing. Disabling either config or issuer
 invalidates active bindings. Re-enabling requires a fresh authenticated status
 observation and publisher bind; old observations cannot revive eligibility.
+Each actual config enable-state change increments its eligibility epoch. Each
+actual issuer enable-state change increments a separate issuer eligibility
+epoch and clears that issuer's status validity. Observe and Bind instructions
+carry both expected epochs in the signed transaction and reject a mismatch
+before mutation. An accepted Observe records both epochs. Authorization and
+Bind require those recorded epochs to match the current config and issuer;
+the enrollment version remains evidence versioning and is never used as this
+lifecycle fence. This rejects a transaction signed before disable even if it
+lands after re-enable. Repeating the current enabled value changes no epoch;
+epoch overflow rejects without mutation.
 Every root publication invalidates bindings to the previous root. An Observe
 for an issuer invalidates that issuer's old source binding. Source sequence
 zero is unobserved, even if a zero-valued publisher field matches it.
