@@ -1,6 +1,6 @@
 # Fixed-depth witness suffix prerequisites, October 14
 
-The accepted final-level evaluator has already matched all 643,563 original witness coordinates and passed ordinary Groth16 verification. Extending it to the near and middle revocation fixtures requires explicit compiler mappings for all affected Merkle levels. This record concerns those prerequisites; it does not claim a completed successor evaluator or a speedup.
+The fixed ten-level evaluator has matched all 643,563 original witness coordinates for near, middle and far revocation fixtures, including compiler aliases and intermediate values. All three candidates have ordinary Groth16 proof evidence. This record follows the mapping prerequisites through those correctness gates; matched performance and product integration remain open.
 
 ## Preserved mapping failure and diagnosed cause
 
@@ -59,4 +59,14 @@ ROOT independently compared the complete candidate files to the original targets
 
 Primary/duplicate reports and pre/post identity receipts match for every case, with no cap or runner error and known clean cleanup. ROOT observed the former workload processes absent. These are one-shot correctness workloads, including authentication and complete oracle comparison; the far case also runs the old evaluator for regression. They are not matched latency measurements or evidence of a far-versus-near performance ordering.
 
-The [near acceptance](../../../../results/dynark/phase-3/witness-dependency/suffix-near-equivalence-accepted-001.json) and [middle acceptance](../../../../results/dynark/phase-3/witness-dependency/suffix-middle-equivalence-accepted-001.json) bind exact candidate, source and original-generator provenance. Their separate full relation validation and ordinary-proof gate remains pending. Its reviewed design imports the immutable package once, then independently validates, proves and verifies each candidate with fresh caller randomness. No key generation, anchor preparation, real credential parsing or Solana execution is included.
+The [near acceptance](../../../../results/dynark/phase-3/witness-dependency/suffix-near-equivalence-accepted-001.json) and [middle acceptance](../../../../results/dynark/phase-3/witness-dependency/suffix-middle-equivalence-accepted-001.json) bind exact candidate, source and original-generator provenance. The later proof gate below closes their separate relation and ordinary-verification checks. No key generation, anchor preparation, real credential parsing or Solana execution is included.
+
+## Near and middle ordinary proof acceptance
+
+ROOT executed the frozen Cargo binary once for both candidates. Each passed all 648,156 relation rows, 643,563 canonical coordinates and five public values. Each fresh proof used caller OsRng with two successful draws totaling 64 bytes. The independent ordinary verifier accepted original and canonical decoded proofs and rejected each of five individually altered public values: four positive checks and ten negative checks overall.
+
+The workload completed in 101.544288 seconds, with 1,145,159,680-byte sampled peak RSS, 450 samples, 3,170-byte observed output growth, no cap or runner error and known clean cleanup. Primary and duplicate reports match at SHA-256 `fbdf2d59699c196543e26d76d32f747cfe61c5de6d6348ba450c460a7c6b6234`. All 95 pre/post identity and mode pins match; ROOT observed the former workload processes absent. The two private proof files are each 128 bytes with mode 0600.
+
+One immutable package import took 93.042354 seconds. Near and middle full proving took 2.402973 and 2.204707 seconds. These single correctness observations are not a witness-generation or end-to-end benchmark. No new setup, anchor or cache preparation ran. [Proof acceptance](../../../../results/dynark/phase-3/witness-dependency/suffix-near-middle-ordinary-proof-scrubbed-acceptance-001.json) and [complete three-fixture aggregate](../../../../results/dynark/phase-3/witness-dependency/suffix-three-fixture-correctness-scrubbed-aggregate-001.json) preserve source, binary, input and raw-report associations. The earlier aggregate with pending proof status remains unchanged as a historical snapshot.
+
+The next experiment compares the original full witness generator with the accepted suffix evaluator under matched conditions, accounting separately for initialization and retained state. Incremental witness reuse must also be available to the optimized full prover. Comparing proof modes on the same witness is a separate measurement; historical unmatched timings cannot establish the combined speedup.

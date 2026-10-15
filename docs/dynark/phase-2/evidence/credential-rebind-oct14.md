@@ -8,6 +8,8 @@ Start a new immutable snapshot from the accepted current engine. Preserve the ha
 
 The existing generic helper `results/dynark/phase-2/credential/launch_credential_dynamic.py` accepts explicit source, binary and output arguments. It may remain unchanged if those assumptions and its pins still match. The old host wrapper `artifacts/dynark/phase-2/fixed-budget/dynamic-launch-source-002/launch_dynamic_host.py` requires a new immutable successor bound to supervisor006, its runner and guardian, new source/binary identities and fresh evidence paths. Its old local supervisor/runner cannot remain active. Rebind the constructor parity test `test_dynamic_launcher_source005.py` in that same old wrapper directory into a fresh source, then review its exact command and helper parity.
 
+Preserve the current pinned Rayon dependency and lockfile lineage. The old harness's process-clock instrumentation additionally requires the existing `rustix` dependency's `time` feature. Add that feature narrowly; copying the old Cargo files would incorrectly remove the accepted Rayon change.
+
 Historical identity records remain untouched:
 
 - `results/dynark/phase-2/credential/dynamic-source-freeze-005.json`
@@ -29,3 +31,13 @@ The harness logs attempted work separately; it does not assert attempted counts 
 Preserve the original 14,400-second / 4-GiB sampled workload RSS / 4-GiB output-growth limits, four Rayon workers, one test thread and one heavyweight owner. Preserve internal 10-second chunk, 9,000-second maintenance and 14,040-second whole-stage headroom checks. The existing private/global structural limits are 4/6 GiB and the journal ceiling is 768 MiB; these are structural accounting limits, distinct from the 4-GiB sampled RSS ceiling. They are not new allowances.
 
 Batch scratch must fit the current state and caller's external assignment/context accounting. Preserve existing external-peak guards, failure evidence, cap handling, proof checks and resource measurements. A fresh source freeze, offline single-job build, exact emitted-binary binding, finite harness/parity tests and reviewed concrete runtime grant are prerequisites. No automatic retry, changed cap, omitted checkpoint or source-only performance extrapolation closes this gate.
+
+## Caller memory reservation during maintenance
+
+The old harness retains an external target vector through maintenance but has no external-live-byte argument to `advance_update`. Its pre-begin guard does not by itself establish a bound on the allocator's actual batch-buffer capacity. Requested capacity must not be treated as guaranteed actual capacity.
+
+ROOT and the independent reviewer accepted a harness-only design: let `E` be the actual retained target capacity plus a conservative declared allowance for remaining driver/context storage, `B` the complete post-begin private structural bytes, and `P` shared public bytes. Check `B + E <= C.private` and `P + B + E <= C.global` under the original configuration `C`. During maintenance only, checked-subtract `E` from both internal private/global limits. Existing engine admission then enforces the actual scratch allocation against the remaining space, so combined caller and engine storage stays within the original limits. Journal limits, scheduler, operation limits and quotas stay unchanged. Pending pool/journal capacities are fixed before these calls; promotion exchanges or retires existing structures.
+
+Run maintenance inside a closure that returns its result, restore the original configuration unconditionally, then propagate any typed error. Restore before the full comparator and before any persistence header, encode, save or recovery: persistence authenticates configuration. Current transition/proof tokens do not include configuration, and commit/cancel do not derive configuration bindings. This does not promise restoration after a process crash or panic and does not introduce a product API or persistence-format change.
+
+Log original limits, reserved limits and `E`, and verify restoration. Finite tests must cover subtraction/admission refusal and restoration on success and typed failure before any long-run grant. The fixed 4-GiB RSS ceiling remains unchanged. This design acceptance does not itself authorize successor authoring or execution.
