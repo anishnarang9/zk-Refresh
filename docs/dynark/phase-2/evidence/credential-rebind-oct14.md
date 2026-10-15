@@ -1,5 +1,7 @@
 # Credential dynamic successor prerequisites
 
+**Completed successor:** runtime003 subsequently passed the ten-transition credential-scale functional gate, including both real promotions and checkpoint05 recovery. ROOT and independent review accepted exact correctness/work accounting; the elapsed-clock discrepancy remains unresolved. The [final acceptance record](credential-dynamic-runtime003-results.md) supersedes pending-runtime status in the chronological prerequisite history below.
+
 This dependency audit initially preceded batch adoption. ROOT and the independent reviewer inspected the existing harness and original grant. Product commit `54523c1` now contains the accepted batch engine. The authoring transfer below permits an isolated successor; execution still requires separate finite-test, build and runtime grants.
 
 ## Source binding
