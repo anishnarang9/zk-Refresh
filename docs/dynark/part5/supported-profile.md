@@ -59,6 +59,7 @@ public fields, SHA-256
 `976e9a76356ad015f0e4c587ccd79bba601b5caf80817b561aa4ca5442656888`.
 The source corpus covers eight layouts plus an OpenSSL-issued variation, two
 issuers and three holders, and explicit malformed/ineligible cases. Python
-admission tests passed; compiled witness, relation, Full/Anchor proofs, setup
-reuse, application verification and frozen unseen-credential acceptance have
-not yet passed. No incremental witness path is exposed for this profile.
+admission tests and the compiled 52-case witness/relation corpus passed: all
+18 complete positive witnesses satisfied every R1CS row, and 34 negative cases
+were rejected. Full/Anchor proofs, setup reuse, application verification and
+frozen unseen-credential acceptance have not yet passed. No incremental witness path is exposed for this profile.
