@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "scope": "compile finalized-effect repair and hashed reconciliation report into actual queue host runner; no validator",
+  "review_state": "proposal_only_await_ROOT_host_rebuild_grant",
+  "environment": {
+    "CARGO_BUILD_JOBS": "1",
+    "RAYON_NUM_THREADS": "4",
+    "OMP_NUM_THREADS": "1"
+  },
+  "argv": [
+    "/usr/bin/python3",
+    "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/bootstrap/bounded_runner.py",
+    "--owner",
+    "part5-v2-finalized-reconciliation-host-001",
+    "--cwd",
+    "/Users/anishnarang/Zk-refresh",
+    "--private-output",
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v2-finalized-reconciliation-host-monitor-001",
+    "--report",
+    "/Users/anishnarang/Zk-refresh/results/dynark/part5/v2-finalized-reconciliation-host-bounded-001.json",
+    "--runtime-seconds",
+    "180",
+    "--rss-bytes",
+    "2147483648",
+    "--storage-bytes",
+    "268435456",
+    "--storage-path",
+    "/Users/anishnarang/Zk-refresh/harness/target",
+    "--poll-seconds",
+    "0.25",
+    "--",
+    "/Users/anishnarang/.cargo/bin/cargo",
+    "test",
+    "--offline",
+    "--locked",
+    "--manifest-path",
+    "/Users/anishnarang/Zk-refresh/harness/Cargo.toml",
+    "--test",
+    "queue_v2",
+    "--",
+    "--test-threads=1"
+  ],
+  "source_pins": {
+    "harness/Cargo.toml": "e8c6d7b782f1c9c5a629783423b7e9999cba28c48636dd3abd231e1d8229a274",
+    "harness/Cargo.lock": "1e9ed2ece56706afe2e3e132d76e1f79b84d9236743249310a9d319f74019177",
+    "harness/src/solana.rs": "9345929ee32fe78a800b243ae27237bffe227fa344db261cdf236b14be25d7e2",
+    "harness/tests/queue_v2.rs": "09bd06db502ae45e93749a10b915d180ebf84e36dcea1a92b85e3fbf5ef5e782"
+  },
+  "supervisor_sha256": "7bd927be418ad2e2a63bd2e9d9dbb9b144232cefdb3a27de5f131d35a9a8ef45",
+  "readiness_tests_sha256": "486eab6efccf690879c05ad4da6b597166d7f1b97063b24f10e6c7aa71f372c3",
+  "required_tests": {
+    "passed": 4,
+    "ignored_loaded_validator": 2,
+    "failed": 0
+  },
+  "expected_runner_path": "/Users/anishnarang/Zk-refresh/harness/target/debug/build/zk-fresh-benchmark/3147fa1ba77ddb84/out/queue_v2-3147fa1ba77ddb84",
+  "pre_rebuild_runner_sha256": "4353d779de822ce5f95ad1352971ea06c8fe243c288621aab102776b4874f511",
+  "post_build_required": [
+    "All4hosttests pass,2validator tests ignored,no cap/residual",
+    "Measure executable path/SHA/size; require runner differs from old4353d779de822ce5f95ad1352971ea06c8fe243c288621aab102776b4874f511",
+    "Replace pending runner hash and hostreceipt pins in consumed-only config; ROOT independentlyreviews and grants laterrestart"
+  ],
+  "does_not_start_validator": true,
+  "does_not_run_ignored_tests": true
+}

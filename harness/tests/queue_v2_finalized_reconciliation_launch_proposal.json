@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "review_state": "proposal_only_final_configSHA_pending_rebuilt_runner_pin",
+  "environment": {
+    "CARGO_BUILD_JOBS": "1",
+    "RAYON_NUM_THREADS": "4",
+    "OMP_NUM_THREADS": "1"
+  },
+  "argv": [
+    "/usr/bin/python3",
+    "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/bootstrap/bounded_runner.py",
+    "--owner",
+    "part5-v2-finalized-reconciliation-001",
+    "--cwd",
+    "/Users/anishnarang/Zk-refresh",
+    "--private-output",
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v2-finalized-reconciliation-monitor-001",
+    "--report",
+    "/Users/anishnarang/Zk-refresh/results/dynark/part5/v2-finalized-reconciliation-bounded-001.json",
+    "--runtime-seconds",
+    "180",
+    "--rss-bytes",
+    "4294967296",
+    "--storage-bytes",
+    "268435456",
+    "--storage-path",
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v2-local-runtime-001",
+    "--storage-path",
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v2-finalized-reconciliation-control-001",
+    "--poll-seconds",
+    "0.25",
+    "--",
+    "/usr/bin/python3",
+    "/Users/anishnarang/Zk-refresh/harness/tests/queue_v2_supervisor.py",
+    "--config",
+    "/Users/anishnarang/Zk-refresh/harness/tests/queue_v2_finalized_reconciliation_proposal.json",
+    "--config-sha256",
+    "PENDING_FINAL_RUNNER_PIN_CONFIG_SHA256"
+  ],
+  "supervisor_sha256": "7bd927be418ad2e2a63bd2e9d9dbb9b144232cefdb3a27de5f131d35a9a8ef45",
+  "pending_config_sha256": "e29641b79db5e2906d8cbac677249480f66007dfe96c14f3fb8e8da1747e9c71",
+  "required_postconditions": [
+    "Readiness modeconsumed; confirmed/finalized exact four accounts and issuerbinding,eachslot>=prepare slot8",
+    "Freshreconciled-report exactrequesthash4c73... andqueuehashc076...,returnedfinalizedslot,new_execute_transactions=0",
+    "Historicalreport/transactionJSONL hashunchanged",
+    "No application transaction submitted; ownedvalidator itself mayproducevotes/blocks/logs",
+    "Externalmonitor no cap or residual; no reset/reload; no automaticretry"
+  ]
+}

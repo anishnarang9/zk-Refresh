@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "scope": "direct exact finalized-byte attestation of already-consumed v2 effect; zero application transactions",
+  "review_state": "plan_only_after_RED_GREEN_host_rebuild_and_ROOT_pins",
+  "runtime_output": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v2-local-runtime-001",
+  "ledger": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v2-local-runtime-001/ledger",
+  "expected_genesis": "DDeEBprS6FPndW11NfgMS3RjUoQh9BJoBBa2KgAt4znD",
+  "program": "FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha",
+  "elf_sha256": "e20d0df801e49e211a5b791d2f1c284240568049656edf8991b7cc00dbe7e639",
+  "plan_sha256": "783c1c8c9110e41e1cf3d1cd79d6bb10c07c79f81aa3d17774b60fb6f7bd4c4b",
+  "full_wire_sha256": "80f7ddf91e6f6de2dd4dfb405fafe10d89eaea5aab127ea89db79ccec0dc152d",
+  "historical_preservation": {
+    "execute-report.json": "78cef88f778ce0f71170dbf7ce6a069c1936cba63eb62501edaa37b9971ce3cb",
+    "transactions.jsonl": "1618e42187e72e66a49b804beb9c7631844492ad63fb809d3d2bd3d44fee7e13"
+  },
+  "expected_request_sha256": "4c73b9203867f1d6268631d72fab00a9798a3ce41369cfccc2be675d3360d489",
+  "expected_queue_sha256": "c07619bf42b78ff35b81ff07ad1f9e1649b409a34355b563465e805757b5b74f",
+  "new_reconciliation_report": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v2-local-runtime-001/private/reconciled-report.json",
+  "steps": [
+    "Run approved bounded RED unit gate; require2executedexpectedassertions, no compile/resource failure",
+    "Apply minimalnormalreport finalized_effect repair; GREEN2unit tests; separately rebuild host queue_v2 target with4nonignored tests/2ignored",
+    "Measure new runner path/SHA/size and final source/supervisor/config SHA pins",
+    "Require original validator stopped, loopback ports free, new monitor/control/report absent",
+    "Restart pinned validator on original same ledger, no reset/mint/clone/program reload; startupbarrier demands consumed mode at both commitments with exact four-account/binding checks",
+    "Launch rebuilt runner with P5_QUEUE_RECONCILE_ONLY=1 forcibly set before first RPC; if pair differs, fail before anysend; new configurable supervisor consumed-only gate must be independentlyreviewed/tested before usingphaseexecute",
+    "Runner revalidates domain and loadedELF, exact consumedpair, then finalized_effect exact request/queue; writes only fresh reconciled-report.json, new_execute_transactions=0",
+    "Compare original execute-report.json and transactions.jsonl SHA unchanged; reconcile report must record exactrequest/queue hashes and returned finalizedslot; outermonitor cleanly reapsvalidator and allchildren"
+  ],
+  "runner_sha256": null,
+  "final_config_sha256": null,
+  "required_prelaunch_source_change": "force reconcile-only configuration that rejects before mode and cannot launch ordinaryExecute even after state drift; old runner source lacks thisconfigswitch but already implements P5_QUEUE_RECONCILE_ONLY driftguard",
+  "bounded_limits": {
+    "runtime_seconds": 180,
+    "rss_bytes": 4294967296,
+    "storage_growth_bytes": 268435456,
+    "poll_seconds": 0.25
+  },
+  "fresh_control_output": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v2-finalized-reconciliation-control-001",
+  "fresh_monitor_output": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v2-finalized-reconciliation-monitor-001",
+  "fresh_bounded_report": "/Users/anishnarang/Zk-refresh/results/dynark/part5/v2-finalized-reconciliation-bounded-001.json",
+  "no_automatic_retry": true,
+  "validator_writes_its_own_votes_blocks_and_logs": true,
+  "no_upstream_issuer_freshness_claim": true
+}
