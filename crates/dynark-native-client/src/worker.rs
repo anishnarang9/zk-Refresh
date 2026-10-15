@@ -17,9 +17,9 @@ static SERIAL: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Clone)]
 pub struct PinnedFile {
-    path: PathBuf,
-    digest: Digest,
-    max_bytes: u64,
+    pub(crate) path: PathBuf,
+    pub(crate) digest: Digest,
+    pub(crate) max_bytes: u64,
 }
 impl PinnedFile {
     pub fn new(
@@ -75,7 +75,7 @@ impl WorkerRunner {
     pub fn pinned(runtime: PinnedFile, script: PinnedFile) -> Self {
         Self { runtime, script }
     }
-    fn run(
+    pub(crate) fn run(
         &self,
         args: &[&std::ffi::OsStr],
         control: &OperationControl,

@@ -6,6 +6,7 @@ mod identity;
 mod witness;
 mod worker;
 mod v2;
+mod v2_input;
 
 pub use client::*;
 pub use control::*;
@@ -13,6 +14,7 @@ pub use identity::*;
 pub use witness::*;
 pub use worker::*;
 pub use v2::*;
+pub use v2_input::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum InvalidationReason {
