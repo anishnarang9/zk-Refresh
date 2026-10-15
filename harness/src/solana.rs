@@ -2094,6 +2094,29 @@ pub mod queue_v2 {
         );
         Ok(())
     }
+    // The persistent-ledger supervisor may stop the validator immediately after return.
+    // Wait for the last observed transaction slot to become rooted before reporting success.
+    fn wait_finalized(rpc: &Rpc, events: &[Value]) -> Result<u64> {
+        let slot = events
+            .last()
+            .and_then(|e| e["slot"].as_u64())
+            .context("last transaction slot missing")?;
+        let deadline = Instant::now() + Duration::from_secs(20);
+        loop {
+            let rooted = rpc
+                .call("getSlot", json!([{"commitment":"finalized"}]))?
+                .as_u64()
+                .context("finalized slot missing")?;
+            if rooted >= slot {
+                return Ok(rooted);
+            }
+            ensure!(
+                Instant::now() < deadline,
+                "persistent-ledger finalization deadline"
+            );
+            thread::sleep(Duration::from_millis(250));
+        }
+    }
     #[derive(serde::Deserialize)]
     #[serde(deny_unknown_fields)]
     struct PublicContext {
@@ -2337,6 +2360,7 @@ pub mod queue_v2 {
         );
         let q = state(&rpc, queue, program, 2090)?;
         ensure!(q == empty_queue(&p), "queue not initially empty");
+        let finalized_slot = wait_finalized(&rpc, &events)?;
         new_json(&out.join("plan.json"), &p)?;
         new_file(&out.join("action-preimage.bin"), &p.action_preimage()?)?;
         new_file(&out.join("action-hash.be"), &p.expected_inputs[4])?;
@@ -2344,7 +2368,7 @@ pub mod queue_v2 {
         new_file(&out.join("queue-before.bin"), &q)?;
         new_json(
             &out.join("prepare-report.json"),
-            &json!({"scope":"local Full application preparation only","passed":true,"program":pk(program).to_string(),"genesis":Hash::new_from_array(genesis).to_string(),"context_sha256":env("P5_QUEUE_CONTEXT_SHA256")?,"loaded_program":loaded,"plan_sha256":hex::encode(Sha256::digest(fs::read(out.join("plan.json"))?)),"action_hash_be":hex::encode(p.expected_inputs[4]),"transactions":events,"full_proof_created":false,"validator_lifecycle":"ROOT-owned persistent ledger"}),
+            &json!({"scope":"local Full application preparation only","passed":true,"finalized_slot":finalized_slot,"program":pk(program).to_string(),"genesis":Hash::new_from_array(genesis).to_string(),"context_sha256":env("P5_QUEUE_CONTEXT_SHA256")?,"loaded_program":loaded,"plan_sha256":hex::encode(Sha256::digest(fs::read(out.join("plan.json"))?)),"action_hash_be":hex::encode(p.expected_inputs[4]),"transactions":events,"full_proof_created":false,"validator_lifecycle":"ROOT-owned persistent ledger"}),
         )?;
         Ok(())
     }
@@ -2528,9 +2552,10 @@ pub mod queue_v2 {
                 && state(&rpc, p.queue, p.program, 2090)? == completed_queue,
             "replay changed exact completed state"
         );
+        let finalized_slot = wait_finalized(&rpc, &events)?;
         new_json(
             &out.join("execute-report.json"),
-            &json!({"passed":true,"scope":"actual local loaded application Full proof and exact protected queue effect","full_only":true,"synthetic_signed_source_observation":true,"upstream_issuer_check":false,"source_observation_digest":hex::encode(observation_digest),"public_context_sha256":env("P5_QUEUE_CONTEXT_SHA256")?,"loaded_program":loaded,"plan_sha256":env("P5_QUEUE_PLAN_SHA256")?,"wire_sha256":env("P5_QUEUE_FULL_WIRE_SHA256")?,"request":pk(p.request).to_string(),"queue":pk(p.queue).to_string(),"effect_count":1,"request_consumed":true,"request_sha256":hex::encode(Sha256::digest(expected_request)),"queue_sha256":hex::encode(Sha256::digest(completed_queue)),"transactions":events,"devnet":false,"anchor_refresh":false}),
+            &json!({"passed":true,"scope":"actual local loaded application Full proof and exact protected queue effect","finalized_slot":finalized_slot,"full_only":true,"synthetic_signed_source_observation":true,"upstream_issuer_check":false,"source_observation_digest":hex::encode(observation_digest),"public_context_sha256":env("P5_QUEUE_CONTEXT_SHA256")?,"loaded_program":loaded,"plan_sha256":env("P5_QUEUE_PLAN_SHA256")?,"wire_sha256":env("P5_QUEUE_FULL_WIRE_SHA256")?,"request":pk(p.request).to_string(),"queue":pk(p.queue).to_string(),"effect_count":1,"request_consumed":true,"request_sha256":hex::encode(Sha256::digest(expected_request)),"queue_sha256":hex::encode(Sha256::digest(completed_queue)),"transactions":events,"devnet":false,"anchor_refresh":false}),
         )?;
         Ok(())
     }
