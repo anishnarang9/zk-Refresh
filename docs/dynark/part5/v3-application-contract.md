@@ -82,9 +82,8 @@ the signature bytes. The program stores this opaque digest under the signed
 transaction; it does not verify detached JSON or Ed25519. The offchain verifier
 must verify that envelope and compare its digest with the latest finalized
 head account. Execute must verify this head; the older Bind path cannot bypass
-it. Existing config and issuer account layouts remain unchanged. The host
-suite is RED at opcode-13 parsing; implementation and loaded-SBF evidence are
-still pending.
+it. Existing config and issuer account layouts remain unchanged. Opcode-13
+host tests now pass; loaded-SBF CPI and rollback evidence remains pending.
 
 A configured client verifier must read the current config, issuer and head
 accounts at finalized commitment, verify owners, PDAs, codecs, program/network
@@ -120,7 +119,9 @@ enrollment, status feed and signer remain separate qualification gates.
 
 The program owner first adds versioned account/parser/action tests, then
 authority/current-state tests, then the six-field VK verifier and atomic queue
-effect. The native client owner supplies the supported DER importer, exact
+effect. The six-field verifier and a fail-closed Execute preflight pass host
+tests; the atomic effect remains pending. The native client owner supplies the
+supported DER importer, exact
 request/action signer and proof/submission/reconciliation path. Each heavy
 Cargo, SBF or validator run is separately bounded and serialized.
 
