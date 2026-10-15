@@ -895,3 +895,189 @@ fn admission_and_freshness_never_accept_mismatched_recorded_epochs() {
         assert_eq!(changed, original);
     }
 }
+
+#[test]
+fn freshness_and_observation_boundaries_are_inclusive_and_checked_without_mutation() {
+    let c = config();
+    let mut i = issuer(&c, 8);
+    observe_and_bind(&c, &mut i, 100, 1);
+    assert_eq!(i.fresh(&c, 100), Ok(()));
+    assert_eq!(i.fresh(&c, 400), Ok(()));
+    for now in [-1, 99, 401] {
+        assert!(i.fresh(&c, now).is_err());
+    }
+    for (expected, next, digest, observed, expires, now) in [
+        (0, 2, [2; 32], 101, 401, 101),
+        (1, 3, [2; 32], 101, 401, 101),
+        (1, 2, [0; 32], 101, 401, 101),
+        (1, 2, [1; 32], 101, 401, 101),
+        (1, 2, [2; 32], 100, 400, 101),
+        (1, 2, [2; 32], 102, 402, 101),
+        (1, 2, [2; 32], 101, 100, 101),
+        (1, 2, [2; 32], 101, 101, 101),
+        (1, 2, [2; 32], 101, 402, 101),
+    ] {
+        let before = i.clone();
+        assert!(i
+            .observe(
+                &c,
+                actor(i.source),
+                c.eligibility_epoch,
+                i.eligibility_epoch,
+                expected,
+                next,
+                digest,
+                observed,
+                expires,
+                now
+            )
+            .is_err());
+        assert_eq!(i, before);
+    }
+    i.sequence = u64::MAX;
+    let before = i.clone();
+    assert!(i
+        .observe(
+            &c,
+            actor(i.source),
+            0,
+            0,
+            u64::MAX,
+            0,
+            [2; 32],
+            101,
+            401,
+            101
+        )
+        .is_err());
+    assert_eq!(i, before);
+}
+#[test]
+fn current_identity_and_authority_checks_precede_even_noop_state_changes() {
+    let mut c = config();
+    let before = c.clone();
+    assert!(c
+        .set_enabled(
+            Authority {
+                key: c.admin,
+                is_signer: false
+            },
+            true
+        )
+        .is_err());
+    assert_eq!(c, before);
+    for field in 0..5 {
+        let mut changed = c.clone();
+        match field {
+            0 => changed.circuit_id[0] ^= 1,
+            1 => changed.package_id[0] ^= 1,
+            2 => changed.schema_id[0] ^= 1,
+            3 => changed.profile_id[0] ^= 1,
+            _ => changed.ordinary_vk_digest[0] ^= 1,
+        };
+        assert!(Config::decode(&changed.encode()).is_err());
+    }
+    let mut i = issuer(&c, 8);
+    let before = i.clone();
+    assert!(i
+        .set_enabled(
+            &c,
+            Authority {
+                key: c.admin,
+                is_signer: false
+            },
+            true
+        )
+        .is_err());
+    assert_eq!(i, before);
+    assert!(i
+        .bind_current(
+            &c,
+            Authority {
+                key: c.publisher,
+                is_signer: false
+            },
+            0,
+            0,
+            0,
+            0,
+            100
+        )
+        .is_err());
+    assert_eq!(i, before);
+    c.root_version = u64::MAX;
+    let before = c.clone();
+    assert!(c.publish(actor(c.publisher), u64::MAX, field(7)).is_err());
+    assert_eq!(c, before);
+}
+#[test]
+fn disabled_states_cannot_observe_and_same_root_publication_still_invalidates_binding() {
+    let mut c = config();
+    let mut i = issuer(&c, 8);
+    observe_and_bind(&c, &mut i, 100, 1);
+    c.publish(actor(c.publisher), 0, c.root).unwrap();
+    assert_eq!(c.root_version, 1);
+    assert!(i.binding_current(&c).is_err());
+    i.bind_current(&c, actor(c.publisher), 0, 0, 1, 1, 100)
+        .unwrap();
+    c.set_enabled(actor(c.admin), false).unwrap();
+    let before = i.clone();
+    assert!(i
+        .observe(
+            &c,
+            actor(i.source),
+            c.eligibility_epoch,
+            i.eligibility_epoch,
+            1,
+            2,
+            [2; 32],
+            101,
+            401,
+            101
+        )
+        .is_err());
+    assert_eq!(i, before);
+    c.set_enabled(actor(c.admin), true).unwrap();
+    i.set_enabled(&c, actor(c.admin), false).unwrap();
+    let before = i.clone();
+    assert!(i
+        .observe(
+            &c,
+            actor(i.source),
+            c.eligibility_epoch,
+            i.eligibility_epoch,
+            1,
+            2,
+            [2; 32],
+            101,
+            401,
+            101
+        )
+        .is_err());
+    assert_eq!(i, before);
+}
+#[test]
+fn malformed_boolean_fields_and_partial_cancelled_tombstones_decode_canonically() {
+    let c = config();
+    let mut cb = c.encode();
+    cb[380] = 2;
+    assert!(Config::decode(&cb).is_err());
+    let i = issuer(&c, 8);
+    for offset in [172, 357] {
+        let mut bytes = i.encode();
+        bytes[offset] = 2;
+        assert!(Issuer::decode(&bytes).is_err());
+    }
+    let mut r = request();
+    r.state = RequestState::Cancelled;
+    r.uploaded = 1;
+    r.metas_uploaded = 1;
+    r.payload = vec![b'a', 0, 0];
+    assert_eq!(Request::decode(&r.encode()), Ok(r.clone()));
+    let mut bad = r.encode();
+    bad[1226] = 1;
+    assert!(Request::decode(&bad).is_err());
+    let mut q = Queue::new(r.config);
+    q.entries = vec![r.config, r.config];
+    assert!(Queue::decode(&q.encode()).is_err());
+}
