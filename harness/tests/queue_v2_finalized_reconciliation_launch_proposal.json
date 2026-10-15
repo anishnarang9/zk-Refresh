@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "review_state": "proposal_only_final_configSHA_pending_rebuilt_runner_pin",
+  "review_state": "fully_pinned_await_ROOT_single_consumed_only_restart_grant",
   "environment": {
     "CARGO_BUILD_JOBS": "1",
     "RAYON_NUM_THREADS": "4",
@@ -35,15 +35,19 @@
     "--config",
     "/Users/anishnarang/Zk-refresh/harness/tests/queue_v2_finalized_reconciliation_proposal.json",
     "--config-sha256",
-    "PENDING_FINAL_RUNNER_PIN_CONFIG_SHA256"
+    "122af0b74cfd67bafed7399288ffc5132eb85ba91ad7b83f35eb4dc558baa81f"
   ],
   "supervisor_sha256": "7bd927be418ad2e2a63bd2e9d9dbb9b144232cefdb3a27de5f131d35a9a8ef45",
-  "pending_config_sha256": "e29641b79db5e2906d8cbac677249480f66007dfe96c14f3fb8e8da1747e9c71",
+  "pending_config_sha256": "122af0b74cfd67bafed7399288ffc5132eb85ba91ad7b83f35eb4dc558baa81f",
   "required_postconditions": [
     "Readiness modeconsumed; confirmed/finalized exact four accounts and issuerbinding,eachslot>=prepare slot8",
     "Freshreconciled-report exactrequesthash4c73... andqueuehashc076...,returnedfinalizedslot,new_execute_transactions=0",
     "Historicalreport/transactionJSONL hashunchanged",
     "No application transaction submitted; ownedvalidator itself mayproducevotes/blocks/logs",
     "Externalmonitor no cap or residual; no reset/reload; no automaticretry"
-  ]
+  ],
+  "config_sha256": "122af0b74cfd67bafed7399288ffc5132eb85ba91ad7b83f35eb4dc558baa81f",
+  "runner_sha256": "7564930d60b0e82c9084d17e7bccbca40fa622e0d10de560e3c460527cb6f7aa",
+  "runner_bytes": 19014056,
+  "host_rebuild_receipt_sha256": "488e1bacce17bd45327e46caf69e3ccfb0bd4030552df029d38c44f031f9c557"
 }

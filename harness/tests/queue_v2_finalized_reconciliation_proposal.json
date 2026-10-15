@@ -5,7 +5,7 @@
   "validator": "/Users/anishnarang/.local/share/solana/install/releases/stable-75f9b5b4c3d8b24ae7200f0202bd08cbe29af2bc/solana-release/bin/solana-test-validator",
   "validator_sha256": "14890e8d6a8282a4401853d62066c4979cd4334ce0e55f536b77c136c215cf5b",
   "runner": "/Users/anishnarang/Zk-refresh/harness/target/debug/build/zk-fresh-benchmark/3147fa1ba77ddb84/out/queue_v2-3147fa1ba77ddb84",
-  "runner_sha256": null,
+  "runner_sha256": "7564930d60b0e82c9084d17e7bccbca40fa622e0d10de560e3c460527cb6f7aa",
   "elf": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v2-sbf-build-001/elf/zk_fresh_program.so",
   "elf_sha256": "e20d0df801e49e211a5b791d2f1c284240568049656edf8991b7cc00dbe7e639",
   "context": "/Users/anishnarang/Zk-refresh/results/dynark/part5/application-v2-public-context-001.json",
@@ -50,18 +50,19 @@
       "rss_bytes": 4294967296,
       "storage_growth_bytes": 268435456
     },
-    "host_rebuild_receipt": null,
-    "host_rebuild_receipt_sha256": null,
+    "host_rebuild_receipt": "results/dynark/part5/v2-finalized-reconciliation-host-bounded-001.json",
+    "host_rebuild_receipt_sha256": "488e1bacce17bd45327e46caf69e3ccfb0bd4030552df029d38c44f031f9c557",
     "fresh_reconciliation_report": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v2-local-runtime-001/private/reconciled-report.json",
     "historical_preservation": "execute-report.json and transactions.jsonl exact pinned hashes checked before validator and after successful runner; no rewrite",
     "expected_actual_application_transactions_submitted": 0,
     "fresh_report_required_after_runner": "consumed-only mode fails before status success unless fresh reconciled-report.json exists; successful runner_report always points only to that file"
   },
-  "review_state": "consumed_only_restart_proposal_pending_rebuilt_runner_hash_and_ROOT_grant",
+  "review_state": "host_rebuild_passed_await_ROOT_final_consumed_only_restart_grant",
   "supervisor_sha256": "7bd927be418ad2e2a63bd2e9d9dbb9b144232cefdb3a27de5f131d35a9a8ef45",
   "reconciliation_only": true,
   "historical_evidence_pins": {
     "execute-report.json": "78cef88f778ce0f71170dbf7ce6a069c1936cba63eb62501edaa37b9971ce3cb",
     "transactions.jsonl": "1618e42187e72e66a49b804beb9c7631844492ad63fb809d3d2bd3d44fee7e13"
-  }
+  },
+  "runner_bytes": 19014056
 }
