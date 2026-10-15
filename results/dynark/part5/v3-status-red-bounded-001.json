@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "owner": "part5-v3-status-red-001",
+  "started_at_utc": "2026-10-15T16:10:54.726998+00:00",
+  "ended_at_utc": "2026-10-15T16:10:57.060239+00:00",
+  "timezone": [
+    "EST",
+    "EDT"
+  ],
+  "duration_seconds": 2.3332862079842016,
+  "limits": {
+    "runtime_seconds": 180.0,
+    "owned_tree_rss_bytes": 1073741824,
+    "storage_growth_bytes": 268435456,
+    "poll_seconds": 0.25
+  },
+  "stop_reason": null,
+  "exit_code": 101,
+  "runner_error_type": null,
+  "cleanup_remaining_owned_processes": 0,
+  "cleanup_status_unknown": false,
+  "sample_count": 6,
+  "samples": [
+    {
+      "elapsed_seconds": 0.017199666006490588,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 557056,
+      "storage_growth_bytes": 641
+    },
+    {
+      "elapsed_seconds": 0.4229195410152897,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 92110848,
+      "storage_growth_bytes": 766
+    },
+    {
+      "elapsed_seconds": 0.8219210000243038,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 158302208,
+      "storage_growth_bytes": 197851
+    },
+    {
+      "elapsed_seconds": 1.2344673330662772,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 229326848,
+      "storage_growth_bytes": 3377703
+    },
+    {
+      "elapsed_seconds": 1.6902847910532728,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 53690368,
+      "storage_growth_bytes": 6743649
+    },
+    {
+      "elapsed_seconds": 2.1453599160304293,
+      "owned_process_count": 0,
+      "owned_tree_rss_bytes": 0,
+      "storage_growth_bytes": 6744403
+    }
+  ],
+  "sampled_peak_owned_tree_rss_bytes": 229326848,
+  "sampled_peak_storage_growth_bytes": 6744403,
+  "environment": {
+    "RAYON_NUM_THREADS": "4",
+    "OMP_NUM_THREADS": "1",
+    "TZ": null
+  },
+  "measurement_notes": [
+    "RSS from ps KiB converted to bytes; sum of live owned tree; not heap allocation",
+    "storage is positive logical file-size growth per supplied root; excludes deleted-file peak between samples",
+    "limits sampled; short spikes and daemonized ancestry escape between samples may be missed",
+    "samples exclude runner/ps RSS; storage report written after the measured command",
+    "child stdout/stderr/argv retained only in protected output"
+  ],
+  "passed": false
+}
