@@ -1,5 +1,5 @@
-//! Separate bounded-v3 registry tree namespace. Protocol authentication is not
-//! implemented in this first slice. The RED scaffold cannot admit membership.
+//! Separate bounded-v3 membership math. Protocol authentication is not
+//! implemented in this first slice; tree membership alone grants no authority.
 mod tree;
 pub use crate::{Error, Field};
 pub use tree::{leaf_hash, Tree};
