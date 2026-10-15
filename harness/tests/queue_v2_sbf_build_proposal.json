@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "phase": "build",
+  "program": "FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha",
+  "builder": "/Users/anishnarang/.local/share/solana/install/releases/stable-75f9b5b4c3d8b24ae7200f0202bd08cbe29af2bc/solana-release/bin/cargo-build-sbf",
+  "builder_sha256": "6c4f50a7a7635f946948611471f0fb6a753caa1cae46f028d345eb307a36e074",
+  "build_output": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v2-sbf-build-001",
+  "control_output": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v2-sbf-control-001",
+  "source_pins": {
+    "program/Cargo.toml": "e3ebad8d663c1fa27cfa628f3e19119121bc3c962797f48666f2fc26bdc5e836",
+    "program/Cargo.lock": "f7f2890062ab6c7e77560a49e49139ef7d1452e0981e8bdd1feef592cf6d33ef",
+    "program/src/lib.rs": "0a5a2f6416a02b9574e132ccd37c1a8550c56a3aa6eea19810ea83b83cc1a6fe",
+    "program/src/application_v2.rs": "5dbf40968e53fb9380abbcba2a89a3e0ae923bdd4600d5fa381d35d48c4dcf86",
+    "program/src/application_runtime_v2.rs": "bec0a6f4de76a0c3bcccc6a1d541745009d1131b937789f23b70bde037752f6c",
+    "program/src/generated_vk.rs": "13a2ba1f321b0f85e27efea6e3d637d06459442a918b940d103cbb7ef80b2900",
+    "program/src/generated_vk_v2.rs": "9383d7338279e60035b88478ace92bc39e8cda3e47d91e797f07162dd5f5f1b8"
+  }
+}

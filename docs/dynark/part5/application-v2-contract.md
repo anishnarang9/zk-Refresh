@@ -122,3 +122,38 @@ digest, raw key file hash, profile, semantic schema, circuit/package and actual
 application ELF hash remain separately named and pinned. Existing five-field
 adapter/key identities and v2 queue accounts are preserved. No implicit account,
 request, proof or cache migration is authorized by this proposal.
+
+## Local harness and persistent-ledger proposal
+
+The focused `harness/tests/queue_v2.rs` prepare/execute tests remain ignored in
+ordinary host tests. Preparation must load the reviewed actual application
+ELF, verify its RPC bytes and configured local genesis, stage and finalize the
+request, compare its entire account bytes with an independent encoding, and
+export the exact action before signing/proving. Execute refreshes a controlled
+synthetic source observation and then obtains a distinct publisher BindCurrent
+attestation before authorization. It verifies the exact resulting request and
+queue bytes and rejects a distinct replay. Both successful phases wait for the
+last observed transaction slot to reach finalized commitment before reporting
+success. Already-consumed reconciliation checks the exact request/queue again
+at finalized commitment and sends no new Execute; an existing reconciliation
+report does not prevent another successful read-only reconciliation.
+
+`harness/tests/queue_v2_supervisor.py` is a reviewed-proposal child launcher for
+separate build, prepare and execute invocations under ROOT's external bounded
+monitor. Initial preparation requires an absent protected ledger and is the
+only path that may use `--reset` and genesis `--bpf-program` loading. Execution
+requires the same persisted genesis, ELF, public context and finalized prepare
+report and never resets or reloads genesis. It uses the separate deterministic
+local public program ID `FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha`, not an
+existing deployment key. The launcher validates pinned sources and binaries,
+restricts output to ignored protected Part 5 artifacts, and keeps synthetic
+application keys private. It must not run without a fresh bounded ROOT grant.
+Direct-child cleanup is not a claim of complete process-tree cleanup; the
+external monitor supplies the independent whole-tree receipt. A forced stop or
+failed runtime marks ledger reuse as requiring review, preserving partial work.
+
+The proposed SBF stop is 180 seconds, 4 GiB sampled workload RSS and 512 MiB
+positive storage growth. Each local validator/runner phase proposes 180 seconds,
+4 GiB combined sampled RSS and 256 MiB positive storage growth, including a
+20-second readiness and bounded runner deadline. These are finite feasibility
+bounds, not observed application measurements or automatic retry allowances.
