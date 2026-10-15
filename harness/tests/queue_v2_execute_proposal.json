@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "phase": "execute",
+  "program": "FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha",
+  "validator": "/Users/anishnarang/.local/share/solana/install/releases/stable-75f9b5b4c3d8b24ae7200f0202bd08cbe29af2bc/solana-release/bin/solana-test-validator",
+  "validator_sha256": "14890e8d6a8282a4401853d62066c4979cd4334ce0e55f536b77c136c215cf5b",
+  "runner": "/Users/anishnarang/Zk-refresh/harness/target/debug/build/zk-fresh-benchmark/3147fa1ba77ddb84/out/queue_v2-3147fa1ba77ddb84",
+  "runner_sha256": "f1a69d1ace109cc4bc4f9ac98853fea01c4a50936d1cdfc8ffadfcf7deb44df4",
+  "elf": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v2-sbf-build-001/elf/zk_fresh_program.so",
+  "elf_sha256": "e20d0df801e49e211a5b791d2f1c284240568049656edf8991b7cc00dbe7e639",
+  "context": "/Users/anishnarang/Zk-refresh/results/dynark/part5/application-v2-public-context-001.json",
+  "context_sha256": "0ee2fb693640dfcd430af7cb59a2162e35902f35a4c97c39eb067c074925cb4d",
+  "runtime_output": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v2-local-runtime-001",
+  "control_output": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v2-execute-control-001",
+  "source_pins": {
+    "harness/Cargo.toml": "e8c6d7b782f1c9c5a629783423b7e9999cba28c48636dd3abd231e1d8229a274",
+    "harness/Cargo.lock": "1e9ed2ece56706afe2e3e132d76e1f79b84d9236743249310a9d319f74019177",
+    "harness/src/solana.rs": "e177b2302c74ec9fcb51a1b575a638eb02d540b6bd4faffe7aaaf502845a2c08",
+    "harness/tests/queue_v2.rs": "09bd06db502ae45e93749a10b915d180ebf84e36dcea1a92b85e3fbf5ef5e782"
+  },
+  "expected_genesis": "DDeEBprS6FPndW11NfgMS3RjUoQh9BJoBBa2KgAt4znD",
+  "plan_sha256": "783c1c8c9110e41e1cf3d1cd79d6bb10c07c79f81aa3d17774b60fb6f7bd4c4b",
+  "full_wire": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/native-v2-request-full-001-private/full.wire",
+  "full_wire_sha256": "80f7ddf91e6f6de2dd4dfb405fafe10d89eaea5aab127ea89db79ccec0dc152d",
+  "review_assertions": {
+    "scope": "Actual loaded local v2 Full proof and exact protected queue effect; no upstream issuer freshness or offchain execution claim",
+    "native_proof_receipt": "results/dynark/part5/native-v2-request-full-001-bounded.json",
+    "source_observation": "controlled synthetic signed observation only",
+    "action_hash_be": "204adc0e5bc8095de0e3d5d768f1ca596267148fd3ca130c0290e5976015cdb0",
+    "request_before_sha256": "090faad939022d7859e823488c85f807258f646c927a9299a0eca7243b54046f",
+    "queue_before_sha256": "944f32edd2b8f070e4e370a37a44cd11cddc7085049a580b23cf5b6ea43fe5fc",
+    "expected_consumed_request_sha256": "4c73b9203867f1d6268631d72fab00a9798a3ce41369cfccc2be675d3360d489",
+    "expected_one_entry_queue_sha256": "c07619bf42b78ff35b81ff07ad1f9e1649b409a34355b563465e805757b5b74f",
+    "expected_effect_count": 1,
+    "replay_custom_error": 507,
+    "wrong_action_custom_error": 512,
+    "malformed_proof_custom_error": 514,
+    "transaction_packet_limit_bytes": 1232,
+    "finalized_success_required": true,
+    "already_consumed_reconciliation_new_execute_transactions": 0
+  }
+}
