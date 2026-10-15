@@ -185,8 +185,14 @@ receipts. Intended command:
 /Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-prover-build-001/release/credential-v3-bounded-qualification check-package /Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-compile-001/credential.r1cs /Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-compile-001/credential_js/credential.wasm /Users/anishnarang/Zk-refresh/circuits/credential-v3-bounded/profile.json /Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-development-setup-001/setup-manifest.json "$SETUP_MANIFEST_SHA" /Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-accepted-assignments-001.json "$ACCEPTED_ASSIGNMENTS_SHA" /Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-package-check-001
 ```
 
-Cap300s,4GiB aggregate RSS,64MiB new output. Expected30–120s and RSS1–2GiB are
-unmeasured estimates. Report only source/package/VK identities, counts, finite
+The original300-second wall proposal is likely too tight and is withdrawn
+pending ROOT's revised finite Gate4 grant. `PublicPackage::new` performs one full
+`pk.check()` over this large key before eighteen complete relation validations;
+the prior v2 checked-decoding pattern exceeded300seconds. Gate2 unit tests do
+not measure that workload. ROOT will set the finite wall/RSS/storage envelope
+after assessing the accepted setup and key measurements. No Gate4 run is granted.
+The previous30–120second runtime estimate is not supported by a Gate4 measurement.
+Report only source/package/VK identities, counts, finite
 stage durations and relation validation outcomes. No raw assignments, credential
 fingerprints, signing keys, projections, caches, blinders or toxic scalars in
 normal logs or scrubbed reports.
