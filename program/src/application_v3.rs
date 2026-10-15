@@ -6,6 +6,7 @@ pub const CONFIG_LEN: usize = 381;
 pub const ISSUER_LEN: usize = 374;
 pub const REQUEST_LEN: usize = 2249;
 pub const QUEUE_LEN: usize = 2090;
+pub const HEAD_LEN: usize = 280;
 pub const QUEUE_CAPACITY: usize = 64;
 pub const MAX_PAYLOAD: usize = 1024;
 pub const MAX_METAS: usize = 16;
@@ -16,6 +17,8 @@ pub const STATUS_MAX_AGE: i64 = 300;
 // Issuer preserves v2 revised offsets through309; enrollment_version309, evidence317,
 // observed_config_epoch349, status_valid357; appended eligibility_epoch358..366,
 // observed_issuer_epoch366..374. Existing 358-byte prefix is preserved.
+// Head: keys8/40/72, sequence104, digest112, predecessor144, root176,
+// root_version208, source_sequence216, source_digest224, epochs256/264, time272.
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppError {
@@ -125,10 +128,43 @@ pub struct Queue {
     pub config: Pubkey,
     pub entries: Vec<Pubkey>,
 }
+/// Publisher transaction commitment to an opaque canonical signed-envelope
+/// digest. This account does not verify detached JSON or Ed25519 signatures.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PublisherHead {
+    pub config: Pubkey,
+    pub issuer: Pubkey,
+    pub publisher: Pubkey,
+    pub publication_sequence: u64,
+    pub envelope_digest: [u8; 32],
+    pub previous_publication_digest: [u8; 32],
+    pub root: [u8; 32],
+    pub root_version: u64,
+    pub source_sequence: u64,
+    pub source_digest: [u8; 32],
+    pub config_epoch: u64,
+    pub issuer_epoch: u64,
+    pub committed_at: i64,
+}
+/// Opcode13, revision1, exactly179 bytes including prefix/opcode/revision.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PublisherHeadBinding {
+    pub expected_config_epoch: u64,
+    pub expected_issuer_epoch: u64,
+    pub expected_root: [u8; 32],
+    pub expected_root_version: u64,
+    pub expected_source_sequence: u64,
+    pub expected_source_digest: [u8; 32],
+    pub expected_publication_sequence: u64,
+    pub expected_publication_digest: [u8; 32],
+    pub next_publication_sequence: u64,
+    pub envelope_digest: [u8; 32],
+}
 const CONFIG_MAGIC: &[u8; 8] = b"DYNCONF3";
 const ISSUER_MAGIC: &[u8; 8] = b"DYNISS03";
 const REQUEST_MAGIC: &[u8; 8] = b"DYNREQ03";
 const QUEUE_MAGIC: &[u8; 8] = b"DYNQUE03";
+const HEAD_MAGIC: &[u8; 8] = b"DYNHEAD3";
 struct Reader<'a> {
     bytes: &'a [u8],
     pos: usize,
@@ -549,6 +585,147 @@ impl Issuer {
         Ok(())
     }
 }
+impl PublisherHead {
+    fn valid(&self) -> Result<()> {
+        canonical(&self.root)?;
+        if self.publication_sequence == 0
+            || self.envelope_digest == [0; 32]
+            || (self.publication_sequence == 1) != (self.previous_publication_digest == [0; 32])
+            || self.envelope_digest == self.previous_publication_digest
+            || self.source_sequence == 0
+            || self.source_digest == [0; 32]
+            || self.committed_at < 0
+        {
+            return Err(AppError::State);
+        }
+        Ok(())
+    }
+    pub fn encode(&self) -> Vec<u8> {
+        let mut b = HEAD_MAGIC.to_vec();
+        push_key(&mut b, &self.config);
+        push_key(&mut b, &self.issuer);
+        push_key(&mut b, &self.publisher);
+        b.extend(self.publication_sequence.to_be_bytes());
+        b.extend(self.envelope_digest);
+        b.extend(self.previous_publication_digest);
+        b.extend(self.root);
+        b.extend(self.root_version.to_be_bytes());
+        b.extend(self.source_sequence.to_be_bytes());
+        b.extend(self.source_digest);
+        b.extend(self.config_epoch.to_be_bytes());
+        b.extend(self.issuer_epoch.to_be_bytes());
+        b.extend(self.committed_at.to_be_bytes());
+        b
+    }
+    pub fn decode(bytes: &[u8]) -> Result<Self> {
+        let mut r = Reader::account(bytes, HEAD_LEN, HEAD_MAGIC)?;
+        let head = Self {
+            config: r.key()?,
+            issuer: r.key()?,
+            publisher: r.key()?,
+            publication_sequence: r.u64()?,
+            envelope_digest: r.take()?,
+            previous_publication_digest: r.take()?,
+            root: r.take()?,
+            root_version: r.u64()?,
+            source_sequence: r.u64()?,
+            source_digest: r.take()?,
+            config_epoch: r.u64()?,
+            issuer_epoch: r.u64()?,
+            committed_at: r.i64()?,
+        };
+        r.finish()?;
+        head.valid()?;
+        Ok(head)
+    }
+    /// Prepare both account values without changing either predecessor. Actual
+    /// account owners, PDAs and associations must be authenticated by the runtime.
+    /// No authorization capability or Execute path is exposed by this method.
+    #[allow(clippy::too_many_arguments)]
+    pub fn prepare_bind(
+        config_key: Pubkey,
+        issuer_key: Pubkey,
+        config: &Config,
+        issuer: &Issuer,
+        actor: Authority,
+        previous: Option<&Self>,
+        binding: &PublisherHeadBinding,
+        now: i64,
+    ) -> Result<(Issuer, Self)> {
+        authority(actor, &config.publisher)?;
+        config.valid()?;
+        issuer.valid()?;
+        if issuer.config != config_key {
+            return Err(AppError::Accounts);
+        }
+        if binding.expected_config_epoch != config.eligibility_epoch
+            || binding.expected_issuer_epoch != issuer.eligibility_epoch
+            || binding.expected_root != config.root
+            || binding.expected_root_version != config.root_version
+            || binding.expected_source_sequence != issuer.sequence
+            || binding.expected_source_digest != issuer.digest
+        {
+            return Err(AppError::Binding);
+        }
+        issuer.fresh(config, now)?;
+        // Narrower than legacy Bind: registry publisher-use freshness excludes
+        // the exact expiry instant. Future Execute must use this same boundary.
+        if now >= issuer.expires_at {
+            return Err(AppError::Status);
+        }
+        let (sequence, digest) = if let Some(head) = previous {
+            head.valid()?;
+            if head.config != config_key
+                || head.issuer != issuer_key
+                || head.publisher != config.publisher
+            {
+                return Err(AppError::Accounts);
+            }
+            if now < head.committed_at {
+                return Err(AppError::Status);
+            }
+            (head.publication_sequence, head.envelope_digest)
+        } else {
+            (0, [0; 32])
+        };
+        if binding.expected_publication_sequence != sequence
+            || binding.expected_publication_digest != digest
+            || binding.next_publication_sequence
+                != sequence.checked_add(1).ok_or(AppError::Version)?
+            || binding.envelope_digest == [0; 32]
+            || binding.envelope_digest == digest
+        {
+            return Err(AppError::Version);
+        }
+        let head = Self {
+            config: config_key,
+            issuer: issuer_key,
+            publisher: config.publisher,
+            publication_sequence: binding.next_publication_sequence,
+            envelope_digest: binding.envelope_digest,
+            previous_publication_digest: digest,
+            root: config.root,
+            root_version: config.root_version,
+            source_sequence: issuer.sequence,
+            source_digest: issuer.digest,
+            config_epoch: config.eligibility_epoch,
+            issuer_epoch: issuer.eligibility_epoch,
+            committed_at: now,
+        };
+        head.valid()?;
+        let mut next_issuer = issuer.clone();
+        next_issuer.bind_current(
+            config,
+            actor,
+            binding.expected_config_epoch,
+            binding.expected_issuer_epoch,
+            binding.expected_root_version,
+            binding.expected_source_sequence,
+            now,
+        )?;
+        Ok((next_issuer, head))
+    }
+}
 impl RelevantMeta {
     fn read(r: &mut Reader) -> Result<Self> {
         let m = Self {
@@ -912,6 +1089,7 @@ pub enum AppInstruction {
     SetIssuerEnabled {
         enabled: bool,
     },
+    BindWithHead(PublisherHeadBinding),
 }
 impl AppInstruction {
     pub fn parse(bytes: &[u8]) -> Result<Self> {
@@ -1029,6 +1207,23 @@ impl AppInstruction {
             12 => Self::SetIssuerEnabled {
                 enabled: r.boolean()?,
             },
+            13 => {
+                if r.byte()? != 1 {
+                    return Err(AppError::Instruction);
+                }
+                Self::BindWithHead(PublisherHeadBinding {
+                    expected_config_epoch: r.u64()?,
+                    expected_issuer_epoch: r.u64()?,
+                    expected_root: r.take()?,
+                    expected_root_version: r.u64()?,
+                    expected_source_sequence: r.u64()?,
+                    expected_source_digest: r.take()?,
+                    expected_publication_sequence: r.u64()?,
+                    expected_publication_digest: r.take()?,
+                    next_publication_sequence: r.u64()?,
+                    envelope_digest: r.take()?,
+                })
+            }
             _ => return Err(AppError::Instruction),
         };
         r.finish()?;
@@ -1082,6 +1277,7 @@ impl AppInstruction {
             }
             Self::Publish { root, .. } => canonical(root)?,
             Self::Create { issuer_hash, .. } => canonical(issuer_hash)?,
+            Self::BindWithHead(binding) => canonical(&binding.expected_root)?,
             Self::Execute { inputs, .. } => {
                 for input in inputs {
                     crate::canonical(input).map_err(|_| AppError::Proof)?;

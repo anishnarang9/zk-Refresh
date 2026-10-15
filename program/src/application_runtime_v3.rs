@@ -1,7 +1,7 @@
 //! V3 administrative and request-staging runtime. Execute remains unavailable.
 use crate::application_v3::{
-    AppError, AppInstruction, Authority, Config, Issuer, Queue, RelevantMeta, Request,
-    RequestState, CONFIG_LEN, ISSUER_LEN, QUEUE_LEN, REQUEST_LEN,
+    AppError, AppInstruction, Authority, Config, Issuer, PublisherHead, Queue, RelevantMeta,
+    Request, RequestState, CONFIG_LEN, HEAD_LEN, ISSUER_LEN, QUEUE_LEN, REQUEST_LEN,
 };
 use solana_program::{
     account_info::AccountInfo, clock::Clock, entrypoint::ProgramResult,
@@ -27,6 +27,22 @@ pub fn request_address(
 pub fn queue_address(program: &Pubkey, config: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[b"dyn-queue-v3", config.as_ref()], program)
 }
+pub fn publisher_head_address(
+    program: &Pubkey,
+    config: &Pubkey,
+    issuer: &Pubkey,
+    publisher: &Pubkey,
+) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[
+            b"dyn-pubhead-v3",
+            config.as_ref(),
+            issuer.as_ref(),
+            publisher.as_ref(),
+        ],
+        program,
+    )
+}
 // Administrative account contract (all state PDAs are nonsigners):
 // 0 Initialize: admin signer+writable, config W, queue W, executable System RO.
 // 1 Enroll: admin signer+writable, config RO, issuer W, executable System RO.
@@ -37,6 +53,8 @@ pub fn queue_address(program: &Pubkey, config: &Pubkey) -> (Pubkey, u8) {
 // 10 SetConfigEnabled: admin signer, config W.
 // 11 BindCurrent: publisher signer, config RO, issuer W.
 // 12 SetIssuerEnabled: admin signer, config RO, issuer W.
+// 13/revision1 BindWithHead: publisher signer+writable, config RO, issuer W,
+// head W, executable System RO. Same metas for initial allocation and updates.
 // Signer authorities may be writable fee payers. No proof handler exists.
 fn count(accounts: &[AccountInfo], expected: usize) -> ProgramResult {
     if accounts.len() != expected {
@@ -487,6 +505,85 @@ pub fn process(program: &Pubkey, accounts: &[AccountInfo], bytes: &[u8]) -> Prog
                 _ => unreachable!(),
             }
             write(ra, &r.encode())?;
+        }
+        AppInstruction::BindWithHead(binding) => {
+            count(accounts, 5)?;
+            let publisher = &accounts[0];
+            let ca = &accounts[1];
+            let ia = &accounts[2];
+            let ha = &accounts[3];
+            let sys = &accounts[4];
+            let c = load_config(program, ca, false)?;
+            let i = load_issuer(program, ca, ia, true)?;
+            authority(publisher, &c.publisher)?;
+            if !publisher.is_writable {
+                return Err(AppError::Privileges.into());
+            }
+            system(sys)?;
+            let (expected, bump) = publisher_head_address(program, ca.key, ia.key, &c.publisher);
+            if expected != *ha.key {
+                return Err(AppError::Accounts.into());
+            }
+            let previous = if ha.owner == program {
+                owned(program, ha, true)?;
+                Some(PublisherHead::decode(&ha.try_borrow_data()?)?)
+            } else {
+                // An empty System PDA may already hold donated rent. A malformed
+                // program account is never interpreted as a genesis predecessor.
+                fresh_account(program, ha)?;
+                None
+            };
+            let (next_issuer, next_head) = PublisherHead::prepare_bind(
+                *ca.key,
+                *ia.key,
+                &c,
+                &i,
+                actor(publisher),
+                previous.as_ref(),
+                &binding,
+                Clock::get()?.unix_timestamp,
+            )?;
+            let ib = next_issuer.encode();
+            let hb = next_head.encode();
+            // Validate all values and destination access before any CPI/write.
+            PublisherHead::decode(&hb)?;
+            Issuer::decode(&ib)?;
+            let mut idst = ia.try_borrow_mut_data()?;
+            if idst.len() != ib.len() {
+                return Err(AppError::State.into());
+            }
+            if previous.is_none() {
+                let preflight = ha.try_borrow_mut_data()?;
+                if !preflight.is_empty() {
+                    return Err(AppError::State.into());
+                }
+                drop(preflight);
+                // The trusted System CPI receives no issuer AccountInfo. Keep
+                // its destination borrow until the final pair of writes.
+                crate::create_pda(
+                    program,
+                    publisher,
+                    ha,
+                    sys,
+                    HEAD_LEN,
+                    &[
+                        b"dyn-pubhead-v3",
+                        ca.key.as_ref(),
+                        ia.key.as_ref(),
+                        c.publisher.as_ref(),
+                        &[bump],
+                    ],
+                )?;
+            }
+            owned(program, ha, true)?;
+            let mut hdst = ha.try_borrow_mut_data()?;
+            if hdst.len() != hb.len() {
+                return Err(AppError::State.into());
+            }
+            // Both mutable borrows/lengths are held/checked. Nothing fallible
+            // follows the first write; Solana owns any earlier CPI rollback.
+            idst.copy_from_slice(&ib);
+            hdst.copy_from_slice(&hb);
         }
         // No verifier, queue append or request consumption exists in this slice.
         AppInstruction::Execute { .. } => return Err(AppError::Unavailable.into()),
