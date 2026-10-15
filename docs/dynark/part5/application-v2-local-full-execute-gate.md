@@ -40,10 +40,10 @@ signatures and account hashes; private keys, witness and proof preparation
 material remain under ignored protected artifacts.
 
 An independent review identified the finalized-account evidence gap in the
-normal success path. A separately reviewed code repair and read-only
-reconciliation on the stopped original ledger are pending. The local proof and
-confirmed queue effect are observed; this document does not yet claim exact
-finalized account bytes.
+normal success path. The code repair and read-only consumed-state restart now
+verify the exact finalized account bytes separately. See
+`v2-finalized-effect-reconciliation.md`. This first execution report itself
+still establishes only the confirmed account-byte comparison.
 
 The tests-first finalized-state regression compiled and ran two tests against
 the old slot-only success helper. Both failed at the intended assertions:
@@ -58,9 +58,9 @@ check the exact consumed request and one-entry queue at finalized commitment,
 and report the slot returned after those account reads. Both focused mocked-RPC
 tests passed in the bounded GREEN gate, recorded at
 `results/dynark/part5/v2-finalized-effect-green-bounded-001.json`. The original
-local execution predates this code change. A rebuilt integration runner and
-read-only consumed-state restart are still required to attest its exact
-finalized account bytes without sending another Execute.
+local execution predates this code change. The rebuilt integration runner
+subsequently attested its exact finalized account bytes without sending another
+Execute.
 
 This is a **Full-only local integration result for the fixed development
 certificate**. The source observation is controlled and synthetic; it does not
