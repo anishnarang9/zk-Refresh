@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "scope": "compile changed v2 queue host runner and run nonignored host tests only",
+  "review_state": "proposal_only_no_execution_grant",
+  "environment": {
+    "CARGO_BUILD_JOBS": "1",
+    "RAYON_NUM_THREADS": "4",
+    "OMP_NUM_THREADS": "1"
+  },
+  "argv": [
+    "/usr/bin/python3",
+    "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/bootstrap/bounded_runner.py",
+    "--owner",
+    "part5-v2-readiness-host-001",
+    "--cwd",
+    "/Users/anishnarang/Zk-refresh",
+    "--private-output",
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v2-readiness-host-monitor-001",
+    "--report",
+    "/Users/anishnarang/Zk-refresh/results/dynark/part5/v2-readiness-host-bounded-001.json",
+    "--runtime-seconds",
+    "180",
+    "--rss-bytes",
+    "2147483648",
+    "--storage-bytes",
+    "268435456",
+    "--storage-path",
+    "/Users/anishnarang/Zk-refresh/harness/target",
+    "--poll-seconds",
+    "0.25",
+    "--",
+    "/Users/anishnarang/.cargo/bin/cargo",
+    "test",
+    "--offline",
+    "--locked",
+    "--manifest-path",
+    "/Users/anishnarang/Zk-refresh/harness/Cargo.toml",
+    "--test",
+    "queue_v2",
+    "--",
+    "--test-threads=1"
+  ],
+  "source_pins": {
+    "harness/Cargo.toml": "e8c6d7b782f1c9c5a629783423b7e9999cba28c48636dd3abd231e1d8229a274",
+    "harness/Cargo.lock": "1e9ed2ece56706afe2e3e132d76e1f79b84d9236743249310a9d319f74019177",
+    "harness/src/solana.rs": "2d8f0d053a904e2ac2e56873d391e7037776f03d54cc1ae8fdafba98d2e90ac4",
+    "harness/tests/queue_v2.rs": "09bd06db502ae45e93749a10b915d180ebf84e36dcea1a92b85e3fbf5ef5e782"
+  },
+  "supervisor_sha256": "2bec436e0a45574a82e79257351bbe760b17f2645fd6cb94583c204310a8706e",
+  "readiness_tests_sha256": "6288ed0094d8734fb0ec52ecf1eb65da19608db75d0a907235a59d8d2f09a301",
+  "required_tests": {
+    "passed": 4,
+    "ignored_loaded_validator": 2,
+    "failed": 0
+  },
+  "expected_runner_path": "/Users/anishnarang/Zk-refresh/harness/target/debug/build/zk-fresh-benchmark/3147fa1ba77ddb84/out/queue_v2-3147fa1ba77ddb84",
+  "pre_rebuild_runner_sha256": "f1a69d1ace109cc4bc4f9ac98853fea01c4a50936d1cdfc8ffadfcf7deb44df4",
+  "post_build_required": [
+    "Monitor passes with no cap and no residual owned process",
+    "Identify executable queue_v2 path from Cargo output; if path differs, review it explicitly",
+    "Measure SHA256/length of rebuilt executable; require hash differs from old f1a69d1ace109cc4bc4f9ac98853fea01c4a50936d1cdfc8ffadfcf7deb44df4",
+    "Set pending retry runner_sha256 to measured hash; rehash final retry config and obtain ROOT review/grant"
+  ],
+  "does_not_start_validator": true,
+  "does_not_run_ignored_tests": true
+}
