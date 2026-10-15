@@ -65,4 +65,11 @@ were rejected. Nine retained credential pairs then shared one development
 setup and public package for 27 independently randomized Full proofs and 207
 ordinary verification checks. The DYNARK Anchor pilot, actual v3 registry,
 client and application authorization, and frozen unseen-credential acceptance
-remain separate gates. No incremental witness path is exposed for this profile.
+are tracked separately. No incremental witness path is exposed for this profile.
+
+The first independent OpenSSL credential subsequently passed one Anchor
+refreshed proof and eight ordinary checks under the same public setup. Its
+public preparation took 732.500 seconds, private preparation 704.394 seconds,
+and refresh with verification 0.922 seconds. This single pilot supports
+correctness for that case, not a corpus-wide speed or short-session claim.
+Application authorization and the frozen unseen-credential gate remain open.
