@@ -15,8 +15,10 @@ Wrong action and malformed proof transactions failed with custom errors 512 and
 514 while request and queue stayed prepared. The exact Full proof then appended
 one request to the program-owned queue and consumed it atomically. A distinct
 replay transaction failed with custom error 507; request and queue hashes
-remained the expected consumed/one-entry values. The final application effect
-was observed at finalized slot 47.
+remained the expected consumed/one-entry values at confirmed commitment. The
+runner waited until finalized slot 47, but this first success report did not
+re-read the exact account bytes at finalized commitment. That additional
+verification is a follow-up gate.
 
 The valid Execute transaction was 760 bytes, used 144,445 compute units, paid
 5,000 lamports and reached confirmed response in 503.416 ms in this one local
@@ -36,6 +38,12 @@ public receipts are
 `v2-execute-retry-bounded-001.json`. They contain public local transaction
 signatures and account hashes; private keys, witness and proof preparation
 material remain under ignored protected artifacts.
+
+An independent review identified the finalized-account evidence gap in the
+normal success path. A separately reviewed code repair and read-only
+reconciliation on the stopped original ledger are pending. The local proof and
+confirmed queue effect are observed; this document does not yet claim exact
+finalized account bytes.
 
 This is a **Full-only local integration result for the fixed development
 certificate**. The source observation is controlled and synthetic; it does not
