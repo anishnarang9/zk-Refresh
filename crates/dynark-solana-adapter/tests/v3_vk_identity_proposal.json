@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "scope": "public actual v3 ordinary VK canonical parsing and tagged identity only; no setup or proof",
+  "review_state": "source_only_await_ROOT_grant",
+  "environment": {
+    "CARGO_BUILD_JOBS": "1",
+    "RAYON_NUM_THREADS": "4",
+    "OMP_NUM_THREADS": "1",
+    "P5_V3_IDENTITY_VK": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-development-setup-001/ordinary.vk",
+    "P5_V3_IDENTITY_MANIFEST": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-development-setup-001/setup-manifest.json",
+    "P5_V3_IDENTITY_RECEIPT": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-vk-identity-monitor-001/identity.json"
+  },
+  "argv": [
+    "/usr/bin/python3",
+    "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/bootstrap/bounded_runner.py",
+    "--owner",
+    "part5-v3-vk-identity-001",
+    "--cwd",
+    "/Users/anishnarang/Zk-refresh",
+    "--private-output",
+    "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-vk-identity-monitor-001",
+    "--report",
+    "/Users/anishnarang/Zk-refresh/results/dynark/part5/v3-vk-identity-bounded-001.json",
+    "--runtime-seconds",
+    "180",
+    "--rss-bytes",
+    "2147483648",
+    "--storage-bytes",
+    "536870912",
+    "--storage-path",
+    "/Users/anishnarang/Zk-refresh/crates/dynark-solana-adapter/target",
+    "--poll-seconds",
+    "0.25",
+    "--",
+    "/Users/anishnarang/.cargo/bin/cargo",
+    "test",
+    "--offline",
+    "--locked",
+    "--manifest-path",
+    "/Users/anishnarang/Zk-refresh/crates/dynark-solana-adapter/Cargo.toml",
+    "--test",
+    "v3_vk_identity",
+    "--",
+    "--include-ignored",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "source_pins": {
+    "crates/dynark-solana-adapter/Cargo.toml": "71c1c9b0c7d9f8d4ab9c4f789b1d152ae637ca2821bbaf32f6a90492158e7422",
+    "crates/dynark-solana-adapter/Cargo.lock": "61ff94e359251f2873485b2d34f5cf68ffba836c9496baec47353a8d76215cfe",
+    "crates/dynark-solana-adapter/src/lib.rs": "c9016bbdacb17b7ffa41a67f96d34fc84581f8e6b30bd152ad1a369339d9cd9e",
+    "crates/dynark-solana-adapter/src/v3.rs": "0148353f8ea06afa03df9e16aefd81e3cfe3e9049be6da20f923a4d8061bc816",
+    "crates/dynark-solana-adapter/tests/v3_vk_identity.rs": "ae96f73ede3d70be025cd5f38523d6511543a3b1eceb10756e4e68064b62e4da"
+  },
+  "setup_manifest_sha256": "d31f82e3f147e31b30074b3a570a9d7945c5e1f5d3f3dd74172801abbe984918",
+  "ordinary_vk_raw_file_sha256": "87edb4608c2140f3c7fddc8503e49b68931cda973711ce2c831bd44f1b98a875",
+  "ordinary_vk_file_bytes": 456,
+  "ordinary_vk_tag": "dynark-solana-adapter/ordinary-vk/v2",
+  "ordinary_vk_tagged_digest": null,
+  "required_tests": {
+    "passed": 2,
+    "ignored": 0,
+    "failed": 0
+  },
+  "post_gate_review": [
+    "Check observed tagged digest against independent canonical preimage computation",
+    "ROOT verifies source/manifest/profile/schema/package labels and publishes reviewed receipt",
+    "Client Full manifest may consume only reviewed measured tagged digest; do not overwrite setup manifest implicitly",
+    "No v3 Solana program or generated key is produced"
+  ]
+}
