@@ -63,15 +63,28 @@ the root version or by presenting a caller-supplied previous-head JSON. Until
 this gap is closed, the registry's public `require_current(CurrentHead, now)`
 remains rejecting and v3 Execute is unavailable.
 
-The preferred additive application revision is a per-config, per-issuer,
-per-publisher head PDA. A versioned publisher-signed Bind operation will
-compare the previous onchain publisher sequence/digest, advance exactly once,
-and atomically store the newly committed envelope digest with the exact
-root/version, source sequence/digest and both eligibility epochs while
-updating the issuer binding. Execute must verify this head; the older Bind
-path must not bypass it. This leaves the existing config and issuer account
-layouts intact. The exact wire, discriminator, digest domain and allocation
-need their own tests-first review before implementation.
+The reviewed tests-first application revision uses a per-config, per-issuer,
+per-publisher head PDA with seeds `dyn-pubhead-v3`, config key, issuer key and
+publisher key. Its exact 280-byte `DYNHEAD3` record stores those three keys,
+publication sequence, envelope and predecessor digests, root/version, source
+sequence/digest, both eligibility epochs and commit time. A version-1,
+179-byte opcode-13 Bind instruction carries the expected and next publisher
+sequence/digest plus the exact root/source/epoch context. The publisher-signed
+transaction must compare the previous onchain sequence/digest, advance once,
+and atomically store the new head while updating the issuer binding. It may
+allocate an empty prefunded System-owned PDA. An existing malformed or
+out-of-stream head must never be treated as a fresh one. New commitment
+requires an active observation with `now < expires_at`.
+
+The envelope digest is raw SHA-256 of
+`"DYNARK-V3-PUBLISHER-WIRE-v1\0" || compact typed JSON(PublisherBinding)`, including
+the signature bytes. The program stores this opaque digest under the signed
+transaction; it does not verify detached JSON or Ed25519. The offchain verifier
+must verify that envelope and compare its digest with the latest finalized
+head account. Execute must verify this head; the older Bind path cannot bypass
+it. Existing config and issuer account layouts remain unchanged. The host
+suite is RED at opcode-13 parsing; implementation and loaded-SBF evidence are
+still pending.
 
 A configured client verifier must read the current config, issuer and head
 accounts at finalized commitment, verify owners, PDAs, codecs, program/network
