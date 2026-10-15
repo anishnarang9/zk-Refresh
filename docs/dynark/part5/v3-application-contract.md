@@ -54,6 +54,33 @@ observation must advance the sequence and still requires an explicit Bind.
 The previous 82-byte wire is rejected. This host-tested repair does not
 authenticate the upstream source envelope or enable Execute by itself.
 
+## Publisher current-head provenance gate
+
+The current `BindCurrent` account stores a root/source binding but no
+publisher-envelope sequence or digest. An offchain signed publisher envelope
+cannot establish that it is the latest committed envelope merely by matching
+the root version or by presenting a caller-supplied previous-head JSON. Until
+this gap is closed, the registry's public `require_current(CurrentHead, now)`
+remains rejecting and v3 Execute is unavailable.
+
+The preferred additive application revision is a per-config, per-issuer,
+per-publisher head PDA. A versioned publisher-signed Bind operation will
+compare the previous onchain publisher sequence/digest, advance exactly once,
+and atomically store the newly committed envelope digest with the exact
+root/version, source sequence/digest and both eligibility epochs while
+updating the issuer binding. Execute must verify this head; the older Bind
+path must not bypass it. This leaves the existing config and issuer account
+layouts intact. The exact wire, discriminator, digest domain and allocation
+need their own tests-first review before implementation.
+
+A configured client verifier must read the current config, issuer and head
+accounts at finalized commitment, verify owners, PDAs, codecs, program/network
+pins, enabled/status state and clock, then compare the signed envelope and
+source fact. It may claim the latest **finalized committed** envelope for that
+issuer stream, not every unsubmitted offchain message or immediate real-world
+revocation. A public trait implementation or parsed JSON alone is not that
+verifier.
+
 ## Execute checks and effect
 
 The proof wire contains six canonical public scalars in order
