@@ -13,10 +13,13 @@ use solana_program::{
     sysvar::Sysvar,
 };
 pub mod application_runtime_v2;
+pub mod application_runtime_v3;
 pub mod application_v2;
+pub mod application_v3;
 pub mod generated_vk;
 #[rustfmt::skip]
 pub mod generated_vk_v2;
+pub mod generated_vk_v3;
 
 #[cfg(not(feature = "no-entrypoint"))]
 solana_program::entrypoint!(process_instruction);
@@ -446,6 +449,9 @@ pub fn process_instruction(
 ) -> ProgramResult {
     if data.first() == Some(&application_v2::PREFIX) {
         return application_runtime_v2::process(program, accounts, data);
+    }
+    if data.first() == Some(&application_v3::PREFIX) {
+        return application_runtime_v3::process(program, accounts, data);
     }
     let instruction = Instruction::parse(data)?;
     let mut accounts = accounts.iter();
