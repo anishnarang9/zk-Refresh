@@ -1,0 +1,176 @@
+{
+  "schema": 1,
+  "status": "observed",
+  "config_sha256": "fe8725ba535d4904bebe7f42da14db3ab57e6fc53eb49d866fecef4b0ee7ef66",
+  "application_transactions_submitted": 0,
+  "rpc_methods": [
+    "getGenesisHash",
+    "getMultipleAccounts",
+    "getSlot"
+  ],
+  "scope": "copied-ledger replay observation; no upstream status claim",
+  "persistence_verdict": "review samples and exact hashes at each commitment",
+  "first_seen": {
+    "genesis": {
+      "elapsed_seconds": 0.29776,
+      "value": "DDeEBprS6FPndW11NfgMS3RjUoQh9BJoBBa2KgAt4znD"
+    },
+    "slot/processed": {
+      "elapsed_seconds": 0.29776,
+      "slot": 8
+    },
+    "processed/config": {
+      "elapsed_seconds": 0.29776,
+      "context_slot": 8,
+      "present": true,
+      "owner": "FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha",
+      "executable": false,
+      "lamports": 3041520,
+      "length": 309,
+      "sha256": "704f3b6c50289027c2ab581d2312b6801d80b1a804b5ea3f580f0b18c4d1aecd",
+      "matches_expected": true
+    },
+    "processed/issuer": {
+      "elapsed_seconds": 0.29776,
+      "context_slot": 8,
+      "present": true,
+      "owner": "FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha",
+      "executable": false,
+      "lamports": 3041520,
+      "length": 309,
+      "sha256": "561cc7d10f4725c34de03269dc873c98cdf6efa8a78f21ab6b770470c51caeb4",
+      "matches_expected": true
+    },
+    "processed/request": {
+      "elapsed_seconds": 0.29776,
+      "context_slot": 8,
+      "present": true,
+      "owner": "FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha",
+      "executable": false,
+      "lamports": 16543920,
+      "length": 2249,
+      "sha256": "090faad939022d7859e823488c85f807258f646c927a9299a0eca7243b54046f",
+      "matches_expected": true
+    },
+    "processed/queue": {
+      "elapsed_seconds": 0.29776,
+      "context_slot": 8,
+      "present": true,
+      "owner": "FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha",
+      "executable": false,
+      "lamports": 15437280,
+      "length": 2090,
+      "sha256": "944f32edd2b8f070e4e370a37a44cd11cddc7085049a580b23cf5b6ea43fe5fc",
+      "matches_expected": true
+    },
+    "slot/confirmed": {
+      "elapsed_seconds": 0.29776,
+      "slot": 0
+    },
+    "slot/finalized": {
+      "elapsed_seconds": 0.29776,
+      "slot": 8
+    },
+    "finalized/config": {
+      "elapsed_seconds": 0.29776,
+      "context_slot": 8,
+      "present": true,
+      "owner": "FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha",
+      "executable": false,
+      "lamports": 3041520,
+      "length": 309,
+      "sha256": "704f3b6c50289027c2ab581d2312b6801d80b1a804b5ea3f580f0b18c4d1aecd",
+      "matches_expected": true
+    },
+    "finalized/issuer": {
+      "elapsed_seconds": 0.29776,
+      "context_slot": 8,
+      "present": true,
+      "owner": "FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha",
+      "executable": false,
+      "lamports": 3041520,
+      "length": 309,
+      "sha256": "561cc7d10f4725c34de03269dc873c98cdf6efa8a78f21ab6b770470c51caeb4",
+      "matches_expected": true
+    },
+    "finalized/request": {
+      "elapsed_seconds": 0.29776,
+      "context_slot": 8,
+      "present": true,
+      "owner": "FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha",
+      "executable": false,
+      "lamports": 16543920,
+      "length": 2249,
+      "sha256": "090faad939022d7859e823488c85f807258f646c927a9299a0eca7243b54046f",
+      "matches_expected": true
+    },
+    "finalized/queue": {
+      "elapsed_seconds": 0.29776,
+      "context_slot": 8,
+      "present": true,
+      "owner": "FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha",
+      "executable": false,
+      "lamports": 15437280,
+      "length": 2090,
+      "sha256": "944f32edd2b8f070e4e370a37a44cd11cddc7085049a580b23cf5b6ea43fe5fc",
+      "matches_expected": true
+    },
+    "confirmed/config": {
+      "elapsed_seconds": 1.31556375,
+      "context_slot": 41,
+      "present": true,
+      "owner": "FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha",
+      "executable": false,
+      "lamports": 3041520,
+      "length": 309,
+      "sha256": "704f3b6c50289027c2ab581d2312b6801d80b1a804b5ea3f580f0b18c4d1aecd",
+      "matches_expected": true
+    },
+    "confirmed/issuer": {
+      "elapsed_seconds": 1.31556375,
+      "context_slot": 41,
+      "present": true,
+      "owner": "FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha",
+      "executable": false,
+      "lamports": 3041520,
+      "length": 309,
+      "sha256": "561cc7d10f4725c34de03269dc873c98cdf6efa8a78f21ab6b770470c51caeb4",
+      "matches_expected": true
+    },
+    "confirmed/request": {
+      "elapsed_seconds": 1.31556375,
+      "context_slot": 41,
+      "present": true,
+      "owner": "FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha",
+      "executable": false,
+      "lamports": 16543920,
+      "length": 2249,
+      "sha256": "090faad939022d7859e823488c85f807258f646c927a9299a0eca7243b54046f",
+      "matches_expected": true
+    },
+    "confirmed/queue": {
+      "elapsed_seconds": 1.31556375,
+      "context_slot": 41,
+      "present": true,
+      "owner": "FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha",
+      "executable": false,
+      "lamports": 15437280,
+      "length": 2090,
+      "sha256": "944f32edd2b8f070e4e370a37a44cd11cddc7085049a580b23cf5b6ea43fe5fc",
+      "matches_expected": true
+    }
+  },
+  "copied_bytes": 31909027,
+  "source_regular_bytes": 31909027,
+  "source_ledger": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v2-local-runtime-001/ledger",
+  "copy_ledger": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v2-replay-diagnostic-control-001/ledger",
+  "cleanup": {
+    "spawned": true,
+    "reaped": true,
+    "graceful": true,
+    "exit_code": -2
+  },
+  "source_unchanged": true,
+  "elapsed_seconds": 20.159664375,
+  "whole_tree_cleanup_authority": "external bounded_runner"
+}
