@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Pure non-authorizing bounded-v3 input candidate; CLI remains closed.
+"""Non-authorizing bounded-v3 input candidate with private CLI transport.
 
 Invocation: pinned-python this-script build ABSOLUTE_PRIVATE_DIRECTORY.
-Future input/output files are request.bin/output.bin in a 0700 directory, each
+Input/output files are request.bin/output.bin in a 0700 directory, each
 0600, owner checked, regular, single-link, opened without following symlinks.
-No CLI file I/O is enabled. The pure build function loads exact pinned profile
+The CLI carries candidate bytes only. The pure build function loads pinned profile
 and Poseidon source bytes and uses an authenticated in-memory constants snapshot.
 It verifies the mathematical credential/action/path relation, without signing or
 proving. Python standard-library imports rely on the trusted runtime boundary.
@@ -218,17 +218,98 @@ def build(request):
         raise InputFailure('bounded-v3 input rejected') from None
 
 
+def _private_cli(directory_argument):
+    directory = Path(directory_argument)
+    owner = os.getuid()
+
+    def identity(metadata):
+        return (metadata.st_dev, metadata.st_ino, metadata.st_mode, metadata.st_uid,
+                metadata.st_nlink, metadata.st_size, metadata.st_mtime_ns, metadata.st_ctime_ns)
+
+    def directory_identity(metadata):
+        return (metadata.st_dev, metadata.st_ino, metadata.st_mode, metadata.st_uid)
+
+    before_directory = directory.lstat()
+    if (not directory.is_absolute() or directory.resolve(strict=True) != directory
+            or not stat.S_ISDIR(before_directory.st_mode)
+            or stat.S_IMODE(before_directory.st_mode) != 0o700
+            or before_directory.st_uid != owner):
+        raise InputFailure('bounded-v3 private directory rejected')
+    directory_fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    try:
+        if identity(os.fstat(directory_fd)) != identity(before_directory):
+            raise InputFailure('bounded-v3 private directory rejected')
+        request_path = directory / 'request.bin'
+        before_request = request_path.lstat()
+        if (not stat.S_ISREG(before_request.st_mode)
+                or stat.S_IMODE(before_request.st_mode) != 0o600
+                or before_request.st_uid != owner or before_request.st_nlink != 1
+                or before_request.st_size != REQUEST_BYTES):
+            raise InputFailure('bounded-v3 private request rejected')
+        request_fd = os.open('request.bin', os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                             dir_fd=directory_fd)
+        with os.fdopen(request_fd, 'rb') as handle:
+            if identity(os.fstat(handle.fileno())) != identity(before_request):
+                raise InputFailure('bounded-v3 private request rejected')
+            request = handle.read(REQUEST_BYTES + 1)
+            if (len(request) != REQUEST_BYTES
+                    or identity(os.fstat(handle.fileno())) != identity(before_request)):
+                raise InputFailure('bounded-v3 private request rejected')
+        result = build(request)
+        if (directory.resolve(strict=True) != directory
+                or directory_identity(directory.lstat()) != directory_identity(before_directory)
+                or directory_identity(os.fstat(directory_fd)) != directory_identity(before_directory)):
+            raise InputFailure('bounded-v3 private directory rejected')
+        # The stable directory handle anchors both leaf opens. O_EXCL never
+        # reuses a prior output, including a symlink or another hard link.
+        output_fd = os.open('output.bin', os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                            0o600, dir_fd=directory_fd)
+        created = os.fstat(output_fd)
+        try:
+            with os.fdopen(output_fd, 'wb') as handle:
+                os.fchmod(handle.fileno(), 0o600)
+                opened = os.fstat(handle.fileno())
+                if (not stat.S_ISREG(opened.st_mode) or opened.st_uid != owner
+                        or opened.st_nlink != 1 or opened.st_size != 0
+                        or stat.S_IMODE(opened.st_mode) != 0o600):
+                    raise InputFailure('bounded-v3 private output rejected')
+                if handle.write(result) != RESPONSE_BYTES:
+                    raise InputFailure('bounded-v3 private output rejected')
+                handle.flush()
+                finished = os.fstat(handle.fileno())
+                named = os.stat('output.bin', dir_fd=directory_fd, follow_symlinks=False)
+                if (finished.st_size != RESPONSE_BYTES or finished.st_nlink != 1
+                        or finished.st_uid != owner or stat.S_IMODE(finished.st_mode) != 0o600
+                        or identity(named) != identity(finished)
+                        or directory.resolve(strict=True) != directory
+                        or directory_identity(directory.lstat()) != directory_identity(before_directory)
+                        or directory_identity(os.fstat(directory_fd)) != directory_identity(before_directory)):
+                    raise InputFailure('bounded-v3 private output rejected')
+        except Exception:
+            # Remove only our own failed output, never a replacement pathname.
+            try:
+                named = os.stat('output.bin', dir_fd=directory_fd, follow_symlinks=False)
+                if (named.st_dev, named.st_ino) == (created.st_dev, created.st_ino):
+                    os.unlink('output.bin', dir_fd=directory_fd)
+            except OSError:
+                pass
+            raise
+    finally:
+        os.close(directory_fd)
+    return 0
+
+
 def main():
-    # CLI execution also stays closed; no file is opened or output created.
     if len(sys.argv) != 3 or sys.argv[1] != 'build':
         return 2
-    raise NotImplementedError('bounded-v3 input candidate remains closed')
+    try:
+        return _private_cli(sys.argv[2])
+    except Exception:
+        raise InputFailure('bounded-v3 private invocation rejected') from None
 
 
 if __name__ == '__main__':
     try:
         raise SystemExit(main())
-    except NotImplementedError:
-        raise SystemExit(3) from None
     except InputFailure:
         raise SystemExit(2) from None
