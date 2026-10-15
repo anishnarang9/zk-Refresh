@@ -1,0 +1,88 @@
+{
+  "schema": 1,
+  "owner": "M2-NATIVE-V3-SLICE1-GREEN-001",
+  "started_at_utc": "2026-10-15T13:57:11.655977+00:00",
+  "ended_at_utc": "2026-10-15T13:57:14.065258+00:00",
+  "timezone": [
+    "EST",
+    "EDT"
+  ],
+  "duration_seconds": 2.4093063339823857,
+  "limits": {
+    "runtime_seconds": 180.0,
+    "owned_tree_rss_bytes": 1073741824,
+    "storage_growth_bytes": 268435456,
+    "poll_seconds": 0.25
+  },
+  "stop_reason": null,
+  "exit_code": 0,
+  "runner_error_type": null,
+  "cleanup_remaining_owned_processes": 0,
+  "cleanup_status_unknown": false,
+  "sample_count": 8,
+  "samples": [
+    {
+      "elapsed_seconds": 0.018003875040449202,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 655360,
+      "storage_growth_bytes": 597
+    },
+    {
+      "elapsed_seconds": 0.33649483404587954,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 67862528,
+      "storage_growth_bytes": 8297
+    },
+    {
+      "elapsed_seconds": 0.6578678750665858,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 126844928,
+      "storage_growth_bytes": 8297
+    },
+    {
+      "elapsed_seconds": 0.9771237500244752,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 194101248,
+      "storage_growth_bytes": 8297
+    },
+    {
+      "elapsed_seconds": 1.3099663750035688,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 211681280,
+      "storage_growth_bytes": 445425
+    },
+    {
+      "elapsed_seconds": 1.6809867500560358,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 179503104,
+      "storage_growth_bytes": 11574
+    },
+    {
+      "elapsed_seconds": 2.003091625054367,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 39813120,
+      "storage_growth_bytes": 12629
+    },
+    {
+      "elapsed_seconds": 2.334834292065352,
+      "owned_process_count": 0,
+      "owned_tree_rss_bytes": 0,
+      "storage_growth_bytes": 12629
+    }
+  ],
+  "sampled_peak_owned_tree_rss_bytes": 211681280,
+  "sampled_peak_storage_growth_bytes": 445425,
+  "environment": {
+    "RAYON_NUM_THREADS": "4",
+    "OMP_NUM_THREADS": "1",
+    "TZ": null
+  },
+  "measurement_notes": [
+    "RSS from ps KiB converted to bytes; sum of live owned tree; not heap allocation",
+    "storage is positive logical file-size growth per supplied root; excludes deleted-file peak between samples",
+    "limits sampled; short spikes and daemonized ancestry escape between samples may be missed",
+    "samples exclude runner/ps RSS; storage report written after the measured command",
+    "child stdout/stderr/argv retained only in protected output"
+  ],
+  "passed": true
+}

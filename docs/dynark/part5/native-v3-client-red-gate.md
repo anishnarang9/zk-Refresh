@@ -19,3 +19,19 @@ The source scaffold is commit `1c57373`. The public monitor receipt is
 `results/dynark/part5/native-v3-slice1-red-bounded-001.json`; private command
 logs remain under protected ignored artifacts. Rust importer, package, state
 coherence, actual proof, and onchain qualification are still pending.
+
+## Focused green result
+
+Commit `50b3144` implements the frozen package and shape checks plus pure
+coherence checks for supplied source, publisher, enrollment, clock, action and
+Merkle-path records. The exact `--lib v3` suite passed 9 tests, including three
+Rust importer metadata tests, in 2.409 seconds. The bounded monitor recorded
+211,681,280 bytes sampled peak workload RSS, 445,425 bytes sampled positive
+storage growth, no limit stop and no residual owned process. Its public receipt
+is `results/dynark/part5/native-v3-slice1-green-bounded-001.json`.
+
+These checks assume an `AuthenticatedV3State` implementation has independently
+verified chain accounts, source/publisher authority and current heads. No such
+production adapter or v3 application is qualified here. Actual adapter-key
+admission still returns `Unsupported`; a nonzero tagged digest or receipt field
+alone cannot authenticate the key.

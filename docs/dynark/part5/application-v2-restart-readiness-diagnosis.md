@@ -35,3 +35,21 @@ request/queue state before it starts the transaction runner. It must fail
 closed on persistent absence or mismatch within a finite deadline. A consumed
 request with the exact one-entry queue is a separate reconciliation state. No
 Execute transaction or protected effect was demonstrated by this diagnostic.
+
+## Readiness repair
+
+Commit `7a47fcb` adds a finite, exact account-state barrier before the Execute
+runner starts. At both confirmed and finalized commitments, the account query
+must cover at least the finalized preparation slot and return identical config,
+issuer, request and queue bytes with the expected owner, length and executable
+flag. The prepared state's four SHA-256 hashes were independently reconstructed
+from the pinned plan and private prepared bytes and matched the diagnostic.
+
+An already consumed request with exactly one queue entry is accepted only as a
+reconciliation state. The issuer's immutable enrollment prefix and its complete
+source observation/current-root publisher binding are checked against the
+pinned synthetic context; the runner receives an explicit reconciliation-only
+guard that prevents a new Execute if state changes after the barrier. The
+repair's 19 focused Python tests passed, and `rustfmt --check` passed for the
+small Rust guard. The host runner must be rebuilt and repinned before a single
+reviewed local Execute retry. No retry or application effect is claimed here.
