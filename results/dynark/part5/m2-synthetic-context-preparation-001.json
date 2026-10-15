@@ -1,0 +1,37 @@
+{
+  "schema": "dynark-part5-m2-synthetic-context-preparation-v1",
+  "synthetic_only": true,
+  "helper_tests": {
+    "command": "PYTHONDONTWRITEBYTECODE=1 python3 crates/dynark-native-client/tests/test_prepare_v2_context.py",
+    "passed": 3,
+    "failed": 0,
+    "latest_elapsed_seconds": 1.007
+  },
+  "public_context": {
+    "path": "results/dynark/part5/application-v2-public-context-001.json",
+    "sha256": "0ee2fb693640dfcd430af7cb59a2162e35902f35a4c97c39eb067c074925cb4d"
+  },
+  "private_artifacts": {
+    "path": "artifacts/dynark/part5/application-v2-synthetic-context-001-private",
+    "directory_mode": "0700",
+    "file_count": 5,
+    "all_file_modes": "0600",
+    "git_ignored": true,
+    "retained_synthetic_keys": true
+  },
+  "source_sha256": {
+    "crates/dynark-native-client/tests/support/prepare_v2_context.py": "45fa44f55b3b9cc12c1beb18e74ea399f9ef15ce856d16a4f22a79e9c63e387a",
+    "crates/dynark-native-client/tests/test_prepare_v2_context.py": "6e8332502545df74bb688b657a68524a47168031cc5e3411c15ad2f80ce53ce3",
+    "crates/dynark-native-client/tests/credential_v2.rs": "fd883c2df2284fb3db57479ea51291b760a5b30542e17b519a6b76c470db2109",
+    "crates/dynark-native-client/README.md": "e5bf63d59fa8b702f623808648142210c91c87b53a37d5a3775aff3e7deecfc1"
+  },
+  "prior_integration_gate": {
+    "report": "results/dynark/part5/native-v2-full-001-bounded.json",
+    "passed": false,
+    "stop_reason": "runtime_seconds",
+    "witness_or_proof_reached": false,
+    "repeated": false
+  },
+  "new_heavy_execution": false,
+  "circuit_setup_vk_changed": false
+}
