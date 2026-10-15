@@ -1,0 +1,210 @@
+{
+  "validator": "/Users/anishnarang/.local/share/solana/install/releases/stable-75f9b5b4c3d8b24ae7200f0202bd08cbe29af2bc/solana-release/bin/solana-test-validator",
+  "validator_sha256": "14890e8d6a8282a4401853d62066c4979cd4334ce0e55f536b77c136c215cf5b",
+  "elf": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v2-sbf-build-001/elf/zk_fresh_program.so",
+  "elf_sha256": "e20d0df801e49e211a5b791d2f1c284240568049656edf8991b7cc00dbe7e639",
+  "expected_genesis": "DDeEBprS6FPndW11NfgMS3RjUoQh9BJoBBa2KgAt4znD",
+  "plan_sha256": "783c1c8c9110e41e1cf3d1cd79d6bb10c07c79f81aa3d17774b60fb6f7bd4c4b",
+  "schema": 1,
+  "poll_seconds": 20,
+  "source_ledger": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v2-local-runtime-001/ledger",
+  "genesis_bin_sha256": "b5894e517741bf3e8820adbafb4157d54de04ab49b96457bafe44a5f9f0e664a",
+  "plan": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v2-local-runtime-001/private/plan.json",
+  "supervisor": "/Users/anishnarang/Zk-refresh/harness/tests/queue_v2_supervisor.py",
+  "supervisor_sha256": "ca81e27ae59b070ad9098429dbf7061a6fdc38f0cad1f808e80dc3fc8463a3ef",
+  "control_output": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v2-replay-diagnostic-control-001",
+  "ledger_files": {
+    "faucet-keypair.json": {
+      "bytes": 231,
+      "sha256": "fb11a1a860e94e977c000178388100097386b0992966b358241885aae5341482"
+    },
+    "genesis.bin": {
+      "bytes": 1649279,
+      "sha256": "b5894e517741bf3e8820adbafb4157d54de04ab49b96457bafe44a5f9f0e664a"
+    },
+    "genesis.tar.bz2": {
+      "bytes": 415102,
+      "sha256": "41f3c610b4c37050668c9086f3b80ce84d3661f5cecc0f88e9257d284b835df2"
+    },
+    "ledger.lock": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "rocksdb/000014.sst": {
+      "bytes": 5343,
+      "sha256": "9bc80224ffae488df113f121952e9ba3f7c5d736e39c6ae299689d85605ce429"
+    },
+    "rocksdb/000015.sst": {
+      "bytes": 1140,
+      "sha256": "ef1e7b0dc68462bf387084f57e32622c137451a28781b4e568289178479c92b3"
+    },
+    "rocksdb/000016.sst": {
+      "bytes": 9379,
+      "sha256": "d9cb3650f0fa1507db095cb3be88c2b9575b81435e795579052238465185eb54"
+    },
+    "rocksdb/000017.sst": {
+      "bytes": 40457,
+      "sha256": "9803c662630c0d6e575978e9868b1e6f7c9b16c5b3dbc3036ddb89911d3231aa"
+    },
+    "rocksdb/000018.sst": {
+      "bytes": 1197,
+      "sha256": "d1f265a69dce2ae8d06722292f8d7f7b222a14c658b9c26d4d2f09fe7d49ed14"
+    },
+    "rocksdb/000019.sst": {
+      "bytes": 1262,
+      "sha256": "47e0936be0454e6cd39437bd460468480fb3e04d91c60f5c8e36c1215ec39dd4"
+    },
+    "rocksdb/000030.sst": {
+      "bytes": 175630,
+      "sha256": "bc540da4f3d2ee12359e9d4e7ed35adb3ccbf7be8587fa329ada16a434bbc7b3"
+    },
+    "rocksdb/000031.sst": {
+      "bytes": 20461,
+      "sha256": "16039f4cdc5cc3a75f68df84fadda6d2ca61bcc611fa9242f82aaae7023fe37d"
+    },
+    "rocksdb/000032.sst": {
+      "bytes": 3125,
+      "sha256": "fced162d743df9cf58c1700fbc9b22b90fde64630149f5e017a8e40ebe469ca7"
+    },
+    "rocksdb/000033.sst": {
+      "bytes": 1252,
+      "sha256": "1c9493affe31951d075824a895e36cd6cfbe855f85574566630d21c986032f23"
+    },
+    "rocksdb/000034.sst": {
+      "bytes": 332464,
+      "sha256": "2f69fc101560eef4ead89cc794a926dd9e1e874e771abbb3ed0f8924f6b37517"
+    },
+    "rocksdb/000035.sst": {
+      "bytes": 13933777,
+      "sha256": "5e2afa6d1c883eeea52c0cf7b1a1da7da67673eadf65ae2770dc54185a716d2d"
+    },
+    "rocksdb/000036.sst": {
+      "bytes": 14269985,
+      "sha256": "7a09b7f737e09d309c33adf7b737d64966f85a1d0ad87bc16f02033507e78dca"
+    },
+    "rocksdb/000037.sst": {
+      "bytes": 15541,
+      "sha256": "575ea05a7b4eb0b50dd2269594c0be6d395cacafec09a2c6c8e6a6a461396e49"
+    },
+    "rocksdb/000038.sst": {
+      "bytes": 15201,
+      "sha256": "23dd2ff0e2e3bf3cc96e5d7ee3a93b136fcd725e70b3824835e31b5c17eb894e"
+    },
+    "rocksdb/000039.sst": {
+      "bytes": 3969,
+      "sha256": "efee81d06dfa2922ea7484c34117a0e0faa8df626842fd61f5cc3f60b6d772a5"
+    },
+    "rocksdb/000040.sst": {
+      "bytes": 1963,
+      "sha256": "fd2b943aa51421ec7b9491d45a94e625fc46f55f508c53c21c8e1362d84f2d9b"
+    },
+    "rocksdb/000041.sst": {
+      "bytes": 1966,
+      "sha256": "f6af8b3da7d6e1971676c92741512dcff63d67dfc88f2acc64a155580150a094"
+    },
+    "rocksdb/000042.sst": {
+      "bytes": 3354,
+      "sha256": "bfa41ce99e8aeb16e991461b8acbf7ca9ccd54d4c5d92f9a40febadb36e2522f"
+    },
+    "rocksdb/000043.sst": {
+      "bytes": 19496,
+      "sha256": "f7187a8ad1992182c71df1e300fa0a6760ee24c3704e4f8e7eaad6052bd9bf64"
+    },
+    "rocksdb/000044.sst": {
+      "bytes": 4636,
+      "sha256": "13a7b572dc8067a70c295a42d40f1c5a945d769ae30ebda4e5ebde0d4dfcd00f"
+    },
+    "rocksdb/000045.log": {
+      "bytes": 41879,
+      "sha256": "2f00c5163baf5a7e6ad55a26406d7d9d214f0135a9a93210407d05f9108dd795"
+    },
+    "rocksdb/CURRENT": {
+      "bytes": 16,
+      "sha256": "1313dcb8ba5862c64b739efae65705d79db1f03ded2ae3ae00f0e239a80aaf78"
+    },
+    "rocksdb/IDENTITY": {
+      "bytes": 36,
+      "sha256": "5e53f6359b796f829ce7cfbf6a1373da8e35be15ded6d6b3a015710db15cacb0"
+    },
+    "rocksdb/LOCK": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "rocksdb/LOG": {
+      "bytes": 242414,
+      "sha256": "cabd934e73039b97a7feb98dc9e807d7df9c391b6646b26d20fddd176d16a76a"
+    },
+    "rocksdb/LOG.old.1792070296580979": {
+      "bytes": 215040,
+      "sha256": "31a99cb6187115742dbecbe956ffe9c4aebca6cef8f887c5211646a68b22a478"
+    },
+    "rocksdb/LOG.old.1792071535442707": {
+      "bytes": 227233,
+      "sha256": "6ad75a749a7511480f5c7ee2b0204f22735f4069dc6bc778d8104e45875f5a22"
+    },
+    "rocksdb/MANIFEST-000046": {
+      "bytes": 4546,
+      "sha256": "b2208e258a46eb6ee83de81db418f6ff566edbec716e999ad5f101a352308c88"
+    },
+    "rocksdb/OPTIONS-000052": {
+      "bytes": 123395,
+      "sha256": "3c3565ee103166656c091f32fa9a9fd61d674b1a790e6974c8f168d40ba90b04"
+    },
+    "rocksdb/OPTIONS-000054": {
+      "bytes": 123393,
+      "sha256": "74713bcd92092b7f316f5d2636bece65c230c12f4b7b99d5a02910e89fc73d1f"
+    },
+    "stake-account-keypair.json": {
+      "bytes": 226,
+      "sha256": "3fe2300b84b3335362cefdd83dd98b246f00f2e0e0f4c5be8ed79e8e0e495982"
+    },
+    "tower-1_9-7oknZz3GpZQWBC7Y5YQsDfhLhjVPqZ3bakn9AToaKdDs.bin": {
+      "bytes": 2319,
+      "sha256": "074f989d5c6a099d8ddc38dbe2ec40d3e130bfc93db20da48a463b31b6193259"
+    },
+    "validator-1792070296400.log": {
+      "bytes": 1132,
+      "sha256": "20d6db1eb4af49829ebba2b8ae6c630a13de012e90e61fed771977a4053c38c7"
+    },
+    "validator-1792071535424.log": {
+      "bytes": 738,
+      "sha256": "6c86dbffc9347e50c5388a77ce960d52b8f8004c78212308f25d0d330bfe7fd6"
+    },
+    "validator-keypair.json": {
+      "bytes": 225,
+      "sha256": "da2831300bd1014904d9cc526c597f093a4c8d28ef1e96b99cce535425a17c8a"
+    },
+    "vote-account-keypair.json": {
+      "bytes": 225,
+      "sha256": "d09745a963dddffe0549abc53a1e875f4945b5b83e94f10315a6b54decb28b72"
+    }
+  },
+  "source_regular_bytes": 31909027,
+  "source_validator_stopped_attestation_required": true,
+  "accounts": {
+    "config": {
+      "address": "6k4Ds9p4M49Lfg8STAMPxnGhBbYXrnN1rzoc8NTmhbsi",
+      "owner": "FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha",
+      "length": 309,
+      "sha256": "704f3b6c50289027c2ab581d2312b6801d80b1a804b5ea3f580f0b18c4d1aecd"
+    },
+    "issuer": {
+      "address": "7XV5Dhy9WmWLiTcpofyWN5y6T6KNNWXmvFMvtdXt6Wz5",
+      "owner": "FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha",
+      "length": 309,
+      "sha256": "561cc7d10f4725c34de03269dc873c98cdf6efa8a78f21ab6b770470c51caeb4"
+    },
+    "request": {
+      "address": "DWUQKBnr2ith584jDPJZ9m9UD8ysvDFjsmeK3Nm33q5C",
+      "owner": "FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha",
+      "length": 2249,
+      "sha256": "090faad939022d7859e823488c85f807258f646c927a9299a0eca7243b54046f"
+    },
+    "queue": {
+      "address": "EJ57n9WXqKuqsEETdwubnUpT8ttZYswh5ko3TeD7gNpi",
+      "owner": "FPixV9CAxXGFiHH6udUhyTPUzposTYEf1uxmQxYc8xha",
+      "length": 2090,
+      "sha256": "944f32edd2b8f070e4e370a37a44cd11cddc7085049a580b23cf5b6ea43fe5fc"
+    }
+  }
+}
