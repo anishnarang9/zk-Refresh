@@ -45,6 +45,13 @@ epoch overflow rejects without mutation.
 Every root publication invalidates bindings to the previous root. An Observe
 for an issuer invalidates that issuer's old source binding. Source sequence
 zero is unobserved, even if a zero-valued publisher field matches it.
+An authenticated source observation can report `issuer_status_active=false`.
+The program must retain its signed sequence/head as a negative fact while
+blocking authorization and current binding. It must not turn that observation
+into a valid active status simply because its source signature is authentic.
+The current state model's `observe` method has no active-status argument and
+always sets `status_valid=true`; this is a required tests-first repair before
+Execute is enabled.
 
 ## Execute checks and effect
 
