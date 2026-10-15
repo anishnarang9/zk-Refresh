@@ -5,7 +5,7 @@
   "validator": "/Users/anishnarang/.local/share/solana/install/releases/stable-75f9b5b4c3d8b24ae7200f0202bd08cbe29af2bc/solana-release/bin/solana-test-validator",
   "validator_sha256": "14890e8d6a8282a4401853d62066c4979cd4334ce0e55f536b77c136c215cf5b",
   "runner": "/Users/anishnarang/Zk-refresh/harness/target/debug/build/zk-fresh-benchmark/3147fa1ba77ddb84/out/queue_v2-3147fa1ba77ddb84",
-  "runner_sha256": null,
+  "runner_sha256": "4353d779de822ce5f95ad1352971ea06c8fe243c288621aab102776b4874f511",
   "elf": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v2-sbf-build-001/elf/zk_fresh_program.so",
   "elf_sha256": "e20d0df801e49e211a5b791d2f1c284240568049656edf8991b7cc00dbe7e639",
   "context": "/Users/anishnarang/Zk-refresh/results/dynark/part5/application-v2-public-context-001.json",
@@ -49,8 +49,11 @@
       "runtime_seconds": 180,
       "rss_bytes": 4294967296,
       "storage_growth_bytes": 268435456
-    }
+    },
+    "host_rebuild_receipt": "results/dynark/part5/v2-readiness-host-bounded-001.json",
+    "host_rebuild_receipt_sha256": "bde9487651dad61c76314323bcb3734fb21875349f0baba2ba82f1602983d58a"
   },
-  "review_state": "incomplete_until_rebuilt_runner_sha256_is_measured_and_ROOT_pins_final_config",
-  "supervisor_sha256": "2bec436e0a45574a82e79257351bbe760b17f2645fd6cb94583c204310a8706e"
+  "review_state": "host_rebuild_passed_await_ROOT_final_config_review_and_single_Execute_grant",
+  "supervisor_sha256": "2bec436e0a45574a82e79257351bbe760b17f2645fd6cb94583c204310a8706e",
+  "runner_bytes": 18997368
 }
