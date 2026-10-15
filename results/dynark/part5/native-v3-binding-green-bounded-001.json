@@ -1,0 +1,142 @@
+{
+  "schema": 1,
+  "owner": "M2-NATIVE-V3-BINDING-GREEN-001",
+  "started_at_utc": "2026-10-15T16:14:35.856530+00:00",
+  "ended_at_utc": "2026-10-15T16:15:50.239982+00:00",
+  "timezone": [
+    "EST",
+    "EDT"
+  ],
+  "duration_seconds": 6.101252624997869,
+  "limits": {
+    "runtime_seconds": 180.0,
+    "owned_tree_rss_bytes": 1073741824,
+    "storage_growth_bytes": 268435456,
+    "poll_seconds": 0.25
+  },
+  "stop_reason": null,
+  "exit_code": 0,
+  "runner_error_type": null,
+  "cleanup_remaining_owned_processes": 0,
+  "cleanup_status_unknown": false,
+  "sample_count": 17,
+  "samples": [
+    {
+      "elapsed_seconds": 0.020239415927790105,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 868352,
+      "storage_growth_bytes": 608
+    },
+    {
+      "elapsed_seconds": 0.3470201250165701,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 64208896,
+      "storage_growth_bytes": 9108
+    },
+    {
+      "elapsed_seconds": 0.671887708012946,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 119701504,
+      "storage_growth_bytes": 9108
+    },
+    {
+      "elapsed_seconds": 0.9979539579944685,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 197754880,
+      "storage_growth_bytes": 9966
+    },
+    {
+      "elapsed_seconds": 1.3390039580408484,
+      "owned_process_count": 4,
+      "owned_tree_rss_bytes": 256344064,
+      "storage_growth_bytes": 280622
+    },
+    {
+      "elapsed_seconds": 1.7315086659509689,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 50020352,
+      "storage_growth_bytes": 17164
+    },
+    {
+      "elapsed_seconds": 2.2226888749282807,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 70828032,
+      "storage_growth_bytes": 17725
+    },
+    {
+      "elapsed_seconds": 2.812006124993786,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 67502080,
+      "storage_growth_bytes": 17725
+    },
+    {
+      "elapsed_seconds": 3.151396165951155,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 67338240,
+      "storage_growth_bytes": 17725
+    },
+    {
+      "elapsed_seconds": 3.466039916034788,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 66830336,
+      "storage_growth_bytes": 17725
+    },
+    {
+      "elapsed_seconds": 3.78354524995666,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 66830336,
+      "storage_growth_bytes": 17725
+    },
+    {
+      "elapsed_seconds": 4.10739758296404,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 66830336,
+      "storage_growth_bytes": 17725
+    },
+    {
+      "elapsed_seconds": 4.5642703749472275,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 66830336,
+      "storage_growth_bytes": 17725
+    },
+    {
+      "elapsed_seconds": 4.9022117499262094,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 66830336,
+      "storage_growth_bytes": 17725
+    },
+    {
+      "elapsed_seconds": 5.240824665990658,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 66863104,
+      "storage_growth_bytes": 17725
+    },
+    {
+      "elapsed_seconds": 5.6645858329720795,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 67207168,
+      "storage_growth_bytes": 17926
+    },
+    {
+      "elapsed_seconds": 6.024676249944605,
+      "owned_process_count": 0,
+      "owned_tree_rss_bytes": 0,
+      "storage_growth_bytes": 17926
+    }
+  ],
+  "sampled_peak_owned_tree_rss_bytes": 256344064,
+  "sampled_peak_storage_growth_bytes": 280622,
+  "environment": {
+    "RAYON_NUM_THREADS": "4",
+    "OMP_NUM_THREADS": "1",
+    "TZ": null
+  },
+  "measurement_notes": [
+    "RSS from ps KiB converted to bytes; sum of live owned tree; not heap allocation",
+    "storage is positive logical file-size growth per supplied root; excludes deleted-file peak between samples",
+    "limits sampled; short spikes and daemonized ancestry escape between samples may be missed",
+    "samples exclude runner/ps RSS; storage report written after the measured command",
+    "child stdout/stderr/argv retained only in protected output"
+  ],
+  "passed": true
+}

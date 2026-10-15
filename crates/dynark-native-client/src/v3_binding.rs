@@ -70,13 +70,57 @@ impl V3BoundWitness {
 /// Product admission additionally requires mapping all actual private inputs and
 /// PublicPackage::validate_assignment against the authenticated six fields.
 fn check_full_envelope(
-    _: &V3PrivateBinding,
-    _: &V3PrivateBinding,
-    _: &[FieldBytes],
-    _: &[u8],
-    _: WitnessMode,
+    expected: &V3PrivateBinding,
+    installed: &V3PrivateBinding,
+    publics: &[FieldBytes],
+    witness: &[u8],
+    mode: WitnessMode,
 ) -> Result<(), ClientError> {
-    Err(ClientError::Unsupported)
+    use ark_bn254::Fr;
+    use ark_ff::{BigInteger, PrimeField};
+    use ark_serialize::CanonicalDeserialize;
+
+    // Fixed bounded-v3 profile dimensions; no candidate-supplied count controls
+    // allocation or changes the admitted envelope. No relation is checked here.
+    const COORDINATES: usize = 784_796;
+    const WITNESS_BYTES: usize = 76 + 32 * COORDINATES;
+    if mode != WitnessMode::Full {
+        return Err(ClientError::Unsupported);
+    }
+    if witness.len() != WITNESS_BYTES
+        || &witness[..4] != b"wtns"
+        || witness[4..12] != [2, 0, 0, 0, 2, 0, 0, 0]
+        || witness[12..28] != [1, 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0]
+        || witness[28..60] != Fr::MODULUS.to_bytes_le()
+        || witness[60..64] != (COORDINATES as u32).to_le_bytes()
+        || witness[64..68] != 2u32.to_le_bytes()
+        || witness[68..76] != (32 * COORDINATES as u64).to_le_bytes()
+        || publics.len() != 6
+    {
+        return Err(ClientError::Encoding);
+    }
+    let mut one = [0; 32];
+    one[0] = 1;
+    if witness[76..108] != one {
+        return Err(ClientError::Encoding);
+    }
+    for word in witness[76..]
+        .chunks_exact(32)
+        .chain(publics.iter().map(|word| &word[..]))
+    {
+        Fr::deserialize_compressed(word).map_err(|_| ClientError::Encoding)?;
+    }
+    let mut action_le = expected.action_be;
+    action_le.reverse();
+    if expected != installed || publics != expected.publics.as_slice() || publics[4] != action_le {
+        return Err(ClientError::Identity);
+    }
+    for (index, public) in publics.iter().enumerate() {
+        if witness[108 + 32 * index..140 + 32 * index] != *public {
+            return Err(ClientError::Identity);
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
