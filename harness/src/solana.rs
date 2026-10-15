@@ -2637,7 +2637,7 @@ pub mod queue_v2 {
             if !report.exists() {
                 new_json(
                     &report,
-                    &json!({"passed":true,"scope":"already confirmed exact queue effect","finalized_slot":finalized_slot,"effect_count":1,"new_execute_transactions":0,"loaded_program":loaded}),
+                    &json!({"passed":true,"scope":"already consumed exact finalized queue effect","finalized_slot":finalized_slot,"effect_count":1,"new_execute_transactions":0,"request_sha256":hex::encode(Sha256::digest(&consumed)),"queue_sha256":hex::encode(Sha256::digest(&completed_queue)),"loaded_program":loaded}),
                 )?;
             }
             return Ok(());

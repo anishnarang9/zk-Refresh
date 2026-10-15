@@ -5,6 +5,7 @@ import base64
 import json
 import io
 import time
+import tempfile
 from unittest import mock
 import importlib.util
 from pathlib import Path
@@ -78,6 +79,37 @@ class ExecuteReadiness(unittest.TestCase):
             m.execute_readiness(opener,'pinned',8,self.states,time.monotonic()-1,validator)
             launched.append(True)
         self.assertEqual(launched,[]);opener.open.assert_not_called()
+    def test_consumed_only_gate_rejects_before_and_mixed_modes_before_runner(self):
+        for mode in ('before',None,'mixed'):
+            with self.assertRaises(ValueError):m.require_consumed_readiness({'reconciliation_only':True},mode)
+        self.assertIsNone(m.require_consumed_readiness({'reconciliation_only':True},'consumed'))
+        self.assertIsNone(m.require_consumed_readiness({},'before'))
+    def test_consumed_only_config_cannot_use_truthy_nonboolean_value(self):
+        for value in ('true',1,None):
+            with self.assertRaises(ValueError):m.require_consumed_readiness({'reconciliation_only':value},'consumed')
+    def test_fresh_reconciliation_report_requires_exact_hashes_and_zero_transactions(self):
+        config={'review_assertions':{'expected_consumed_request_sha256':'aa'*32,'expected_one_entry_queue_sha256':'bb'*32}}
+        report={'passed':True,'finalized_slot':50,'effect_count':1,'new_execute_transactions':0,'loaded_program':{'elf_match':True},'request_sha256':'aa'*32,'queue_sha256':'bb'*32}
+        m.validate_reconciled_report(report,config)
+        for field,value in [('request_sha256','cc'*32),('queue_sha256','cc'*32),('new_execute_transactions',1),('effect_count',2),('finalized_slot',True)]:
+            changed={**report,field:value}
+            with self.assertRaises(ValueError):m.validate_reconciled_report(changed,config)
+        for field in ('request_sha256','queue_sha256'):
+            changed=dict(report);del changed[field]
+            with self.assertRaises(ValueError):m.validate_reconciled_report(changed,config)
+    def test_consumed_only_requires_new_reconciliation_report_after_runner_exit(self):
+        with tempfile.TemporaryDirectory()as directory:
+            private=Path(directory);(private/'execute-report.json').write_text('{"passed":true}')
+            with self.assertRaises(ValueError):m.select_runner_report({'reconciliation_only':True},'execute',private)
+            (private/'reconciled-report.json').write_text('{"passed":true}')
+            self.assertEqual(m.select_runner_report({'reconciliation_only':True},'execute',private),('reconciled-report.json',True))
+            self.assertEqual(m.select_runner_report({},'prepare',private),('prepare-report.json',False))
+    def test_normal_execute_preserves_report_selection(self):
+        with tempfile.TemporaryDirectory()as directory:
+            private=Path(directory)
+            self.assertEqual(m.select_runner_report({},'execute',private),('execute-report.json',False))
+            (private/'reconciled-report.json').write_text('{}')
+            self.assertEqual(m.select_runner_report({},'execute',private),('reconciled-report.json',True))
     def test_wrong_genesis_never_releases_runner(self):
         self.assertIsNone(self.ready({c:self.snapshot()for c in ('confirmed','finalized')},'other'))
 if __name__=='__main__':unittest.main()

@@ -188,6 +188,27 @@ def execute_snapshot_ready(genesis,expected_genesis,minimum_slot,snapshots,expec
     return 'consumed'
 
 
+def require_consumed_readiness(config,mode):
+    required=config.get('reconciliation_only',False)
+    if type(required)is not bool:raise ValueError('reconciliation_only must be boolean')
+    if required and mode!='consumed':raise ValueError('consumed-only restart cannot launch before/mixed state')
+
+
+def select_runner_report(config,phase,private):
+    reconciled=phase=='execute'and (private/'reconciled-report.json').exists()
+    if config.get('reconciliation_only')is True:
+        if not reconciled:raise ValueError('consumed-only runner did not create fresh reconciliation report')
+        return 'reconciled-report.json',True
+    return ('reconciled-report.json'if reconciled else 'prepare-report.json'if phase=='prepare'else 'execute-report.json'),reconciled
+
+
+def validate_reconciled_report(report,config):
+    review=config['review_assertions']
+    if report.get('passed')is not True or type(report.get('finalized_slot'))is not int or report['finalized_slot']<0 or report.get('loaded_program',{}).get('elf_match')is not True:raise ValueError('exact finalized reconciliation evidence missing')
+    if type(report.get('new_execute_transactions'))is not int or report['new_execute_transactions']!=0 or report.get('effect_count')!=1:raise ValueError('reconciliation must contain one effect and zero new Execute')
+    if report.get('request_sha256')!=review['expected_consumed_request_sha256']or report.get('queue_sha256')!=review['expected_one_entry_queue_sha256']:raise ValueError('exact finalized reconciliation hashes missing/mismatched')
+
+
 def execute_readiness(opener,expected_genesis,minimum_slot,expected_states,deadline,validator):
     """No runner exists until both commitments contain one exact admissible state."""
     attempts=0
@@ -284,6 +305,8 @@ def run(config,config_sha):
     phase=config['phase']
     if phase not in ('build','prepare','execute'):raise ValueError('unknown phase')
     if config['schema']!=1 or config.get('program',PROGRAM)!=PROGRAM:raise ValueError('launcher contract version/program')
+    if type(config.get('reconciliation_only',False))is not bool:raise ValueError('reconciliation_only must be boolean')
+    if config.get('reconciliation_only')is True and phase!='execute':raise ValueError('reconciliation-only requires execute phase')
     control=under(config['control_output'],BASE)
     if control.exists():raise ValueError('fresh control output required')
     control.mkdir(mode=0o700)
@@ -335,6 +358,12 @@ def run(config,config_sha):
                 prepared=read_small(private/'prepare-report.json')
                 if prepared.get('passed')is not True or type(prepared.get('finalized_slot'))is not int or prepared['finalized_slot']<0:raise ValueError('finalized preparation evidence missing')
                 expected_states=execute_expected_states(config,private)
+                if config.get('reconciliation_only')is True:
+                    if (private/'reconciled-report.json').exists():raise ValueError('fresh reconciliation report required')
+                    history=config.get('historical_evidence_pins',{})
+                    if set(history)!={'execute-report.json','transactions.jsonl'}:raise ValueError('frozen historical evidence pins required')
+                    for name,digest in history.items():checked(private/name,digest,1024*1024)
+
             argv=validator_argv(config['validator'],ledger,config['elf'],phase)
             ports_free()
             for n in ['validator.stdout.log','validator.stderr.log','runner.stdout.log','runner.stderr.log']:logs.append((control/n).open('xb'))
@@ -343,6 +372,7 @@ def run(config,config_sha):
             deadline=time.monotonic()+20;genesis=None;readiness_mode=None
             if phase=='execute':
                 genesis,readiness_mode,evidence=execute_readiness(opener,config['expected_genesis'],prepared['finalized_slot'],expected_states,deadline,validator)
+                require_consumed_readiness(config,readiness_mode)
                 write_new(control/'account-readiness.json',evidence)
             else:
                 while time.monotonic()<deadline:
@@ -362,15 +392,17 @@ def run(config,config_sha):
                 if time.monotonic()>deadline:raise TimeoutError('application runner deadline')
                 time.sleep(0.1)
             if runner.wait()!=0:raise RuntimeError('application runner failed')
-            report_name='prepare-report.json'if phase=='prepare'else 'execute-report.json'
-            reconciled=phase=='execute'and (private/'reconciled-report.json').exists()
-            if reconciled:report_name='reconciled-report.json'
+            report_name,reconciled=select_runner_report(config,phase,private)
             report=read_small(private/report_name,1024*1024)
             if report.get('passed')is not True or not isinstance(report.get('finalized_slot'),int)or report.get('loaded_program',{}).get('elf_match')is not True:raise ValueError('successful finalized loaded-ELF evidence missing')
             if phase=='execute':
                 if report.get('effect_count')!=1:raise ValueError('exact effect evidence missing')
                 if reconciled:
                     if report.get('new_execute_transactions')!=0:raise ValueError('reconciliation sent a new Execute')
+                    if config.get('reconciliation_only')is True:
+                        validate_reconciled_report(report,config)
+                        for name,digest in config['historical_evidence_pins'].items():checked(private/name,digest,1024*1024)
+
                 elif report.get('publisher_binding_current')is not True or report.get('upstream_issuer_check')is not False:raise ValueError('binding/synthetic-source evidence missing')
             status.update({'status':'passed','program':PROGRAM,'genesis':genesis,'elf_sha256':config['elf_sha256'],'runner_report':str(private/report_name),'finalized_slot':report['finalized_slot']})
     except Exception as error:
