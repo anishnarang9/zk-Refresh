@@ -1,0 +1,555 @@
+{
+  "schema": "credential-v3-bounded-witness-qualification-v1",
+  "passed": true,
+  "r1cs_sha256": "976e9a76356ad015f0e4c587ccd79bba601b5caf80817b561aa4ca5442656888",
+  "wasm_sha256": "fbf73cff59660574add16ba8acafe824a9d57e0c91f23557b6462979b85c9aa6",
+  "host_admission_bypassed": true,
+  "setup_or_proofs_executed": false,
+  "outputs_private": true,
+  "cases": [
+    {
+      "name": "credential_0",
+      "expected": "accept",
+      "family": "credential",
+      "witness_elapsed_ms": 3291.87325,
+      "validation": {
+        "assignment_fields": 784796,
+        "constraints_checked": 793681,
+        "matrix_entries": 4257583,
+        "max_row_terms": 1634,
+        "satisfied": true
+      },
+      "passed": true,
+      "complete_relation_check_ms": 2972.401708
+    },
+    {
+      "name": "credential_0_unrelated_refresh",
+      "expected": "accept",
+      "family": "unrelated_refresh",
+      "witness_elapsed_ms": 3015.270167,
+      "validation": {
+        "assignment_fields": 784796,
+        "constraints_checked": 793681,
+        "matrix_entries": 4257583,
+        "max_row_terms": 1634,
+        "satisfied": true
+      },
+      "passed": true,
+      "complete_relation_check_ms": 3042.193958
+    },
+    {
+      "name": "credential_0_own_revoked",
+      "expected": "reject",
+      "family": "own_revocation",
+      "witness_elapsed_ms": 2962.5855,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_0_wrong_public_policy",
+      "expected": "reject",
+      "family": "wrong_policy_binding",
+      "witness_elapsed_ms": 567.819791,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_0_invalid_cn",
+      "expected": "reject",
+      "family": "signed_profile_bypass",
+      "witness_elapsed_ms": 5.163416,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_0_invalid_purpose",
+      "expected": "reject",
+      "family": "signed_profile_bypass",
+      "witness_elapsed_ms": 41.046875,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_0_invalid_key_usage",
+      "expected": "reject",
+      "family": "signed_profile_bypass",
+      "witness_elapsed_ms": 38.753792,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_0_invalid_serial",
+      "expected": "reject",
+      "family": "signed_profile_bypass",
+      "witness_elapsed_ms": 579.810333,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_0_signed_organization_old_binding",
+      "expected": "reject",
+      "family": "signed_binding_bypass",
+      "witness_elapsed_ms": 594.307084,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_0_signed_aki_old_binding",
+      "expected": "reject",
+      "family": "signed_binding_bypass",
+      "witness_elapsed_ms": 617.473541,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_0_invalid_layout",
+      "expected": "reject",
+      "family": "invalid_layout",
+      "witness_elapsed_ms": 2.735792,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_0_wrong_public_issuer",
+      "expected": "reject",
+      "family": "wrong_issuer_binding",
+      "witness_elapsed_ms": 643.579834,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_1",
+      "expected": "accept",
+      "family": "credential",
+      "witness_elapsed_ms": 2982.574208,
+      "validation": {
+        "assignment_fields": 784796,
+        "constraints_checked": 793681,
+        "matrix_entries": 4257583,
+        "max_row_terms": 1634,
+        "satisfied": true
+      },
+      "passed": true,
+      "complete_relation_check_ms": 2984.032208
+    },
+    {
+      "name": "credential_1_unrelated_refresh",
+      "expected": "accept",
+      "family": "unrelated_refresh",
+      "witness_elapsed_ms": 3011.862041,
+      "validation": {
+        "assignment_fields": 784796,
+        "constraints_checked": 793681,
+        "matrix_entries": 4257583,
+        "max_row_terms": 1634,
+        "satisfied": true
+      },
+      "passed": true,
+      "complete_relation_check_ms": 3007.330791
+    },
+    {
+      "name": "credential_1_own_revoked",
+      "expected": "reject",
+      "family": "own_revocation",
+      "witness_elapsed_ms": 3274.048334,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_1_wrong_public_policy",
+      "expected": "reject",
+      "family": "wrong_policy_binding",
+      "witness_elapsed_ms": 697.109875,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_1_wrong_public_issuer",
+      "expected": "reject",
+      "family": "wrong_issuer_binding",
+      "witness_elapsed_ms": 677.67725,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_2",
+      "expected": "accept",
+      "family": "credential",
+      "witness_elapsed_ms": 3317.405625,
+      "validation": {
+        "assignment_fields": 784796,
+        "constraints_checked": 793681,
+        "matrix_entries": 4257583,
+        "max_row_terms": 1634,
+        "satisfied": true
+      },
+      "passed": true,
+      "complete_relation_check_ms": 3495.398333
+    },
+    {
+      "name": "credential_2_unrelated_refresh",
+      "expected": "accept",
+      "family": "unrelated_refresh",
+      "witness_elapsed_ms": 3379.194208,
+      "validation": {
+        "assignment_fields": 784796,
+        "constraints_checked": 793681,
+        "matrix_entries": 4257583,
+        "max_row_terms": 1634,
+        "satisfied": true
+      },
+      "passed": true,
+      "complete_relation_check_ms": 3339.743208
+    },
+    {
+      "name": "credential_2_own_revoked",
+      "expected": "reject",
+      "family": "own_revocation",
+      "witness_elapsed_ms": 3281.927542,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_2_wrong_public_policy",
+      "expected": "reject",
+      "family": "wrong_policy_binding",
+      "witness_elapsed_ms": 625.700708,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_2_wrong_public_issuer",
+      "expected": "reject",
+      "family": "wrong_issuer_binding",
+      "witness_elapsed_ms": 670.290375,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_3",
+      "expected": "accept",
+      "family": "credential",
+      "witness_elapsed_ms": 3260.7395,
+      "validation": {
+        "assignment_fields": 784796,
+        "constraints_checked": 793681,
+        "matrix_entries": 4257583,
+        "max_row_terms": 1634,
+        "satisfied": true
+      },
+      "passed": true,
+      "complete_relation_check_ms": 3158.244417
+    },
+    {
+      "name": "credential_3_unrelated_refresh",
+      "expected": "accept",
+      "family": "unrelated_refresh",
+      "witness_elapsed_ms": 3151.298583,
+      "validation": {
+        "assignment_fields": 784796,
+        "constraints_checked": 793681,
+        "matrix_entries": 4257583,
+        "max_row_terms": 1634,
+        "satisfied": true
+      },
+      "passed": true,
+      "complete_relation_check_ms": 2946.718625
+    },
+    {
+      "name": "credential_3_own_revoked",
+      "expected": "reject",
+      "family": "own_revocation",
+      "witness_elapsed_ms": 3100.447417,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_3_wrong_public_policy",
+      "expected": "reject",
+      "family": "wrong_policy_binding",
+      "witness_elapsed_ms": 630.192625,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_3_wrong_public_issuer",
+      "expected": "reject",
+      "family": "wrong_issuer_binding",
+      "witness_elapsed_ms": 679.188542,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_4",
+      "expected": "accept",
+      "family": "credential",
+      "witness_elapsed_ms": 3280.833,
+      "validation": {
+        "assignment_fields": 784796,
+        "constraints_checked": 793681,
+        "matrix_entries": 4257583,
+        "max_row_terms": 1634,
+        "satisfied": true
+      },
+      "passed": true,
+      "complete_relation_check_ms": 3103.738916
+    },
+    {
+      "name": "credential_4_unrelated_refresh",
+      "expected": "accept",
+      "family": "unrelated_refresh",
+      "witness_elapsed_ms": 3243.171542,
+      "validation": {
+        "assignment_fields": 784796,
+        "constraints_checked": 793681,
+        "matrix_entries": 4257583,
+        "max_row_terms": 1634,
+        "satisfied": true
+      },
+      "passed": true,
+      "complete_relation_check_ms": 3154.298458
+    },
+    {
+      "name": "credential_4_own_revoked",
+      "expected": "reject",
+      "family": "own_revocation",
+      "witness_elapsed_ms": 3385.691584,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_4_wrong_public_policy",
+      "expected": "reject",
+      "family": "wrong_policy_binding",
+      "witness_elapsed_ms": 772.847,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_4_wrong_public_issuer",
+      "expected": "reject",
+      "family": "wrong_issuer_binding",
+      "witness_elapsed_ms": 682.978208,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_5",
+      "expected": "accept",
+      "family": "credential",
+      "witness_elapsed_ms": 3267.295625,
+      "validation": {
+        "assignment_fields": 784796,
+        "constraints_checked": 793681,
+        "matrix_entries": 4257583,
+        "max_row_terms": 1634,
+        "satisfied": true
+      },
+      "passed": true,
+      "complete_relation_check_ms": 3157.367833
+    },
+    {
+      "name": "credential_5_unrelated_refresh",
+      "expected": "accept",
+      "family": "unrelated_refresh",
+      "witness_elapsed_ms": 3214.605584,
+      "validation": {
+        "assignment_fields": 784796,
+        "constraints_checked": 793681,
+        "matrix_entries": 4257583,
+        "max_row_terms": 1634,
+        "satisfied": true
+      },
+      "passed": true,
+      "complete_relation_check_ms": 3111.978667
+    },
+    {
+      "name": "credential_5_own_revoked",
+      "expected": "reject",
+      "family": "own_revocation",
+      "witness_elapsed_ms": 3234.487333,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_5_wrong_public_policy",
+      "expected": "reject",
+      "family": "wrong_policy_binding",
+      "witness_elapsed_ms": 698.727333,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_5_wrong_public_issuer",
+      "expected": "reject",
+      "family": "wrong_issuer_binding",
+      "witness_elapsed_ms": 677.639875,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_6",
+      "expected": "accept",
+      "family": "credential",
+      "witness_elapsed_ms": 3195.59975,
+      "validation": {
+        "assignment_fields": 784796,
+        "constraints_checked": 793681,
+        "matrix_entries": 4257583,
+        "max_row_terms": 1634,
+        "satisfied": true
+      },
+      "passed": true,
+      "complete_relation_check_ms": 3052.338125
+    },
+    {
+      "name": "credential_6_unrelated_refresh",
+      "expected": "accept",
+      "family": "unrelated_refresh",
+      "witness_elapsed_ms": 3158.3735,
+      "validation": {
+        "assignment_fields": 784796,
+        "constraints_checked": 793681,
+        "matrix_entries": 4257583,
+        "max_row_terms": 1634,
+        "satisfied": true
+      },
+      "passed": true,
+      "complete_relation_check_ms": 2993.651958
+    },
+    {
+      "name": "credential_6_own_revoked",
+      "expected": "reject",
+      "family": "own_revocation",
+      "witness_elapsed_ms": 3051.253084,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_6_wrong_public_policy",
+      "expected": "reject",
+      "family": "wrong_policy_binding",
+      "witness_elapsed_ms": 593.628167,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_6_wrong_public_issuer",
+      "expected": "reject",
+      "family": "wrong_issuer_binding",
+      "witness_elapsed_ms": 642.851625,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_7",
+      "expected": "accept",
+      "family": "credential",
+      "witness_elapsed_ms": 3150.125375,
+      "validation": {
+        "assignment_fields": 784796,
+        "constraints_checked": 793681,
+        "matrix_entries": 4257583,
+        "max_row_terms": 1634,
+        "satisfied": true
+      },
+      "passed": true,
+      "complete_relation_check_ms": 2984.841459
+    },
+    {
+      "name": "credential_7_unrelated_refresh",
+      "expected": "accept",
+      "family": "unrelated_refresh",
+      "witness_elapsed_ms": 3200.365708,
+      "validation": {
+        "assignment_fields": 784796,
+        "constraints_checked": 793681,
+        "matrix_entries": 4257583,
+        "max_row_terms": 1634,
+        "satisfied": true
+      },
+      "passed": true,
+      "complete_relation_check_ms": 3001.048417
+    },
+    {
+      "name": "credential_7_own_revoked",
+      "expected": "reject",
+      "family": "own_revocation",
+      "witness_elapsed_ms": 3053.46325,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_7_wrong_public_policy",
+      "expected": "reject",
+      "family": "wrong_policy_binding",
+      "witness_elapsed_ms": 594.439625,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_7_wrong_public_issuer",
+      "expected": "reject",
+      "family": "wrong_issuer_binding",
+      "witness_elapsed_ms": 644.627,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_8",
+      "expected": "accept",
+      "family": "credential",
+      "witness_elapsed_ms": 3166.972666,
+      "validation": {
+        "assignment_fields": 784796,
+        "constraints_checked": 793681,
+        "matrix_entries": 4257583,
+        "max_row_terms": 1634,
+        "satisfied": true
+      },
+      "passed": true,
+      "complete_relation_check_ms": 2961.344334
+    },
+    {
+      "name": "credential_8_unrelated_refresh",
+      "expected": "accept",
+      "family": "unrelated_refresh",
+      "witness_elapsed_ms": 3153.822375,
+      "validation": {
+        "assignment_fields": 784796,
+        "constraints_checked": 793681,
+        "matrix_entries": 4257583,
+        "max_row_terms": 1634,
+        "satisfied": true
+      },
+      "passed": true,
+      "complete_relation_check_ms": 2993.57725
+    },
+    {
+      "name": "credential_8_own_revoked",
+      "expected": "reject",
+      "family": "own_revocation",
+      "witness_elapsed_ms": 3092.818209,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_8_wrong_public_policy",
+      "expected": "reject",
+      "family": "wrong_policy_binding",
+      "witness_elapsed_ms": 657.713917,
+      "rejection": "circuit_assertion",
+      "passed": true
+    },
+    {
+      "name": "credential_8_wrong_public_issuer",
+      "expected": "reject",
+      "family": "wrong_issuer_binding",
+      "witness_elapsed_ms": 686.86475,
+      "rejection": "circuit_assertion",
+      "passed": true
+    }
+  ],
+  "accepted_count": 18,
+  "rejected_count": 34
+}
