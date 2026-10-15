@@ -22,8 +22,8 @@ relation corpus, shared development setup, nine-pair randomized Full proof
 corpus and one independent OpenSSL Anchor pilot have separate gates. They
 demonstrate a reusable public proof shape, but no v3 application authorization
 or corpus-wide refresh economics. The v3 program has six-field state/parser
-and administrator host tests, including signed inactive-status handling;
-request staging, Execute, the loaded ELF and atomic queue effect are open.
+and administrator host tests, including signed inactive-status handling and
+bounded request staging; Execute, the loaded ELF and atomic queue effect are open.
 The registry has an authenticated per-issuer source gate and a publisher
 tests-first RED; authenticated current chain provenance and publisher
 checkpoint persistence are open. The native client has DER admission, a
