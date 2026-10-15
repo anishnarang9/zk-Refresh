@@ -2471,6 +2471,12 @@ pub mod queue_v2 {
             }
             return Ok(());
         }
+        // A consumed-state startup barrier may launch reconciliation only. If
+        // state changed after that observation, fail before any transaction.
+        ensure!(
+            std::env::var("P5_QUEUE_RECONCILE_ONLY").as_deref() != Ok("1"),
+            "reconciliation-only barrier no longer matches exact consumed effect"
+        );
         ensure!(
             current_request == expected_request && current_queue == empty,
             "unexpected prepared request/queue state"
