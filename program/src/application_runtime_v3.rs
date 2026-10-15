@@ -218,6 +218,24 @@ pub fn verify(inputs: &[[u8; 32]; 6], proof: &[u8; 256]) -> ProgramResult {
         .map_err(|_| AppError::Proof)?;
     verifier.verify().map_err(|_| AppError::Proof.into())
 }
+
+/// Private effect-only RED stub, intentionally disconnected from Execute.
+/// Synthetic unit tests exercise commit mechanics without proving authorization.
+/// A future caller must first authenticate current accounts and verify the real
+/// request-bound proof. No public API or dispatch route bypasses that boundary.
+#[allow(dead_code)]
+fn apply_execute_effect(
+    _request_account: &AccountInfo,
+    _queue_account: &AccountInfo,
+    _now: i64,
+) -> ProgramResult {
+    Err(AppError::Unavailable.into())
+}
+
+#[cfg(test)]
+#[path = "application_runtime_v3/execute_effect_tests.rs"]
+mod execute_effect_tests;
+
 pub fn process(program: &Pubkey, accounts: &[AccountInfo], bytes: &[u8]) -> ProgramResult {
     let instruction = AppInstruction::parse(bytes)?;
     match instruction {
