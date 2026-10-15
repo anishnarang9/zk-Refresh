@@ -10,6 +10,7 @@ mod v2_input;
 mod v3_admission;
 mod v3;
 mod v3_input;
+mod v3_setup;
 
 pub use client::*;
 pub use control::*;
@@ -21,6 +22,7 @@ pub use v2_input::*;
 pub use v3_admission::*;
 pub use v3::*;
 pub use v3_input::*;
+pub use v3_setup::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum InvalidationReason {
