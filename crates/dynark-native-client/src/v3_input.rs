@@ -137,6 +137,7 @@ impl V3StateSnapshot {
             return Err(ClientError::Identity);
         }
         if !self.enrollment.issuer_enabled
+            || self.source.sequence == 0
             || self.publication.source_sequence != self.source.sequence
             || self.publication.source_digest != self.source.digest
             || self.source.observed_at > self.clock.unix_timestamp
