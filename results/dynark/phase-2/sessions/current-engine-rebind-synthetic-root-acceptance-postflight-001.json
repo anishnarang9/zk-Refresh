@@ -1,0 +1,198 @@
+{
+  "schema": "session-rebind-synthetic-root-acceptance-postflight-v1",
+  "status": "ROOT EXECUTION PASSED; finite synthetic correctness only",
+  "executor": "ROOT",
+  "actual_execution_count": 1,
+  "worker_execution_count": 0,
+  "frozen_output_path_label": "worker",
+  "path_label_interpretation": "ROOT executed once at the immutable worker-named path; this is not a worker run plus an independent parent repeat.",
+  "accepted_grant": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/sessions/current-engine-rebind-synthetic-parent-grant-002.json",
+    "bytes": 7459,
+    "sha256": "78c8207aa186a8c442d72d89dbc03cd0aeac951b9be3aa595cdb6f6c4947a144",
+    "mode": "0o600"
+  },
+  "wrapper_freeze": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/sessions/current-engine-rebind-prerequisite-adapter-freeze-001.json",
+    "bytes": 4751,
+    "sha256": "04ec671810cffcf6a089ca3bc6c0debd69d3f842a93cecb0326fe4125e90bb6d",
+    "mode": "0o600"
+  },
+  "original_source_freeze": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/sessions/current-engine-rebind-source-freeze-001.json",
+    "bytes": 22024,
+    "sha256": "4f2a5f9a3594aa1d0cc7275fb98e8a12036d9810d6686ff9e27a53320e298241",
+    "mode": "0o600"
+  },
+  "original_launcher_freeze": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/sessions/current-engine-rebind-launcher-freeze-001.json",
+    "bytes": 5478,
+    "sha256": "f3813adeb45cf3bc929706caef58be62c8d35cc81f3378a5b7be35aedaca0fde",
+    "mode": "0o600"
+  },
+  "invocation": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/oct14-preflight/session-rebind-synthetic-worker-001/bounded/invocation.json",
+    "bytes": 676,
+    "sha256": "f0ad113e234e3180d232e86c994967eb7a3063af517b633d2c83fe1921603828",
+    "mode": "0o600"
+  },
+  "primary_report": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/oct14-preflight/session-rebind-synthetic-worker-001/primary.json",
+    "bytes": 1756,
+    "sha256": "46864e3b41dff8b96f65ab52c6ad751adac1220650ff080b55a30e0123e11a04",
+    "mode": "0o600"
+  },
+  "duplicate_report": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/oct14-preflight/session-rebind-synthetic-worker-001/bounded/report.json",
+    "bytes": 1756,
+    "sha256": "46864e3b41dff8b96f65ab52c6ad751adac1220650ff080b55a30e0123e11a04",
+    "mode": "0o600"
+  },
+  "reports_byte_equal": true,
+  "stdout": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/oct14-preflight/session-rebind-synthetic-worker-001/bounded/stdout.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mode": "0o600"
+  },
+  "stderr": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/oct14-preflight/session-rebind-synthetic-worker-001/bounded/stderr.log",
+    "bytes": 3104,
+    "sha256": "fe0d7891a6a1f1ce611cae9da14745c9e85a65b5a5b649fe6cbf0e5091c83378",
+    "mode": "0o600"
+  },
+  "host_events": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/oct14-preflight/session-rebind-synthetic-worker-001/host/events.jsonl",
+    "bytes": 5826,
+    "sha256": "4294499b812a0e7b32d97ec138f9bf8cdf8c1f360953f1de456294bf4c9e3522",
+    "mode": "0o600"
+  },
+  "guardian_events": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/fixed-budget/oct14-preflight/session-rebind-synthetic-worker-001/bounded/guardian-events.jsonl",
+    "bytes": 451,
+    "sha256": "5fa453b8684e5ab890442c8be72b50966100f9c47d6cbe621ea0dfaf8e07b1fb",
+    "mode": "0o600"
+  },
+  "expected_methods": 27,
+  "passed_method_names": [
+    "test_01_exact_adoption_carries_original_once",
+    "test_02_source_mismatch_without_adoption_rejected",
+    "test_03_wrong_old_source_binding_rejected",
+    "test_04_wrong_new_source_binding_rejected",
+    "test_05_wrong_predecessor_pin_rejected",
+    "test_06_wrong_reservation_rejected",
+    "test_07_wrong_phase_reservation_rejected",
+    "test_08_wrong_study_rejected",
+    "test_09_wrong_chain_rejected",
+    "test_10_complete_preparation_rejected",
+    "test_11_nonzero_or_boolean_completed_rejected",
+    "test_12_wrong_boundary_rejected",
+    "test_13_repeated_carry_rejected",
+    "test_14_artifact_identity_mismatch_rejected",
+    "test_15_evidence_identity_mismatch_rejected",
+    "test_16_extra_or_wrong_edge_field_rejected",
+    "test_17_subsequent_new_source_is_strict_and_charged_once",
+    "test_18_subsequent_old_source_rejected",
+    "test_19_old_fit_provenance_rejected",
+    "test_20_exact_supervisor_closure",
+    "test_21_missing_guardian_rejected",
+    "test_22_wrong_supervision_identity_rejected",
+    "test_23_exact_child_argv",
+    "test_24_exact_runner_argv",
+    "test_25_wrong_prior_old_source_rejected",
+    "test_26_wrong_current_new_source_rejected",
+    "test_27_wrong_prior_phase_or_predecessor_rejected"
+  ],
+  "all_methods_ok": true,
+  "unittest_seconds": 0.003,
+  "bounded_duration_seconds": 0.26774608297273517,
+  "samples": 2,
+  "sampled_peak_rss_bytes": 4898816,
+  "sampled_growth_bytes": 4231,
+  "limits": {
+    "runtime_seconds": 120.0,
+    "owned_tree_rss_bytes": 536870912,
+    "storage_growth_bytes": 16777216,
+    "poll_seconds": 0.2
+  },
+  "exit_code": 0,
+  "stop_reason": null,
+  "runner_error_type": null,
+  "cleanup_remaining_owned_processes": 0,
+  "cleanup_status_unknown": false,
+  "host_completion": {
+    "event": "host_supervisor_complete",
+    "primary_host_cause": null,
+    "cleanup_verified": true,
+    "runner_returncode": 0,
+    "primary_runner_report_present": true,
+    "measurement_outcome": "completed_under_fixed_budget",
+    "additional_monitoring_planning_bytes": 201326592,
+    "monitoring_reserve_is_enforced": false,
+    "raw_runner_report_sha256": "46864e3b41dff8b96f65ab52c6ad751adac1220650ff080b55a30e0123e11a04",
+    "whole_monitor_seconds": 1.0723943749908358,
+    "runner_report_fields_unmodified": true,
+    "samples_retained_in_original_files_only": true,
+    "resource_policy_id": "dynark-fixed-budget-v1",
+    "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+    "utc": "2026-10-15T01:36:02Z"
+  },
+  "adapter_completion": {
+    "event": "session_prerequisite_complete",
+    "operation": "synthetic",
+    "primary_cause": null,
+    "cleanup_verified": true,
+    "primary_report_unmodified": true,
+    "artifact_selection_performed": false,
+    "resource_policy_id": "dynark-fixed-budget-v1",
+    "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+    "utc": "2026-10-15T01:36:02Z"
+  },
+  "root_postflight_report": {
+    "all_method_outputs_read": true,
+    "former_pid": 3253,
+    "former_pid_absent": true,
+    "source": "ROOT direct handoff; no new process query by receipt author"
+  },
+  "source_postflight": {
+    "pin_comparisons": 94,
+    "mismatches": [],
+    "source_and_launcher_immutable": true
+  },
+  "preserved_prelaunch_rejection": {
+    "grant": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/sessions/current-engine-rebind-synthetic-parent-grant-001.json",
+      "bytes": 6857,
+      "sha256": "3bfcf12c7021be9672fc6405c8cfcfa5bfa902e78ba97a547ba95e9f3213dd63",
+      "mode": "0o600"
+    },
+    "error": "ValueError: fixed_policy_identity",
+    "cause": "Outer proposal omitted resource_policy_id and resource_policy_sha256; ROOT copied omission into grant001.",
+    "source": "ROOT direct handoff plus metadata confirmation that both fields are absent from grant001",
+    "rejected_before": [
+      "source load",
+      "host evidence/base creation",
+      "child/workload dispatch"
+    ],
+    "child_workloads": 0,
+    "original_grant_preserved": true,
+    "grant002_correction": "Explicit unchanged accepted policy identity added; no source/cap expansion"
+  },
+  "future_compile_grant_requirement": {
+    "resource_policy_id": "dynark-fixed-budget-v1",
+    "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+    "applies_to": [
+      "normal-build",
+      "diagnostic-build",
+      "synthetic"
+    ],
+    "reason": "All adapters require the top-level grant fields even though frozen outer proposals omitted them.",
+    "frozen_proposals_unchanged": true
+  },
+  "scope_limits": [
+    "Two RSS samples do not establish a peak-memory or performance characterization.",
+    "This is synthetic adoption/argv correctness, not Rust linkage, five+five invariants, public-artifact adoption execution or a session campaign.",
+    "Normal/diagnostic binaries and later execution remain separately granted."
+  ],
+  "receipt_author_execution": "No adapter/project module import, test/build/binary/process query, grant creation, setup or campaign. Only source/report reading and non-importing hash/metadata reconciliation."
+}
