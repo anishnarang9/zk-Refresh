@@ -1,0 +1,209 @@
+{
+  "aki_bytes": 20,
+  "all_other_extensions": "reject",
+  "certificate_length": 952,
+  "development_only": true,
+  "eligibility": "application enables exact issuerHash+policyHash+profile+circuit; circuit authenticates all signed policy and AKI bytes; CN descriptive",
+  "excluded": [
+    "general PKIX chains",
+    "GeneralizedTime",
+    "RSA-PSS",
+    "alternate exponents",
+    "unknown or duplicate extensions",
+    "arbitrary name lengths",
+    "mixed UTF8String and PrintableString names",
+    "real token signer qualification",
+    "incremental witness qualification"
+  ],
+  "group_bytes": 32,
+  "layouts": [
+    {
+      "extension_order": "forward",
+      "issuer_cn_length": 40,
+      "layout": 0,
+      "name_tags": "UTF8String",
+      "offsets": {
+        "aki": 477,
+        "group": 640,
+        "issuer_cn": 55,
+        "modulus": 197,
+        "not_after": 114,
+        "not_before": 99,
+        "organization": 593,
+        "serial": 11,
+        "subject_cn": 140
+      },
+      "static_mask_sha256": "e7ffe949d77cc30f86abeeea6f72ceabf9e247d2d80431370d9601cbb0545303",
+      "subject_cn_length": 24
+    },
+    {
+      "extension_order": "forward",
+      "issuer_cn_length": 40,
+      "layout": 1,
+      "name_tags": "PrintableString",
+      "offsets": {
+        "aki": 477,
+        "group": 640,
+        "issuer_cn": 55,
+        "modulus": 197,
+        "not_after": 114,
+        "not_before": 99,
+        "organization": 593,
+        "serial": 11,
+        "subject_cn": 140
+      },
+      "static_mask_sha256": "e7ffe949d77cc30f86abeeea6f72ceabf9e247d2d80431370d9601cbb0545303",
+      "subject_cn_length": 24
+    },
+    {
+      "extension_order": "reverse",
+      "issuer_cn_length": 40,
+      "layout": 2,
+      "name_tags": "UTF8String",
+      "offsets": {
+        "aki": 652,
+        "group": 495,
+        "issuer_cn": 55,
+        "modulus": 197,
+        "not_after": 114,
+        "not_before": 99,
+        "organization": 558,
+        "serial": 11,
+        "subject_cn": 140
+      },
+      "static_mask_sha256": "345645fc468d0da43d6cdc62c9a4fee58a3364fd8a4d83b07ab0d24665947f77",
+      "subject_cn_length": 24
+    },
+    {
+      "extension_order": "reverse",
+      "issuer_cn_length": 40,
+      "layout": 3,
+      "name_tags": "PrintableString",
+      "offsets": {
+        "aki": 652,
+        "group": 495,
+        "issuer_cn": 55,
+        "modulus": 197,
+        "not_after": 114,
+        "not_before": 99,
+        "organization": 558,
+        "serial": 11,
+        "subject_cn": 140
+      },
+      "static_mask_sha256": "345645fc468d0da43d6cdc62c9a4fee58a3364fd8a4d83b07ab0d24665947f77",
+      "subject_cn_length": 24
+    },
+    {
+      "extension_order": "forward",
+      "issuer_cn_length": 24,
+      "layout": 4,
+      "name_tags": "UTF8String",
+      "offsets": {
+        "aki": 477,
+        "group": 640,
+        "issuer_cn": 55,
+        "modulus": 197,
+        "not_after": 98,
+        "not_before": 83,
+        "organization": 593,
+        "serial": 11,
+        "subject_cn": 124
+      },
+      "static_mask_sha256": "2f7288354631d7ed3ef4c9a41e78348cad7f695e7429ae63edc53d0d1cfd025c",
+      "subject_cn_length": 40
+    },
+    {
+      "extension_order": "forward",
+      "issuer_cn_length": 24,
+      "layout": 5,
+      "name_tags": "PrintableString",
+      "offsets": {
+        "aki": 477,
+        "group": 640,
+        "issuer_cn": 55,
+        "modulus": 197,
+        "not_after": 98,
+        "not_before": 83,
+        "organization": 593,
+        "serial": 11,
+        "subject_cn": 124
+      },
+      "static_mask_sha256": "2f7288354631d7ed3ef4c9a41e78348cad7f695e7429ae63edc53d0d1cfd025c",
+      "subject_cn_length": 40
+    },
+    {
+      "extension_order": "reverse",
+      "issuer_cn_length": 24,
+      "layout": 6,
+      "name_tags": "UTF8String",
+      "offsets": {
+        "aki": 652,
+        "group": 495,
+        "issuer_cn": 55,
+        "modulus": 197,
+        "not_after": 98,
+        "not_before": 83,
+        "organization": 558,
+        "serial": 11,
+        "subject_cn": 124
+      },
+      "static_mask_sha256": "3e89266af4ed4fc23becb4030f9295735343189f2ce7b54e7c0b9b5ad2673aeb",
+      "subject_cn_length": 40
+    },
+    {
+      "extension_order": "reverse",
+      "issuer_cn_length": 24,
+      "layout": 7,
+      "name_tags": "PrintableString",
+      "offsets": {
+        "aki": 652,
+        "group": 495,
+        "issuer_cn": 55,
+        "modulus": 197,
+        "not_after": 98,
+        "not_before": 83,
+        "organization": 558,
+        "serial": 11,
+        "subject_cn": 124
+      },
+      "static_mask_sha256": "3e89266af4ed4fc23becb4030f9295735343189f2ce7b54e7c0b9b5ad2673aeb",
+      "subject_cn_length": 40
+    }
+  ],
+  "leaf_domain": 2026101504,
+  "mixed_name_tags": false,
+  "name_characters": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 '-.",
+  "organization_bytes": 16,
+  "profile": "credential-v3-bounded-der-v1",
+  "qualification": "source-only-no-compiled-setup-or-proof",
+  "rsa": {
+    "bits": 2048,
+    "digest": "SHA256",
+    "exponent": 65537,
+    "padding": "PKCS1-v1_5"
+  },
+  "schema": {
+    "action": "SHA256 of canonical 32-byte big-endian Fr, RSA-PKCS1-v1_5 signed",
+    "issuerHash": "Poseidon(3)(2026101505,Poseidon(2)(Poseidon(8)(issuerLimbs[0:8]),Poseidon(9)(issuerLimbs[8:17])),bigEndian160(signedAKI))",
+    "leaf": "Poseidon(5)(2026101504,SHA256(TBS)_high128,SHA256(TBS)_low128,slot,1)",
+    "name": "credential-v3-bounded-six-public-fields-v1",
+    "ordered_public_inputs": [
+      "root",
+      "issuerHash",
+      "notBefore",
+      "notAfter",
+      "actionHash",
+      "policyHash"
+    ],
+    "policyHash": "Poseidon(4)(2026101503,bigEndian128(signedOrganization),bigEndian128(signedGroup[0:16]),bigEndian128(signedGroup[16:32]))"
+  },
+  "serial": "canonical positive exactly 16 octets; first octet 1..127",
+  "tbs_length": 672,
+  "test_only_oids": {
+    "group": "2.25.180009770452009723470405118107869807092",
+    "organization": "2.25.99371046457391298588515486634887984545",
+    "purpose": "2.25.28906038049387293527434275968963825714"
+  },
+  "tree_depth": 10,
+  "validity": "canonical UTCTime 2000-2049, real calendar, inclusive endpoints"
+}
