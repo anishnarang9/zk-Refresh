@@ -70,10 +70,9 @@ fn verified_source(row: &Value) -> VerifiedSource {
     s.verify(&e, &previous, row["source_verified_at"].as_i64().unwrap())
         .expect("real source prerequisite")
 }
-/// RED-only shim: the legacy production entrypoint rejects. GREEN must replace
-/// this call with a reviewed capability-taking API; it must never enable the
-/// legacy JSON-only route. The independent source/checkpoint inputs are retained
-/// here so that safe API migration is explicit and affects this one test shim.
+/// Permanent public fail-closed boundary. Neither these JSON records nor the
+/// authenticated source signature establish finalized chain/checkpoint provenance.
+/// Private envelope crypto is tested separately inside the protocol module.
 fn gate_under_test(
     binding: &PublisherBinding,
     source: &VerifiedSource,
@@ -82,11 +81,13 @@ fn gate_under_test(
     now: i64,
 ) -> Result<(), Error> {
     let _ = (source, previous_publication);
-    binding.require_current(current, now)
+    let result = binding.require_current(current, now);
+    assert_eq!(result, Err(Error::Authentication));
+    result
 }
 
 #[test]
-fn independent_v3_publisher_binding_is_accepted() {
+fn independent_v3_publisher_signature_does_not_authorize_caller_json() {
     let v = vectors();
     let row = &v["cases"][0];
     let binding = genuine_binding(row);
@@ -102,12 +103,21 @@ fn independent_v3_publisher_binding_is_accepted() {
     assert_eq!(binding.source_head.sequence, source.head().sequence);
     assert_eq!(binding.source_head.digest, source.head().digest);
     let current: CurrentHead = serde_json::from_value(row["current_head"].clone()).unwrap();
-    assert_eq!(gate_under_test(&binding,&source,&current,&row["previous_publication_head"],150),
-        Ok(()),"genuine publisher binding plus authenticated current-source/head capability must be accepted");
+    assert_eq!(
+        gate_under_test(
+            &binding,
+            &source,
+            &current,
+            &row["previous_publication_head"],
+            150
+        ),
+        Err(Error::Authentication),
+        "genuine signatures cannot authenticate caller-provided current-state JSON"
+    );
 }
 
 #[test]
-fn root_version_zero_and_later_current_versions_are_positive_cases() {
+fn zero_and_later_root_claims_do_not_authenticate_themselves() {
     let v = vectors();
     for row in v["cases"]
         .as_array()
@@ -126,7 +136,7 @@ fn root_version_zero_and_later_current_versions_are_positive_cases() {
                 &row["previous_publication_head"],
                 row["now"].as_i64().unwrap()
             ),
-            Ok(())
+            Err(Error::Authentication)
         );
     }
 }

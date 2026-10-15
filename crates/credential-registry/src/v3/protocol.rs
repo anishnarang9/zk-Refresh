@@ -349,10 +349,348 @@ pub struct CurrentHead {
     pub valid_until: i64,
 }
 
+const PUBLISHER_SIGN_TAG: &[u8] = b"DYNARK-V3-PUBLISHER-BINDING-v1\0";
+const PUBLISHER_WIRE_TAG: &[u8] = b"DYNARK-V3-PUBLISHER-WIRE-v1\0";
+
+/// Explicit predecessor CLAIM, not authenticated persistence or latest state.
+/// Current v3 Config/Issuer accounts contain root/version and bound source head,
+/// but contain no publisher envelope sequence/digest. A protected/HMAC file can
+/// still be rolled back. Restart requires separate fresh checkpoint provenance
+/// or a reviewed onchain extension; neither exists in this slice.
+#[allow(dead_code)]
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PublisherPredecessorClaim {
+    sequence: u64,
+    digest: [u8; 32],
+}
+
+#[allow(dead_code)]
+#[derive(Serialize)]
+struct PublisherSigningBody<'a> {
+    scope: &'a Scope,
+    issuer: &'a IssuerScope,
+    source_head: &'a SourceHead,
+    root: Field,
+    root_version: u64,
+    publisher_key: [u8; 32],
+    publication_sequence: u64,
+    previous_publication_digest: [u8; 32],
+}
+
+/// Private mathematical evidence only. It is deliberately not a capability:
+/// no constructor, public export, serde/Debug/Clone or authorization API exists.
+/// No concrete finalized RPC verifier or durable checkpoint validator can mint
+/// current-state/predecessor capabilities yet; a public trait implementation or
+/// caller JSON must not be substituted for those missing provenance checks.
+#[allow(dead_code)]
+struct CheckedPublisherClaim {
+    binding: PublisherBinding,
+    source_head: SourceHead,
+    envelope_digest: [u8; 32],
+}
+
+#[allow(dead_code)]
+fn publisher_signing_bytes(binding: &PublisherBinding) -> Result<Vec<u8>, Error> {
+    canonical_json(
+        PUBLISHER_SIGN_TAG,
+        &PublisherSigningBody {
+            scope: &binding.scope,
+            issuer: &binding.issuer,
+            source_head: &binding.source_head,
+            root: binding.root,
+            root_version: binding.root_version,
+            publisher_key: binding.publisher_key,
+            publication_sequence: binding.publication_sequence,
+            previous_publication_digest: binding.previous_publication_digest,
+        },
+    )
+}
+
+/// Verify bounded signatures and coherence against EXPLICIT CLAIMS. This is
+/// intentionally private and disconnected from every public authorization path.
+/// In particular, `current` is not authenticated chain state and `previous` is
+/// not a trusted persisted checkpoint. Even success establishes neither fact.
+#[allow(dead_code)]
+fn check_publisher_envelope_claim(
+    binding: &PublisherBinding,
+    source: &VerifiedSource,
+    current: &CurrentHead,
+    previous: &PublisherPredecessorClaim,
+    now: i64,
+) -> Result<CheckedPublisherClaim, Error> {
+    if binding.signature.len() != 64 {
+        return Err(Error::Authentication);
+    }
+    scope_valid(&current.scope, &current.issuer)?;
+    if binding.root >= FR_MODULUS || current.root >= FR_MODULUS || current.publisher_key == [0; 32]
+    {
+        return Err(Error::Invalid);
+    }
+    let observation = source.observation();
+    if binding.scope != observation.scope
+        || binding.issuer != observation.issuer
+        || binding.scope != current.scope
+        || binding.issuer != current.issuer
+        || binding.publisher_key != current.publisher_key
+        || binding.publisher_key == binding.issuer.source_key
+        || binding.root != current.root
+        || binding.root_version != current.root_version
+        || binding.source_head.sequence != source.head().sequence
+        || binding.source_head.digest != source.head().digest
+        || current.source_head.sequence != source.head().sequence
+        || current.source_head.digest != source.head().digest
+        || current.source_head.sequence == 0
+        || current.source_head.digest == [0; 32]
+        || current.observed_config_epoch != binding.scope.config_eligibility_epoch
+        || current.observed_issuer_epoch != binding.issuer.issuer_eligibility_epoch
+    {
+        return Err(Error::Authentication);
+    }
+    if !observation.issuer_status_active
+        || !current.config_enabled
+        || !current.issuer_enabled
+        || !current.status_valid
+    {
+        return Err(Error::Disabled);
+    }
+    // Recheck the retained source at use time, not merely when its immutable
+    // VerifiedSource was created. This still does not authenticate `now`/clock.
+    if now < 0
+        || current.clock_unix < 0
+        || current.clock_unix > now
+        || current.valid_until < current.clock_unix
+        || now > current.valid_until
+        || current
+            .valid_until
+            .checked_sub(current.clock_unix)
+            .ok_or(Error::Stale)?
+            > 300
+        || observation.observed_at > current.clock_unix
+        || observation.observed_at > now
+        || now >= observation.valid_until
+    {
+        return Err(Error::Stale);
+    }
+    if (previous.sequence == 0) != (previous.digest == [0; 32])
+        || binding.publication_sequence == 0
+        || binding.publication_sequence != previous.sequence.checked_add(1).ok_or(Error::Bound)?
+        || binding.previous_publication_digest != previous.digest
+    {
+        return Err(Error::Replay);
+    }
+    let wire = canonical_json(PUBLISHER_WIRE_TAG, binding)?;
+    let message = publisher_signing_bytes(binding)?;
+    let key = PKey::public_key_from_raw_bytes(&current.publisher_key, Id::ED25519)
+        .map_err(|_| Error::Authentication)?;
+    let accepted = Verifier::new_without_digest(&key)
+        .and_then(|mut verifier| verifier.verify_oneshot(&binding.signature, &message))
+        .map_err(|_| Error::Authentication)?;
+    if !accepted {
+        return Err(Error::Authentication);
+    }
+    Ok(CheckedPublisherClaim {
+        binding: binding.clone(),
+        source_head: source.head().clone(),
+        envelope_digest: Sha256::digest(&wire).into(),
+    })
+}
+
 impl PublisherBinding {
-    /// Deliberate fail-closed boundary, not publisher/current-head qualification.
-    /// Root version zero alone is valid; source sequence zero is unobserved.
+    /// Permanently rejecting legacy JSON-only route. Neither a valid publisher
+    /// signature nor a caller-constructed CurrentHead proves finalized current
+    /// accounts or the latest persisted publisher predecessor. No public trait
+    /// adapter can mint authority through this entrypoint.
     pub fn require_current(&self, _current: &CurrentHead, _now: i64) -> Result<(), Error> {
         Err(Error::Authentication)
+    }
+}
+
+#[cfg(test)]
+mod publisher_claim_tests {
+    use super::*;
+    use serde_json::Value;
+    use std::{fs, path::Path};
+
+    fn vectors() -> Value {
+        let path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/vectors/v3-publisher-auth-v1.json");
+        let raw = fs::read(path).unwrap();
+        assert!(raw.len() <= 2 * 1024 * 1024);
+        let digest: String = Sha256::digest(&raw)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        assert_eq!(
+            digest,
+            "c2e4d6c73cdfe20ff2b7d8cd06a5e47b4a622ad9716de3671bd910632f461b48"
+        );
+        serde_json::from_slice(&raw).unwrap()
+    }
+    fn source(row: &Value) -> VerifiedSource {
+        let signed: SignedSource = serde_json::from_value(row["signed_source"].clone()).unwrap();
+        let enrolled: EnrolledSource =
+            serde_json::from_value(row["enrolled_source"].clone()).unwrap();
+        let previous: SourceHead =
+            serde_json::from_value(row["previous_source_head"].clone()).unwrap();
+        signed
+            .verify(
+                &enrolled,
+                &previous,
+                row["source_verified_at"].as_i64().unwrap(),
+            )
+            .unwrap()
+    }
+    fn claims(row: &Value) -> (PublisherBinding, CurrentHead, PublisherPredecessorClaim) {
+        (
+            serde_json::from_value(row["binding"].clone()).unwrap(),
+            serde_json::from_value(row["current_head"].clone()).unwrap(),
+            serde_json::from_value(row["previous_publication_head"].clone()).unwrap(),
+        )
+    }
+    #[test]
+    fn all28_independent_publisher_signatures_have_exact_typed_preimages() {
+        let v = vectors();
+        assert_eq!(v["cases"].as_array().unwrap().len(), 28);
+        for row in v["cases"].as_array().unwrap() {
+            let (binding, _, _) = claims(row);
+            let message = publisher_signing_bytes(&binding).unwrap();
+            let hex: String = message.iter().map(|b| format!("{b:02x}")).collect();
+            assert_eq!(hex, row["signing_bytes_hex"].as_str().unwrap());
+            let key = PKey::public_key_from_raw_bytes(&binding.publisher_key, Id::ED25519).unwrap();
+            assert!(Verifier::new_without_digest(&key)
+                .unwrap()
+                .verify_oneshot(&binding.signature, &message)
+                .unwrap());
+        }
+    }
+    #[test]
+    fn independent_crypto_and_explicit_claim_coherence_match_all28_cases() {
+        let v = vectors();
+        let mut positives = 0;
+        let mut negatives = 0;
+        for row in v["cases"].as_array().unwrap() {
+            let (binding, current, previous) = claims(row);
+            let source = source(row);
+            let result = check_publisher_envelope_claim(
+                &binding,
+                &source,
+                &current,
+                &previous,
+                row["now"].as_i64().unwrap(),
+            );
+            if row["expect"] == "accept" {
+                let checked = result.unwrap();
+                assert_eq!(checked.binding.root, binding.root);
+                assert_eq!(checked.source_head.digest, source.head().digest);
+                assert_ne!(checked.envelope_digest, [0; 32]);
+                positives += 1;
+            } else {
+                assert!(result.is_err(), "claim mismatch admitted: {}", row["name"]);
+                negatives += 1;
+            }
+        }
+        assert_eq!((positives, negatives), (2, 26));
+    }
+    #[test]
+    fn corrupted_publisher_signature_rejects_internal_envelope_claim() {
+        let v = vectors();
+        let row = &v["cases"][0];
+        let (mut binding, current, previous) = claims(row);
+        let source = source(row);
+        assert!(
+            check_publisher_envelope_claim(&binding, &source, &current, &previous, 150).is_ok()
+        );
+        binding.signature[0] ^= 1;
+        assert!(
+            check_publisher_envelope_claim(&binding, &source, &current, &previous, 150).is_err()
+        );
+    }
+    #[test]
+    fn checked_envelope_claim_cannot_authorize_current_application_work() {
+        let v = vectors();
+        let row = &v["cases"][0];
+        let (binding, current, previous) = claims(row);
+        let source = source(row);
+        let _checked =
+            check_publisher_envelope_claim(&binding, &source, &current, &previous, 150).unwrap();
+        assert_eq!(
+            binding.require_current(&current, 150),
+            Err(Error::Authentication)
+        );
+    }
+    #[test]
+    fn independent_frozen_body_and_signature_define_full_envelope_digest() {
+        let v = vectors();
+        let row = &v["cases"][0];
+        let (binding, current, previous) = claims(row);
+        let source = source(row);
+        let checked =
+            check_publisher_envelope_claim(&binding, &source, &current, &previous, 150).unwrap();
+        let encoded = row["signing_bytes_hex"].as_str().unwrap();
+        let message: Vec<u8> = (0..encoded.len() / 2)
+            .map(|i| u8::from_str_radix(&encoded[2 * i..2 * i + 2], 16).unwrap())
+            .collect();
+        // Reconstruct the signed wire independently from frozen generator bytes,
+        // not from the production PublisherBinding serializer/helper.
+        let body = message
+            .strip_prefix(b"DYNARK-V3-PUBLISHER-BINDING-v1\0")
+            .unwrap();
+        assert_eq!(body.last(), Some(&b'}'));
+        let mut expected = b"DYNARK-V3-PUBLISHER-WIRE-v1\0".to_vec();
+        expected.extend_from_slice(&body[..body.len() - 1]);
+        expected.extend_from_slice(b",\"signature\":[");
+        let signature = binding
+            .signature
+            .iter()
+            .map(u8::to_string)
+            .collect::<Vec<_>>()
+            .join(",");
+        expected.extend_from_slice(signature.as_bytes());
+        expected.extend_from_slice(b"]}");
+        let digest: [u8; 32] = Sha256::digest(&expected).into();
+        assert_eq!(checked.envelope_digest, digest);
+        assert_ne!(
+            digest,
+            <[u8; 32]>::from(Sha256::digest(body)),
+            "digest includes domain and exact signature"
+        );
+    }
+    #[test]
+    fn authenticated_inactive_source_is_only_a_negative_fact() {
+        let v = vectors();
+        let row = v["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["name"] == "inactive_source")
+            .unwrap();
+        let (binding, current, previous) = claims(row);
+        let source = source(row);
+        assert!(!source.observation().issuer_status_active);
+        assert_eq!(
+            check_publisher_envelope_claim(&binding, &source, &current, &previous, 150).map(|_| ()),
+            Err(Error::Disabled)
+        );
+    }
+    #[test]
+    fn coherent_json_cannot_collapse_publisher_and_issuer_source_roles() {
+        let v = vectors();
+        let row = v["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["name"] == "source_key_used_as_publisher")
+            .unwrap();
+        let (binding, mut current, previous) = claims(row);
+        let source = source(row);
+        // This fixture is genuinely signed by the issuer source key. Normalize
+        // the raw current claim too, so key-mismatch cannot mask the role guard.
+        current.publisher_key = binding.publisher_key;
+        assert_eq!(binding.publisher_key, binding.issuer.source_key);
+        assert_eq!(
+            check_publisher_envelope_claim(&binding, &source, &current, &previous, 150).map(|_| ()),
+            Err(Error::Authentication)
+        );
     }
 }
