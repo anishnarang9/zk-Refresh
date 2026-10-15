@@ -1,0 +1,125 @@
+{
+  "status": "ROOTcompile passed; unique actual emittedlibtest frozen, no pilotexecution",
+  "source_manifest": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/projection-integration-source-manifest-001.json",
+    "bytes": 20298,
+    "sha256": "1fe4209c58d02f413b1c9a386f55e8bd59c0a375cb12b525df65219a6d4ab66f",
+    "mode": "0o600"
+  },
+  "compile_proposal": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/projection-integration-compile-grant-proposal-001.json",
+    "bytes": 12980,
+    "sha256": "77f4ea4ec8cca774c8c40dc0afc602d0ddec0a765f00f724172e2dc4257019df",
+    "mode": "0o600"
+  },
+  "ROOT_grant": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/projection-integration-compile-parent-grant-001.json",
+    "bytes": 13361,
+    "sha256": "91053338134b27dc0290010ffa73ab878e6dd80f02cd05c58d0356b0df65feb7",
+    "mode": "0o600"
+  },
+  "primary": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/projection-integration-compile-001/primary.json",
+    "bytes": 55310,
+    "sha256": "91c118ba85a4df87362ea16597476ff55293af9adbcc8d595517cf1df7f88430",
+    "mode": "0o600"
+  },
+  "duplicate": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/projection-integration-compile-001/bounded/report.json",
+    "bytes": 55310,
+    "sha256": "91c118ba85a4df87362ea16597476ff55293af9adbcc8d595517cf1df7f88430",
+    "mode": "0o600"
+  },
+  "duplicate_equal": true,
+  "stdout": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/projection-integration-compile-001/bounded/stdout.log",
+    "bytes": 167032,
+    "sha256": "d236cba08befb04b26ed247435a4fffa93100091757b932755cc3f182648e20f",
+    "mode": "0o600"
+  },
+  "stderr": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/projection-integration-compile-001/bounded/stderr.log",
+    "bytes": 3116,
+    "sha256": "34e5014bb9ba3505031d6b6e7911e7fe4c580957b8245573cceaef509521c2ee",
+    "mode": "0o600"
+  },
+  "ROOT_reviewed_build_outcome": true,
+  "unique_actual_compiler_artifact": true,
+  "target_name": "dynark_bn254",
+  "target_kind": [
+    "lib"
+  ],
+  "profile_test": true,
+  "build_finished_success": true,
+  "actual_executable": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/projection-integration-target-001/release/build/dynark-bn254/a2cbddf84622c2c3/out/dynark_bn254-a2cbddf84622c2c3",
+    "bytes": 4769264,
+    "sha256": "97b8c7a55da7ae832ffee059ab4ca85c1ae517d183ac592e2f921436adc98b22",
+    "mode": "0o700"
+  },
+  "frozen_binary": {
+    "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/phase-2/performance-attribution/binaries/projection-integration-libtest-001",
+    "bytes": 4769264,
+    "sha256": "97b8c7a55da7ae832ffee059ab4ca85c1ae517d183ac592e2f921436adc98b22",
+    "mode": "0o700"
+  },
+  "actual_frozen_byteequal": true,
+  "external_post": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/projection-integration-compile-external-post-pins-001.json",
+    "bytes": 37105,
+    "sha256": "8579b577a4c802835df1850075c9dc66a6c40c64bc619b51be717f23ecb0ea30",
+    "mode": "0o600"
+  },
+  "all_source_helper_tool_modes_owners_hashes_unchanged": true,
+  "host_complete": {
+    "event": "host_supervisor_complete",
+    "primary_host_cause": null,
+    "cleanup_verified": true,
+    "runner_returncode": 0,
+    "primary_runner_report_present": true,
+    "measurement_outcome": "completed_under_fixed_budget",
+    "additional_monitoring_planning_bytes": 201326592,
+    "monitoring_reserve_is_enforced": false,
+    "raw_runner_report_sha256": "91c118ba85a4df87362ea16597476ff55293af9adbcc8d595517cf1df7f88430",
+    "whole_monitor_seconds": 78.45507787493989,
+    "runner_report_fields_unmodified": true,
+    "samples_retained_in_original_files_only": true,
+    "resource_policy_id": "dynark-fixed-budget-v1",
+    "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+    "utc": "2026-10-15T03:22:19Z"
+  },
+  "wrapper_complete": {
+    "event": "attribution_compile_wrapper_complete",
+    "primary_cause": null,
+    "cleanup_verified": true,
+    "primary_report_unmodified": true,
+    "resource_policy_id": "dynark-fixed-budget-v1",
+    "resource_policy_sha256": "5ae6aa5ad0915ffae434c5f31d79dea75141570dff2eef3834e73735a4673f98",
+    "utc": "2026-10-15T03:22:19Z"
+  },
+  "resources": {
+    "duration_seconds": 77.71429129096214,
+    "sample_count": 317,
+    "sampled_peak_owned_tree_rss_bytes": 579010560,
+    "sampled_peak_storage_growth_bytes": 158865994,
+    "limits": {
+      "runtime_seconds": 600.0,
+      "owned_tree_rss_bytes": 4294967296,
+      "storage_growth_bytes": 2147483648,
+      "poll_seconds": 0.2
+    },
+    "exit_code": 0,
+    "stop_reason": null,
+    "runner_error_type": null,
+    "cleanup_remaining_owned_processes": 0,
+    "cleanup_status_unknown": false
+  },
+  "ROOT_all_observed_owned_PIDs_absent": true,
+  "no_worker_execution": true,
+  "capacity_scope_clarification": {
+    "path": "/Users/anishnarang/Zk-refresh/results/dynark/phase-2/performance-attribution/projection-integration-capacity-scope-clarification-001.json",
+    "bytes": 1814,
+    "sha256": "af34adeb366db74ad317dc620d94a513dc834c8b476131669c77590a4090b2fe",
+    "mode": "0o600"
+  }
+}
