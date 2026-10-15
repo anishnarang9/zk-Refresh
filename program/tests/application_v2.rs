@@ -35,6 +35,10 @@ fn issuer() -> Issuer {
         digest: [0; 32],
         observed_at: 0,
         expires_at: 0,
+        bound_root: [0; 32],
+        bound_root_version: 0,
+        bound_source_sequence: 0,
+        bound_source_digest: [0; 32],
     }
 }
 fn request() -> Request {
@@ -243,4 +247,41 @@ fn request_and_queue_reject_nonzero_unused_allocation_padding() {
     let mut b = q.encode();
     b[QUEUE_LEN - 1] = 1;
     assert!(Queue::decode(&b).is_err());
+}
+
+#[test]
+fn publisher_binding_tracks_exact_current_source_and_root_without_changing_action() {
+    let mut c = config();
+    let mut i = issuer();
+    i.observe(0, 1, [1; 32], 100, 400, 100).unwrap();
+    let mut r = request();
+    r.upload(0, b"abc").unwrap();
+    r.finalize(100).unwrap();
+    let program = Pubkey::new_unique();
+    let before = action_preimage(&program, &c, &r).unwrap();
+    assert_eq!(i.binding_current(&c), Err(AppError::Binding));
+    let original = i.clone();
+    assert!(i.bind_current(&c, 1, 1, 100).is_err());
+    assert_eq!(i, original);
+    assert!(i.bind_current(&c, 0, 2, 100).is_err());
+    assert_eq!(i, original);
+    i.bind_current(&c, 0, 1, 100).unwrap();
+    assert_eq!(i.bound_root, c.root);
+    assert_eq!(i.bound_source_digest, i.digest);
+    assert!(i.binding_current(&c).is_ok());
+    c.publish(0, c.root).unwrap();
+    assert!(i.binding_current(&c).is_err());
+    i.bind_current(&c, 1, 1, 100).unwrap();
+    assert!(i.binding_current(&c).is_ok());
+    i.observe(1, 2, [2; 32], 101, 401, 101).unwrap();
+    assert!(i.binding_current(&c).is_err());
+    i.bind_current(&c, 1, 2, 101).unwrap();
+    assert_eq!(i.bound_source_digest, [2; 32]);
+    assert!(i.binding_current(&c).is_ok());
+    assert_eq!(action_preimage(&program, &c, &r).unwrap(), before);
+    assert!(i.bind_current(&c, 1, 2, 402).is_err());
+    let mut old = i.encode();
+    old.truncate(229);
+    old[..8].copy_from_slice(b"DYNISS02");
+    assert!(Issuer::decode(&old).is_err());
 }

@@ -72,6 +72,10 @@ fn runtime_rejects_unauthorized_root_and_status_without_state_writes() {
         digest: [0; 32],
         observed_at: 0,
         expires_at: 0,
+        bound_root: [0; 32],
+        bound_root_version: 0,
+        bound_source_sequence: 0,
+        bound_source_digest: [0; 32],
     };
     let mut cb = c.encode();
     let mut ib = i.encode();
@@ -191,8 +195,13 @@ fn fixture() -> (
         digest: [0; 32],
         observed_at: 0,
         expires_at: 0,
+        bound_root: [0; 32],
+        bound_root_version: 0,
+        bound_source_sequence: 0,
+        bound_source_digest: [0; 32],
     };
     i.observe(0, 1, [1; 32], 99, 399, 100).unwrap();
+    i.bind_current(&c, 0, 1, 100).unwrap();
     let issuer = issuer_address(&program, &config, &i.issuer_hash).0;
     let mut r = Request {
         config,
@@ -460,6 +469,137 @@ fn authenticated_publication_advances_distinct_root_and_source_versions() {
     assert_eq!(
         process_instruction(&program, &[source, ca, ia], &observe),
         Err(AppError::Version.into())
+    );
+    set_syscall_stubs(old);
+}
+
+fn bind_wire(root: u64, source: u64) -> Vec<u8> {
+    let mut b = vec![PREFIX, 11];
+    b.extend(root.to_be_bytes());
+    b.extend(source.to_be_bytes());
+    b
+}
+#[test]
+fn runtime_bind_requires_publisher_exact_current_versions_and_fresh_source() {
+    let old = set_syscall_stubs(Box::new(FixedClock));
+    let (program, c, i, _, accounts, wire) = fixture();
+    let mut issuer = accounts[1].clone();
+    issuer.is_writable = true;
+    let publisher = ai(c.publisher, program, true, false, vec![]);
+    let source = ai(i.source, program, true, false, vec![]);
+    let original = issuer.try_borrow_data().unwrap().to_vec();
+    assert_eq!(
+        process_instruction(
+            &program,
+            &[source, accounts[0].clone(), issuer.clone()],
+            &bind_wire(0, 1)
+        ),
+        Err(AppError::Authority.into())
+    );
+    assert_eq!(issuer.try_borrow_data().unwrap().as_ref(), original);
+    for (root, seq) in [(1, 1), (0, 2)] {
+        assert_eq!(
+            process_instruction(
+                &program,
+                &[publisher.clone(), accounts[0].clone(), issuer.clone()],
+                &bind_wire(root, seq)
+            ),
+            Err(AppError::Version.into())
+        );
+    }
+    process_instruction(
+        &program,
+        &[publisher.clone(), accounts[0].clone(), issuer.clone()],
+        &bind_wire(0, 1),
+    )
+    .unwrap();
+    let bound = Issuer::decode(&issuer.try_borrow_data().unwrap()).unwrap();
+    assert_eq!(bound.bound_root, c.root);
+    assert_eq!(bound.bound_source_sequence, i.sequence);
+    assert_eq!(bound.bound_source_digest, i.digest);
+    assert_eq!(
+        process_instruction(&program, &accounts, &wire),
+        Err(AppError::Proof.into())
+    );
+    let mut stale = bound.clone();
+    stale.expires_at = 99;
+    issuer
+        .try_borrow_mut_data()
+        .unwrap()
+        .copy_from_slice(&stale.encode());
+    assert_eq!(
+        process_instruction(
+            &program,
+            &[publisher, accounts[0].clone(), issuer.clone()],
+            &bind_wire(0, 1)
+        ),
+        Err(AppError::Status.into())
+    );
+    assert_eq!(
+        process_instruction(&program, &accounts, &wire),
+        Err(AppError::Status.into())
+    );
+    set_syscall_stubs(old);
+}
+#[test]
+fn runtime_source_and_global_root_updates_fence_execution_until_publisher_rebind() {
+    let old = set_syscall_stubs(Box::new(FixedClock));
+    let (program, c, i, _, accounts, wire) = fixture();
+    let mut issuer = accounts[1].clone();
+    issuer.is_writable = true;
+    let mut config = accounts[0].clone();
+    config.is_writable = true;
+    let publisher = ai(c.publisher, program, true, false, vec![]);
+    let source = ai(i.source, program, true, false, vec![]);
+    process_instruction(
+        &program,
+        &[publisher.clone(), accounts[0].clone(), issuer.clone()],
+        &bind_wire(0, 1),
+    )
+    .unwrap();
+    let mut publish = vec![PREFIX, 2];
+    publish.extend(0u64.to_be_bytes());
+    publish.extend(c.root);
+    process_instruction(&program, &[publisher.clone(), config], &publish).unwrap();
+    assert_eq!(
+        process_instruction(&program, &accounts, &wire),
+        Err(AppError::Binding.into())
+    );
+    process_instruction(
+        &program,
+        &[publisher.clone(), accounts[0].clone(), issuer.clone()],
+        &bind_wire(1, 1),
+    )
+    .unwrap();
+    assert_eq!(
+        process_instruction(&program, &accounts, &wire),
+        Err(AppError::Proof.into())
+    );
+    let mut observe = vec![PREFIX, 3];
+    observe.extend(1u64.to_be_bytes());
+    observe.extend(2u64.to_be_bytes());
+    observe.extend([2; 32]);
+    observe.extend(100i64.to_be_bytes());
+    observe.extend(400i64.to_be_bytes());
+    process_instruction(
+        &program,
+        &[source, accounts[0].clone(), issuer.clone()],
+        &observe,
+    )
+    .unwrap();
+    assert_eq!(
+        process_instruction(&program, &accounts, &wire),
+        Err(AppError::Binding.into())
+    );
+    process_instruction(
+        &program,
+        &[publisher, accounts[0].clone(), issuer],
+        &bind_wire(1, 2),
+    )
+    .unwrap();
+    assert_eq!(
+        process_instruction(&program, &accounts, &wire),
+        Err(AppError::Proof.into())
     );
     set_syscall_stubs(old);
 }

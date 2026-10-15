@@ -206,6 +206,7 @@ pub fn validate_authorization(
         return Err(AppError::Expired.into());
     }
     i.fresh(now)?;
+    i.binding_current(c)?;
     for input in inputs {
         crate::canonical(input).map_err(|_| AppError::Proof)?
     }
@@ -364,6 +365,10 @@ pub fn process(program: &Pubkey, accounts: &[AccountInfo], bytes: &[u8]) -> Prog
                 digest: [0; 32],
                 observed_at: 0,
                 expires_at: 0,
+                bound_root: [0; 32],
+                bound_root_version: 0,
+                bound_source_sequence: 0,
+                bound_source_digest: [0; 32],
             };
             profile(&i)?;
             let (expected, bump) = issuer_address(program, ca.key, &issuer_hash);
@@ -410,6 +415,25 @@ pub fn process(program: &Pubkey, accounts: &[AccountInfo], bytes: &[u8]) -> Prog
                 Clock::get()?.unix_timestamp,
             )?;
             write(&accounts[2], &i.encode())?
+        }
+        AppInstruction::BindCurrent {
+            root_version,
+            source_sequence,
+        } => {
+            count(accounts, 3)?;
+            let c = load_config(program, &accounts[1])?;
+            let mut i = load_issuer(program, &accounts[1], &accounts[2])?;
+            authority(&accounts[0], &c.publisher)?;
+            writable(&accounts[2])?;
+            package(&c)?;
+            profile(&i)?;
+            i.bind_current(
+                &c,
+                root_version,
+                source_sequence,
+                Clock::get()?.unix_timestamp,
+            )?;
+            write(&accounts[2], &i.encode())?;
         }
         AppInstruction::Create {
             nonce,

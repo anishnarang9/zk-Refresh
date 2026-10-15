@@ -25,6 +25,7 @@ pub enum AppError {
     Action,
     Policy,
     Proof,
+    Binding,
 }
 impl From<AppError> for ProgramError {
     fn from(e: AppError) -> Self {
@@ -60,6 +61,10 @@ pub struct Issuer {
     pub digest: [u8; 32],
     pub observed_at: i64,
     pub expires_at: i64,
+    pub bound_root: [u8; 32],
+    pub bound_root_version: u64,
+    pub bound_source_sequence: u64,
+    pub bound_source_digest: [u8; 32],
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RelevantMeta {
@@ -98,11 +103,11 @@ pub struct Queue {
 }
 
 pub const CONFIG_LEN: usize = 309;
-pub const ISSUER_LEN: usize = 229;
+pub const ISSUER_LEN: usize = 309;
 pub const REQUEST_LEN: usize = 185 + MAX_METAS * 65 + MAX_PAYLOAD;
 pub const QUEUE_LEN: usize = 42 + QUEUE_CAPACITY * 32;
 const CONFIG_MAGIC: &[u8; 8] = b"DYNCONF2";
-const ISSUER_MAGIC: &[u8; 8] = b"DYNISS02";
+const ISSUER_MAGIC: &[u8; 8] = b"DYNIS2B1";
 const REQUEST_MAGIC: &[u8; 8] = b"DYNREQ02";
 const QUEUE_MAGIC: &[u8; 8] = b"DYNQUE02";
 
@@ -217,6 +222,38 @@ impl Config {
     }
 }
 impl Issuer {
+    /// Publisher attests the exact current root incorporates this source observation.
+    pub fn bind_current(
+        &mut self,
+        c: &Config,
+        root_version: u64,
+        source_sequence: u64,
+        now: i64,
+    ) -> Result<()> {
+        if root_version != c.root_version || source_sequence != self.sequence {
+            return Err(AppError::Version);
+        }
+        if !c.enabled {
+            return Err(AppError::Policy);
+        }
+        self.fresh(now)?;
+        self.bound_root = c.root;
+        self.bound_root_version = c.root_version;
+        self.bound_source_sequence = self.sequence;
+        self.bound_source_digest = self.digest;
+        Ok(())
+    }
+    pub fn binding_current(&self, c: &Config) -> Result<()> {
+        if self.bound_root != c.root
+            || self.bound_root_version != c.root_version
+            || self.bound_source_sequence != self.sequence
+            || self.bound_source_digest != self.digest
+            || self.sequence == 0
+        {
+            return Err(AppError::Binding);
+        }
+        Ok(())
+    }
     pub fn encode(&self) -> Vec<u8> {
         let mut b = ISSUER_MAGIC.to_vec();
         push_key(&mut b, &self.config);
@@ -230,6 +267,10 @@ impl Issuer {
         b.extend(self.digest);
         b.extend(self.observed_at.to_be_bytes());
         b.extend(self.expires_at.to_be_bytes());
+        b.extend(self.bound_root);
+        b.extend(self.bound_root_version.to_be_bytes());
+        b.extend(self.bound_source_sequence.to_be_bytes());
+        b.extend(self.bound_source_digest);
         b
     }
     pub fn decode(b: &[u8]) -> Result<Self> {
@@ -246,9 +287,14 @@ impl Issuer {
             digest: r.take()?,
             observed_at: r.i64()?,
             expires_at: r.i64()?,
+            bound_root: r.take()?,
+            bound_root_version: r.u64()?,
+            bound_source_sequence: r.u64()?,
+            bound_source_digest: r.take()?,
         };
         r.finish()?;
         canonical(&i.issuer_hash)?;
+        canonical(&i.bound_root)?;
         if i.profile_version == 0 {
             return Err(AppError::Policy);
         }
@@ -607,6 +653,10 @@ pub enum AppInstruction {
         policy: bool,
         issuer: bool,
     },
+    BindCurrent {
+        root_version: u64,
+        source_sequence: u64,
+    },
     Execute {
         inputs: [[u8; 32]; 5],
         proof: [u8; 256],
@@ -707,6 +757,10 @@ impl AppInstruction {
             10 => Self::SetEnabled {
                 policy: r.boolean()?,
                 issuer: r.boolean()?,
+            },
+            11 => Self::BindCurrent {
+                root_version: r.u64()?,
+                source_sequence: r.u64()?,
             },
             _ => return Err(AppError::Instruction),
         };

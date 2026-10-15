@@ -3,15 +3,15 @@
 This is the five-public-input `credential-v2-dev` Full application path. It is
 an additive `0x50` instruction family in `program/`; the earlier receipt
 instructions and their verifier key retain their separate identity. This
-contract describes the implemented host boundary as of `c6d4808`, not a
-successful loaded-program or devnet authorization.
+contract includes the pre-first-ELF publisher-binding revision. It describes
+an implemented host boundary, not a successful loaded-program or devnet authorization.
 
 ## Accounts and authorities
 
 | Account | PDA seeds after the versioned literal | Bytes | Owner and role |
 | --- | --- | ---: | --- |
 | Config, `dyn-config-v2` | admin, 32-byte seed | 309 | Program-owned; admin sets the development network, policy, circuit, package and schema at initialization and may enable/disable policy. |
-| Issuer, `dyn-issuer-v2` | config, issuerHash | 229 | Program-owned; admin enrolls a fixed v2 issuer/profile/AKI and may enable/disable it. A distinct source signer advances status observations. |
+| Issuer, `dyn-issuer-v2` | config, issuerHash | 309 | Program-owned; admin enrolls a fixed v2 issuer/profile/AKI and may enable/disable it. A distinct source signer advances status observations. |
 | Request, `dyn-request-v2` | config, creator, 32-byte nonce | 2,249 | Program-owned; creator stages and finalizes one immutable request, or cancels it. |
 | Queue, `dyn-queue-v2` | config | 2,090 | Program-owned; publisher does not append directly. Successful authorization appends the request PDA once. |
 
@@ -20,6 +20,29 @@ publication uses an exact predecessor `root_version`; status observation uses
 an independent exact predecessor `sequence`, a new digest, a strictly newer
 observed time, and an expiry bounded by the 300-second **development test
 policy**. The source signs the Solana transaction targeting the issuer PDA.
+
+The issuer account uses discriminator `DYNIS2B1`. Its original 229-byte
+`DYNISS02` layout is rejected. After the original fields, the revision stores
+`bound_root[32]`, `bound_root_version:u64_be`,
+`bound_source_sequence:u64_be`, and `bound_source_digest[32]`.
+`BindCurrent` requires the configured publisher signature, exact expected root
+version and source sequence, and enabled fresh issuer status. It copies the
+actual current root/version and source sequence/digest from authenticated
+program state. Execution requires an exact match against those current values.
+Every `Publish` increments the global root version, including a same-root
+publication. Every `Observe` increments the independent source sequence. Either
+therefore fences execution until the publisher rebinds the issuer. Unrelated
+root publication requires rebind too; no historical binding is accepted.
+Publisher binding attests incorporation or an authenticated no-change decision;
+the source cannot perform this publisher step on its own.
+
+The local harness's controlled synthetic source signs a new observation bound
+to the independently read current config root, issuerHash, and pinned synthetic
+public context. This authenticates the declared synthetic source's statement.
+It is not evidence of an upstream issuer-status check, immediate real-world
+revocation publication, or honest behavior by a compromised trusted authority.
+The real upstream authenticated envelope remains a separate integration gate.
+
 The onchain program does not validate an upstream X.509 CA chain or prove that
 the source saw every real-world revocation. Enrollment must establish the
 fixed v2 CA/AKI association outside the relation. The application demands the
@@ -59,10 +82,43 @@ program cannot verify the six-field bounded v3 successor, including its
 
 After prefix `0x50`, the opcode is `0` Initialize, `1` Enroll, `2` Publish,
 `3` Observe, `4` Create, `5` Finalize, `6` Upload payload, `7` Execute,
-`8` Upload metas, `9` Cancel, or `10` SetEnabled. All wire integers are big
+`8` Upload metas, `9` Cancel, `10` SetEnabled, or `11` BindCurrent. All wire integers are big
 endian; the instruction parser rejects unknown opcodes, trailing bytes and
 oversize chunks, while authorization rejects noncanonical field values.
 Account codecs require exact magic, size and zero
 unused allocation padding. `Execute` carries five 32-byte public scalars and
 a 256-byte proof, and takes config, issuer, request, queue, then any extra
 relevant accounts.
+
+`BindCurrent` has exactly 18 instruction bytes: prefix `0x50`, opcode `11`,
+expected root version `u64_be`, and expected source sequence `u64_be`. Its
+accounts are publisher signer, config read-only, and issuer writable. Binding
+is embedded in the issuer account, so the action-v2 preimage and Execute
+account ordering remain unchanged. Canonical action bytes do not include root
+or source versions, permitting a newly proven root-only retry for the same
+finalized action.
+
+## Proposed six-field successor boundary
+
+This section is a design proposal; no v3 adapter or application key is admitted
+by the v2 runtime. The successor must have a separate module, generated key,
+account/instruction family and trusted manifest. Its six ordered public fields
+are `[root, issuerHash, notBefore, notAfter, actionHash, policyHash]`.
+
+One v3 config pins exactly one signed policyHash. Its action-v2 `policy_id` is
+the canonical 32-byte big-endian policyHash field, with the declared policy
+version. Varied policy hashes use separate configs under the same circuit and
+public setup. Administrator-enabled issuer/policy permit accounts authorize
+only the exact `(issuerHash, policyHash, profile, circuit)` tuple. The program
+must check the sixth public field against this immutable config policy and the
+permit, in addition to enabled issuer, current root, fresh authenticated source,
+exact publisher binding, execution-time validity and reconstructed action.
+
+A six-field adapter must require seven VK IC points and exactly 192 public
+input bytes, preserve the 256-byte proof point ABI, and reject all five-field
+keys and statements. Its ordinary VK commitment uses a separate versioned tag
+and six/seven count prefix. Engine extended-VK digest, tagged ordinary-VK
+digest, raw key file hash, profile, semantic schema, circuit/package and actual
+application ELF hash remain separately named and pinned. Existing five-field
+adapter/key identities and v2 queue accounts are preserved. No implicit account,
+request, proof or cache migration is authorized by this proposal.
