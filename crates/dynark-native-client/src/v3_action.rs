@@ -2,6 +2,10 @@
 //! passing these pure checks does not authenticate finalized accounts or owners.
 //! A trusted chain adapter must supply the immutable request and actual accounts.
 use crate::{ClientError, Digest};
+use ark_bn254::Fr;
+use ark_ff::{BigInteger, PrimeField};
+use ark_serialize::CanonicalDeserialize;
+use sha2::{Digest as _, Sha256};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct V3ActionConfig {
@@ -40,28 +44,116 @@ pub struct V3PreparedAction {
     action_be: Digest,
 }
 
-pub fn v3_action_preimage(_: &V3ActionConfig, _: &V3ActionRequest) -> Result<Vec<u8>, ClientError> {
-    Err(ClientError::Unsupported)
+pub fn v3_action_preimage(
+    config: &V3ActionConfig,
+    request: &V3ActionRequest,
+) -> Result<Vec<u8>, ClientError> {
+    if request.payload.len() > 1024
+        || !(2..=16).contains(&request.metas.len())
+        || request.deadline <= 0
+        || request.request_type != 1
+    {
+        return Err(ClientError::Bound);
+    }
+    if request.config != config.config {
+        return Err(ClientError::Identity);
+    }
+    if config.policy_version == 0 {
+        return Err(ClientError::Version);
+    }
+    for word in [config.policy_id_be, request.issuer_hash_be] {
+        let mut little_endian = word;
+        little_endian.reverse();
+        Fr::deserialize_compressed(&little_endian[..]).map_err(|_| ClientError::Encoding)?;
+    }
+    if request.metas.iter().any(|meta| meta.flags > 3) {
+        return Err(ClientError::Identity);
+    }
+    let mut bytes = Vec::with_capacity(295 + 33 * request.metas.len());
+    bytes.extend_from_slice(b"DYNARK-WORK-REQUEST");
+    bytes.push(2);
+    bytes.extend(config.genesis);
+    bytes.extend(config.program);
+    bytes.extend(request.config);
+    bytes.extend(config.policy_id_be);
+    bytes.extend(config.policy_version.to_be_bytes());
+    bytes.extend(config.circuit_id);
+    bytes.extend(request.nonce);
+    bytes.extend(request.recipient);
+    bytes.extend(request.request_type.to_be_bytes());
+    bytes.extend((request.payload.len() as u32).to_be_bytes());
+    bytes.extend(Sha256::digest(&request.payload));
+    bytes.push(request.metas.len() as u8);
+    for meta in &request.metas {
+        bytes.extend(meta.key);
+        bytes.push(meta.flags);
+    }
+    bytes.extend(request.deadline.to_be_bytes());
+    Ok(bytes)
 }
-pub fn v3_action_hash(_: &V3ActionConfig, _: &V3ActionRequest) -> Result<Digest, ClientError> {
-    Err(ClientError::Unsupported)
+pub fn v3_action_hash(
+    config: &V3ActionConfig,
+    request: &V3ActionRequest,
+) -> Result<Digest, ClientError> {
+    let preimage = v3_action_preimage(config, request)?;
+    // Reduction applies only to the SHA256 digest prescribed by action-v2.
+    // Caller-provided field encodings above are checked without reduction.
+    let scalar = Fr::from_be_bytes_mod_order(&Sha256::digest(&preimage));
+    let encoded = scalar.into_bigint().to_bytes_be();
+    let mut action_be = [0; 32];
+    action_be[32 - encoded.len()..].copy_from_slice(&encoded);
+    Ok(action_be)
 }
-pub fn v3_match_holder_modulus(_: &[u8; 256], _: &[u8; 256]) -> Result<(), ClientError> {
-    Err(ClientError::Unsupported)
+pub fn v3_match_holder_modulus(
+    credential_holder: &[u8; 256],
+    signer_holder: &[u8; 256],
+) -> Result<(), ClientError> {
+    if credential_holder != signer_holder {
+        return Err(ClientError::Identity);
+    }
+    if credential_holder[0] & 0x80 == 0 || credential_holder[255] & 1 == 0 {
+        return Err(ClientError::Encoding);
+    }
+    Ok(())
 }
 /// Validate ordered actual metas, deadline, holder-key match and exact expected
 /// canonical action before a signer is invoked. Actual signature verification is
 /// required separately under the imported credential's holder modulus.
 pub fn v3_prepare_action(
-    _: &V3ActionConfig,
-    _: &V3ActionRequest,
-    _: &[V3ActionMeta],
-    _: Digest,
-    _: &[u8; 256],
-    _: &[u8; 256],
-    _: i64,
+    config: &V3ActionConfig,
+    request: &V3ActionRequest,
+    actual: &[V3ActionMeta],
+    expected_action_be: Digest,
+    credential_holder: &[u8; 256],
+    signer_holder: &[u8; 256],
+    now: i64,
 ) -> Result<V3PreparedAction, ClientError> {
-    Err(ClientError::Unsupported)
+    v3_match_holder_modulus(credential_holder, signer_holder)?;
+    let action_be = v3_action_hash(config, request)?;
+    if actual != request.metas.as_slice()
+        || request.metas[0].key != config.request_key
+        || request.metas[1].key != config.queue_key
+        || request.metas[..2]
+            .iter()
+            .any(|meta| meta.flags != 2 || meta.owner != config.program)
+        || action_be != expected_action_be
+    {
+        return Err(ClientError::Identity);
+    }
+    for (index, meta) in request.metas.iter().enumerate() {
+        if meta.key == config.config
+            || meta.key == config.issuer_account
+            || request.metas[..index]
+                .iter()
+                .any(|prior| prior.key == meta.key)
+        {
+            return Err(ClientError::Identity);
+        }
+    }
+    if now < 0 || now > request.deadline {
+        return Err(ClientError::Expired);
+    }
+    Ok(V3PreparedAction { action_be })
 }
 
 #[cfg(test)]
