@@ -57,7 +57,7 @@ six-field adapter's tagged ordinary VK identity.
 
 ## Proposed source and artifact paths
 
-Already authored source-only scaffold:
+Initial source-only scaffold (RED gate subsequently accepted; current GREEN review is in `PROOF-RUNNER-V1-GREEN-REVIEW.md`):
 
 - `circuits/credential-v3-bounded/qualification/proof-runner-v1/Cargo.toml`
 - `circuits/credential-v3-bounded/qualification/proof-runner-v1/src/main.rs`
@@ -67,8 +67,7 @@ reviewed dependency versions with a separately generated local lock. After the
 red gate, propose focused owned modules `src/artifacts.rs`, `src/context.rs`,
 `src/ordinary.rs` and the positive `src/main.rs`; no production API change.
 A proposed `tools/part5/prepare_proof_inputs_v1.py` prepares a protected packet
-and binds original corpus inputs to complete WTNS coordinates. No such positive
-implementation is claimed by today's scaffold.
+and binds original corpus inputs to complete WTNS coordinates. The source-only GREEN implementation now exists; it is not yet built or qualified.
 
 Use a separate target and future executable:
 
@@ -257,9 +256,7 @@ New scaffold pins:
 - Cargo.toml SHA256: `7768c6770b1d6dad8bdb47641d38e5d655d7dd167f8036e07884b26dbf8d3d93`
 - src/main.rs SHA256: `e408ad68af1a4164c1c9a4620e7c9ff3f632f0a0306d7567152f3c49546cb0a4`
 
-`rustfmt --check` passes. No Rust build/test has run. The one positive context
-test currently hits the deliberate unimplemented root-only-admission error.
-ROOT freezes the local lock and exact dependency closure before the red test.
+Historical RED state: ROOT accepted exactly one executed deliberate assertion failure, exit101,44.057s, under the reviewed caps. Current GREEN source pins and pending unit command are recorded separately in `PROOF-RUNNER-V1-GREEN-REVIEW.md`. No GREEN Cargo build or proof has run.
 Environment for every future Cargo command:
 
 ```
@@ -286,13 +283,12 @@ compile/resource failure or zero tests does not establish the gate. Positive
 context/loader/proof implementation and green/release commands require subsequent
 review. ROOT measures and freezes the eventual proof executable separately.
 
-Intended runtime entrypoints after accepted implementation/build, not available
-today (`PROOF_PACKET_SHA` is mandatory from ROOT's external receipt):
+Runtime entrypoints after accepted GREEN implementation/build (`PROOF_PACKET_SHA` and `FULL_REPORT_SHA` are mandatory ROOT-authenticated pins):
 
 ```sh
 /Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-proof-runner-v1-build-001/release/credential-v3-bounded-proof-qualification-v1 full-corpus /Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-proof-contexts-v1-private/packet.json "$PROOF_PACKET_SHA" /Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-full-corpus-001
-/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-proof-runner-v1-build-001/release/credential-v3-bounded-proof-qualification-v1 anchor-pilot /Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-proof-contexts-v1-private/packet.json "$PROOF_PACKET_SHA" /Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-anchor-pilot-001
-/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-proof-runner-v1-build-001/release/credential-v3-bounded-proof-qualification-v1 anchor-corpus /Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-proof-contexts-v1-private/packet.json "$PROOF_PACKET_SHA" /Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-anchor-corpus-001
+/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-proof-runner-v1-build-001/release/credential-v3-bounded-proof-qualification-v1 anchor-pilot /Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-proof-contexts-v1-private/packet.json "$PROOF_PACKET_SHA" /Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-full-corpus-001/proof-report.json "$FULL_REPORT_SHA" /Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-anchor-pilot-001
+/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-proof-runner-v1-build-001/release/credential-v3-bounded-proof-qualification-v1 anchor-corpus /Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-proof-contexts-v1-private/packet.json "$PROOF_PACKET_SHA" /Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-full-corpus-001/proof-report.json "$FULL_REPORT_SHA" /Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-anchor-corpus-001
 ```
 
 All output paths must initially be absent. Reports contain public artifact/key
