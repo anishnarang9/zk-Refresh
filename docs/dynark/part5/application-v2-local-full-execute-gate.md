@@ -45,6 +45,14 @@ reconciliation on the stopped original ledger are pending. The local proof and
 confirmed queue effect are observed; this document does not yet claim exact
 finalized account bytes.
 
+The tests-first finalized-state regression compiled and ran two tests against
+the old slot-only success helper. Both failed at the intended assertions:
+divergent finalized request bytes were accepted, and the helper returned slot
+100 before the exact account queries that would report slot 101. The bounded
+RED receipt is `results/dynark/part5/v2-finalized-effect-red-bounded-001.json`;
+it had no cap stop or residual owned process. No validator or transaction was
+run in this regression.
+
 This is a **Full-only local integration result for the fixed development
 certificate**. The source observation is controlled and synthetic; it does not
 show an upstream issuer check. This gate does not verify Anchor refresh through
