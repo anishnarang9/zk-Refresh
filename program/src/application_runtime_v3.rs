@@ -185,6 +185,39 @@ fn write(a: &AccountInfo, bytes: &[u8]) -> ProgramResult {
     data.copy_from_slice(bytes);
     Ok(())
 }
+const FQ: [u8; 32] = [
+    0x30, 0x64, 0x4e, 0x72, 0xe1, 0x31, 0xa0, 0x29, 0xb8, 0x50, 0x45, 0xb6, 0x81, 0x81, 0x58, 0x5d,
+    0x97, 0x81, 0x6a, 0x91, 0x68, 0x71, 0xca, 0x8d, 0x3c, 0x20, 0x8c, 0x16, 0xd8, 0x7c, 0xfd, 0x47,
+];
+/// Six-field ordinary Groth16 verification only; this does not authorize an
+/// application effect. Execute dispatch remains unavailable. The ABI is -A,
+/// B(x.c1,x.c0,y.c1,y.c0), C with canonical BE Fq components. Curve/subgroup and
+/// pairing checks are performed by groth16-solana and its BN254 syscalls.
+pub fn verify(inputs: &[[u8; 32]; 6], proof: &[u8; 256]) -> ProgramResult {
+    for input in inputs {
+        crate::canonical(input).map_err(|_| AppError::Proof)?;
+    }
+    for point in [&proof[..64], &proof[64..192], &proof[192..]] {
+        if point.iter().all(|byte| *byte == 0) {
+            return Err(AppError::Proof.into());
+        }
+    }
+    for coordinate in proof.chunks_exact(32) {
+        if coordinate >= FQ.as_slice() {
+            return Err(AppError::Proof.into());
+        }
+    }
+    let key = &crate::generated_vk_v3::VERIFYING_KEY;
+    if key.nr_pubinputs != 6 || key.vk_ic.len() != 7 {
+        return Err(AppError::Proof.into());
+    }
+    let a = proof[..64].try_into().map_err(|_| AppError::Proof)?;
+    let b = proof[64..192].try_into().map_err(|_| AppError::Proof)?;
+    let c = proof[192..].try_into().map_err(|_| AppError::Proof)?;
+    let mut verifier = groth16_solana::groth16::Groth16Verifier::new(a, b, c, inputs, key)
+        .map_err(|_| AppError::Proof)?;
+    verifier.verify().map_err(|_| AppError::Proof.into())
+}
 pub fn process(program: &Pubkey, accounts: &[AccountInfo], bytes: &[u8]) -> ProgramResult {
     let instruction = AppInstruction::parse(bytes)?;
     match instruction {
