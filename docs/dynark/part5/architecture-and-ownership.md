@@ -1,0 +1,45 @@
+# Part 5 architecture and ownership
+
+October 15, 2026. This document records the implementation direction for the user's Part 5 brief and the added generalizable-credential objective. The brief authorizes local development and pushes to the named GitHub repository. It reserves a separate approval for the concrete devnet deployment package. Existing Phase 2 economic and v2 incremental-mapping gates remain open.
+
+## Product boundary and choice
+
+The first integrated application uses the qualified `credential-v2-dev` Full witness and Full proof package as a local development baseline. That circuit freezes many certificate bytes and does not meet the product objective. We will preserve its source, setup, and evidence. A separately versioned bounded X.509 profile and circuit will admit multiple eligible certificates under one public setup. Changing a certificate within that profile must change only private witness, registry membership, and action state, never the trusted circuit/setup. Changing the profile or circuit requires a new identity and may require a new setup.
+
+We considered broadening the existing v2 circuit in place, a separate bounded successor, and a generic PKIX/ASN.1 circuit. In-place edits would invalidate the qualified key and obscure the development baseline. Generic PKIX has a much larger parsing and policy surface. The bounded successor makes the eligibility rules explicit and lets the existing Full application path integrate while the corpus and circuit are qualified. The successor must not be called product-ready until the frozen-artifact unseen-credential gate passes.
+
+The supported profile will state exact RSA and digest algorithms, key sizes, canonical DER name/serial/time encodings, allowed extensions and variations, signed authorization fields, certificate length limits, and issuer enrollment. Any layout positions used by witness generation must be derived by parsing the imported DER and checked against the declared profile. The circuit must constrain the signed eligibility bytes or a cryptographic commitment to an equivalent authenticated admission statement. Host-only eligibility checks are insufficient because a prover can bypass the standard client. The issuer enrollment and enabled/fresh status check remain application authority, distinct from possession of a valid certificate.
+
+## Protected effect
+
+The only first work type appends one finalized request to a program-owned queue. The queue records a request PDA once; the request account retains the exact payload and ordered relevant account metadata. Enqueueing does not execute an offchain job. The request creator signs creation, uploads bounded bytes if the transaction packet requires chunking, and finalizes the immutable work description before the holder signs its action. The execution instruction derives the request PDA from registry, creator, and nonce; validates the finalized request and actual account keys/order/privileges/owners; reconstructs the frozen canonical action-v2 preimage; checks the five ordered public fields under the exact matching ordinary VK; appends the request; and marks it consumed in the same transaction. A failed append leaves request and nonce available by Solana transaction rollback. The queue has a fixed capacity and no implicit expansion.
+
+The new application has versioned account discriminators and instructions, leaving the legacy receipt prototype and its generated key intact. Configuration stores immutable network genesis and circuit/schema/package identities, an administrator key, a root publisher key, and a separate issuer-status source key. Only those authorities may change their respective state. Issuer enrollment records enabled issuer hash and profile/version. Root publication advances an exact predecessor version. Signed source transactions advance a distinct authenticated status observation; a stale or repeated observation cannot refresh the clock. The development 300-second freshness limit is versioned test policy. Authorization requires the execution-current root, enabled matching issuer/policy/circuit, fresh status, execution-time certificate validity, and action deadline. Currentness is relative to published authoritative state and does not assert instant publication of real-world revocations.
+
+The program cannot read the Solana genesis hash itself. The reviewed deployment package must pin the genesis stored by the administrator at initialization, and local tests use an explicit test genesis. A request caller cannot choose the network domain. The request format keeps the `component-contracts.md` action-v2 byte order, including `SHA256(payload)` and account metadata. If the 1,024-byte profile maximum does not fit in one transaction, request bytes are staged in a program-owned account and made immutable by finalization before proof generation. Instruction and account allocation limits are checked against the actual local runtime.
+
+## Client and artifacts
+
+The standard native client imports a profile-qualified DER credential, obtains an authoritative current registry/status head, binds an exact finalized action, calls a local synthetic development signer through the declared signer interface, generates and validates a complete witness, and makes a randomized Full proof. A versioned manifest pins circuit, semantic schema, Original reduction, extended engine VK digest, tagged ordinary VK digest, raw VK-file hash, and exact matching program identity as distinct fields. The public package is shareable within a profile. Holder keys, certificate bytes, witnesses, private caches, and action receipts are isolated by holder and action, with no secret data in normal logs. A root-only retry starts with Full; an Anchor application experiment follows only after the Full path passes. V2 incremental, Dynamic, Selective, and automatic mode choice stay disabled.
+
+Submission queries the exact request/queue state after uncertain confirmation before retry. New actions invalidate old authorization. A changed root causes a fresh current-state proof; own revocation, expiry, issuer disablement, or stale status stops authorization. Process restart requires fresh authoritative state and private cache rebuild unless an independently durable receipt/key authority is separately qualified.
+
+## Acceptance sequence
+
+1. Freeze profile and application account/action contracts; inventory fixture-bound constants and trust assumptions.
+2. Implement the versioned Full queue application with exact key, current-state checks, authority separation, atomic append and replay handling. Keep local tests and real loaded-ELF tests separate.
+3. Implement the native Full workflow and authenticated registry/status connection; test cancellation, supersession, uncertain confirmation and restart.
+4. Qualify a varied synthetic credential corpus, including at least one independently generated source, eligible issuers, holders, keys, serials, dates, permitted extension/encoding variations, and explicit malformed/ineligible cases. Test Full and Anchor-refreshed ordinary and application proofs per credential. An exposed incremental witness path requires exact complete-witness equality and relation/proof checks per supported variation.
+5. Freeze source and public artifacts, then import additional supported certificates without code or setup changes. Demonstrate valid authorization, unrelated-revocation refresh, own-revocation rejection, and exact queue verification. Measure preparation, peak memory, complete refresh, proof, transport and application effect per credential; report samples and conditions without transferring v1 or fixture speedups.
+6. Build and verify the actual application ELF locally, then prepare a devnet package with exact identities, authorities, fees, recovery steps and observed gates. Deploy only after the separate concrete approval required by the supplied brief.
+
+## Initial exclusive file ownership
+
+| Owner | Files | First deliverable |
+| --- | --- | --- |
+| ROOT | `docs/dynark/part5/`, shared contracts, manifest review, Git staging/commits/pushes, one heavy-job queue | This architecture, task plan, interface decisions, security and evidence review |
+| M1 program | `program/src/` and `program/tests/`; no edit to legacy `generated_vk.rs` without an explicit reviewed transfer | Versioned account/instruction design and queue/current-state implementation |
+| M2 client | `crates/dynark-native-client/` and its focused tests; no shared manifest edits | Full v2 native workflow and isolated lifecycle boundaries |
+| M3 profile | New versioned circuit/profile paths and `tools/part5/` profile/corpus tooling only | Supported-profile proposal, fixture-assumption inventory, independent-corpus tests |
+
+Registry/Solana adapter integration and end-to-end validation receive exclusive ownership after the first interfaces settle. Workers do not commit or launch heavyweight builds/proofs; ROOT stages exact reviewed files, commits each small accepted chunk, pushes it, and grants one bounded heavy job at a time. No worker changes a shared schema or another owner's files without a recorded transfer.
