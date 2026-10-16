@@ -1,0 +1,35 @@
+# Registered v3 matched application measurement protocol
+
+Status: registered method, before performance tuning. No complete-session measurement exists yet. Amend this protocol with a versioned note before a changed campaign; preserve earlier trials.
+
+## Endpoint and match
+
+Compare total active-session wall time and CPU for Full versus DYNARK Anchor on one bounded eligible X.509 holder and one exact finalized, unconsumed work request. Register a target of at least 20% total savings in either endpoint at a justified update pattern; report both endpoints and the complete paired spread. A synthetic update schedule does not establish that the demonstrated application experiences it.
+
+Both modes use the same circuit, setup, ordinary VK, credential, request/action, ordered accounts, authenticated issuer/status and root sequence, hardware, thread configuration and final queue effect. Freeze source, profile, R1CS, witness executable, setup/package, adapter, ELF and runner hashes. Proof randomness and proof bytes may differ. Snapshot the complete pre-execution ledger and authenticated state, clone it per mode, and check matching request/queue bytes before timing. Execute once at the final root in each clone; check one append, one consumption and replay rejection. Never execute both successful modes in the same mutable ledger.
+
+For each root-change count `k`, the primary comparison begins with a request-bound R0 Full proof in both modes. After each authenticated unrelated change, Full generates and validates a complete current witness and fresh Full proof; Anchor generates and validates the complete current witness, validates the transition and refreshes its bound base. Independently ordinary-verify each result. Only the final current-root proof is submitted. Intermediate proofs count as application work only when the client actually chooses to prepare after each update. Run a separate **coalesced Full** control that waits for the final state and proves once; state the operational reason for any repeated preparation. Record idle time separately from active work and user elapsed time. Anchor public and private preparation are eager and fully charged in the primary comparison; a selector that skips them is a separately frozen policy.
+
+## Paid-work record
+
+Use one monotonic outer timer from credential import through finalized effect reconciliation and cleanup. Do not sum medians from separate runs into a session total. Record exclusive stage wall and user/system CPU for package import; certificate admission; request construction/signing; authenticated state fetch/catch-up; complete witness generation/import/relation validation; public updating-material preparation; private credential/action preparation; delta/transition validation; Full proof or Anchor refresh; ordinary verification; adapter encoding; persistence/reload; submission, retries, effect reconciliation and cleanup. Avoid nested double counting. Account for owned validator/publisher work consistently and report shared-service resources separately. Report validator startup and snapshot-clone overhead separately, identically for both modes.
+
+Retain outer wall and aggregate CPU, sampled peak owned-tree RSS, retained public/private bytes, peak logical bytes, proof/transaction bytes, compute/fees, success/failure, final ledger hashes and sampler interval. Record every failed, discarded, abandoned and retried stage. Missing CPU is `unavailable`, never zero; the existing bounded runner must gain CPU accounting before any CPU savings claim.
+
+Reuse the existing trusted setup, recording its identity and any available historical one-time cost separately. Anchor updating-material preparation is extra work charged once to every cold single-request session. A separately labeled measured batch may share that public material across its actual number of actions. Private preparation is charged to the exact credential/action and is never amortized across different actions without qualification.
+
+## Schedule, break-even and controls
+
+Training schedule: `k = 0, 1, 2, 5, 10`, four complete matched pairs at each count, with mode order Full/Anchor, Anchor/Full, Full/Anchor, Anchor/Full. Freeze each pair's request, root sequence, input hashes and mode order before execution. Start each mode with fresh private state. Report every paired Full/Anchor total, difference and `1 - Anchor/Full` savings for wall and CPU, plus median/min/max; four pairs do not justify a tail estimate.
+
+For each endpoint separately, the *measured* break-even is the first tested count whose median of the four within-pair `(Full − Anchor)` totals is positive. Report the previous tested count as the lower interval bound, all four pair signs and any disagreement. If none crosses, say so. At the workload selected and justified before trial results, assess the registered 20% target using the median of the four within-pair `1 − Anchor/Full` savings fractions for wall and CPU separately; state the other endpoint and resource regressions. A fitted estimate for other counts is a labeled model with uncertainty, never a measured crossing. If the estimated per-update saving is nonpositive, there is no finite model break-even. Extend to 100+ updates only after a recorded relevance and resource justification; do not choose a favorable churn rate after viewing results.
+
+Separate one-pair controls cover cold process, restart/rebuild, new action, abandonment after preparation, superseded target, own revocation, and stale/disabled issuer. Count sunk/discarded work. Recheck execution-current policy and unchanged queue/request state on every rejection. Do not assume durable private-cache savings from a process-local or same-store receipt provider.
+
+## Resource and failure rules
+
+Serialize heavyweight jobs. Use offline/locked one-job Cargo where applicable, four Rayon workers and protected owner-only ignored outputs. Proposed initial per-mode envelope: 2,400 seconds wall, 4 GiB sampled owned-tree RSS, 1 GiB logical output growth, 0.25-second sampling. Proposed campaign envelope: 36 heavyweight wall hours and 4 GiB retained incremental private output. These are registration targets, not historical grants; freeze finite limits after Gate 2 witness/validator evidence and before timed trials.
+
+Stop on identity mismatch, wrong relation/publics, unexpected negative acceptance, ordinary proof failure, wrong effect/replay, cleanup uncertainty, cap or runner error. Preserve complete and censored trial records with the stage reached and paid work. Do not auto-retry, silently raise caps or remove slow trials. A resource stop is censored, not a completed timing observation.
+
+After the source and artifacts are frozen, apply the same method to the eight new heldout credentials without tuning on their outcomes. Alternate initial mode order by credential and count, keep each credential's raw paired results, and distinguish across-credential variation from repeat-run variation. Register a separate finite cohort envelope before generating or running it.
