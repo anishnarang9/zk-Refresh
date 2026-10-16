@@ -196,3 +196,39 @@ fn rejects_malformed_request_fixture_wire_and_mismatched_action() {
         assert_eq!(exporter::export_fixture_from_wire(&wire), Err(expected), "{name}");
     }
 }
+
+#[test]
+fn exports_exact_fixture_stream_and_rejects_nonexact_input_before_writing() {
+    let (program, config, request, publics, now) = canonical_fixture();
+    let mut input = b"V3F1".to_vec();
+    input.extend_from_slice(program.as_ref());
+    input.extend_from_slice(&now.to_le_bytes());
+    input.extend_from_slice(&(CONFIG_LEN as u32).to_le_bytes());
+    input.extend_from_slice(&(REQUEST_LEN as u32).to_le_bytes());
+    for public in &publics {
+        input.extend_from_slice(public);
+    }
+    input.extend_from_slice(&config.encode());
+    input.extend_from_slice(&request.encode());
+
+    let expected = exporter::export_fixture_from_wire(&input).unwrap();
+    let mut source = std::io::Cursor::new(input.clone());
+    let mut destination = Vec::new();
+    exporter::export_fixture_stream(&mut source, &mut destination)
+        .expect("canonical V3F1 stream must export to V3F2");
+    assert_eq!(destination, expected);
+
+    let truncated = input[..input.len() - 1].to_vec();
+    let mut trailing = input;
+    trailing.push(0);
+    for (name, wire) in [("trailing byte", trailing), ("truncated byte", truncated)] {
+        let mut source = std::io::Cursor::new(wire);
+        let mut destination = Vec::new();
+        assert_eq!(
+            exporter::export_fixture_stream(&mut source, &mut destination),
+            Err(AppError::Bounds),
+            "{name}",
+        );
+        assert!(destination.is_empty(), "{name} must not write output");
+    }
+}
