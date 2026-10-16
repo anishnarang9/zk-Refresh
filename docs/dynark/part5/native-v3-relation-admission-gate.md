@@ -55,6 +55,16 @@ GREEN run (`v3-relation-positive-green-001.json`) passed one fresh independent
 and the admitted package's complete relation check. The runner took 88.104
 seconds, sampled 621,297,664 bytes of owned-tree RSS and 194,327,376 bytes of
 positive storage growth, recorded no cap or cleanup error, and the test
-removed its private fixture. This is one native relation case; adversarial
-native checks, request-bound Full proving, corpus-wide client qualification and
-application execution remain open.
+removed its private fixture. This is one native relation case; request-bound
+Full proving, corpus-wide client qualification and application execution
+remain open.
+
+Commit `3243950` adds six adversarial calls after the positive check in the
+same fresh setup run. The bounded release gate
+(`v3-relation-adversarial-green-001.json`) passed: altered JSON, a private
+mapped input and the public root returned `Identity`; truncated and
+noncanonical WTNS returned `Encoding`; incremental mode returned
+`Unsupported`. The runner took 78.113 seconds, sampled 649,265,152 bytes of
+owned-tree RSS, recorded no cap or cleanup error and removed its private
+fixture. Native relation rejection is qualified for those cases; request-bound
+proving and application authorization remain open.
