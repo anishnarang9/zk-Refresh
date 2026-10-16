@@ -40,6 +40,11 @@ whole record and only then writes `V3F2`. Truncated, trailing or malformed
 input writes nothing. A destination I/O failure may leave partial output;
 callers must treat its output as invalid on error.
 
+An earlier release-profile compile was interrupted before it reached the
+expected compiler error (`v3-request-stream-red-001.json`). It is retained as
+an inconclusive runner receipt; the debug-profile RED above is the actual
+tests-first evidence.
+
 The example's executable entry point now connects stdin/stdout to the checked
 stream function. A bounded debug build passed in 2.942 seconds
 (`v3-request-cli-build-001.json`). Running that binary with empty stdin exited
