@@ -31,13 +31,17 @@ tests, rejecting wrong magic, lengths, trailing bytes and a mismatched
 canonical action; see `v3-request-wire-negative-001.json`. The pure wire
 function is implemented.
 
-Bounded binary transport, a request-bound Full proof and application execution
-remain separate gates.
+The tests-first stream gate failed at the expected missing
+`export_fixture_stream` symbol (`v3-request-stream-red-002.json`). The bounded
+GREEN run passed all four exporter tests in 3.642 seconds with no cap or
+cleanup error (`v3-request-stream-green-001.json`). The stream function reads
+exactly one 2,874-byte `V3F1` record, probes for trailing data, validates the
+whole record and only then writes `V3F2`. Truncated, trailing or malformed
+input writes nothing. A destination I/O failure may leave partial output;
+callers must treat its output as invalid on error.
 
-The next local harness bridge should use the example as a bounded binary
-stdin/stdout filter: read exactly one 2,874-byte `V3F1` record and reject any
-extra byte before writing `V3F2`. This keeps the action serializer in Rust
-while the protected synthetic holder key stays solely with the signer. The
-filter must emit no diagnostic text on stdout and must fail without partial
-output on malformed input. It is a development transport, not an issuer or
+The example's executable entry point still exits unavailable. Connecting its
+stdin/stdout to the checked stream function, a request-bound Full proof and
+application execution remain separate gates. The filter must emit no
+diagnostic text on stdout. It is a development transport, not an issuer or
 chain authority.
