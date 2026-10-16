@@ -1,7 +1,8 @@
 //! First harness stage only; this is not relation-admission evidence.
 
 use dynark_native_client::{
-    FieldBytes, OperationControl, V3CredentialSummary, V3InputWorker, V3InputWorkerRequest,
+    FieldBytes, OperationControl, V3CompilerInputMap, V3CompilerSymbols, V3CredentialSummary,
+    V3InputWorker, V3InputWorkerRequest,
 };
 use std::{
     fs::{self, OpenOptions},
@@ -195,6 +196,21 @@ fn native_v3_relation_harness() {
         "worker invocation child cleanup"
     );
     // Candidate construction supplies no complete-relation or authorization admission.
+
+    let _input_map = V3CompilerInputMap::load(
+        &V3CompilerSymbols {
+            path: PathBuf::from(
+                "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-compile-001/credential.sym",
+            ),
+            asserted_sha256: [
+                0xd2, 0xd6, 0x6e, 0x23, 0x8b, 0xdc, 0x0a, 0x73, 0x1c, 0x86, 0xc1, 0x89, 0x7c, 0x29,
+                0x78, 0xd2, 0x39, 0x08, 0xdc, 0xc1, 0x94, 0x60, 0x58, 0x2c, 0xc8, 0x73, 0xdc, 0x2d,
+                0x41, 0xe5, 0xdb, 0xf0,
+            ],
+        },
+        &control,
+    )
+    .expect("fixed compiler input map");
 
     let witness_helper = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests/support/v3_relation_witness.cjs");
