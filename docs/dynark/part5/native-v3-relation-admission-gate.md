@@ -37,3 +37,13 @@ all private fixture files on every return path.
 A passing relation gate permits a later randomized Full proof test. It does
 not make a synthetic request executable or satisfy the frozen unseen-credential
 acceptance gate.
+
+The tests-first positive gate is committed at `075d23e`. With a fresh
+independent credential and complete private WTNS, the bounded release run
+reached `V3CheckedRelation::check` and failed at its intentional
+`Unsupported` scaffold (`v3-relation-positive-red-002.json`). The run took
+82.949 seconds, sampled 621,346,816 bytes of owned-tree RSS, had no cap or
+cleanup error, and removed its private fixture. The earlier
+`v3-relation-positive-red-001.json` runner error is inconclusive and is not
+counted as a relation result. Native GREEN, adversarial rejection cases, Full
+proof and application execution remain open.
