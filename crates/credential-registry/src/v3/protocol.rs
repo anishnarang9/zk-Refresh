@@ -1,4 +1,5 @@
-//! Enrolled v3 source authentication. Publisher/current-head gates still reject.
+//! Enrolled v3 source authentication and pure detached-envelope claim checks.
+//! Publisher/current-head authorization gates still reject.
 //! Constructing EnrolledSource/CurrentHead authenticates no chain/enrollment or
 //! clock data; those inputs must come from an independently authenticated adapter.
 use super::{Error, Field, CAPACITY, DEPTH, LEAF_DOMAIN};
@@ -349,14 +350,88 @@ pub struct CurrentHead {
     pub valid_until: i64,
 }
 
+/// Untrusted expected fields for the CURRENT issuer source commitment, not
+/// its predecessor. An authenticated same-batch chain adapter must supply these
+/// fields and the enrollment independently; constructing this value proves no
+/// ownership, PDA, finality, freshness, or same-batch provenance.
+#[derive(Clone)]
+pub struct SourceEnvelopeCommitment {
+    pub source_head: SourceHead,
+    pub observed_at: i64,
+    pub valid_until: i64,
+    pub issuer_status_active: bool,
+}
+
+/// Untrusted expected current PublisherHead fields plus the current realm,
+/// issuer, root and clock claims. The fields are checked by immutable reference.
+/// They deliberately contain no authority capability and have no program-crate
+/// dependency. A future chain adapter must populate them from the exact same
+/// authenticated account batch as SourceEnvelopeCommitment and EnrolledSource.
+#[derive(Clone)]
+pub struct PublisherEnvelopeCommitment {
+    pub current: CurrentHead,
+    pub publication_sequence: u64,
+    pub envelope_digest: [u8; 32],
+    pub previous_publication_digest: [u8; 32],
+    pub committed_at: i64,
+}
+
+impl SignedSource {
+    /// Pure, non-authorizing detached-current-source check. Success verifies the
+    /// bounded signature and exact issuer commitment claims only; it returns no
+    /// VerifiedSource or execution capability and authenticates no chain state.
+    pub fn check_current_envelope(
+        &self,
+        enrolled: &EnrolledSource,
+        expected: &SourceEnvelopeCommitment,
+        now: i64,
+    ) -> Result<(), Error> {
+        self.check_current_envelope_claim(enrolled, expected, now)
+            .map(|_| ())
+    }
+
+    fn check_current_envelope_claim(
+        &self,
+        enrolled: &EnrolledSource,
+        expected: &SourceEnvelopeCommitment,
+        now: i64,
+    ) -> Result<VerifiedSource, Error> {
+        let observation = &self.observation;
+        if expected.source_head.sequence == 0
+            || expected.source_head.digest == [0; 32]
+            || observation.sequence != expected.source_head.sequence
+            || observation.observed_at != expected.observed_at
+            || observation.valid_until != expected.valid_until
+            || observation.issuer_status_active != expected.issuer_status_active
+        {
+            return Err(Error::Authentication);
+        }
+        // Reuse bounded signature/enrollment/time validation. This reconstructed
+        // predecessor checks only the signed envelope's internal structure: it
+        // is NOT authenticated history. The current full-wire digest below is
+        // the external commitment; no successor-to-current check is performed.
+        let predecessor_claim = SourceHead {
+            sequence: observation.sequence.checked_sub(1).ok_or(Error::Replay)?,
+            digest: observation.previous_digest,
+        };
+        let checked = self.verify(enrolled, &predecessor_claim, now)?;
+        if checked.head.digest != expected.source_head.digest {
+            return Err(Error::Authentication);
+        }
+        if now >= observation.valid_until {
+            return Err(Error::Stale);
+        }
+        Ok(checked)
+    }
+}
+
 const PUBLISHER_SIGN_TAG: &[u8] = b"DYNARK-V3-PUBLISHER-BINDING-v1\0";
 const PUBLISHER_WIRE_TAG: &[u8] = b"DYNARK-V3-PUBLISHER-WIRE-v1\0";
 
 /// Explicit predecessor CLAIM, not authenticated persistence or latest state.
-/// Current v3 Config/Issuer accounts contain root/version and bound source head,
-/// but contain no publisher envelope sequence/digest. A protected/HMAC file can
-/// still be rolled back. Restart requires separate fresh checkpoint provenance
-/// or a reviewed onchain extension; neither exists in this slice.
+/// Current PublisherHead expected fields can supply sequence/digest claims, but
+/// this module does not authenticate their chain provenance. A protected/HMAC
+/// file can still be rolled back. Restart requires fresh chain provenance.
 #[allow(dead_code)]
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -380,9 +455,8 @@ struct PublisherSigningBody<'a> {
 
 /// Private mathematical evidence only. It is deliberately not a capability:
 /// no constructor, public export, serde/Debug/Clone or authorization API exists.
-/// No concrete finalized RPC verifier or durable checkpoint validator can mint
-/// current-state/predecessor capabilities yet; a public trait implementation or
-/// caller JSON must not be substituted for those missing provenance checks.
+/// This module cannot mint current-state/predecessor capabilities. Caller JSON
+/// and a public trait implementation cannot substitute for chain provenance.
 #[allow(dead_code)]
 struct CheckedPublisherClaim {
     binding: PublisherBinding,
@@ -497,6 +571,56 @@ fn check_publisher_envelope_claim(
 }
 
 impl PublisherBinding {
+    /// Pure signature/digest/coherence checks against untrusted expected fields.
+    /// Success establishes neither authenticated current state nor predecessor
+    /// provenance, and cannot authorize signing, proving, or execution. The
+    /// caller must later bind these exact fields to a concrete same-batch chain
+    /// capability. Root version zero is valid when all current bindings match.
+    pub fn check_current_envelopes(
+        &self,
+        source: &SignedSource,
+        enrolled: &EnrolledSource,
+        issuer: &SourceEnvelopeCommitment,
+        publisher: &PublisherEnvelopeCommitment,
+        now: i64,
+    ) -> Result<(), Error> {
+        let checked_source = source.check_current_envelope_claim(enrolled, issuer, now)?;
+        if publisher.publication_sequence == 0
+            || self.publication_sequence != publisher.publication_sequence
+            || self.previous_publication_digest != publisher.previous_publication_digest
+            || publisher.envelope_digest == [0; 32]
+            || publisher.envelope_digest == publisher.previous_publication_digest
+        {
+            return Err(Error::Authentication);
+        }
+        if publisher.committed_at < issuer.observed_at
+            || publisher.committed_at < 0
+            || publisher.committed_at > publisher.current.clock_unix
+        {
+            return Err(Error::Stale);
+        }
+        // This is the predecessor digest CLAIM in the same current head, not a
+        // separately authenticated historical head or rollback-resistant file.
+        let predecessor_claim = PublisherPredecessorClaim {
+            sequence: publisher
+                .publication_sequence
+                .checked_sub(1)
+                .ok_or(Error::Replay)?,
+            digest: publisher.previous_publication_digest,
+        };
+        let checked = check_publisher_envelope_claim(
+            self,
+            &checked_source,
+            &publisher.current,
+            &predecessor_claim,
+            now,
+        )?;
+        if checked.envelope_digest != publisher.envelope_digest {
+            return Err(Error::Authentication);
+        }
+        Ok(())
+    }
+
     /// Permanently rejecting legacy JSON-only route. Neither a valid publisher
     /// signature nor a caller-constructed CurrentHead proves finalized current
     /// accounts or the latest persisted publisher predecessor. No public trait
@@ -548,6 +672,184 @@ mod publisher_claim_tests {
             serde_json::from_value(row["previous_publication_head"].clone()).unwrap(),
         )
     }
+    fn detached_inputs() -> (
+        SignedSource,
+        EnrolledSource,
+        SourceEnvelopeCommitment,
+        PublisherBinding,
+        PublisherEnvelopeCommitment,
+    ) {
+        let v = vectors();
+        let row = &v["cases"][0];
+        let signed: SignedSource = serde_json::from_value(row["signed_source"].clone()).unwrap();
+        let enrolled: EnrolledSource =
+            serde_json::from_value(row["enrolled_source"].clone()).unwrap();
+        let (binding, current, _) = claims(row);
+        let source = SourceEnvelopeCommitment {
+            source_head: current.source_head.clone(),
+            observed_at: signed.observation.observed_at,
+            valid_until: signed.observation.valid_until,
+            issuer_status_active: signed.observation.issuer_status_active,
+        };
+        let head = PublisherEnvelopeCommitment {
+            current,
+            publication_sequence: binding.publication_sequence,
+            envelope_digest: Sha256::digest(canonical_json(PUBLISHER_WIRE_TAG, &binding).unwrap())
+                .into(),
+            previous_publication_digest: binding.previous_publication_digest,
+            committed_at: 150,
+        };
+        (signed, enrolled, source, binding, head)
+    }
+
+    #[test]
+    fn detached_current_envelopes_match_initialized_root_version_zero_without_authority() {
+        let (source, enrolled, issuer, binding, head) = detached_inputs();
+        assert_eq!(head.current.root_version, 0);
+        // Sequence three is checked as the CURRENT source, never as successor
+        // to the same current issuer checkpoint.
+        assert_eq!(issuer.source_head.sequence, 3);
+        assert_eq!(
+            source.check_current_envelope(&enrolled, &issuer, 150),
+            Ok(())
+        );
+        assert_eq!(
+            binding.check_current_envelopes(&source, &enrolled, &issuer, &head, 150),
+            Ok(())
+        );
+        assert_eq!(
+            binding.require_current(&head.current, 150),
+            Err(Error::Authentication)
+        );
+    }
+
+    #[test]
+    fn detached_source_mutations_reject_signature_scope_head_epoch_digest_and_times() {
+        let (source, enrolled, expected, _, _) = detached_inputs();
+        let mutations: &[fn(&mut SignedSource)] = &[
+            |s| s.signature[0] ^= 1,
+            |s| s.observation.scope.network[0] ^= 1,
+            |s| s.observation.sequence += 1,
+            |s| s.observation.scope.config_eligibility_epoch += 1,
+            |s| s.observation.issuer.issuer_eligibility_epoch += 1,
+            |s| s.observation.previous_digest[0] ^= 1,
+        ];
+        for (index, mutate) in mutations.iter().enumerate() {
+            let mut changed = source.clone();
+            mutate(&mut changed);
+            assert!(
+                changed
+                    .check_current_envelope(&enrolled, &expected, 150)
+                    .is_err(),
+                "source mutation {index}"
+            );
+        }
+        let mutations: &[fn(&mut SourceEnvelopeCommitment)] = &[
+            |s| s.source_head.sequence += 1,
+            |s| s.source_head.digest[0] ^= 1,
+            |s| s.observed_at += 1,
+            |s| s.valid_until += 1,
+            |s| s.issuer_status_active = false,
+        ];
+        for (index, mutate) in mutations.iter().enumerate() {
+            let mut changed = expected.clone();
+            mutate(&mut changed);
+            assert!(
+                source
+                    .check_current_envelope(&enrolled, &changed, 150)
+                    .is_err(),
+                "issuer mutation {index}"
+            );
+        }
+        assert!(source
+            .check_current_envelope(&enrolled, &expected, expected.valid_until)
+            .is_err());
+    }
+
+    #[test]
+    fn detached_current_source_rejects_zero_expected_sequence_and_digest() {
+        let (source, enrolled, issuer, binding, head) = detached_inputs();
+        for (sequence, digest) in [
+            (0, issuer.source_head.digest),
+            (issuer.source_head.sequence, [0; 32]),
+            (0, [0; 32]),
+        ] {
+            let mut expected = issuer.clone();
+            expected.source_head = SourceHead { sequence, digest };
+            assert_eq!(
+                source.check_current_envelope(&enrolled, &expected, 150),
+                Err(Error::Authentication)
+            );
+            assert_eq!(
+                binding.check_current_envelopes(&source, &enrolled, &expected, &head, 150),
+                Err(Error::Authentication)
+            );
+        }
+    }
+
+    #[test]
+    fn detached_publisher_rejects_negative_and_future_commit_times() {
+        let (source, enrolled, issuer, binding, head) = detached_inputs();
+        for committed_at in [-1, 151] {
+            let mut expected = head.clone();
+            expected.committed_at = committed_at;
+            assert_eq!(
+                binding.check_current_envelopes(&source, &enrolled, &issuer, &expected, 150),
+                Err(Error::Stale)
+            );
+        }
+        let mut expected = head;
+        expected.current.clock_unix = 149;
+        assert_eq!(
+            binding.check_current_envelopes(&source, &enrolled, &issuer, &expected, 150),
+            Err(Error::Stale),
+            "commit cannot postdate the supplied chain clock even before local now"
+        );
+    }
+
+    #[test]
+    fn detached_publisher_mutations_reject_exact_head_substitution() {
+        let (source, enrolled, issuer, binding, head) = detached_inputs();
+        let mutations: &[fn(&mut PublisherEnvelopeCommitment)] = &[
+            |h| h.current.scope.registry[0] ^= 1,
+            |h| h.current.issuer.issuer_account[0] ^= 1,
+            |h| h.current.publisher_key[0] ^= 1,
+            |h| h.current.source_head.sequence += 1,
+            |h| h.current.source_head.digest[0] ^= 1,
+            |h| h.current.root[0] ^= 1,
+            |h| h.current.root_version += 1,
+            |h| h.current.observed_config_epoch += 1,
+            |h| h.current.observed_issuer_epoch += 1,
+            |h| h.publication_sequence += 1,
+            |h| h.envelope_digest[0] ^= 1,
+            |h| h.previous_publication_digest[0] ^= 1,
+            |h| h.committed_at = 151,
+            |h| h.committed_at = 0,
+            |h| h.current.clock_unix = 151,
+            |h| h.current.valid_until = 149,
+            |h| h.current.status_valid = false,
+        ];
+        for (index, mutate) in mutations.iter().enumerate() {
+            let mut changed = head.clone();
+            mutate(&mut changed);
+            assert!(
+                binding
+                    .check_current_envelopes(&source, &enrolled, &issuer, &changed, 150)
+                    .is_err(),
+                "head mutation {index}"
+            );
+        }
+        let mut changed = binding.clone();
+        changed.signature[0] ^= 1;
+        // Even supplying the digest of the corrupt envelope cannot bypass crypto.
+        let mut changed_head = head;
+        changed_head.envelope_digest =
+            Sha256::digest(canonical_json(PUBLISHER_WIRE_TAG, &changed).unwrap()).into();
+        assert!(changed
+            .check_current_envelopes(&source, &enrolled, &issuer, &changed_head, 150)
+            .is_err());
+    }
+
     #[test]
     fn all28_independent_publisher_signatures_have_exact_typed_preimages() {
         let v = vectors();
