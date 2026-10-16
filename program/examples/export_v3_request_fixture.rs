@@ -1,5 +1,6 @@
-//! Development request-fixture boundary. Export grants no authorization;
-//! proof generation, CLI transport and live accounts are absent.
+//! Development request-fixture boundary with checked local CLI transport.
+//! Export grants no authorization; proof generation and live account
+//! authentication are absent.
 use solana_program::pubkey::Pubkey;
 use zk_fresh_program::{
     application_runtime_v3 as addresses,
@@ -193,6 +194,13 @@ pub fn export_fixture_stream<R: std::io::Read, W: std::io::Write>(
 
 #[allow(dead_code)] // This file is also imported as an integration-test module.
 fn main() {
-    eprintln!("development v3 request fixture export is unavailable");
-    std::process::exit(1);
+    let mut source = std::io::stdin().lock();
+    let mut destination = std::io::stdout().lock();
+    let result = export_fixture_stream(&mut source, &mut destination).and_then(|()| {
+        std::io::Write::flush(&mut destination).map_err(|_| AppError::Unavailable)
+    });
+    if let Err(error) = result {
+        eprintln!("development v3 request fixture export failed: {error:?}");
+        std::process::exit(1);
+    }
 }
