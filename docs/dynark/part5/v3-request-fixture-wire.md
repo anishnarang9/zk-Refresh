@@ -26,6 +26,18 @@ The tests-first compile gate failed only because `export_fixture_from_wire`
 was absent (`E0425`); see
 `results/dynark/part5/v3-request-wire-red-001.json`. The bounded GREEN run
 then passed both exporter tests in 5.042 seconds with no cap stop; see
-`v3-request-wire-green-001.json`. The pure wire function is implemented.
-Private file transport, a request-bound Full proof and application execution
+`v3-request-wire-green-001.json`. An adversarial follow-up passed all three
+tests, rejecting wrong magic, lengths, trailing bytes and a mismatched
+canonical action; see `v3-request-wire-negative-001.json`. The pure wire
+function is implemented.
+
+Bounded binary transport, a request-bound Full proof and application execution
 remain separate gates.
+
+The next local harness bridge should use the example as a bounded binary
+stdin/stdout filter: read exactly one 2,874-byte `V3F1` record and reject any
+extra byte before writing `V3F2`. This keeps the action serializer in Rust
+while the protected synthetic holder key stays solely with the signer. The
+filter must emit no diagnostic text on stdout and must fail without partial
+output on malformed input. It is a development transport, not an issuer or
+chain authority.
