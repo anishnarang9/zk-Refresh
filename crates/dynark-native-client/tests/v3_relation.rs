@@ -1,5 +1,28 @@
 //! First harness stage only; this is not relation-admission evidence.
 
+use std::{
+    fs,
+    os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt},
+    path::PathBuf,
+    process::{Child, Command, Stdio},
+    time::{Duration, Instant},
+};
+
+struct PrivateRoot(PathBuf);
+impl Drop for PrivateRoot {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+struct ReapedChild(Child);
+impl Drop for ReapedChild {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
 #[test]
 #[ignore = "requires explicit native-v3-relation scope and a fresh private root"]
 fn native_v3_relation_harness() {
@@ -18,5 +41,52 @@ fn native_v3_relation_harness() {
             if error.kind() == std::io::ErrorKind::NotFound),
         "private root must not already exist"
     );
-    panic!("harness not yet connected");
+    fs::DirBuilder::new().mode(0o700).create(&root).unwrap();
+    let private_root = PrivateRoot(root);
+    assert_eq!(fs::metadata(&private_root.0).unwrap().permissions().mode() & 0o7777, 0o700);
+    let fixture = private_root.0.join("fixture");
+    fs::DirBuilder::new().mode(0o700).create(&fixture).unwrap();
+    assert_eq!(fs::metadata(&fixture).unwrap().permissions().mode() & 0o7777, 0o700);
+
+    let helper = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/support/prepare_v3_relation.py");
+    let mut child = ReapedChild(Command::new(
+        "/Library/Frameworks/Python.framework/Versions/3.14/bin/python3.14",
+    )
+        .arg("-B")
+        .arg(helper)
+        .arg("generate")
+        .arg(&fixture)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("fixture helper must start"));
+    let deadline = Instant::now() + Duration::from_secs(60);
+    loop {
+        if let Some(status) = child.0.try_wait().expect("fixture helper wait failed") {
+            assert!(status.success(), "fixture helper failed: {status}");
+            break;
+        }
+        assert!(Instant::now() < deadline, "fixture helper exceeded 60 seconds");
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    for (name, exact_len) in [
+        ("request.bin", Some(1918)),
+        ("summary.bin", Some(459)),
+        ("input-coordinates.bin", Some(3004)),
+        ("internal-coordinate.bin", Some(4)),
+        ("input.json", None),
+        ("public.json", None),
+    ] {
+        let metadata = fs::symlink_metadata(fixture.join(name)).unwrap();
+        assert!(metadata.file_type().is_file(), "{name} must be regular");
+        assert_eq!(metadata.nlink(), 1, "{name} must have one link");
+        assert_eq!(metadata.permissions().mode() & 0o7777, 0o600, "{name} mode");
+        if let Some(expected) = exact_len {
+            assert_eq!(metadata.len(), expected, "{name} width");
+        } else {
+            assert!((1..=65536).contains(&metadata.len()), "{name} bounds");
+        }
+    }
 }
