@@ -42,3 +42,16 @@ stop, no remaining owned process and no retained temporary key. The receipt is
 This signer is a protected synthetic development fixture, not a production
 signer capability. Active membership, a finalized request's action and a
 request-bound proof remain separate gates.
+
+A third tests-first slice now builds a complete synthetic 1,024-leaf v3
+registry tree for the fresh certificate. The RED failed at the absent
+`build_membership` interface (`v3-membership-red-001.json`). The GREEN checks
+the strict DER admission and signed issuer/policy hashes, chooses a fresh slot
+and unrelated leaf, and returns full depth-10 paths for an active root, a root
+after unrelated revocation, and a root after the holder's own revocation. The
+test independently rebuilt the first two roots from the active certificate
+leaf and the final root from its inactive leaf. All three fixture tests passed
+in 1.280 seconds, with 39,092,224 bytes sampled peak RSS and no cap stop or
+remaining owned process (`v3-membership-green-001.json`). This is coherent
+local membership data, not an authenticated chain publication or eligibility
+decision.
