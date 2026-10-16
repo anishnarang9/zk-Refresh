@@ -4,7 +4,7 @@ mod exporter;
 use solana_program::pubkey::Pubkey;
 use zk_fresh_program::{
     application_runtime_v3 as addresses,
-    application_v3::{action_hash, action_preimage, Config, RelevantMeta, Request, RequestState, CONFIG_LEN, REQUEST_LEN},
+    application_v3::{action_hash, action_preimage, AppError, Config, RelevantMeta, Request, RequestState, CONFIG_LEN, REQUEST_LEN},
     generated_vk_v3 as identity,
 };
 
@@ -154,4 +154,45 @@ fn exports_exact_request_fixture_wire_identities_and_byte_order() {
     assert_eq!(preimage_len, preimage.len());
     assert_eq!(&output[200..], preimage.as_slice());
     assert_eq!(output.len(), 200 + preimage_len);
+}
+
+#[test]
+fn rejects_malformed_request_fixture_wire_and_mismatched_action() {
+    let (program, config, request, publics, now) = canonical_fixture();
+    let mut input = b"V3F1".to_vec();
+    input.extend_from_slice(program.as_ref());
+    input.extend_from_slice(&now.to_le_bytes());
+    input.extend_from_slice(&(CONFIG_LEN as u32).to_le_bytes());
+    input.extend_from_slice(&(REQUEST_LEN as u32).to_le_bytes());
+    for public in &publics {
+        input.extend_from_slice(public);
+    }
+    input.extend_from_slice(&config.encode());
+    input.extend_from_slice(&request.encode());
+
+    let mut wrong_magic = input.clone();
+    wrong_magic[..4].copy_from_slice(b"V3F0");
+    let truncated = input[..input.len() - 1].to_vec();
+    let mut trailing = input.clone();
+    trailing.push(0);
+    let mut wrong_config_len = input.clone();
+    wrong_config_len[44..48].copy_from_slice(&((CONFIG_LEN + 1) as u32).to_le_bytes());
+    let mut wrong_request_len = input.clone();
+    wrong_request_len[48..52].copy_from_slice(&((REQUEST_LEN + 1) as u32).to_le_bytes());
+    let mut wrong_action = input;
+    // Keep the replacement canonical so rejection tests exact action binding.
+    let replacement = field(if publics[4] == field(0) { 1 } else { 0 });
+    let action_offset = 4 + 32 + 8 + 4 + 4 + 4 * 32;
+    wrong_action[action_offset..action_offset + 32].copy_from_slice(&replacement);
+
+    for (name, wire, expected) in [
+        ("wrong magic", wrong_magic, AppError::Version),
+        ("truncated record", truncated, AppError::Bounds),
+        ("trailing record", trailing, AppError::Bounds),
+        ("wrong config length", wrong_config_len, AppError::Bounds),
+        ("wrong request length", wrong_request_len, AppError::Bounds),
+        ("mismatched public action", wrong_action, AppError::Action),
+    ] {
+        assert_eq!(exporter::export_fixture_from_wire(&wire), Err(expected), "{name}");
+    }
 }
