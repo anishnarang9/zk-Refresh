@@ -40,8 +40,12 @@ whole record and only then writes `V3F2`. Truncated, trailing or malformed
 input writes nothing. A destination I/O failure may leave partial output;
 callers must treat its output as invalid on error.
 
-The example's executable entry point still exits unavailable. Connecting its
-stdin/stdout to the checked stream function, a request-bound Full proof and
-application execution remain separate gates. The filter must emit no
-diagnostic text on stdout. It is a development transport, not an issuer or
-chain authority.
+The example's executable entry point now connects stdin/stdout to the checked
+stream function. A bounded debug build passed in 2.942 seconds
+(`v3-request-cli-build-001.json`). Running that binary with empty stdin exited
+with `Bounds`, wrote zero stdout bytes and put its diagnostic on stderr
+(`v3-request-cli-empty-001.json`); this is an expected negative result, not a
+passing positive process test. The valid-frame behavior is covered by the
+stream integration tests. A request-bound Full proof and application execution
+remain separate gates. This is a development transport, not an issuer or chain
+authority.
