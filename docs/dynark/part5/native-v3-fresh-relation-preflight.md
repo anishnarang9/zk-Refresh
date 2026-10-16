@@ -32,3 +32,15 @@ This training witness uses a synthetic action and membership path. It has not
 passed the native client's complete-assignment admission, Full proving or
 application authorization. It is not the frozen unseen-credential acceptance
 cohort and does not qualify Anchor refresh economics.
+
+The release-mode native harness now repeats generation and independent full
+relation checking from a fresh test-owned private root. Its fixed-output checks
+require the 25,113,548-byte complete WTNS, 784,796 fields, 793,681 rows and
+4,257,583 matrix entries. The bounded run passed in 17.614 seconds with
+362,463,232 bytes peak sampled owned-tree RSS and 194,240,679 bytes peak
+sampled storage growth. The private root was removed and the runner reported
+no remaining owned processes. See the scrubbed
+`results/dynark/part5/v3-relation-wtns-harness-green-001.json` receipt. This
+harness still performs its relation check in the independent Python preflight;
+native client candidate-to-coordinate and admitted-package validation remain
+separate gates.
