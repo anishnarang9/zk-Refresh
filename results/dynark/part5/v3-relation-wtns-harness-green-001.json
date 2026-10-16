@@ -1,0 +1,352 @@
+{
+  "schema": 1,
+  "owner": "m2-v3-relation-wtns-harness-green-001",
+  "started_at_utc": "2026-10-16T03:42:03.403900+00:00",
+  "ended_at_utc": "2026-10-16T03:42:21.017995+00:00",
+  "timezone": [
+    "EST",
+    "EDT"
+  ],
+  "duration_seconds": 17.61424462508876,
+  "limits": {
+    "runtime_seconds": 300.0,
+    "owned_tree_rss_bytes": 3221225472,
+    "storage_growth_bytes": 536870912,
+    "poll_seconds": 0.2
+  },
+  "stop_reason": null,
+  "exit_code": 0,
+  "runner_error_type": null,
+  "cleanup_remaining_owned_processes": 0,
+  "cleanup_status_unknown": false,
+  "sample_count": 52,
+  "samples": [
+    {
+      "elapsed_seconds": 0.017035291995853186,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 671744,
+      "storage_growth_bytes": 1004
+    },
+    {
+      "elapsed_seconds": 0.2910337500507012,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 63471616,
+      "storage_growth_bytes": 11583
+    },
+    {
+      "elapsed_seconds": 0.5727073750458658,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 118734848,
+      "storage_growth_bytes": 11583
+    },
+    {
+      "elapsed_seconds": 0.8449386670254171,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 174899200,
+      "storage_growth_bytes": 11583
+    },
+    {
+      "elapsed_seconds": 1.12064670806285,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 145342464,
+      "storage_growth_bytes": 53439
+    },
+    {
+      "elapsed_seconds": 1.4150604580063373,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 38076416,
+      "storage_growth_bytes": 29353
+    },
+    {
+      "elapsed_seconds": 1.712407167069614,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 38076416,
+      "storage_growth_bytes": 29353
+    },
+    {
+      "elapsed_seconds": 2.0211443750886247,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 68501504,
+      "storage_growth_bytes": 29369
+    },
+    {
+      "elapsed_seconds": 2.4188086669892073,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 89505792,
+      "storage_growth_bytes": 29369
+    },
+    {
+      "elapsed_seconds": 2.7876262080390006,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 89505792,
+      "storage_growth_bytes": 29369
+    },
+    {
+      "elapsed_seconds": 3.14186241698917,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 89489408,
+      "storage_growth_bytes": 29369
+    },
+    {
+      "elapsed_seconds": 3.4699289170093834,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 89489408,
+      "storage_growth_bytes": 29369
+    },
+    {
+      "elapsed_seconds": 3.8141200829995796,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 87703552,
+      "storage_growth_bytes": 29369
+    },
+    {
+      "elapsed_seconds": 4.1884311670437455,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 82526208,
+      "storage_growth_bytes": 29369
+    },
+    {
+      "elapsed_seconds": 4.5536465420154855,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 78856192,
+      "storage_growth_bytes": 29369
+    },
+    {
+      "elapsed_seconds": 4.85925516707357,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 78856192,
+      "storage_growth_bytes": 41135
+    },
+    {
+      "elapsed_seconds": 5.168499791994691,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 254853120,
+      "storage_growth_bytes": 51491
+    },
+    {
+      "elapsed_seconds": 5.522400542045943,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 280248320,
+      "storage_growth_bytes": 51491
+    },
+    {
+      "elapsed_seconds": 5.864976083044894,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 304676864,
+      "storage_growth_bytes": 51491
+    },
+    {
+      "elapsed_seconds": 6.223716999986209,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 329334784,
+      "storage_growth_bytes": 51491
+    },
+    {
+      "elapsed_seconds": 6.571686458075419,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 351387648,
+      "storage_growth_bytes": 51491
+    },
+    {
+      "elapsed_seconds": 6.909608083078638,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 362463232,
+      "storage_growth_bytes": 51491
+    },
+    {
+      "elapsed_seconds": 7.229650125023909,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 330596352,
+      "storage_growth_bytes": 51491
+    },
+    {
+      "elapsed_seconds": 7.528214500052854,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 315670528,
+      "storage_growth_bytes": 51491
+    },
+    {
+      "elapsed_seconds": 7.956331417080946,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 179945472,
+      "storage_growth_bytes": 51491
+    },
+    {
+      "elapsed_seconds": 8.52204020798672,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 164331520,
+      "storage_growth_bytes": 51491
+    },
+    {
+      "elapsed_seconds": 8.98586412507575,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 165969920,
+      "storage_growth_bytes": 51491
+    },
+    {
+      "elapsed_seconds": 9.457790125044994,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 168296448,
+      "storage_growth_bytes": 51491
+    },
+    {
+      "elapsed_seconds": 9.92658658302389,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 87572480,
+      "storage_growth_bytes": 51491
+    },
+    {
+      "elapsed_seconds": 10.330668417038396,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 83853312,
+      "storage_growth_bytes": 51491
+    },
+    {
+      "elapsed_seconds": 10.7195480420487,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 84049920,
+      "storage_growth_bytes": 51491
+    },
+    {
+      "elapsed_seconds": 11.070331625058316,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 83460096,
+      "storage_growth_bytes": 51491
+    },
+    {
+      "elapsed_seconds": 11.386020750040188,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 83329024,
+      "storage_growth_bytes": 51491
+    },
+    {
+      "elapsed_seconds": 11.6973473749822,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 84541440,
+      "storage_growth_bytes": 51491
+    },
+    {
+      "elapsed_seconds": 12.00096241699066,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 111951872,
+      "storage_growth_bytes": 49413359
+    },
+    {
+      "elapsed_seconds": 12.3646060830215,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 50839552,
+      "storage_growth_bytes": 194240679
+    },
+    {
+      "elapsed_seconds": 12.685366166988388,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 60358656,
+      "storage_growth_bytes": 194240679
+    },
+    {
+      "elapsed_seconds": 13.022757500060834,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 56147968,
+      "storage_growth_bytes": 194240679
+    },
+    {
+      "elapsed_seconds": 13.360534125007689,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 56147968,
+      "storage_growth_bytes": 194240679
+    },
+    {
+      "elapsed_seconds": 13.682901291991584,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 56147968,
+      "storage_growth_bytes": 194240679
+    },
+    {
+      "elapsed_seconds": 14.007049625040963,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 56147968,
+      "storage_growth_bytes": 194240679
+    },
+    {
+      "elapsed_seconds": 14.335073500056751,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 56147968,
+      "storage_growth_bytes": 194240679
+    },
+    {
+      "elapsed_seconds": 14.650874583050609,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 56147968,
+      "storage_growth_bytes": 194240679
+    },
+    {
+      "elapsed_seconds": 14.9516483329935,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 56147968,
+      "storage_growth_bytes": 194240679
+    },
+    {
+      "elapsed_seconds": 15.264692708035,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 56147968,
+      "storage_growth_bytes": 194240679
+    },
+    {
+      "elapsed_seconds": 15.56196245807223,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 56147968,
+      "storage_growth_bytes": 194240679
+    },
+    {
+      "elapsed_seconds": 15.865411708015017,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 56147968,
+      "storage_growth_bytes": 194240679
+    },
+    {
+      "elapsed_seconds": 16.197062292019837,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 53002240,
+      "storage_growth_bytes": 194240679
+    },
+    {
+      "elapsed_seconds": 16.564342458033934,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 50249728,
+      "storage_growth_bytes": 194240679
+    },
+    {
+      "elapsed_seconds": 16.99439954198897,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 50429952,
+      "storage_growth_bytes": 194240679
+    },
+    {
+      "elapsed_seconds": 17.2872830000706,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 50692096,
+      "storage_growth_bytes": 194240679
+    },
+    {
+      "elapsed_seconds": 17.55039512505755,
+      "owned_process_count": 0,
+      "owned_tree_rss_bytes": 0,
+      "storage_growth_bytes": 29505
+    }
+  ],
+  "sampled_peak_owned_tree_rss_bytes": 362463232,
+  "sampled_peak_storage_growth_bytes": 194240679,
+  "environment": {
+    "RAYON_NUM_THREADS": null,
+    "OMP_NUM_THREADS": null,
+    "TZ": null
+  },
+  "measurement_notes": [
+    "RSS from ps KiB converted to bytes; sum of live owned tree; not heap allocation",
+    "storage is positive logical file-size growth per supplied root; excludes deleted-file peak between samples",
+    "limits sampled; short spikes and daemonized ancestry escape between samples may be missed",
+    "samples exclude runner/ps RSS; storage report written after the measured command",
+    "child stdout/stderr/argv retained only in protected output"
+  ],
+  "passed": true
+}

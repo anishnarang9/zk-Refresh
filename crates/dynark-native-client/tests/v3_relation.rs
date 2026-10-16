@@ -54,7 +54,7 @@ fn native_v3_relation_harness() {
         "/Library/Frameworks/Python.framework/Versions/3.14/bin/python3.14",
     )
         .arg("-B")
-        .arg(helper)
+        .arg(&helper)
         .arg("generate")
         .arg(&fixture)
         .stdin(Stdio::null())
@@ -89,4 +89,68 @@ fn native_v3_relation_harness() {
             assert!((1..=65536).contains(&metadata.len()), "{name} bounds");
         }
     }
+
+    let witness_helper = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/support/v3_relation_witness.cjs");
+    let mut witness = ReapedChild(Command::new(
+        "/Users/anishnarang/.nvm/versions/node/v24.10.0/bin/node",
+    )
+        .arg(witness_helper)
+        .arg(&fixture)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("witness helper must start"));
+    let deadline = Instant::now() + Duration::from_secs(90);
+    loop {
+        if let Some(status) = witness.0.try_wait().expect("witness helper wait failed") {
+            assert!(status.success(), "witness helper failed: {status}");
+            break;
+        }
+        assert!(Instant::now() < deadline, "witness helper exceeded 90 seconds");
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    let witness_metadata = fs::symlink_metadata(fixture.join("output.wtns")).unwrap();
+    assert!(witness_metadata.file_type().is_file());
+    assert_eq!(witness_metadata.nlink(), 1);
+    assert_eq!(witness_metadata.permissions().mode() & 0o7777, 0o600);
+    assert_eq!(witness_metadata.len(), 25_113_548);
+
+    let mut checker = ReapedChild(Command::new(
+        "/Library/Frameworks/Python.framework/Versions/3.14/bin/python3.14",
+    )
+        .arg("-B")
+        .arg(&helper)
+        .arg("check")
+        .arg(&fixture)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("preflight checker must start"));
+    let deadline = Instant::now() + Duration::from_secs(90);
+    loop {
+        if let Some(status) = checker.0.try_wait().expect("preflight checker wait failed") {
+            assert!(status.success(), "preflight checker failed: {status}");
+            break;
+        }
+        assert!(Instant::now() < deadline, "preflight checker exceeded 90 seconds");
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    let preflight_metadata = fs::symlink_metadata(fixture.join("preflight.bin")).unwrap();
+    assert!(preflight_metadata.file_type().is_file());
+    assert_eq!(preflight_metadata.nlink(), 1);
+    assert_eq!(preflight_metadata.permissions().mode() & 0o7777, 0o600);
+    assert_eq!(preflight_metadata.len(), 16);
+    let mut expected = b"V3R1".to_vec();
+    for value in [784_796u32, 793_681, 4_257_583] {
+        expected.extend_from_slice(&value.to_le_bytes());
+    }
+    assert_eq!(fs::read(fixture.join("preflight.bin")).unwrap(), expected);
+    assert!(
+        matches!(fs::symlink_metadata(fixture.join("preflight.r1cs")), Err(error)
+            if error.kind() == std::io::ErrorKind::NotFound),
+        "preflight R1CS snapshot must be removed"
+    );
 }
