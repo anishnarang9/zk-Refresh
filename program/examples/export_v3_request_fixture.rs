@@ -3,7 +3,10 @@
 use solana_program::pubkey::Pubkey;
 use zk_fresh_program::{
     application_runtime_v3 as addresses,
-    application_v3::{action_hash, action_preimage, AppError, Config, Request, RequestState},
+    application_v3::{
+        action_hash, action_preimage, AppError, Config, Request, RequestState, CONFIG_LEN,
+        REQUEST_LEN,
+    },
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -96,6 +99,70 @@ pub fn export_fixture(
         action_hash,
         action_preimage: action_preimage(program_id, config, request)?,
     })
+}
+
+/// Decode one exact V3F1 development fixture and export its checked V3F2 identities.
+/// Public fields and the action hash retain their canonical big-endian encoding;
+/// the transport timestamp and lengths use little endian.
+pub fn export_fixture_from_wire(input: &[u8]) -> Result<Vec<u8>, AppError> {
+    fn take<const N: usize>(remaining: &mut &[u8]) -> Result<[u8; N], AppError> {
+        let bytes = remaining.get(..N).ok_or(AppError::Bounds)?;
+        let value = bytes.try_into().map_err(|_| AppError::Bounds)?;
+        *remaining = remaining.get(N..).ok_or(AppError::Bounds)?;
+        Ok(value)
+    }
+
+    const INPUT_LEN: usize = 4 + 32 + 8 + 4 + 4 + 6 * 32 + CONFIG_LEN + REQUEST_LEN;
+    if input.len() != INPUT_LEN {
+        return Err(AppError::Bounds);
+    }
+    let mut remaining = input;
+    if take::<4>(&mut remaining)? != *b"V3F1" {
+        return Err(AppError::Version);
+    }
+    let program_id = Pubkey::new_from_array(take::<32>(&mut remaining)?);
+    let now = i64::from_le_bytes(take::<8>(&mut remaining)?);
+    let config_len = u32::from_le_bytes(take::<4>(&mut remaining)?);
+    let request_len = u32::from_le_bytes(take::<4>(&mut remaining)?);
+    if config_len != CONFIG_LEN as u32 || request_len != REQUEST_LEN as u32 {
+        return Err(AppError::Bounds);
+    }
+    let mut public_inputs = [[0; 32]; 6];
+    for field in &mut public_inputs {
+        *field = take::<32>(&mut remaining)?;
+    }
+    let config_bytes = take::<CONFIG_LEN>(&mut remaining)?;
+    let request_bytes = take::<REQUEST_LEN>(&mut remaining)?;
+    if !remaining.is_empty() {
+        return Err(AppError::Bounds);
+    }
+    let config = Config::decode(&config_bytes)?;
+    let request = Request::decode(&request_bytes)?;
+    if config.encode().as_slice() != config_bytes.as_slice()
+        || request.encode().as_slice() != request_bytes.as_slice()
+    {
+        return Err(AppError::State);
+    }
+    let fixture = export_fixture(&program_id, &config, &request, &public_inputs, now)?;
+    let preimage_len = u32::try_from(fixture.action_preimage.len())
+        .map_err(|_| AppError::Bounds)?;
+    let output_len = 200usize.checked_add(fixture.action_preimage.len())
+        .ok_or(AppError::Bounds)?;
+    let mut output = Vec::with_capacity(output_len);
+    output.extend_from_slice(b"V3F2");
+    for pda in [
+        fixture.config_pda,
+        fixture.issuer_pda,
+        fixture.request_pda,
+        fixture.queue_pda,
+        fixture.publisher_head_pda,
+    ] {
+        output.extend_from_slice(pda.as_ref());
+    }
+    output.extend_from_slice(&fixture.action_hash);
+    output.extend_from_slice(&preimage_len.to_le_bytes());
+    output.extend_from_slice(&fixture.action_preimage);
+    Ok(output)
 }
 
 #[allow(dead_code)] // This file is also imported as an integration-test module.
