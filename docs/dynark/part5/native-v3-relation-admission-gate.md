@@ -47,3 +47,14 @@ cleanup error, and removed its private fixture. The earlier
 `v3-relation-positive-red-001.json` runner error is inconclusive and is not
 counted as a relation result. Native GREEN, adversarial rejection cases, Full
 proof and application execution remain open.
+
+Commit `b1c81ea` implements the closed native checker. Its bounded release
+GREEN run (`v3-relation-positive-green-001.json`) passed one fresh independent
+`cryptography.x509` training certificate through exact JSON, canonical
+25,113,548-byte WTNS, all 751 authenticated compiler-map inputs, six publics
+and the admitted package's complete relation check. The runner took 88.104
+seconds, sampled 621,297,664 bytes of owned-tree RSS and 194,327,376 bytes of
+positive storage growth, recorded no cap or cleanup error, and the test
+removed its private fixture. This is one native relation case; adversarial
+native checks, request-bound Full proving, corpus-wide client qualification and
+application execution remain open.
