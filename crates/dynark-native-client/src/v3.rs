@@ -134,10 +134,229 @@ impl V3FullManifest {
     }
 }
 
+/// Non-authorizing record recheck for a future concrete state adapter. Coherent
+/// caller-created records cannot establish chain, deployment or registry trust.
+/// Reauthenticate both observations outside this helper before using its result.
+pub(crate) fn check_full_state_recheck(
+    before: &crate::V3StateSnapshot,
+    after: &crate::V3StateSnapshot,
+    credential: &crate::V3CredentialSummary,
+    manifest: &V3FullManifest,
+    now: u64,
+    control: &crate::OperationControl,
+) -> Result<(), ClientError> {
+    control.check()?;
+    if after.clock.finalized_slot < before.clock.finalized_slot
+        || after.clock.unix_timestamp < before.clock.unix_timestamp
+        || after.clock.valid_until < before.clock.valid_until
+        || before.source != after.source
+        || before.publication != after.publication
+        || before.enrollment != after.enrollment
+        || before.action != after.action
+        || before.adapter_key != after.adapter_key
+        || before.slot != after.slot
+        || before.siblings != after.siblings
+        || before.generation != after.generation
+    {
+        return Err(ClientError::Superseded);
+    }
+    before.validate_record_coherence(credential, manifest, now)?;
+    after.validate_record_coherence(credential, manifest, now)?;
+    control.check()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::decode_digest;
+    use crate::{FieldBytes, OperationControl};
+
+    fn word(n: u8) -> FieldBytes {
+        let mut word = [0; 32];
+        word[0] = n;
+        word
+    }
+    fn state_fixture() -> (
+        crate::V3CredentialSummary,
+        V3FullManifest,
+        crate::V3StateSnapshot,
+    ) {
+        use crate::{
+            V3AuthenticatedClock, V3CredentialSummary, V3Enrollment, V3FinalizedAction,
+            V3OrdinaryVkIdentity, V3RootPublication, V3SourceObservation, V3StateSnapshot,
+        };
+        let manifest = V3FullManifest::frozen_development().unwrap();
+        let summary = V3CredentialSummary {
+            layout: 0,
+            tbs_digest: [1; 32],
+            holder_modulus_be: [2; 256],
+            issuer_hash: word(3),
+            policy_hash: word(4),
+            not_before: 100,
+            not_after: 200,
+            signed_aki: [5; 20],
+            signed_organization: [6; 16],
+            signed_group: [7; 32],
+            structural_offsets: [0; 9],
+        };
+        let snapshot = V3StateSnapshot {
+            source: V3SourceObservation {
+                issuer_account: [8; 32],
+                sequence: 2,
+                digest: [9; 32],
+                observed_at: 140,
+                valid_until: 170,
+            },
+            publication: V3RootPublication {
+                publisher_account: [10; 32],
+                issuer_account: [8; 32],
+                source_sequence: 2,
+                source_digest: [9; 32],
+                root: word(11),
+                root_version: 0,
+                allocation_epoch: 1,
+            },
+            enrollment: V3Enrollment {
+                issuer_account: [8; 32],
+                config_account: [12; 32],
+                issuer_hash: word(3),
+                policy_hash: word(4),
+                profile: manifest.admission.profile,
+                circuit: manifest.package.circuit_digest,
+                issuer_version: 1,
+                policy_version: 1,
+                issuer_enabled: true,
+                policy_enabled: true,
+            },
+            clock: V3AuthenticatedClock {
+                finalized_slot: 100,
+                unix_timestamp: 150,
+                valid_until: 160,
+            },
+            action: V3FinalizedAction {
+                request_account: [13; 32],
+                queue_account: [14; 32],
+                config_account: [12; 32],
+                action_be: {
+                    let mut action = word(15);
+                    action.reverse();
+                    action
+                },
+                nonce: [16; 32],
+                deadline: 180,
+                consumed: false,
+            },
+            adapter_key: V3OrdinaryVkIdentity {
+                file_sha256: manifest.ordinary_vk_file_sha256,
+                tagged_digest: [17; 32],
+                root_receipt_sha256: [18; 32],
+            },
+            slot: 7,
+            siblings: [word(19); 10],
+            generation: 1,
+        };
+        (summary, manifest, snapshot)
+    }
+    #[test]
+    fn state_recheck_accepts_only_unchanged_context_with_monotonic_clock() {
+        use std::time::{Duration, Instant};
+        let (credential, manifest, before) = state_fixture();
+        let control = OperationControl::new(Instant::now() + Duration::from_secs(10));
+        let mut after = before.clone();
+        after.clock.finalized_slot += 1;
+        after.clock.unix_timestamp += 1;
+        after.clock.valid_until += 1;
+        assert_eq!(
+            check_full_state_recheck(&before, &after, &credential, &manifest, 151, &control),
+            Ok(())
+        );
+        for field in 0..14 {
+            let mut changed = after.clone();
+            match field {
+                0 => changed.source.digest[0] ^= 1,
+                1 => changed.publication.root = word(20),
+                2 => changed.publication.root_version += 1,
+                3 => changed.enrollment.issuer_version += 1,
+                4 => changed.enrollment.policy_version += 1,
+                5 => changed.action.action_be[31] ^= 1,
+                6 => changed.action.nonce[0] ^= 1,
+                7 => changed.action.request_account[0] ^= 1,
+                8 => changed.action.queue_account[0] ^= 1,
+                9 => changed.adapter_key.tagged_digest[0] ^= 1,
+                10 => changed.slot += 1,
+                11 => changed.siblings[0] = word(21),
+                12 => changed.publication.allocation_epoch += 1,
+                _ => changed.generation += 1,
+            }
+            assert_eq!(
+                check_full_state_recheck(&before, &changed, &credential, &manifest, 151, &control),
+                Err(ClientError::Superseded),
+                "changed field {field}"
+            );
+        }
+        for field in 0..3 {
+            let mut backwards = after.clone();
+            match field {
+                0 => backwards.clock.finalized_slot = before.clock.finalized_slot - 1,
+                1 => backwards.clock.unix_timestamp = before.clock.unix_timestamp - 1,
+                _ => backwards.clock.valid_until = before.clock.valid_until - 1,
+            }
+            assert_eq!(
+                check_full_state_recheck(
+                    &before,
+                    &backwards,
+                    &credential,
+                    &manifest,
+                    151,
+                    &control
+                ),
+                Err(ClientError::Superseded)
+            );
+        }
+    }
+    #[test]
+    fn state_recheck_rejects_expiry_consumption_and_cancelled_work() {
+        use std::time::{Duration, Instant};
+        let (credential, manifest, before) = state_fixture();
+        let control = OperationControl::new(Instant::now() + Duration::from_secs(10));
+        assert!(
+            check_full_state_recheck(&before, &before, &credential, &manifest, 171, &control)
+                .is_err()
+        );
+        let mut consumed = before.clone();
+        consumed.action.consumed = true;
+        assert!(check_full_state_recheck(
+            &before,
+            &consumed,
+            &credential,
+            &manifest,
+            150,
+            &control
+        )
+        .is_err());
+        let mut unobserved = before.clone();
+        unobserved.source.sequence = 0;
+        unobserved.publication.source_sequence = 0;
+        assert!(check_full_state_recheck(
+            &unobserved,
+            &unobserved,
+            &credential,
+            &manifest,
+            150,
+            &control
+        )
+        .is_err());
+        control.cancel();
+        assert_eq!(
+            check_full_state_recheck(&before, &before, &credential, &manifest, 150, &control),
+            Err(ClientError::Cancelled)
+        );
+        let expired = OperationControl::new(Instant::now());
+        assert_eq!(
+            check_full_state_recheck(&before, &before, &credential, &manifest, 150, &expired),
+            Err(ClientError::Deadline)
+        );
+    }
 
     // Public identity evidence only. No PK, credential, holder key or assignment.
     const KEY_RECEIPT: &[u8] =
