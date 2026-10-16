@@ -1,8 +1,9 @@
 //! First harness stage only; this is not relation-admission evidence.
 
 use dynark_native_client::{
-    FieldBytes, OperationControl, V3CompilerInputMap, V3CompilerSymbols, V3CredentialSummary,
-    V3InputWorker, V3InputWorkerRequest,
+    decode_digest, FieldBytes, OperationControl, V3CompilerInputMap, V3CompilerSymbols,
+    V3CredentialSummary, V3FullManifest, V3InputWorker, V3InputWorkerRequest, V3SetupArtifact,
+    V3SetupSources, V3SharedSetup,
 };
 use std::{
     fs::{self, OpenOptions},
@@ -275,4 +276,46 @@ fn native_v3_relation_harness() {
             if error.kind() == std::io::ErrorKind::NotFound),
         "preflight R1CS snapshot must be removed"
     );
+
+    let repo = PathBuf::from("/Users/anishnarang/Zk-refresh");
+    let setup = repo.join("artifacts/dynark/part5/v3-development-setup-001");
+    let compile = repo.join("artifacts/dynark/part5/v3-compile-001");
+    let artifact = |path, hash: &str| V3SetupArtifact {
+        path,
+        asserted_sha256: decode_digest(hash).expect("fixed development artifact digest"),
+    };
+    let sources = V3SetupSources {
+        setup_manifest: artifact(
+            setup.join("setup-manifest.json"),
+            "d31f82e3f147e31b30074b3a570a9d7945c5e1f5d3f3dd74172801abbe984918",
+        ),
+        r1cs: artifact(
+            compile.join("credential.r1cs"),
+            "976e9a76356ad015f0e4c587ccd79bba601b5caf80817b561aa4ca5442656888",
+        ),
+        wasm: artifact(
+            compile.join("credential_js/credential.wasm"),
+            "fbf73cff59660574add16ba8acafe824a9d57e0c91f23557b6462979b85c9aa6",
+        ),
+        profile: artifact(
+            repo.join("circuits/credential-v3-bounded/profile.json"),
+            "2e5d26564fb055e70cff924c4cb6e296509030b8c0062130f86ad5af783f7918",
+        ),
+        proving_key: artifact(
+            setup.join("development.pk"),
+            "879563839a95ab1a9e5a44b316ba86290918a5cf522863c1ddc58379365293bc",
+        ),
+        ordinary_vk: artifact(
+            setup.join("ordinary.vk"),
+            "87edb4608c2140f3c7fddc8503e49b68931cda973711ce2c831bd44f1b98a875",
+        ),
+        ordinary_key_receipt: artifact(
+            repo.join("results/dynark/part5/v3-ordinary-vk-identity-001.json"),
+            "6a6fd9d207c778b085f56de3327ec15ccee886ab127de1e90e970da039fef429",
+        ),
+    };
+    let manifest = V3FullManifest::frozen_development().expect("fixed development manifest");
+    let setup_control = OperationControl::new(Instant::now() + Duration::from_secs(570));
+    let _setup = V3SharedSetup::load(&sources, &manifest, &setup_control)
+        .expect("accepted shared development setup admission");
 }
