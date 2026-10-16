@@ -48,6 +48,10 @@ does not import a complete WTNS or validate an R1CS in the standard client,
 and its real Full witness/proof workflow still rejects. The frozen unseen credential cohort
 has not been generated or run.
 
+A development exporter also passed one canonical finalized v3 request/action
+fixture test. It has no CLI or proof output yet; the new fixture is a boundary
+for signing a real request, not application acceptance.
+
 For the v3 successor, Execute requires **six** ordered public fields and the
 matching seven-IC ordinary VK. Earlier v2 five-field steps below remain
 historical baseline work and cannot qualify the v3 product objective.
