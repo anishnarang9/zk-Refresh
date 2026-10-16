@@ -44,3 +44,11 @@ no remaining owned processes. See the scrubbed
 harness still performs its relation check in the independent Python preflight;
 native client candidate-to-coordinate and admitted-package validation remain
 separate gates.
+
+The same harness now also reads its private request and summary through
+same-handle checks, invokes the fixed native input worker, and requires its
+temporary invocation directory to be empty afterward. The bounded release
+run passed one test in 17.405 seconds, with 368,427,008 bytes peak sampled
+owned-tree RSS, no cap stop and no remaining owned process. See
+`results/dynark/part5/v3-relation-native-worker-green-001.json`. A worker
+candidate is still not a validated complete assignment.
