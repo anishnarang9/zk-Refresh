@@ -27,6 +27,37 @@ pub struct V3CheckedRelation {
     assignment: ValidatedAssignment,
 }
 impl V3CheckedRelation {
+    /// Test-only mathematical qualification; establishes no current authority.
+    #[cfg(test)]
+    fn prove_qualification_full(
+        &self,
+        setup: &V3SharedSetup,
+        control: &OperationControl,
+    ) -> Result<dynark_bn254::ProofStatement, ClientError> {
+        control.check()?;
+        let statement = dynark_bn254::prove(
+            setup.package(),
+            &self.assignment,
+            0,
+            &mut rand::rngs::OsRng,
+        )
+        .map_err(|error| match error {
+            dynark_bn254::Error::Entropy { .. }
+            | dynark_bn254::Error::RejectionLimit { .. } => ClientError::Entropy,
+            _ => ClientError::Proof,
+        });
+        control.check()?;
+        let statement = statement?;
+        let verification = verify_qualification_full(
+            &setup.package().ordinary_verifying_key(),
+            &statement.proof,
+            &statement.public_values,
+        );
+        control.check()?;
+        verification?;
+        Ok(statement)
+    }
+
     /// Derive exact 14-key canonical JSON from the 751 checked input scalars;
     /// compare the supplied serialization byte-for-byte. Require Full mode,
     /// canonical 25,113,548-byte WTNS with 784,796 coordinates, constant one and
@@ -138,6 +169,25 @@ impl V3CheckedRelation {
     }
 }
 
+#[cfg(test)]
+fn verify_qualification_full(
+    vk: &ordinary::VerifyingKey<ark_bn254::Bn254>,
+    proof: &ordinary::Proof<ark_bn254::Bn254>,
+    public: &[Fr],
+) -> Result<(), ClientError> {
+    if public.len() != 6 || vk.gamma_abc_g1.len() != 7 {
+        return Err(ClientError::Identity);
+    }
+    match ordinary::Groth16::<ark_bn254::Bn254>::verify_proof(
+        &ordinary::prepare_verifying_key(vk),
+        proof,
+        public,
+    ) {
+        Ok(true) => Ok(()),
+        _ => Err(ClientError::Proof),
+    }
+}
+
 fn parse_wtns(
     bytes: &[u8],
     control: &OperationControl,
@@ -174,3 +224,7 @@ fn parse_wtns(
     control.check()?;
     Ok(words)
 }
+
+#[cfg(test)]
+#[path = "../tests/support/v3_full_qualification.rs"]
+mod qualification;
