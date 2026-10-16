@@ -1,0 +1,406 @@
+//! Private training proof -> adapter -> program host verifier only.
+//! No setup/proving, authenticated chain observation, Execute or queue effect.
+//! Run the ignored test only with M2_V3_HOST_FIXTURE (canonical owner0700 path)
+//! and M2_V3_HOST_RECEIPT_SHA256 (independently recorded training receipt hash).
+use ark_bn254::{Bn254, Fr};
+use ark_ff::{Field, PrimeField};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use dynark_solana_adapter::v3;
+use serde_json::Value;
+use sha2::{Digest, Sha256};
+use std::{
+    fs::{self, OpenOptions},
+    io::{Read, Write},
+    os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt},
+    path::{Path, PathBuf},
+    str::FromStr,
+};
+use zk_fresh_program::{application_runtime_v3::verify, generated_vk_v3 as program_vk};
+
+type Result<T> = std::result::Result<T, &'static str>;
+fn sha(bytes: &[u8]) -> String {
+    Sha256::digest(bytes)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+fn owner() -> u32 {
+    // Metadata check for a host-only test; no application code uses this syscall.
+    unsafe { libc::geteuid() }
+}
+fn directory(path: &Path) -> Result<()> {
+    let meta = fs::symlink_metadata(path).map_err(|_| "private directory metadata")?;
+    if !path.is_absolute()
+        || fs::canonicalize(path).ok().as_deref() != Some(path)
+        || !meta.is_dir()
+        || meta.permissions().mode() & 0o7777 != 0o700
+        || meta.uid() != owner()
+    {
+        return Err("canonical owner0700 directory required");
+    }
+    Ok(())
+}
+fn private(path: &Path, cap: usize, exact: Option<usize>) -> Result<Vec<u8>> {
+    directory(path.parent().ok_or("private parent")?)?;
+    let before = fs::symlink_metadata(path).map_err(|_| "private metadata")?;
+    if !before.is_file()
+        || before.permissions().mode() & 0o7777 != 0o600
+        || before.uid() != owner()
+        || before.nlink() != 1
+        || before.len() == 0
+        || before.len() > cap as u64
+        || exact.is_some_and(|n| before.len() != n as u64)
+    {
+        return Err("private file shape");
+    }
+    let identity = |m: &fs::Metadata| {
+        (
+            m.dev(),
+            m.ino(),
+            m.mode(),
+            m.uid(),
+            m.nlink(),
+            m.len(),
+            m.mtime(),
+            m.mtime_nsec(),
+            m.ctime(),
+            m.ctime_nsec(),
+        )
+    };
+    let mut file = OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)
+        .map_err(|_| "private open")?;
+    if identity(&file.metadata().map_err(|_| "private handle")?) != identity(&before) {
+        return Err("private identity");
+    }
+    let mut bytes = Vec::new();
+    (&mut file)
+        .take(cap as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| "private read")?;
+    if bytes.len() != before.len() as usize
+        || identity(&file.metadata().map_err(|_| "private handle")?) != identity(&before)
+        || identity(&fs::symlink_metadata(path).map_err(|_| "private name")?) != identity(&before)
+    {
+        return Err("private changed");
+    }
+    Ok(bytes)
+}
+fn public_values(raw: &[u8]) -> Result<Vec<Fr>> {
+    if raw.len() != 192 {
+        return Err("six raw LE fields required");
+    }
+    raw.chunks_exact(32)
+        .map(|word| Fr::deserialize_compressed(word).map_err(|_| "canonical public field"))
+        .collect()
+}
+fn proof(raw: &[u8]) -> Result<ordinary::Proof<Bn254>> {
+    if raw.len() != 128 {
+        return Err("compressed proof128 required");
+    }
+    let mut cursor = raw;
+    let proof = ordinary::Proof::<Bn254>::deserialize_compressed(&mut cursor)
+        .map_err(|_| "canonical proof")?;
+    if !cursor.is_empty() {
+        return Err("proof trailing bytes");
+    }
+    Ok(proof)
+}
+fn expected_public(public_json: &[u8], input_json: &[u8], q1: &[u8]) -> Result<Vec<Fr>> {
+    let public: Value = serde_json::from_slice(public_json).map_err(|_| "public JSON")?;
+    let input: Value = serde_json::from_slice(input_json).map_err(|_| "input JSON")?;
+    let values = public
+        .as_array()
+        .filter(|a| a.len() == 6)
+        .ok_or("six public JSON fields")?;
+    if input.as_object().filter(|o| o.len() == 14).is_none() {
+        return Err("input keys");
+    }
+    let mut expected = Vec::new();
+    for (name, value) in v3::PUBLIC_NAMES.iter().zip(values) {
+        let decimal = value.as_str().ok_or("public decimal string")?;
+        let scalar = Fr::from_str(decimal).map_err(|_| "public decimal field")?;
+        if scalar.to_string() != decimal || input.get(*name) != Some(value) {
+            return Err("exact input/public equality");
+        }
+        expected.push(scalar);
+    }
+    if q1.len() != 1918 || &q1[..4] != b"V3Q1" {
+        return Err("Q1 shape");
+    }
+    let action: [u8; 32] = q1[1212..1244].try_into().map_err(|_| "action width")?;
+    let mut canonical_action = [0; 32];
+    expected[4]
+        .serialize_compressed(&mut canonical_action[..])
+        .map_err(|_| "action scalar")?;
+    canonical_action.reverse();
+    if action != canonical_action {
+        return Err("Q1 action mismatch");
+    }
+    for (index, start) in [(0, 1822), (1, 1854), (5, 1886)] {
+        let mut canonical = [0; 32];
+        expected[index]
+            .serialize_compressed(&mut canonical[..])
+            .map_err(|_| "Q1 scalar")?;
+        if q1[start..start + 32] != canonical {
+            return Err("Q1 public mismatch");
+        }
+    }
+    Ok(expected)
+}
+fn identity() -> v3::Identity {
+    v3::Identity {
+        circuit: program_vk::CIRCUIT_ID,
+        package: program_vk::PACKAGE_ID,
+        schema: program_vk::SEMANTIC_SCHEMA_ID,
+        profile: program_vk::PROFILE_ID,
+        ordinary_vk_digest: program_vk::ORDINARY_VK_DIGEST,
+    }
+}
+fn adapter(vk_bytes: &[u8]) -> Result<v3::Verifier> {
+    let expected_sha: String = program_vk::ORDINARY_VK_FILE_SHA256
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    if vk_bytes.len() != 456
+        || sha(vk_bytes) != expected_sha
+        || vk_bytes[224..232] != 7u64.to_le_bytes()
+    {
+        return Err("pinned seven-IC ordinary VK");
+    }
+    let mut cursor = vk_bytes;
+    let vk = ordinary::VerifyingKey::<Bn254>::deserialize_compressed(&mut cursor)
+        .map_err(|_| "canonical ordinary VK")?;
+    if !cursor.is_empty() {
+        return Err("VK trailing bytes");
+    }
+    v3::Verifier::new(vk, identity()).map_err(|_| "adapter identity")
+}
+fn verify_join(
+    proof_bytes: &[u8],
+    public_bytes: &[u8],
+    expected: &[Fr],
+    vk: &[u8],
+) -> Result<[u8; 448]> {
+    let fields = public_values(public_bytes)?;
+    if fields != expected {
+        return Err("qualification publics differ from pinned fixture");
+    }
+    let proof = proof(proof_bytes)?;
+    let verifier = adapter(vk)?;
+    let encoded = verifier
+        .encode(&proof, &fields, identity())
+        .map_err(|_| "adapter encode")?;
+    let flat: Vec<_> = encoded.inputs.iter().flatten().copied().collect();
+    let decoded = verifier
+        .decode(&encoded.proof, &flat, identity())
+        .map_err(|_| "adapter decode")?;
+    let mut roundtrip = Vec::new();
+    decoded
+        .serialize_compressed(&mut roundtrip)
+        .map_err(|_| "proof roundtrip")?;
+    if roundtrip != proof_bytes {
+        return Err("proof roundtrip mismatch");
+    }
+    verifier
+        .verify_solana(&encoded.proof, &flat, identity())
+        .map_err(|_| "adapter native verifier")?;
+    verify(&encoded.inputs, &encoded.proof).map_err(|_| "program host verifier")?;
+    // Valid canonical changed statements must fail both component verifier paths.
+    for index in 0..6 {
+        let mut wrong = fields.clone();
+        wrong[index] += Fr::ONE;
+        if verifier.encode(&proof, &wrong, identity()).is_ok() {
+            return Err("changed public accepted");
+        }
+        let mut wrong_inputs = encoded.inputs;
+        let mut word = [0; 32];
+        wrong[index]
+            .serialize_compressed(&mut word[..])
+            .map_err(|_| "changed public")?;
+        word.reverse();
+        wrong_inputs[index] = word;
+        if verify(&wrong_inputs, &encoded.proof).is_ok() {
+            return Err("host changed public accepted");
+        }
+    }
+    // Negating C preserves curve/subgroup membership while invalidating this proof.
+    let mut wrong_proof = proof.clone();
+    wrong_proof.c = -wrong_proof.c;
+    if verifier.encode(&wrong_proof, &fields, identity()).is_ok() {
+        return Err("changed proof accepted");
+    }
+    let mut wire_wrong = encoded.proof;
+    let mut y = ark_bn254::Fq::from_be_bytes_mod_order(&wire_wrong[224..256]);
+    y = -y;
+    y.serialize_compressed(&mut wire_wrong[224..256])
+        .map_err(|_| "C coordinate")?;
+    wire_wrong[224..256].reverse();
+    if verify(&encoded.inputs, &wire_wrong).is_ok() {
+        return Err("host changed proof accepted");
+    }
+    let mut wire = [0; 448];
+    wire[..192].copy_from_slice(&flat);
+    wire[192..].copy_from_slice(&encoded.proof);
+    Ok(wire)
+}
+
+#[test]
+fn raw_public_format_rejects_vec_prefix_wrong_width_and_noncanonical_fields() {
+    assert!(public_values(&[0; 192]).is_ok());
+    for width in [0, 191, 193, 200] {
+        assert!(public_values(&vec![0; width]).is_err());
+    }
+    assert!(public_values(&[255; 192]).is_err());
+    assert!(proof(&[0; 127]).is_err());
+    assert!(proof(&[0; 129]).is_err());
+}
+#[test]
+fn request_public_input_binding_rejects_substitution_and_noncanonical_decimal() {
+    let public = serde_json::json!(["0", "0", "0", "0", "0", "0"]);
+    let mut input = serde_json::Map::new();
+    for name in v3::PUBLIC_NAMES {
+        input.insert(name.into(), serde_json::json!("0"));
+    }
+    for name in [
+        "layout",
+        "slot",
+        "tbs",
+        "issuerModulus",
+        "issuerSignature",
+        "holderSignature",
+        "siblings",
+        "pathIndices",
+    ] {
+        input.insert(name.into(), serde_json::json!("0"));
+    }
+    let mut q1 = vec![0; 1918];
+    q1[..4].copy_from_slice(b"V3Q1");
+    let p = serde_json::to_vec(&public).unwrap();
+    let i = serde_json::to_vec(&input).unwrap();
+    assert!(expected_public(&p, &i, &q1).is_ok());
+    for index in [1212, 1822, 1854, 1886] {
+        q1[index] ^= 1;
+        assert!(expected_public(&p, &i, &q1).is_err());
+        q1[index] ^= 1;
+    }
+    input.insert("actionHash".into(), serde_json::json!("1"));
+    assert!(expected_public(&p, &serde_json::to_vec(&input).unwrap(), &q1).is_err());
+    let noncanonical = br#"["00","0","0","0","0","0"]"#;
+    assert!(expected_public(noncanonical, &i, &q1).is_err());
+}
+#[test]
+fn existing_public_corpus_checks_real_adapter_and_program_host_join() {
+    // Public retained corpus only, distinct from the ignored request-bound gate.
+    let base = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../program/tests/data");
+    let proof = fs::read(base.join("v3-credential-0-full-base.ark-proof")).unwrap();
+    let public = fs::read(base.join("v3-credential-0-full-base.ark-public")).unwrap();
+    let vk = fs::read(base.join("v3-ordinary.ark-vk")).unwrap();
+    assert_eq!(public.len(), 200);
+    assert_eq!(&public[..8], &6u64.to_le_bytes());
+    let fields = public_values(&public[8..]).unwrap();
+    assert!(verify_join(&proof, &public[8..], &fields, &vk).is_ok());
+    let mut wrong = fields;
+    wrong[4] += Fr::ONE;
+    assert!(verify_join(&proof, &public[8..], &wrong, &vk).is_err());
+}
+#[test]
+fn private_reader_rejects_public_mode_and_hardlinks() {
+    let dir = std::env::temp_dir().join(format!("v3-host-private-{}", std::process::id()));
+    fs::DirBuilder::new().mode(0o700).create(&dir).unwrap();
+    let dir = fs::canonicalize(dir).unwrap();
+    let path = dir.join("fixture");
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&path)
+        .unwrap();
+    file.write_all(b"fixture").unwrap();
+    assert!(private(&path, 7, Some(7)).is_ok());
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+    assert!(private(&path, 7, Some(7)).is_err());
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+    let link = dir.join("link");
+    fs::hard_link(&path, &link).unwrap();
+    assert!(private(&path, 7, Some(7)).is_err());
+    fs::remove_file(&link).unwrap();
+    std::os::unix::fs::symlink(&path, &link).unwrap();
+    assert!(private(&link, 7, Some(7)).is_err());
+    assert!(private(&path, 6, Some(7)).is_err());
+    assert!(private(&path, 7, Some(6)).is_err());
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+#[ignore = "explicit private request-bound training proof fixture required"]
+fn private_request_bound_full_passes_adapter_and_program_host() {
+    let fixture =
+        PathBuf::from(std::env::var_os("M2_V3_HOST_FIXTURE").expect("private fixture required"));
+    directory(&fixture).expect("private fixture directory");
+    let receipt_bytes = private(&fixture.join("training-receipt.json"), 16384, None).unwrap();
+    let expected_sha = std::env::var("M2_V3_HOST_RECEIPT_SHA256").expect("receipt SHA required");
+    assert!(
+        expected_sha.len() == 64
+            && expected_sha
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    );
+    assert!(
+        sha(&receipt_bytes) == expected_sha,
+        "pinned training receipt"
+    );
+    let receipt: Value = serde_json::from_slice(&receipt_bytes).expect("training receipt JSON");
+    assert!(
+        receipt["schema"] == "v3-request-bound-training-input-v1"
+            && receipt["training_only"] == true
+            && receipt["live_state_authenticated"] == false
+            && receipt["proof_created"] == false
+    );
+    let q1 = private(&fixture.join("request.bin"), 1918, Some(1918)).unwrap();
+    let input = private(&fixture.join("input.json"), 65536, None).unwrap();
+    let public_json = private(&fixture.join("public.json"), 1024, None).unwrap();
+    for (name, bytes) in [
+        ("request.bin", &q1),
+        ("input.json", &input),
+        ("public.json", &public_json),
+    ] {
+        assert!(
+            receipt["artifact_sha256"][name].as_str() == Some(sha(bytes).as_str()),
+            "pinned fixture artifact"
+        );
+    }
+    let expected =
+        expected_public(&public_json, &input, &q1).expect("exact request/public/input equality");
+    let proof = private(&fixture.join("full-ordinary.proof"), 128, Some(128)).unwrap();
+    let public = private(&fixture.join("full-public-le.bin"), 192, Some(192)).unwrap();
+    let setup = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../artifacts/dynark/part5/v3-development-setup-001");
+    let vk = private(
+        &setup.canonicalize().unwrap().join("ordinary.vk"),
+        456,
+        Some(456),
+    )
+    .unwrap();
+    let wire =
+        verify_join(&proof, &public, &expected, &vk).expect("private training adapter/host join");
+    let output = fixture.join("full-solana-wire.bin");
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(&output)
+        .expect("fresh private wire output");
+    file.set_permissions(fs::Permissions::from_mode(0o600))
+        .unwrap();
+    file.write_all(&wire).unwrap();
+    file.sync_all().unwrap();
+    assert!(
+        private(&output, 448, Some(448)).unwrap() == wire,
+        "private wire output identity"
+    );
+    // No serialized values are printed. Execute/live authorization remain separate.
+}
