@@ -165,6 +165,32 @@ pub fn export_fixture_from_wire(input: &[u8]) -> Result<Vec<u8>, AppError> {
     Ok(output)
 }
 
+/// Read one exact fixed-size V3F1 fixture before writing its checked V3F2 export.
+/// Truncated or trailing input returns Bounds without writing; other transport
+/// failures return Unavailable. A destination failure may leave partial output.
+pub fn export_fixture_stream<R: std::io::Read, W: std::io::Write>(
+    source: &mut R,
+    destination: &mut W,
+) -> Result<(), AppError> {
+    const INPUT_LEN: usize = 4 + 32 + 8 + 4 + 4 + 6 * 32 + CONFIG_LEN + REQUEST_LEN;
+    let mut input = [0; INPUT_LEN];
+    source.read_exact(&mut input).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::UnexpectedEof {
+            AppError::Bounds
+        } else {
+            AppError::Unavailable
+        }
+    })?;
+    let mut trailing = [0; 1];
+    match source.read_exact(&mut trailing) {
+        Ok(()) => return Err(AppError::Bounds),
+        Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => {}
+        Err(_) => return Err(AppError::Unavailable),
+    }
+    let output = export_fixture_from_wire(&input)?;
+    destination.write_all(&output).map_err(|_| AppError::Unavailable)
+}
+
 #[allow(dead_code)] // This file is also imported as an integration-test module.
 fn main() {
     eprintln!("development v3 request fixture export is unavailable");
