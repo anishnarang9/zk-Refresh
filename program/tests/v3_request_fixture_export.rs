@@ -4,7 +4,7 @@ mod exporter;
 use solana_program::pubkey::Pubkey;
 use zk_fresh_program::{
     application_runtime_v3 as addresses,
-    application_v3::{action_hash, action_preimage, Config, RelevantMeta, Request, RequestState},
+    application_v3::{action_hash, action_preimage, Config, RelevantMeta, Request, RequestState, CONFIG_LEN, REQUEST_LEN},
     generated_vk_v3 as identity,
 };
 
@@ -14,8 +14,7 @@ fn field(value: u64) -> [u8; 32] {
     bytes
 }
 
-#[test]
-fn exports_canonical_request_fixture_with_exact_action_and_pdas() {
+fn canonical_fixture() -> (Pubkey, Config, Request, [[u8; 32]; 6], i64) {
     // 2026-10-15 00:00:00 UTC: use the certificate era, not toy epoch times.
     let now = 1_792_022_400;
     let program = Pubkey::new_from_array([42; 32]);
@@ -72,6 +71,19 @@ fn exports_canonical_request_fixture_with_exact_action_and_pdas() {
         config.policy_id,
     ];
 
+    (program, config, request, publics, now)
+}
+
+#[test]
+fn exports_canonical_request_fixture_with_exact_action_and_pdas() {
+    let (program, config, request, publics, now) = canonical_fixture();
+    let config_pda = addresses::config_address(&program, &config.admin, &config.seed).0;
+    let request_pda = addresses::request_address(
+        &program, &config_pda, &request.creator, &request.nonce,
+    ).0;
+    let queue_pda = addresses::queue_address(&program, &config_pda).0;
+    let expected_action = publics[4];
+
     let exported = exporter::export_fixture(&program, &config, &request, &publics, now)
         .expect("valid request fixture must export; scaffold currently returns Unavailable");
     assert_eq!(exported.program_id, program);
@@ -95,4 +107,51 @@ fn exports_canonical_request_fixture_with_exact_action_and_pdas() {
     assert_eq!(action_hash(&program, &decoded_config, &decoded_request).unwrap(), publics[4]);
     assert_eq!(exported.action_preimage,
         action_preimage(&program, &decoded_config, &decoded_request).unwrap());
+}
+
+#[test]
+fn exports_exact_request_fixture_wire_identities_and_byte_order() {
+    let (program, config, request, publics, now) = canonical_fixture();
+    let config_bytes = config.encode();
+    let request_bytes = request.encode();
+    assert_eq!(config_bytes.len(), CONFIG_LEN);
+    assert_eq!(request_bytes.len(), REQUEST_LEN);
+
+    let mut input = b"V3F1".to_vec();
+    input.extend_from_slice(program.as_ref());
+    input.extend_from_slice(&now.to_le_bytes());
+    input.extend_from_slice(&(CONFIG_LEN as u32).to_le_bytes());
+    input.extend_from_slice(&(REQUEST_LEN as u32).to_le_bytes());
+    for public in &publics {
+        input.extend_from_slice(public);
+    }
+    input.extend_from_slice(&config_bytes);
+    input.extend_from_slice(&request_bytes);
+    assert_eq!(input.len(), 4 + 32 + 8 + 4 + 4 + 6 * 32 + CONFIG_LEN + REQUEST_LEN);
+
+    let output = exporter::export_fixture_from_wire(&input)
+        .expect("canonical V3F1 fixture must export to V3F2");
+    let config_pda = addresses::config_address(&program, &config.admin, &config.seed).0;
+    let issuer_pda = addresses::issuer_address(&program, &config_pda, &request.issuer_hash).0;
+    let request_pda = addresses::request_address(
+        &program, &config_pda, &request.creator, &request.nonce,
+    ).0;
+    let queue_pda = addresses::queue_address(&program, &config_pda).0;
+    let publisher_head_pda = addresses::publisher_head_address(
+        &program, &config_pda, &issuer_pda, &config.publisher,
+    ).0;
+    let preimage = action_preimage(&program, &config, &request).unwrap();
+
+    assert_eq!(&output[..4], b"V3F2");
+    for (index, pda) in [config_pda, issuer_pda, request_pda, queue_pda, publisher_head_pda]
+        .iter().enumerate()
+    {
+        let offset = 4 + index * 32;
+        assert_eq!(&output[offset..offset + 32], pda.as_ref());
+    }
+    assert_eq!(&output[164..196], &publics[4]);
+    let preimage_len = u32::from_le_bytes(output[196..200].try_into().unwrap()) as usize;
+    assert_eq!(preimage_len, preimage.len());
+    assert_eq!(&output[200..], preimage.as_slice());
+    assert_eq!(output.len(), 200 + preimage_len);
 }
