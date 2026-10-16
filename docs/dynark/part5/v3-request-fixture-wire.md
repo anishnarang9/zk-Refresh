@@ -24,6 +24,8 @@ generation.
 
 The tests-first compile gate failed only because `export_fixture_from_wire`
 was absent (`E0425`); see
-`results/dynark/part5/v3-request-wire-red-001.json`. Source implementation,
-private file transport, a request-bound Full proof and application execution
+`results/dynark/part5/v3-request-wire-red-001.json`. The bounded GREEN run
+then passed both exporter tests in 5.042 seconds with no cap stop; see
+`v3-request-wire-green-001.json`. The pure wire function is implemented.
+Private file transport, a request-bound Full proof and application execution
 remain separate gates.
