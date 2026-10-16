@@ -1,5 +1,8 @@
 #![forbid(unsafe_code)]
 
+#[cfg(test)]
+extern crate self as dynark_native_client;
+
 mod client;
 mod control;
 mod identity;
@@ -12,6 +15,7 @@ mod v3;
 mod v3_input;
 mod v3_setup;
 mod v3_input_worker;
+mod v3_input_map;
 
 pub use client::*;
 pub use control::*;
@@ -25,6 +29,7 @@ pub use v3::*;
 pub use v3_input::*;
 pub use v3_setup::*;
 pub use v3_input_worker::*;
+pub use v3_input_map::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum InvalidationReason {
