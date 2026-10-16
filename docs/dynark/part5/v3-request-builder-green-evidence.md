@@ -17,6 +17,11 @@ cap stop, runner error or remaining owned process. The test compared decoded
 application accounts, independent PDA/action derivation, exact V3F1 bytes
 and V3F2 output; the payload crossed a staging chunk boundary.
 
+The existing exporter suite also passed 4/4 after the source change under
+`results/dynark/part5/v3-request-export-regression-001.json` (3.707 measured
+seconds, no cap stop or runner error). It covers exact stream transport and
+malformed or mismatched fixture rejection.
+
 This is local construction of a development request fixture. The plan and
 bytes are not authenticated live Solana accounts, and this result establishes
 no holder signature, certificate eligibility, current issuer publication,
