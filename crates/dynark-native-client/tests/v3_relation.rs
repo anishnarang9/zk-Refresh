@@ -1,12 +1,86 @@
 //! First harness stage only; this is not relation-admission evidence.
 
+use dynark_native_client::{
+    FieldBytes, OperationControl, V3CredentialSummary, V3InputWorker, V3InputWorkerRequest,
+};
 use std::{
-    fs,
-    os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt},
-    path::PathBuf,
+    fs::{self, OpenOptions},
+    io::Read,
+    os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt},
+    path::{Path, PathBuf},
     process::{Child, Command, Stdio},
     time::{Duration, Instant},
 };
+
+#[cfg(target_os = "macos")]
+const PRIVATE_FLAGS: i32 = 0x0100 | 0x0004;
+#[cfg(target_os = "linux")]
+const PRIVATE_FLAGS: i32 = 0x20000 | 0x0800;
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+const PRIVATE_FLAGS: i32 = 0;
+
+fn read_private(path: &Path, length: usize, owner: u32) -> Vec<u8> {
+    let before = fs::symlink_metadata(path).expect("private fixture metadata");
+    assert!(before.is_file());
+    assert_eq!(before.permissions().mode() & 0o7777, 0o600);
+    assert_eq!(before.uid(), owner);
+    assert_eq!(before.nlink(), 1);
+    assert_eq!(before.len(), length as u64);
+    let identity = |metadata: &fs::Metadata| {
+        (
+            metadata.dev(),
+            metadata.ino(),
+            metadata.mode(),
+            metadata.uid(),
+            metadata.nlink(),
+            metadata.len(),
+            metadata.mtime(),
+            metadata.mtime_nsec(),
+            metadata.ctime(),
+            metadata.ctime_nsec(),
+        )
+    };
+    let mut file = OpenOptions::new()
+        .read(true)
+        .custom_flags(PRIVATE_FLAGS)
+        .open(path)
+        .expect("private fixture handle");
+    assert_eq!(identity(&file.metadata().unwrap()), identity(&before));
+    let mut bytes = Vec::with_capacity(length + 1);
+    (&mut file)
+        .take(length as u64 + 1)
+        .read_to_end(&mut bytes)
+        .expect("bounded private fixture read");
+    assert_eq!(identity(&file.metadata().unwrap()), identity(&before));
+    assert_eq!(bytes.len(), length);
+    bytes
+}
+
+fn summary(bytes: &[u8]) -> V3CredentialSummary {
+    assert_eq!(bytes.len(), 459);
+    assert!(bytes[..4] == *b"V3A1");
+    let word =
+        |start: usize| -> FieldBytes { bytes[start..start + 32].try_into().expect("summary word") };
+    V3CredentialSummary {
+        layout: bytes[4],
+        tbs_digest: word(5),
+        holder_modulus_be: bytes[37..293].try_into().expect("holder width"),
+        issuer_hash: word(293),
+        policy_hash: word(325),
+        not_before: u64::from_be_bytes(bytes[357..365].try_into().expect("epoch width")),
+        not_after: u64::from_be_bytes(bytes[365..373].try_into().expect("epoch width")),
+        signed_aki: bytes[373..393].try_into().expect("AKI width"),
+        signed_organization: bytes[393..409].try_into().expect("organization width"),
+        signed_group: bytes[409..441].try_into().expect("group width"),
+        structural_offsets: std::array::from_fn(|index| {
+            u16::from_be_bytes(
+                bytes[441 + 2 * index..443 + 2 * index]
+                    .try_into()
+                    .expect("offset width"),
+            )
+        }),
+    }
+}
 
 struct PrivateRoot(PathBuf);
 impl Drop for PrivateRoot {
@@ -31,6 +105,7 @@ fn native_v3_relation_harness() {
         Ok("native-v3-relation"),
         "explicit relation scope required"
     );
+    assert!(cfg!(any(target_os = "macos", target_os = "linux")));
     let root = std::path::PathBuf::from(
         std::env::var_os("M2_V3_RELATION_PRIVATE_ROOT")
             .expect("fresh private-root environment variable required"),
@@ -89,6 +164,37 @@ fn native_v3_relation_harness() {
             assert!((1..=65536).contains(&metadata.len()), "{name} bounds");
         }
     }
+
+    let owner = fs::symlink_metadata(&private_root.0).unwrap().uid();
+    let wire = read_private(&fixture.join("request.bin"), 1918, owner);
+    let metadata = read_private(&fixture.join("summary.bin"), 459, owner);
+    let request = V3InputWorkerRequest::from_wire(&wire, &summary(&metadata))
+        .expect("fresh independent fixture request structure");
+    let worker_root = private_root.0.join("native-worker");
+    fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&worker_root)
+        .expect("fresh private worker root");
+    assert_eq!(fs::symlink_metadata(&worker_root).unwrap().uid(), owner);
+    assert_eq!(
+        fs::symlink_metadata(&worker_root).unwrap().permissions().mode() & 0o7777,
+        0o700
+    );
+    let control = OperationControl::new(Instant::now() + Duration::from_secs(150));
+    control.check().expect("worker construction deadline");
+    let worker = V3InputWorker::new(&worker_root).expect("fixed native worker construction");
+    assert!(
+        fs::read_dir(&worker_root).unwrap().next().is_none(),
+        "worker constructor child cleanup"
+    );
+    let _candidate = worker
+        .build(&request, &control)
+        .expect("fresh fixture native private-worker candidate");
+    assert!(
+        fs::read_dir(&worker_root).unwrap().next().is_none(),
+        "worker invocation child cleanup"
+    );
+    // Candidate construction supplies no complete-relation or authorization admission.
 
     let witness_helper = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests/support/v3_relation_witness.cjs");

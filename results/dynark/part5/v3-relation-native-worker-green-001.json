@@ -1,0 +1,352 @@
+{
+  "schema": 1,
+  "owner": "m2-v3-relation-native-worker-green-001",
+  "started_at_utc": "2026-10-16T04:16:48.913073+00:00",
+  "ended_at_utc": "2026-10-16T04:17:06.318055+00:00",
+  "timezone": [
+    "EST",
+    "EDT"
+  ],
+  "duration_seconds": 17.40519541699905,
+  "limits": {
+    "runtime_seconds": 300.0,
+    "owned_tree_rss_bytes": 3221225472,
+    "storage_growth_bytes": 536870912,
+    "poll_seconds": 0.2
+  },
+  "stop_reason": null,
+  "exit_code": 0,
+  "runner_error_type": null,
+  "cleanup_remaining_owned_processes": 0,
+  "cleanup_status_unknown": false,
+  "sample_count": 52,
+  "samples": [
+    {
+      "elapsed_seconds": 0.016457958961836994,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 147456,
+      "storage_growth_bytes": 1014
+    },
+    {
+      "elapsed_seconds": 0.28685099992435426,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 66093056,
+      "storage_growth_bytes": 11593
+    },
+    {
+      "elapsed_seconds": 0.5673707500100136,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 110804992,
+      "storage_growth_bytes": 11593
+    },
+    {
+      "elapsed_seconds": 0.8435424999333918,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 163168256,
+      "storage_growth_bytes": 11593
+    },
+    {
+      "elapsed_seconds": 1.1313187089981511,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 168001536,
+      "storage_growth_bytes": 11593
+    },
+    {
+      "elapsed_seconds": 1.4077895840164274,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 149798912,
+      "storage_growth_bytes": 92065
+    },
+    {
+      "elapsed_seconds": 1.7293317499570549,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 38649856,
+      "storage_growth_bytes": 91939
+    },
+    {
+      "elapsed_seconds": 2.1263571250019595,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 38649856,
+      "storage_growth_bytes": 91939
+    },
+    {
+      "elapsed_seconds": 2.4803062919527292,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 73400320,
+      "storage_growth_bytes": 91955
+    },
+    {
+      "elapsed_seconds": 2.8055063750362024,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 80560128,
+      "storage_growth_bytes": 91955
+    },
+    {
+      "elapsed_seconds": 3.129501041956246,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 90177536,
+      "storage_growth_bytes": 91955
+    },
+    {
+      "elapsed_seconds": 3.4736125839408487,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 90177536,
+      "storage_growth_bytes": 91955
+    },
+    {
+      "elapsed_seconds": 3.8485030840383843,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 90177536,
+      "storage_growth_bytes": 91955
+    },
+    {
+      "elapsed_seconds": 4.215858459006995,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 88637440,
+      "storage_growth_bytes": 91955
+    },
+    {
+      "elapsed_seconds": 4.588874542037956,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 82739200,
+      "storage_growth_bytes": 91955
+    },
+    {
+      "elapsed_seconds": 4.9782000839477405,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 80773120,
+      "storage_growth_bytes": 91955
+    },
+    {
+      "elapsed_seconds": 5.323026958969422,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 80330752,
+      "storage_growth_bytes": 91955
+    },
+    {
+      "elapsed_seconds": 5.660695374943316,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 39895040,
+      "storage_growth_bytes": 103741
+    },
+    {
+      "elapsed_seconds": 6.032164374948479,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 250707968,
+      "storage_growth_bytes": 114097
+    },
+    {
+      "elapsed_seconds": 6.430219125002623,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 281051136,
+      "storage_growth_bytes": 114097
+    },
+    {
+      "elapsed_seconds": 6.787450541974977,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 305725440,
+      "storage_growth_bytes": 114097
+    },
+    {
+      "elapsed_seconds": 7.139375541941263,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 331218944,
+      "storage_growth_bytes": 114097
+    },
+    {
+      "elapsed_seconds": 7.471603916957974,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 367017984,
+      "storage_growth_bytes": 114097
+    },
+    {
+      "elapsed_seconds": 7.787818667013198,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 368427008,
+      "storage_growth_bytes": 114097
+    },
+    {
+      "elapsed_seconds": 8.09899533400312,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 357482496,
+      "storage_growth_bytes": 114097
+    },
+    {
+      "elapsed_seconds": 8.401182166999206,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 346144768,
+      "storage_growth_bytes": 114097
+    },
+    {
+      "elapsed_seconds": 8.688771208981052,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 337379328,
+      "storage_growth_bytes": 114097
+    },
+    {
+      "elapsed_seconds": 8.980127749964595,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 321683456,
+      "storage_growth_bytes": 114097
+    },
+    {
+      "elapsed_seconds": 9.282152291969396,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 305446912,
+      "storage_growth_bytes": 114097
+    },
+    {
+      "elapsed_seconds": 9.56976433400996,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 307773440,
+      "storage_growth_bytes": 114097
+    },
+    {
+      "elapsed_seconds": 9.85488370899111,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 305577984,
+      "storage_growth_bytes": 114097
+    },
+    {
+      "elapsed_seconds": 10.126653458923101,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 307019776,
+      "storage_growth_bytes": 114097
+    },
+    {
+      "elapsed_seconds": 10.391770833986811,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 308740096,
+      "storage_growth_bytes": 114097
+    },
+    {
+      "elapsed_seconds": 10.670350041938946,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 344899584,
+      "storage_growth_bytes": 114097
+    },
+    {
+      "elapsed_seconds": 10.956052624969743,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 51101696,
+      "storage_growth_bytes": 164819325
+    },
+    {
+      "elapsed_seconds": 11.996041542035528,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 55410688,
+      "storage_growth_bytes": 194303285
+    },
+    {
+      "elapsed_seconds": 12.567909250035882,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 52412416,
+      "storage_growth_bytes": 194303285
+    },
+    {
+      "elapsed_seconds": 12.929877916933037,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 52412416,
+      "storage_growth_bytes": 194303285
+    },
+    {
+      "elapsed_seconds": 13.290587416966446,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 52412416,
+      "storage_growth_bytes": 194303285
+    },
+    {
+      "elapsed_seconds": 13.607235791976564,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 52412416,
+      "storage_growth_bytes": 194303285
+    },
+    {
+      "elapsed_seconds": 13.925888166995719,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 51855360,
+      "storage_growth_bytes": 194303285
+    },
+    {
+      "elapsed_seconds": 14.250272250035778,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 51871744,
+      "storage_growth_bytes": 194303285
+    },
+    {
+      "elapsed_seconds": 14.579849250032566,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 51937280,
+      "storage_growth_bytes": 194303285
+    },
+    {
+      "elapsed_seconds": 14.911511834012344,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 52035584,
+      "storage_growth_bytes": 194303285
+    },
+    {
+      "elapsed_seconds": 15.23022387502715,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 52166656,
+      "storage_growth_bytes": 194303285
+    },
+    {
+      "elapsed_seconds": 15.524279874982312,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 52248576,
+      "storage_growth_bytes": 194303285
+    },
+    {
+      "elapsed_seconds": 15.811979666934349,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 52248576,
+      "storage_growth_bytes": 194303285
+    },
+    {
+      "elapsed_seconds": 16.104456041939557,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 52248576,
+      "storage_growth_bytes": 194303285
+    },
+    {
+      "elapsed_seconds": 16.403902958962135,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 52248576,
+      "storage_growth_bytes": 194303285
+    },
+    {
+      "elapsed_seconds": 16.71294695895631,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 52248576,
+      "storage_growth_bytes": 194303285
+    },
+    {
+      "elapsed_seconds": 17.015341292019002,
+      "owned_process_count": 3,
+      "owned_tree_rss_bytes": 52248576,
+      "storage_growth_bytes": 194303285
+    },
+    {
+      "elapsed_seconds": 17.314924916950986,
+      "owned_process_count": 0,
+      "owned_tree_rss_bytes": 0,
+      "storage_growth_bytes": 92091
+    }
+  ],
+  "sampled_peak_owned_tree_rss_bytes": 368427008,
+  "sampled_peak_storage_growth_bytes": 194303285,
+  "environment": {
+    "RAYON_NUM_THREADS": null,
+    "OMP_NUM_THREADS": null,
+    "TZ": null
+  },
+  "measurement_notes": [
+    "RSS from ps KiB converted to bytes; sum of live owned tree; not heap allocation",
+    "storage is positive logical file-size growth per supplied root; excludes deleted-file peak between samples",
+    "limits sampled; short spikes and daemonized ancestry escape between samples may be missed",
+    "samples exclude runner/ps RSS; storage report written after the measured command",
+    "child stdout/stderr/argv retained only in protected output"
+  ],
+  "passed": true
+}
