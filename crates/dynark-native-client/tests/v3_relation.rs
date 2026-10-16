@@ -1,7 +1,8 @@
-//! First harness stage only; this is not relation-admission evidence.
+//! Native complete-relation training harness; this supplies no authorization.
 
 use dynark_native_client::{
-    decode_digest, FieldBytes, OperationControl, V3CheckedRelation, V3CompilerInputMap, V3CompilerSymbols,
+    decode_digest, ClientError, FieldBytes, OperationControl, V3CheckedRelation, V3CompilerInputMap,
+    V3CompilerSymbols,
     V3CredentialSummary, V3FullManifest, V3InputWorker, V3InputWorkerRequest, V3SetupArtifact,
     V3SetupSources, V3SharedSetup, WitnessMode,
 };
@@ -336,4 +337,60 @@ fn native_v3_relation_harness() {
         &relation_control,
     )
     .expect("fresh independent fixture complete mathematical relation admission");
+
+    let check_error = |json: &[u8], witness: &[u8], mode| {
+        let control = OperationControl::new(Instant::now() + Duration::from_secs(150));
+        V3CheckedRelation::check(
+            &setup, &input_map, &candidate, json, witness, mode, &control,
+        )
+        .err()
+    };
+
+    let mut altered_json = input_json.clone();
+    altered_json.push(b' ');
+    assert_eq!(
+        check_error(&altered_json, &wtns, WitnessMode::Full),
+        Some(ClientError::Identity),
+        "altered JSON serialization must be rejected"
+    );
+
+    let mut altered_wtns = wtns.clone();
+    // Pinned compiler symbol main.tbs[0] is private input coordinate 8.
+    altered_wtns[332] ^= 1;
+    assert_eq!(
+        check_error(&input_json, &altered_wtns, WitnessMode::Full),
+        Some(ClientError::Identity),
+        "private input coordinate must match the native candidate"
+    );
+    altered_wtns[332] ^= 1;
+
+    // Public root is coordinate 1; select a distinct canonical zero or one.
+    let root_was_zero = wtns[108..140].iter().all(|byte| *byte == 0);
+    altered_wtns[108..140].fill(0);
+    altered_wtns[108] = u8::from(root_was_zero);
+    assert_eq!(
+        check_error(&input_json, &altered_wtns, WitnessMode::Full),
+        Some(ClientError::Identity),
+        "public root coordinate must match the native candidate"
+    );
+    altered_wtns[108..140].copy_from_slice(&wtns[108..140]);
+
+    assert_eq!(
+        check_error(&input_json, &wtns[..wtns.len() - 1], WitnessMode::Full),
+        Some(ClientError::Encoding),
+        "truncated WTNS must be rejected"
+    );
+
+    altered_wtns[25_113_516..25_113_548].fill(0xff);
+    assert_eq!(
+        check_error(&input_json, &altered_wtns, WitnessMode::Full),
+        Some(ClientError::Encoding),
+        "noncanonical final field coordinate must be rejected"
+    );
+
+    assert_eq!(
+        check_error(&input_json, &wtns, WitnessMode::IncrementalV1),
+        Some(ClientError::Unsupported),
+        "complete relation admission requires Full mode"
+    );
 }
