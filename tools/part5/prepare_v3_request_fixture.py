@@ -141,3 +141,29 @@ def sign_action(holder_key_pem: Path, action_be: bytes) -> bytes:
             os.close(key_fd)
         if directory_fd is not None:
             os.close(directory_fd)
+
+
+def build_membership(der: bytes, issuer_modulus: int) -> dict:
+    from tools.part5.credential_profile import public_bindings
+    from tools.part5.registry_v3_vectors import rebuild, siblings
+
+    parsed = admit_certificate(der, issuer_modulus)
+    issuer_hash, policy_hash = public_bindings(parsed, issuer_modulus)
+    own_digest = hashlib.sha256(parsed['tbs']).digest()
+    unrelated_digest = secrets.token_bytes(32)
+    while unrelated_digest == own_digest or unrelated_digest == bytes(32):
+        unrelated_digest = secrets.token_bytes(32)
+    slot = secrets.randbelow(1024)
+    other = slot ^ 1
+    active = rebuild([(slot, own_digest, True), (other, unrelated_digest, True)])
+    unrelated = rebuild([(slot, own_digest, True), (other, unrelated_digest, False)])
+    revoked = rebuild([(slot, own_digest, False), (other, unrelated_digest, False)])
+    return {
+        'slot': slot, 'issuer_hash': issuer_hash, 'policy_hash': policy_hash,
+        'active_root': active[-1][0],
+        'active_siblings': [int(word, 16) for word in siblings(active, slot)],
+        'unrelated_root': unrelated[-1][0],
+        'unrelated_siblings': [int(word, 16) for word in siblings(unrelated, slot)],
+        'own_revoked_root': revoked[-1][0],
+        'own_revoked_siblings': [int(word, 16) for word in siblings(revoked, slot)],
+    }
