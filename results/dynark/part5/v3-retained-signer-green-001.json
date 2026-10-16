@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "owner": "m5-v3-retained-signer-green-001",
+  "started_at_utc": "2026-10-16T02:33:22.059017+00:00",
+  "ended_at_utc": "2026-10-16T02:33:22.647734+00:00",
+  "timezone": [
+    "EST",
+    "EDT"
+  ],
+  "duration_seconds": 0.5887962920824066,
+  "limits": {
+    "runtime_seconds": 60.0,
+    "owned_tree_rss_bytes": 536870912,
+    "storage_growth_bytes": 16777216,
+    "poll_seconds": 0.1
+  },
+  "stop_reason": null,
+  "exit_code": 0,
+  "runner_error_type": null,
+  "cleanup_remaining_owned_processes": 0,
+  "cleanup_status_unknown": false,
+  "sample_count": 5,
+  "samples": [
+    {
+      "elapsed_seconds": 0.026415875065140426,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 1916928,
+      "storage_growth_bytes": 655
+    },
+    {
+      "elapsed_seconds": 0.15415804204531014,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 37224448,
+      "storage_growth_bytes": 655
+    },
+    {
+      "elapsed_seconds": 0.28365983406547457,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 38731776,
+      "storage_growth_bytes": 656
+    },
+    {
+      "elapsed_seconds": 0.41304700006730855,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 38780928,
+      "storage_growth_bytes": 3312
+    },
+    {
+      "elapsed_seconds": 0.551470624981448,
+      "owned_process_count": 0,
+      "owned_tree_rss_bytes": 0,
+      "storage_growth_bytes": 755
+    }
+  ],
+  "sampled_peak_owned_tree_rss_bytes": 38780928,
+  "sampled_peak_storage_growth_bytes": 3312,
+  "environment": {
+    "RAYON_NUM_THREADS": null,
+    "OMP_NUM_THREADS": null,
+    "TZ": null
+  },
+  "measurement_notes": [
+    "RSS from ps KiB converted to bytes; sum of live owned tree; not heap allocation",
+    "storage is positive logical file-size growth per supplied root; excludes deleted-file peak between samples",
+    "limits sampled; short spikes and daemonized ancestry escape between samples may be missed",
+    "samples exclude runner/ps RSS; storage report written after the measured command",
+    "child stdout/stderr/argv retained only in protected output"
+  ],
+  "passed": true
+}
