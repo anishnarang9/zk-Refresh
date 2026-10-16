@@ -3,9 +3,10 @@ import stat
 import tempfile
 import unittest
 from cryptography import x509
-from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding
 from tools.part5.credential_profile import admit_certificate
-from tools.part5.prepare_v3_request_fixture import prepare
+from tools.part5.prepare_v3_request_fixture import prepare, sign_action
 
 
 class PrepareFixtureTests(unittest.TestCase):
@@ -31,3 +32,20 @@ class PrepareFixtureTests(unittest.TestCase):
             holder = serialization.load_pem_private_key(result['holder_key_pem'].read_bytes(), password=None)
             self.assertEqual(holder.public_key().public_numbers(), certificate.public_key().public_numbers())
             self.assertIsInstance(admit_certificate(der, result['issuer_modulus']), dict)
+
+    def test_retained_holder_signs_exact_canonical_action(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            directory = Path(tempdir)
+            directory.chmod(0o700)
+            fixture = prepare(directory)
+            action = (12345).to_bytes(32, 'big')
+            signature = sign_action(fixture['holder_key_pem'], action)
+            self.assertIsInstance(signature, bytes)
+            self.assertEqual(len(signature), 256)
+            certificate = x509.load_der_x509_certificate(fixture['credential_der'].read_bytes())
+            certificate.public_key().verify(signature, action, padding.PKCS1v15(), hashes.SHA256())
+            fr = 21888242871839275222246405745257275088548364400416034343698204186575808495617
+            for invalid in (action[:-1], fr.to_bytes(32, 'big')):
+                with self.subTest(action_bytes=len(invalid)):
+                    with self.assertRaises(ValueError):
+                        sign_action(fixture['holder_key_pem'], invalid)
