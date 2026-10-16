@@ -1,9 +1,9 @@
 //! First harness stage only; this is not relation-admission evidence.
 
 use dynark_native_client::{
-    decode_digest, FieldBytes, OperationControl, V3CompilerInputMap, V3CompilerSymbols,
+    decode_digest, FieldBytes, OperationControl, V3CheckedRelation, V3CompilerInputMap, V3CompilerSymbols,
     V3CredentialSummary, V3FullManifest, V3InputWorker, V3InputWorkerRequest, V3SetupArtifact,
-    V3SetupSources, V3SharedSetup,
+    V3SetupSources, V3SharedSetup, WitnessMode,
 };
 use std::{
     fs::{self, OpenOptions},
@@ -189,7 +189,7 @@ fn native_v3_relation_harness() {
         fs::read_dir(&worker_root).unwrap().next().is_none(),
         "worker constructor child cleanup"
     );
-    let _candidate = worker
+    let candidate = worker
         .build(&request, &control)
         .expect("fresh fixture native private-worker candidate");
     assert!(
@@ -198,7 +198,7 @@ fn native_v3_relation_harness() {
     );
     // Candidate construction supplies no complete-relation or authorization admission.
 
-    let _input_map = V3CompilerInputMap::load(
+    let input_map = V3CompilerInputMap::load(
         &V3CompilerSymbols {
             path: PathBuf::from(
                 "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-compile-001/credential.sym",
@@ -316,6 +316,24 @@ fn native_v3_relation_harness() {
     };
     let manifest = V3FullManifest::frozen_development().expect("fixed development manifest");
     let setup_control = OperationControl::new(Instant::now() + Duration::from_secs(570));
-    let _setup = V3SharedSetup::load(&sources, &manifest, &setup_control)
+    let setup = V3SharedSetup::load(&sources, &manifest, &setup_control)
         .expect("accepted shared development setup admission");
+
+    let input_json_length = fs::symlink_metadata(fixture.join("input.json"))
+        .expect("private input JSON metadata")
+        .len();
+    assert!((1..=65536).contains(&input_json_length), "input JSON bounds");
+    let input_json = read_private(&fixture.join("input.json"), input_json_length as usize, owner);
+    let wtns = read_private(&fixture.join("output.wtns"), 25_113_548, owner);
+    let relation_control = OperationControl::new(Instant::now() + Duration::from_secs(150));
+    let _checked_relation = V3CheckedRelation::check(
+        &setup,
+        &input_map,
+        &candidate,
+        &input_json,
+        &wtns,
+        WitnessMode::Full,
+        &relation_control,
+    )
+    .expect("fresh independent fixture complete mathematical relation admission");
 }
