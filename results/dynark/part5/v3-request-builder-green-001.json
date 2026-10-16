@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "owner": "m1-v3-request-builder-green-001",
+  "started_at_utc": "2026-10-16T13:04:08.621081+00:00",
+  "ended_at_utc": "2026-10-16T13:04:16.809505+00:00",
+  "timezone": [
+    "EST",
+    "EDT"
+  ],
+  "duration_seconds": 8.189564291969873,
+  "limits": {
+    "runtime_seconds": 300.0,
+    "owned_tree_rss_bytes": 2147483648,
+    "storage_growth_bytes": 536870912,
+    "poll_seconds": 1.0
+  },
+  "stop_reason": null,
+  "exit_code": 0,
+  "runner_error_type": null,
+  "cleanup_remaining_owned_processes": 0,
+  "cleanup_status_unknown": false,
+  "sample_count": 5,
+  "samples": [
+    {
+      "elapsed_seconds": 0.14725733292289078,
+      "owned_process_count": 1,
+      "owned_tree_rss_bytes": 32768,
+      "storage_growth_bytes": 612
+    },
+    {
+      "elapsed_seconds": 2.0838277499424294,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 129695744,
+      "storage_growth_bytes": 689
+    },
+    {
+      "elapsed_seconds": 4.056850374909118,
+      "owned_process_count": 4,
+      "owned_tree_rss_bytes": 173162496,
+      "storage_growth_bytes": 3900772
+    },
+    {
+      "elapsed_seconds": 5.957896541920491,
+      "owned_process_count": 2,
+      "owned_tree_rss_bytes": 53182464,
+      "storage_growth_bytes": 3896948
+    },
+    {
+      "elapsed_seconds": 7.765425082994625,
+      "owned_process_count": 0,
+      "owned_tree_rss_bytes": 0,
+      "storage_growth_bytes": 3897138
+    }
+  ],
+  "sampled_peak_owned_tree_rss_bytes": 173162496,
+  "sampled_peak_storage_growth_bytes": 3900772,
+  "environment": {
+    "RAYON_NUM_THREADS": null,
+    "OMP_NUM_THREADS": null,
+    "TZ": null
+  },
+  "measurement_notes": [
+    "RSS from ps KiB converted to bytes; sum of live owned tree; not heap allocation",
+    "storage is positive logical file-size growth per supplied root; excludes deleted-file peak between samples",
+    "limits sampled; short spikes and daemonized ancestry escape between samples may be missed",
+    "samples exclude runner/ps RSS; storage report written after the measured command",
+    "child stdout/stderr/argv retained only in protected output"
+  ],
+  "passed": true
+}

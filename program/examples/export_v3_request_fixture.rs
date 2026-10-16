@@ -5,8 +5,8 @@ use solana_program::pubkey::Pubkey;
 use zk_fresh_program::{
     application_runtime_v3 as addresses,
     application_v3::{
-        action_hash, action_preimage, AppError, Config, Request, RequestState, CONFIG_LEN,
-        REQUEST_LEN,
+        action_hash, action_preimage, AppError, Config, RelevantMeta, Request, RequestState,
+        CONFIG_LEN, MAX_CHUNK, MAX_META_CHUNK, MAX_PAYLOAD, REQUEST_LEN,
     },
 };
 
@@ -24,6 +24,100 @@ pub struct RequestFixture {
     pub publisher_head_pda: Pubkey,
     pub action_hash: [u8; 32],
     pub action_preimage: Vec<u8>,
+}
+
+/// Public request data for a local development fixture. No credential secrets,
+/// signing keys, proof, or authenticated live account state are supplied here.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RequestPlan {
+    pub program_id: Pubkey,
+    pub config: Config,
+    pub issuer_hash: [u8; 32],
+    pub credential_not_before: [u8; 32],
+    pub credential_not_after: [u8; 32],
+    pub creator: Pubkey,
+    pub nonce: [u8; 32],
+    pub recipient: Pubkey,
+    pub request_type: u16,
+    pub deadline: i64,
+    pub payload: Vec<u8>,
+    pub now: i64,
+}
+
+/// Stage and finalize a request with the ordered writable request/queue metas,
+/// validate its six public inputs, and serialize its exact V3F1 transport.
+/// A successful build grants no authorization and establishes no proof validity.
+pub fn build_request_fixture(plan: &RequestPlan) -> Result<(RequestFixture, Vec<u8>), AppError> {
+    // Decode validates canonical config fields and all current generated VK
+    // identity pins before any request allocation or action construction.
+    if Config::decode(&plan.config.encode())? != plan.config {
+        return Err(AppError::State);
+    }
+    if plan.payload.len() > MAX_PAYLOAD {
+        return Err(AppError::Bounds);
+    }
+    let payload_len = u16::try_from(plan.payload.len()).map_err(|_| AppError::Bounds)?;
+    let config_pda = addresses::config_address(
+        &plan.program_id, &plan.config.admin, &plan.config.seed,
+    ).0;
+    let request_pda = addresses::request_address(
+        &plan.program_id, &config_pda, &plan.creator, &plan.nonce,
+    ).0;
+    let queue_pda = addresses::queue_address(&plan.program_id, &config_pda).0;
+    let metas = [request_pda, queue_pda].map(|key| RelevantMeta {
+        key,
+        flags: 2,
+        owner: plan.program_id,
+    });
+    let mut request = Request {
+        config: config_pda,
+        creator: plan.creator,
+        nonce: plan.nonce,
+        issuer_hash: plan.issuer_hash,
+        recipient: plan.recipient,
+        request_type: plan.request_type,
+        deadline: plan.deadline,
+        payload_len,
+        uploaded: 0,
+        metas_uploaded: 0,
+        state: RequestState::Staging,
+        metas: vec![RelevantMeta {
+            key: Pubkey::default(), flags: 0, owner: Pubkey::default(),
+        }; metas.len()],
+        payload: vec![0; plan.payload.len()],
+    };
+    for chunk in plan.payload.chunks(MAX_CHUNK) {
+        request.upload(request.uploaded, chunk, plan.now)?;
+    }
+    for chunk in metas.chunks(MAX_META_CHUNK) {
+        request.upload_metas(request.metas_uploaded, chunk, plan.now)?;
+    }
+    request.finalize(plan.now)?;
+    let public_inputs = [
+        plan.config.root,
+        plan.issuer_hash,
+        plan.credential_not_before,
+        plan.credential_not_after,
+        action_hash(&plan.program_id, &plan.config, &request)?,
+        plan.config.policy_id,
+    ];
+    let fixture = export_fixture(
+        &plan.program_id, &plan.config, &request, &public_inputs, plan.now,
+    )?;
+    let mut wire = Vec::with_capacity(
+        4 + 32 + 8 + 4 + 4 + 6 * 32 + CONFIG_LEN + REQUEST_LEN,
+    );
+    wire.extend_from_slice(b"V3F1");
+    wire.extend_from_slice(plan.program_id.as_ref());
+    wire.extend_from_slice(&plan.now.to_le_bytes());
+    wire.extend_from_slice(&(CONFIG_LEN as u32).to_le_bytes());
+    wire.extend_from_slice(&(REQUEST_LEN as u32).to_le_bytes());
+    for public in &fixture.public_inputs {
+        wire.extend_from_slice(public);
+    }
+    wire.extend_from_slice(&fixture.config_bytes);
+    wire.extend_from_slice(&fixture.request_bytes);
+    Ok((fixture, wire))
 }
 
 /// Export only a canonical, finalized, unexpired request whose
