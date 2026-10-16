@@ -167,3 +167,68 @@ def build_membership(der: bytes, issuer_modulus: int) -> dict:
         'own_revoked_root': revoked[-1][0],
         'own_revoked_siblings': [int(word, 16) for word in siblings(revoked, slot)],
     }
+
+
+def build_v3q1(der: bytes, issuer_modulus: int, holder_key_pem: Path,
+               action_be: bytes, membership: dict, root_kind: str = 'active') -> bytes:
+    """Build a verified private V3Q1 candidate; it grants no application authority."""
+    from tools.part5.credential_profile import FR, public_bindings, verify_rsa
+    from tools.part5.registry_v3_vectors import h, leaf
+
+    failure = 'invalid bounded-v3 request shape'
+    try:
+        if (type(der) is not bytes or len(der) != 952
+                or type(issuer_modulus) is not int
+                or issuer_modulus <= 0 or issuer_modulus.bit_length() != 2048
+                or not issuer_modulus & 1
+                or not isinstance(holder_key_pem, Path)
+                or type(action_be) is not bytes or len(action_be) != 32
+                or int.from_bytes(action_be, 'big') >= FR
+                or type(membership) is not dict
+                or type(root_kind) is not str or root_kind not in ('active', 'unrelated')):
+            raise ValueError(failure)
+
+        failure = 'invalid bounded-v3 membership fields'
+        slot = membership['slot']
+        path = membership[root_kind + '_siblings']
+        root = membership[root_kind + '_root']
+        issuer_hash, policy_hash = membership['issuer_hash'], membership['policy_hash']
+        if (type(slot) is not int or not 0 <= slot < 1024
+                or type(path) is not list or len(path) != 10):
+            raise ValueError(failure)
+        path = tuple(path)
+        fields = path + (root, issuer_hash, policy_hash)
+        if any(type(value) is not int or not 0 <= value < FR for value in fields):
+            raise ValueError(failure)
+
+        failure = 'bounded-v3 certificate admission failed'
+        parsed = admit_certificate(der, issuer_modulus)
+        failure = 'bounded-v3 issuer or policy binding failed'
+        if (issuer_hash, policy_hash) != public_bindings(parsed, issuer_modulus):
+            raise ValueError(failure)
+
+        failure = 'bounded-v3 active membership root or path failed'
+        digest = hashlib.sha256(parsed['tbs']).digest()
+        node = leaf(digest, slot, True)
+        for level, sibling in enumerate(path):
+            node = h((sibling, node) if (slot >> level) & 1 else (node, sibling))
+        if node != root:
+            raise ValueError(failure)
+
+        failure = 'bounded-v3 holder signing failed'
+        signature = sign_action(holder_key_pem, action_be)
+        failure = 'bounded-v3 holder key or action signature failed'
+        if type(signature) is not bytes or len(signature) != 256:
+            raise ValueError(failure)
+        verify_rsa(parsed['holder_modulus'], action_be, signature)
+
+        failure = 'bounded-v3 request encoding failed'
+        request = (b'V3Q1' + der + issuer_modulus.to_bytes(256, 'big') + action_be
+                   + signature + slot.to_bytes(2, 'big')
+                   + b''.join(value.to_bytes(32, 'little') for value in fields))
+        if len(request) != 1918:
+            raise ValueError(failure)
+        return request
+    except Exception:
+        # Signing and admission failures must not reveal private paths or bytes.
+        raise ValueError(failure) from None
