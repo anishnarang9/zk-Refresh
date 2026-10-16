@@ -232,3 +232,168 @@ def build_v3q1(der: bytes, issuer_modulus: int, holder_key_pem: Path,
     except Exception:
         # Signing and admission failures must not reveal private paths or bytes.
         raise ValueError(failure) from None
+
+
+def build_v3p1(der: bytes, issuer_modulus: int, membership: dict, *, config_bytes: bytes,
+               program_id: bytes, creator: bytes, nonce: bytes, recipient: bytes,
+               request_type: int, deadline: int, payload: bytes, now: int) -> bytes:
+    """Public local-development plan; caller Config bytes establish no live authority.
+
+    Signed DER supplies issuer and validity. Its signed policy and the caller's
+    synthetic active membership must exactly match Config; neither is overwritten.
+    Rust Config::decode validates the account codec and generated identity pins.
+    """
+    import struct
+    from tools.part5.credential_profile import FR, public_bindings
+
+    try:
+        parsed = admit_certificate(der, issuer_modulus)
+        issuer, policy = public_bindings(parsed, issuer_modulus)
+        root = membership['active_root']
+        if (type(config_bytes) is not bytes or len(config_bytes) != 381
+                or config_bytes[:8] != b'DYNCONF3'
+                or type(root) is not int or not 0 <= root < FR
+                or membership['issuer_hash'] != issuer or membership['policy_hash'] != policy
+                or config_bytes[136:168] != policy.to_bytes(32, 'big')
+                or config_bytes[332:364] != root.to_bytes(32, 'big')
+                or any(type(value) is not bytes or len(value) != 32
+                       for value in (program_id, creator, nonce, recipient))
+                or type(payload) is not bytes or len(payload) > 1024
+                or type(request_type) is not int or type(deadline) is not int
+                or type(now) is not int):
+            raise ValueError()
+        return (b'V3P1' + program_id + struct.pack('<qI', now, 381) + config_bytes
+                + b''.join(value.to_bytes(32, 'big') for value in
+                           (issuer, parsed['not_before'], parsed['not_after']))
+                + creator + nonce + recipient + struct.pack('<HqH', request_type, deadline, len(payload))
+                + payload)
+    except Exception:
+        raise ValueError('invalid local-development public plan') from None
+
+
+def _run_public_exporter(exporter: Path, plan_mode: bool, data: bytes, output_limit: int) -> bytes:
+    """Run the local exporter with public stdin and bounded output/time; suppress diagnostics."""
+    import selectors
+    import subprocess
+    import time
+
+    process = None
+    try:
+        process = subprocess.Popen([str(exporter)] + (['--plan'] if plan_mode else []),
+                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                   stderr=subprocess.DEVNULL)
+        deadline = time.monotonic() + 15
+        # Both public inputs fit below PIPE_BUF; the reviewed exporter immediately reads stdin.
+        process.stdin.write(data)
+        process.stdin.close()
+        output = bytearray()
+        with selectors.DefaultSelector() as selector:
+            selector.register(process.stdout, selectors.EVENT_READ)
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0 or not selector.select(remaining):
+                    raise ValueError()
+                chunk = os.read(process.stdout.fileno(), output_limit + 1 - len(output))
+                if not chunk:
+                    break
+                output.extend(chunk)
+                if len(output) > output_limit:
+                    raise ValueError()
+        if process.wait(timeout=max(0.001, deadline - time.monotonic())) != 0:
+            raise ValueError()
+        return bytes(output)
+    except Exception:
+        raise ValueError('local public exporter failed') from None
+    finally:
+        if process is not None:
+            if process.poll() is None:
+                process.kill()
+            process.wait()
+            for stream in (process.stdin, process.stdout):
+                if stream is not None:
+                    stream.close()
+
+
+def finalize_v3p1(plan_wire: bytes, exporter: Path) -> dict:
+    """Finalize a public plan through Rust and record its local exporter identity.
+
+    V3F1/V3F2 and the binary digest are public fixture data. This is not a chain
+    observation, issuer enrollment, credential authorization, or proof check.
+    """
+    from tools.part5.credential_profile import FR
+
+    try:
+        if (type(plan_wire) is not bytes or not 633 <= len(plan_wire) <= 1657
+                or plan_wire[:4] != b'V3P1' or plan_wire[44:48] != (381).to_bytes(4, 'little')
+                or len(plan_wire) != 633 + int.from_bytes(plan_wire[631:633], 'little')
+                or not isinstance(exporter, Path)):
+            raise ValueError()
+        exporter = exporter.resolve(strict=True)
+        digest = hashlib.sha256(exporter.read_bytes()).hexdigest()
+        f1 = _run_public_exporter(exporter, True, plan_wire, 2874)
+        if (type(f1) is not bytes or len(f1) != 2874 or f1[:4] != b'V3F1'
+                or f1[4:44] != plan_wire[4:44]
+                or f1[44:52] != (381).to_bytes(4, 'little') + (2249).to_bytes(4, 'little')
+                or f1[244:625] != plan_wire[48:429]
+                or f1[52:84] != plan_wire[380:412]
+                or f1[84:180] != plan_wire[429:525]
+                or f1[212:244] != plan_wire[184:216]
+                or any(int.from_bytes(f1[start:start + 32], 'big') >= FR
+                       for start in range(52, 244, 32))):
+            raise ValueError()
+        request = f1[625:]
+        payload_len = len(plan_wire) - 633
+        if (request[:8] != b'DYNREQ03'
+                or request[40:104] != plan_wire[525:589]
+                or request[104:136] != plan_wire[429:461]
+                or request[136:168] != plan_wire[589:621]
+                or request[168:170] != plan_wire[621:623][::-1]
+                or request[170:178] != plan_wire[623:631][::-1]
+                or request[178:182] != payload_len.to_bytes(2, 'big') * 2
+                or request[182:185] != b'\x02\x01\x02'
+                or request[1225:1225 + payload_len] != plan_wire[633:]):
+            raise ValueError()
+        f2 = _run_public_exporter(exporter, False, f1, 561)
+        if (type(f2) is not bytes or len(f2) != 561 or f2[:4] != b'V3F2'
+                or int.from_bytes(f2[196:200], 'little') != 361
+                or f2[164:196] != f1[180:212]
+                or request[8:40] != f2[4:36]
+                or request[185:217] != f2[68:100]
+                or request[250:282] != f2[100:132]
+                or any(request[offset] != 2 for offset in (217, 282))
+                or any(request[offset:offset + 32] != plan_wire[4:36] for offset in (218, 283))
+                or (int.from_bytes(hashlib.sha256(f2[200:]).digest(), 'big') % FR).to_bytes(32, 'big')
+                   != f2[164:196]
+                or hashlib.sha256(exporter.read_bytes()).hexdigest() != digest):
+            raise ValueError()
+        return {'v3f1': f1, 'v3f2': f2, 'exporter_sha256': digest}
+    except Exception:
+        raise ValueError('invalid finalized local-development fixture') from None
+
+
+def build_request_bound_v3q1(der: bytes, issuer_modulus: int, holder_key_pem: Path,
+                            membership: dict, plan_wire: bytes, finalized: dict,
+                            exporter: Path) -> bytes:
+    """Sign only the exact Rust-finalized local request after checking all six publics.
+
+    The returned V3Q1 contains private credential/signature material. Keep it in
+    memory or owner-only ignored storage; never print it. No live state is admitted.
+    """
+    from tools.part5.credential_profile import public_bindings
+
+    try:
+        checked = finalize_v3p1(plan_wire, exporter)
+        if type(finalized) is not dict or finalized != checked:
+            raise ValueError()
+        parsed = admit_certificate(der, issuer_modulus)
+        issuer, policy = public_bindings(parsed, issuer_modulus)
+        action = checked['v3f2'][164:196]
+        expected = [membership['active_root'], issuer, parsed['not_before'],
+                    parsed['not_after'], int.from_bytes(action, 'big'), policy]
+        f1 = checked['v3f1']
+        if (f1[52:244] != b''.join(value.to_bytes(32, 'big') for value in expected)
+                or membership['issuer_hash'] != issuer or membership['policy_hash'] != policy):
+            raise ValueError()
+        return build_v3q1(der, issuer_modulus, holder_key_pem, action, membership)
+    except Exception:
+        raise ValueError('invalid private request-bound local-development fixture') from None
