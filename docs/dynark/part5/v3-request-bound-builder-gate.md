@@ -23,12 +23,13 @@ The builder emits one exact 2,874-byte `V3F1` frame with six ordered BE32
 public fields, including the Rust-derived action. Pass that frame through the
 checked exporter to obtain `V3F2`, its five derived PDAs and the exact action
 preimage. Preserve the finalized config/request bytes for the later host
-execution test. An old action paired with a changed request, payload, nonce,
-policy or ordered account metadata must fail the exporter check or produce a
-different action. A root-only change may retain the same action for an
-unconsumed request; the new proof must bind the new current root. Public
-builder inputs remain untrusted until the application validates authoritative
-account state.
+execution test. An old action paired with changed action-bound request
+fields such as payload, nonce, policy or ordered account metadata must fail
+the exporter check or produce a different action. Root and issuer hash are
+separate public/eligibility fields and may change without changing the action;
+any new proof must bind the authoritative current root and enrolled issuer.
+Public builder inputs remain untrusted until the application validates
+authoritative account state.
 
 ## Private signer and witness ownership
 
