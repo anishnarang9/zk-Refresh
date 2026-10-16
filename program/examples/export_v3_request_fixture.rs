@@ -286,11 +286,88 @@ pub fn export_fixture_stream<R: std::io::Read, W: std::io::Write>(
     destination.write_all(&output).map_err(|_| AppError::Unavailable)
 }
 
+/// Read bounded public V3P1 data and build the exact 2,874-byte V3F1 frame.
+/// Layout: magic[4], program[32], now i64 LE, config_len u32 LE (=381),
+/// Config::encode()[381], issuer/notBefore/notAfter (three canonical BE32),
+/// creator[32], nonce[32], recipient[32], request_type u16 LE, deadline i64 LE,
+/// payload_len u16 LE, payload[payload_len]. The prefix is 633 bytes and the
+/// payload is at most 1,024 bytes. Ordered account metas are builder-derived.
+/// No output is written before the entire frame and request pass validation.
+/// This public development transport authenticates neither credentials nor state.
+pub fn build_request_fixture_stream<R: std::io::Read, W: std::io::Write>(
+    source: &mut R,
+    destination: &mut W,
+) -> Result<(), AppError> {
+    fn read<R: std::io::Read>(source: &mut R, bytes: &mut [u8]) -> Result<(), AppError> {
+        source.read_exact(bytes).map_err(|error| {
+            if error.kind() == std::io::ErrorKind::UnexpectedEof {
+                AppError::Bounds
+            } else {
+                AppError::Unavailable
+            }
+        })
+    }
+    fn take<const N: usize>(remaining: &mut &[u8]) -> Result<[u8; N], AppError> {
+        let value = remaining.get(..N).ok_or(AppError::Bounds)?
+            .try_into().map_err(|_| AppError::Bounds)?;
+        *remaining = remaining.get(N..).ok_or(AppError::Bounds)?;
+        Ok(value)
+    }
+
+    const PREFIX_LEN: usize = 633;
+    let mut bytes = [0; PREFIX_LEN + MAX_PAYLOAD];
+    read(source, &mut bytes[..PREFIX_LEN])?;
+    let mut remaining = &bytes[..PREFIX_LEN];
+    if take::<4>(&mut remaining)? != *b"V3P1" {
+        return Err(AppError::Version);
+    }
+    let program_id = Pubkey::new_from_array(take(&mut remaining)?);
+    let now = i64::from_le_bytes(take(&mut remaining)?);
+    if u32::from_le_bytes(take(&mut remaining)?) != CONFIG_LEN as u32 {
+        return Err(AppError::Bounds);
+    }
+    let config_bytes = take::<CONFIG_LEN>(&mut remaining)?;
+    let config = Config::decode(&config_bytes)?;
+    if config.encode().as_slice() != config_bytes.as_slice() {
+        return Err(AppError::State);
+    }
+    let issuer_hash = take(&mut remaining)?;
+    let credential_not_before = take(&mut remaining)?;
+    let credential_not_after = take(&mut remaining)?;
+    let creator = Pubkey::new_from_array(take(&mut remaining)?);
+    let nonce = take(&mut remaining)?;
+    let recipient = Pubkey::new_from_array(take(&mut remaining)?);
+    let request_type = u16::from_le_bytes(take(&mut remaining)?);
+    let deadline = i64::from_le_bytes(take(&mut remaining)?);
+    let payload_len = usize::from(u16::from_le_bytes(take(&mut remaining)?));
+    if payload_len > MAX_PAYLOAD || !remaining.is_empty() {
+        return Err(AppError::Bounds);
+    }
+    read(source, &mut bytes[PREFIX_LEN..PREFIX_LEN + payload_len])?;
+    let mut trailing = [0; 1];
+    match source.read_exact(&mut trailing) {
+        Ok(()) => return Err(AppError::Bounds),
+        Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => {}
+        Err(_) => return Err(AppError::Unavailable),
+    }
+    let plan = RequestPlan {
+        program_id, config, issuer_hash, credential_not_before, credential_not_after,
+        creator, nonce, recipient, request_type, deadline,
+        payload: bytes[PREFIX_LEN..PREFIX_LEN + payload_len].to_vec(), now,
+    };
+    let (_, output) = build_request_fixture(&plan)?;
+    destination.write_all(&output).map_err(|_| AppError::Unavailable)
+}
+
 #[allow(dead_code)] // This file is also imported as an integration-test module.
 fn main() {
     let mut source = std::io::stdin().lock();
     let mut destination = std::io::stdout().lock();
-    let result = export_fixture_stream(&mut source, &mut destination).and_then(|()| {
+    let result = match std::env::args().skip(1).collect::<Vec<_>>().as_slice() {
+        [] => export_fixture_stream(&mut source, &mut destination),
+        [mode] if mode == "--plan" => build_request_fixture_stream(&mut source, &mut destination),
+        _ => Err(AppError::Version),
+    }.and_then(|()| {
         std::io::Write::flush(&mut destination).map_err(|_| AppError::Unavailable)
     });
     if let Err(error) = result {
