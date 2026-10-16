@@ -19,3 +19,15 @@ no owned process. The scrubbed receipt is
 retained outside Git. This RED establishes the missing credential fixture
 contract only. It does not establish issuer enrollment, a request-bound
 witness, proof or application effect.
+
+The narrow GREEN uses `cryptography.x509` directly with new RSA-2048 issuer
+and holder keys, random canonical serial and signed authorization extensions.
+It checks strict profile admission before returning, and writes the DER and
+holder PKCS#8 PEM through exclusive, owner-only file descriptors in the
+supplied empty `0700` directory. The focused test passed in 0.437 seconds;
+sampled peak owned-tree RSS was 36,601,856 bytes, with no cap stop or
+remaining owned process. Its receipt is
+`results/dynark/part5/v3-fresh-fixture-green-001.json`. The test removed its
+temporary credential and key, and no generated private material was staged.
+The fixture covers one supported layout; retained signing, active membership
+and a request-bound proof remain separate gates.
