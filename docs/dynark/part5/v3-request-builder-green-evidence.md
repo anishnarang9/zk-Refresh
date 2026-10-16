@@ -25,5 +25,13 @@ malformed or mismatched fixture rejection.
 This is local construction of a development request fixture. The plan and
 bytes are not authenticated live Solana accounts, and this result establishes
 no holder signature, certificate eligibility, current issuer publication,
-proof, queue effect or unseen-credential acceptance. Action substitution and
-root/issuer separation are the next focused tests.
+proof, queue effect or unseen-credential acceptance.
+
+Those focused tests subsequently passed 4/4 under
+`results/dynark/part5/v3-request-builder-adversarial-001.json` (2.809
+measured seconds, no cap stop or runner error). They show that a root-only
+change updates public field 0, and an issuer-only change updates public field
+1 and the issuer PDA, while both preserve the action preimage/hash. Payload,
+nonce and policy changes each alter the action. Wrong package/profile pins and
+payloads above 1,024 bytes are rejected. This verifies local encoding
+separation; actual eligibility and current-state enforcement remain open.
