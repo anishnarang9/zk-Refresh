@@ -139,6 +139,11 @@ pub struct V3SharedSetup {
     adapter_identity: V3OrdinaryVkIdentity,
 }
 impl V3SharedSetup {
+    /// Borrow the already admitted shared package; no replacement or mutation.
+    pub(crate) fn package(&self) -> &PublicPackage {
+        &self.package
+    }
+
     /// Authenticate fixed setup/receipt pins before key decoding; fully validate
     /// the package and its exact ordinary VK projection before returning it.
     pub fn load(

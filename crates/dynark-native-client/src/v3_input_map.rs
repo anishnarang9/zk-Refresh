@@ -43,6 +43,11 @@ pub struct V3CompilerInputMap {
     coordinates: BTreeMap<String, usize>,
 }
 impl V3CompilerInputMap {
+    /// Read-only lookup in the independently pinned map; no coordinate relabeling.
+    pub(crate) fn coordinate(&self, name: &str) -> Option<usize> {
+        self.coordinates.get(name).copied()
+    }
+
     pub fn load(
         symbols: &V3CompilerSymbols,
         control: &OperationControl,

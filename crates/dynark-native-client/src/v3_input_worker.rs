@@ -105,6 +105,12 @@ pub struct V3InputCandidate {
     summary: V3CredentialSummary,
     scalars: [FieldBytes; V3_INPUT_SCALARS],
 }
+impl V3InputCandidate {
+    /// Borrow checked scalar data only; this supplies no chain or proof authority.
+    pub(crate) fn scalars(&self) -> &[FieldBytes; V3_INPUT_SCALARS] {
+        &self.scalars
+    }
+}
 
 /// One fixed Python/script identity, with one fresh private invocation per call.
 /// No API accepts executable/script paths, digest assertions or output filenames.
