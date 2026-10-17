@@ -1,4 +1,5 @@
 import importlib.util
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -169,7 +170,7 @@ def test_acceptance_branch_bundle_has_proof_separate_from_result():
     }
 
 
-def test_case_fragment_shape_matches_assembler_and_verifier_contracts():
+def test_case_fragment_shape_matches_assembler_and_verifier_contracts(tmp_path):
     requests = {
         'positive_full': {'stage': 'stage-A', 'transition': 'transition-A',
                           'r0_source': 'r0-A', 'r1_source': 'r1-A'},
@@ -212,14 +213,31 @@ def test_case_fragment_shape_matches_assembler_and_verifier_contracts():
         branch_inputs, result_bundle=lambda value: value['result'],
         proof_bundle=lambda value: value,
         clone_bundle=lambda value: {'receipt': value})
+    journal_path = tmp_path / 'run-journal.json'
+    journal_raw = b'{"schema":"fixture"}\n'
+    journal_path.write_bytes(journal_raw)
+    branches = ('full', 'unrelated_full', 'anchor', 'own_revocation')
+    branch_components = {name: {'proof_seconds': 0.0, 'clone_seconds': 0.0,
+                                'effect_seconds': 0.0, 'total_seconds': 0.0}
+                         for name in branches}
     fragment = {'schema': assembler.FRAGMENT_SCHEMA, 'variant': 0,
         'case_context': {'path': '/unused/case.json', 'sha256': 'a' * 64},
         'stage_context': {'path': '/unused/stage.json', 'sha256': 'b' * 64},
         'pair_receipt': {'path': '/unused/pair.json', 'sha256': 'c' * 64},
         'membership': {'path': '/unused/membership.json', 'sha256': 'd' * 64},
         **slots, 'branches': emitted_branches,
-        'run_journal': {'path': '/private/run-journal.json', 'sha256': 'e' * 64},
-        'all_step_wall_seconds': {'prepare': 1.0}}
+        'run_journal': {'path': str(journal_path),
+                        'sha256': hashlib.sha256(journal_raw).hexdigest()},
+        'all_step_wall_seconds': {'prepare': 1.0},
+        'shared_costs': {'shared_stage_seconds': 0.0,
+                         'shared_transition_seconds': 0.0},
+        'branch_wall_components': branch_components,
+        'branch_wall_seconds': {name: 0.0 for name in branches},
+        'shared_stage_transition_wall_seconds': {
+            'stage': {'A': 0.0, 'B': 0.0, 'C': 0.0},
+            'transition': {'A': 0.0, 'B': 0.0, 'C': 0.0}},
+        'branch_order': ['unrelated_full', 'anchor'],
+        'proof_order': {'unrelated_compare': ['full', 'anchor']}}
     normalized = assembler._case_from_fragment(fragment)
     assert set(normalized) == set(assembler.CASE_FIELDS)
     assert set(normalized['branches']) == set(verifier.BRANCHES)

@@ -692,7 +692,8 @@ class HeldoutCaseRunner:
         else:
             outer = self.bounded_run(owner, [sys.executable, str(self.toolpaths['prepare']),
                 '--config', str(config_path), '--config-sha256', config_sha], monitor_dir, monitor_path,
-                runtime=LIMITS['runtime_seconds'], storage_paths=(Path(runtime),))
+                runtime=LIMITS['runtime_seconds'], storage_paths=(Path(runtime),),
+                env={'P5_V3_PREPARE_SCOPE': 'local-validator-prepare'})
             status = _json(status_path)
         if (not reviewed_application_outer(outer)
                 or status.get('scope') != 'part5-v3-local-prepare'
@@ -732,7 +733,8 @@ class HeldoutCaseRunner:
         else:
             outer = self.bounded_run(owner, [sys.executable, str(self.toolpaths['stage']),
                 '--config', str(config_path), '--config-sha256', config_sha], monitor_dir, monitor_path,
-                runtime=LIMITS['runtime_seconds'], storage_paths=(Path(stage_output),))
+                runtime=LIMITS['runtime_seconds'], storage_paths=(Path(stage_output),),
+                env={'P5_V3_STAGE_SUPERVISOR': 'local-ledger-review-and-stage'})
             status, report = _json(status_path), _json(report_path)
         if (not reviewed_application_outer(outer)
                 or status.get('stage_verified') is not True or status.get('error_type') is not None
@@ -792,7 +794,8 @@ class HeldoutCaseRunner:
         else:
             outer = self.bounded_run(owner, [sys.executable, str(self.toolpaths['transition']),
                 '--config', str(config_path), '--config-sha256', config_sha], monitor_dir, monitor_path,
-                runtime=LIMITS['runtime_seconds'], storage_paths=(Path(output),))
+                runtime=LIMITS['runtime_seconds'], storage_paths=(Path(output),),
+                env={'P5_V3_TRANSITION_SUPERVISOR': 'local-ledger-review-and-transition'})
             status, report = _json(status_path), _json(report_path)
         if (not reviewed_application_outer(outer)
                 or status.get('transition_verified') is not True or status.get('error_type') is not None
@@ -1004,7 +1007,8 @@ class HeldoutCaseRunner:
         else:
             outer = self.bounded_run(owner, [sys.executable, str(self.toolpaths['execute']),
                 '--config', str(config_path), '--config-sha256', config_sha], monitor_dir, monitor_path,
-                runtime=LIMITS['runtime_seconds'], storage_paths=(Path(output),))
+                runtime=LIMITS['runtime_seconds'], storage_paths=(Path(output),),
+                env={'P5_V3_EXEC_SUPERVISOR': 'local-ledger-review-and-execute'})
             report, status = _json(report_path), _json(status_path)
         if (not reviewed_application_outer(outer)
                 or report.get('schema') != 'part5-v3-local-execute-v1'
@@ -1065,7 +1069,8 @@ class HeldoutCaseRunner:
         else:
             outer = self.bounded_run(owner, [sys.executable, str(self.toolpaths['branch']),
                 '--config', str(config_path), '--config-sha256', config_sha], monitor_dir, monitor_path,
-                runtime=LIMITS['runtime_seconds'], storage_paths=(Path(output),))
+                runtime=LIMITS['runtime_seconds'], storage_paths=(Path(output),),
+                env={'P5_V3_BRANCH_SUPERVISOR': 'reviewed-r1-clone'})
             report, status = _json(report_path), _json(status_path)
         if (not reviewed_r1_branch(outer, status, report, mode)
                 or status.get('branch_report_sha256') != digest(_read(report_path))):
