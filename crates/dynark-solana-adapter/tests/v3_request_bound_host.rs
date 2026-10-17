@@ -89,6 +89,11 @@ fn private(path: &Path, cap: usize, exact: Option<usize>) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 fn public_values(raw: &[u8]) -> Result<Vec<Fr>> {
+    let raw = if raw.len() == 200 && raw[..8] == 6u64.to_le_bytes() {
+        &raw[8..]
+    } else {
+        raw
+    };
     if raw.len() != 192 {
         return Err("six raw LE fields required");
     }
@@ -403,4 +408,177 @@ fn private_request_bound_full_passes_adapter_and_program_host() {
         "private wire output identity"
     );
     // No serialized values are printed. Execute/live authorization remain separate.
+}
+
+#[test]
+#[ignore = "explicit private request-bound Anchor proof and changed-root fixture required"]
+fn private_request_bound_anchor_passes_adapter_and_program_host() {
+    let base_fixture = PathBuf::from(
+        std::env::var_os("M2_V3_ANCHOR_BASE_FIXTURE").expect("private base fixture required"),
+    );
+    let fixture = PathBuf::from(
+        std::env::var_os("M2_V3_ANCHOR_FIXTURE").expect("private near fixture required"),
+    );
+    let proof_dir = PathBuf::from(
+        std::env::var_os("M2_V3_ANCHOR_PROOF_DIR").expect("private proof directory required"),
+    );
+    directory(&base_fixture).expect("private base fixture directory");
+    directory(&fixture).expect("private near fixture directory");
+    directory(&proof_dir).expect("private proof directory");
+    let receipt_bytes = private(&fixture.join("training-receipt.json"), 16384, None).unwrap();
+    let receipt_sha = std::env::var("M2_V3_ANCHOR_RECEIPT_SHA256").expect("near receipt SHA");
+    assert_eq!(sha(&receipt_bytes), receipt_sha, "pinned near receipt");
+    let receipt: Value = serde_json::from_slice(&receipt_bytes).expect("near receipt JSON");
+    assert!(
+        receipt["schema"] == "v3-request-bound-near-training-input-v1"
+            && receipt["training_only"] == true
+            && receipt["live_state_authenticated"] == false
+            && receipt["proof_created"] == false
+    );
+    let base_receipt_bytes =
+        private(&base_fixture.join("training-receipt.json"), 16384, None).unwrap();
+    let base_receipt_sha =
+        std::env::var("M2_V3_ANCHOR_BASE_RECEIPT_SHA256").expect("base receipt SHA");
+    assert_eq!(
+        sha(&base_receipt_bytes),
+        base_receipt_sha,
+        "pinned base receipt"
+    );
+    let base_receipt: Value =
+        serde_json::from_slice(&base_receipt_bytes).expect("base receipt JSON");
+    assert!(
+        base_receipt["schema"] == "v3-request-bound-training-input-v1"
+            && base_receipt["training_only"] == true
+            && base_receipt["proof_created"] == false
+    );
+    let report_bytes = private(&proof_dir.join("proof-report.json"), 65536, None).unwrap();
+    let report_sha = std::env::var("M2_V3_ANCHOR_PROOF_REPORT_SHA256").expect("proof report SHA");
+    assert_eq!(
+        sha(&report_bytes),
+        report_sha,
+        "pinned ordinary proof report"
+    );
+    let report: Value = serde_json::from_slice(&report_bytes).expect("proof report JSON");
+    assert!(
+        report["schema"] == "credential-v3-request-bound-anchor-proof-v1"
+            && report["passed"] == true
+            && report["mode"] == "anchor-request-bound"
+            && report["application_verified"] == false
+            && report["old_base_full_rejected_at_near_publics"] == true
+    );
+    let q1 = private(&fixture.join("request.bin"), 1918, Some(1918)).unwrap();
+    let input = private(&fixture.join("input.json"), 65536, None).unwrap();
+    let public_json = private(&fixture.join("public.json"), 1024, None).unwrap();
+    for (name, bytes) in [
+        ("request.bin", &q1),
+        ("input.json", &input),
+        ("public.json", &public_json),
+    ] {
+        assert_eq!(
+            receipt["artifact_sha256"][name].as_str(),
+            Some(sha(bytes).as_str()),
+            "pinned near artifact"
+        );
+    }
+    let expected =
+        expected_public(&public_json, &input, &q1).expect("near request/public/input equality");
+    let base_request = private(&base_fixture.join("request.bin"), 1918, Some(1918)).unwrap();
+    let base_input = private(&base_fixture.join("input.json"), 65536, None).unwrap();
+    let base_public_json = private(&base_fixture.join("public.json"), 1024, None).unwrap();
+    for (name, bytes) in [
+        ("request.bin", &base_request),
+        ("input.json", &base_input),
+        ("public.json", &base_public_json),
+    ] {
+        assert_eq!(
+            base_receipt["artifact_sha256"][name].as_str(),
+            Some(sha(bytes).as_str())
+        );
+    }
+    let base_expected = expected_public(&base_public_json, &base_input, &base_request)
+        .expect("base request/public/input equality");
+    assert_ne!(base_expected[0], expected[0], "changed root");
+    assert_eq!(
+        &base_expected[1..],
+        &expected[1..],
+        "same issuer, validity, action and policy"
+    );
+    assert_eq!(
+        report["application_stage_pins"]["base_root"].as_str(),
+        Some(base_expected[0].to_string().as_str()),
+        "proof report base root"
+    );
+    assert_eq!(
+        report["application_stage_pins"]["near_root"].as_str(),
+        Some(expected[0].to_string().as_str()),
+        "proof report near root"
+    );
+    assert_eq!(
+        report["application_stage_pins"]["action_hash"].as_str(),
+        Some(expected[4].to_string().as_str()),
+        "proof report exact action"
+    );
+    let proof = private(
+        &proof_dir.join("request_bound_training_anchor_near.proof"),
+        128,
+        Some(128),
+    )
+    .unwrap();
+    let public = private(
+        &proof_dir.join("request_bound_training_anchor_near-public.bin"),
+        200,
+        Some(200),
+    )
+    .unwrap();
+    let setup = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../artifacts/dynark/part5/v3-development-setup-001");
+    let vk = private(
+        &setup.canonicalize().unwrap().join("ordinary.vk"),
+        456,
+        Some(456),
+    )
+    .unwrap();
+    let wire = verify_join(&proof, &public, &expected, &vk)
+        .expect("near Anchor adapter and program host verification");
+    let full_proof = private(
+        &proof_dir.join("request_bound_training_full_base.proof"),
+        128,
+        Some(128),
+    )
+    .unwrap();
+    let full_public = private(
+        &proof_dir.join("request_bound_training_full_base-public.bin"),
+        200,
+        Some(200),
+    )
+    .unwrap();
+    let full_wire = verify_join(&full_proof, &full_public, &base_expected, &vk)
+        .expect("base Full adapter and program host verification");
+    let base_output = base_fixture.join("full-solana-wire.bin");
+    let mut base_file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(&base_output)
+        .expect("fresh private Full wire output");
+    base_file
+        .set_permissions(fs::Permissions::from_mode(0o600))
+        .unwrap();
+    base_file.write_all(&full_wire).unwrap();
+    base_file.sync_all().unwrap();
+    assert_eq!(private(&base_output, 448, Some(448)).unwrap(), full_wire);
+    let output = fixture.join("anchor-solana-wire.bin");
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(&output)
+        .expect("fresh private Anchor wire output");
+    file.set_permissions(fs::Permissions::from_mode(0o600))
+        .unwrap();
+    file.write_all(&wire).unwrap();
+    file.sync_all().unwrap();
+    assert_eq!(private(&output, 448, Some(448)).unwrap(), wire);
 }
