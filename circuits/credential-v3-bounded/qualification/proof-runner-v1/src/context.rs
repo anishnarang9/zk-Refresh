@@ -100,7 +100,7 @@ mod tests {
     }
 }
 
-pub(crate) fn admit_root_only(base: &RootOnlyContext, target: &RootOnlyContext) -> Result<()> {
+fn admit_same_context(base: &RootOnlyContext, target: &RootOnlyContext) -> Result<()> {
     required(
         base.package == target.package
             && base.credential == target.credential
@@ -108,7 +108,10 @@ pub(crate) fn admit_root_only(base: &RootOnlyContext, target: &RootOnlyContext) 
             && base.policy_version == target.policy_version
             && base.allocation_epoch == target.allocation_epoch,
         "cross-context Anchor reuse",
-    )?;
+    )
+}
+pub(crate) fn admit_root_only(base: &RootOnlyContext, target: &RootOnlyContext) -> Result<()> {
+    admit_same_context(base, target)?;
     required(
         base.root != target.root
             && base.root_version > 0
@@ -244,6 +247,13 @@ fn version(value: &Value, key: &str) -> Result<u64> {
     Ok(n)
 }
 pub(crate) fn derive_context(flat: &BTreeMap<String, Fr>, spec: &Value) -> Result<RootOnlyContext> {
+    derive_context_mode(flat, spec, false)
+}
+pub(crate) fn derive_context_mode(
+    flat: &BTreeMap<String, Fr>,
+    spec: &Value,
+    request_bound: bool,
+) -> Result<RootOnlyContext> {
     let get = |name: &str| flat.get(&format!("main.{name}")).ok_or("context input");
     let issuer = fr_be(get("issuerHash")?)?;
     let policy = fr_be(get("policyHash")?)?;
@@ -286,12 +296,218 @@ pub(crate) fn derive_context(flat: &BTreeMap<String, Fr>, spec: &Value) -> Resul
         credential,
         action: a.finalize().into(),
         root: fr_be(get("root")?)?,
-        root_version: version(spec, "root_version")?,
+        root_version: if request_bound {
+            spec["root_version"]
+                .as_u64()
+                .filter(|n| *n <= 1)
+                .ok_or("request generation 0 or 1")?
+        } else {
+            version(spec, "root_version")?
+        },
         policy_version,
         allocation_epoch: version(spec, "allocation_epoch")?,
     })
 }
+/// Caller pins bind mathematical inputs to a retained application observation.
+/// This runner does not authenticate a chain, a finalized request, or its state.
+pub(crate) fn admit_pair(
+    base: &RootOnlyContext,
+    near: &RootOnlyContext,
+    request_bound: bool,
+) -> Result<()> {
+    if request_bound {
+        required(
+            base.root_version == 0 && near.root_version == 1,
+            "request generation 0 to 1",
+        )?;
+        admit_same_context(base, near)?;
+        required(base.root != near.root, "request root change")
+    } else {
+        admit_root_only(base, near)
+    }
+}
+fn exact_fields(value: &Value, names: &[&str]) -> Result<()> {
+    let object = value.as_object().ok_or("exact schema object")?;
+    required(
+        object.len() == names.len() && names.iter().all(|name| object.contains_key(*name)),
+        "exact request packet fields",
+    )
+}
+fn base58_32(value: &str) -> Result<()> {
+    const ALPHABET: &[u8] = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    required((32..=44).contains(&value.len()), "32-byte base58 length")?;
+    let mut bytes = Vec::<u8>::new();
+    for character in value.bytes() {
+        let mut carry = ALPHABET
+            .iter()
+            .position(|c| *c == character)
+            .ok_or("base58 character")? as u32;
+        for byte in &mut bytes {
+            carry += u32::from(*byte) * 58;
+            *byte = carry as u8;
+            carry >>= 8;
+        }
+        while carry != 0 {
+            bytes.push(carry as u8);
+            carry >>= 8;
+        }
+    }
+    required(
+        bytes.len() + value.bytes().take_while(|c| *c == b'1').count() == 32,
+        "canonical 32-byte base58",
+    )
+}
+fn request_bound_cases(packet: &Value) -> Result<&Vec<Value>> {
+    exact_fields(
+        packet,
+        &[
+            "schema",
+            "synthetic_only",
+            "application_verified",
+            "package_digest",
+            "cohort",
+            "proof_source_identity",
+            "setup_manifest_path",
+            "setup_manifest_sha256",
+            "package_check_path",
+            "package_check_sha256",
+            "r1cs_path",
+            "wasm_path",
+            "profile_path",
+            "input_map_path",
+            "input_map_sha256",
+            "application_stage",
+            "pairs",
+        ],
+    )?;
+    required(
+        packet["synthetic_only"] == false
+            && packet["application_verified"] == false
+            && text(packet, "cohort")? == "request-bound-training-v1"
+            && text(packet, "package_digest")? == PACKAGE_SHA
+            && text(packet, "setup_manifest_sha256")? == SETUP_MANIFEST_SHA
+            && text(packet, "package_check_sha256")? == PACKAGE_CHECK_SHA
+            && text(packet, "proof_source_identity")? == crate::proof_source_identity(),
+        "request-only training identities",
+    )?;
+    unhex(text(packet, "input_map_sha256")?)?;
+    for key in [
+        "setup_manifest_path",
+        "package_check_path",
+        "r1cs_path",
+        "wasm_path",
+        "profile_path",
+        "input_map_path",
+    ] {
+        required(!text(packet, key)?.is_empty(), "request artifact path")?;
+    }
+    let stage = &packet["application_stage"];
+    exact_fields(
+        stage,
+        &[
+            "program_id",
+            "genesis_hash",
+            "loaded_elf_sha256",
+            "base_stage_report_sha256",
+            "base_config_sha256",
+            "finalized_request_sha256",
+            "request_address",
+            "base_finalized_slot",
+            "near_state_report_sha256",
+            "near_config_sha256",
+            "near_finalized_slot",
+            "base_root",
+            "near_root",
+            "action_hash",
+        ],
+    )?;
+    for key in ["program_id", "genesis_hash", "request_address"] {
+        base58_32(text(stage, key)?)?;
+    }
+    for key in [
+        "loaded_elf_sha256",
+        "base_stage_report_sha256",
+        "base_config_sha256",
+        "finalized_request_sha256",
+        "near_state_report_sha256",
+        "near_config_sha256",
+    ] {
+        unhex(text(stage, key)?)?;
+    }
+    let base_slot = stage["base_finalized_slot"]
+        .as_u64()
+        .filter(|n| *n > 0)
+        .ok_or("base finalized slot")?;
+    required(
+        stage["near_finalized_slot"]
+            .as_u64()
+            .is_some_and(|n| n > base_slot),
+        "newer near finalized slot",
+    )?;
+    required(
+        scalar(&stage["base_root"])? != scalar(&stage["near_root"])?,
+        "distinct stage roots",
+    )?;
+    scalar(&stage["action_hash"])?;
+    let pairs = packet["pairs"].as_array().ok_or("request pair array")?;
+    required(pairs.len() == 1, "exactly one request-bound training pair")?;
+    let pair = &pairs[0];
+    exact_fields(pair, &["name", "base", "near"])?;
+    required(
+        text(pair, "name")? == "request_bound_training",
+        "request training pair name",
+    )?;
+    for (role, generation) in [("base", 0), ("near", 1)] {
+        let spec = &pair[role];
+        exact_fields(
+            spec,
+            &[
+                "wtns_path",
+                "wtns_sha256",
+                "public_path",
+                "public_sha256",
+                "input_path",
+                "input_sha256",
+                "issuer_version",
+                "policy_version",
+                "allocation_epoch",
+                "root_version",
+            ],
+        )?;
+        required(
+            spec["root_version"].as_u64() == Some(generation),
+            "request generation 0 to 1",
+        )?;
+        for key in ["wtns_sha256", "public_sha256", "input_sha256"] {
+            unhex(text(spec, key)?)?;
+        }
+        for key in ["wtns_path", "public_path", "input_path"] {
+            required(!text(spec, key)?.is_empty(), "request case path")?;
+        }
+        u32::try_from(version(spec, "issuer_version")?)?;
+        u32::try_from(version(spec, "policy_version")?)?;
+        version(spec, "allocation_epoch")?;
+    }
+    Ok(pairs)
+}
+pub(crate) fn match_request_stage(
+    packet: &Value,
+    base: &BTreeMap<String, Fr>,
+    near: &BTreeMap<String, Fr>,
+) -> Result<()> {
+    let stage = &packet["application_stage"];
+    required(
+        base.get("main.root") == Some(&scalar(&stage["base_root"])?)
+            && near.get("main.root") == Some(&scalar(&stage["near_root"])?)
+            && base.get("main.actionHash") == Some(&scalar(&stage["action_hash"])?)
+            && near.get("main.actionHash") == base.get("main.actionHash"),
+        "caller stage roots/action match complete witnesses",
+    )
+}
 pub(crate) fn packet_cases(packet: &Value) -> Result<&Vec<Value>> {
+    if packet["schema"] == "credential-v3-request-bound-anchor-v1" {
+        return request_bound_cases(packet);
+    }
     required(
         text(packet, "schema")? == "credential-v3-bounded-proof-contexts-v1"
             && packet["synthetic_only"] == true
@@ -424,6 +640,148 @@ mod binding_tests {
         assert!(root_only_inputs(&base, &flatten_inputs(&wrong).unwrap()).is_err());
         near["siblings"][1] = json!("1");
         assert!(root_only_inputs(&base, &flatten_inputs(&near).unwrap()).is_err());
+    }
+    fn request_packet() -> Value {
+        let mut packet = json!({
+            "schema":"credential-v3-request-bound-anchor-v1", "synthetic_only":false,
+            "application_verified":false, "package_digest":PACKAGE_SHA,
+            "cohort":"request-bound-training-v1", "proof_source_identity":crate::proof_source_identity(),
+            "setup_manifest_sha256":SETUP_MANIFEST_SHA,
+            "input_map_sha256":"11".repeat(32),
+            "application_stage":{
+                "program_id":"11111111111111111111111111111111",
+                "genesis_hash":"11111111111111111111111111111111",
+                "request_address":"11111111111111111111111111111111",
+                "loaded_elf_sha256":"11".repeat(32),
+                "base_stage_report_sha256":"22".repeat(32),
+                "base_config_sha256":"33".repeat(32),
+                "finalized_request_sha256":"44".repeat(32),
+                "near_state_report_sha256":"55".repeat(32),
+                "near_config_sha256":"66".repeat(32),
+                "base_finalized_slot":10,"near_finalized_slot":11,
+                "base_root":"1","near_root":"2","action_hash":"1"
+            },
+            "pairs":[{"name":"request_bound_training",
+                "base":{"issuer_version":1,"policy_version":1,"allocation_epoch":1,"root_version":0},
+                "near":{"issuer_version":1,"policy_version":1,"allocation_epoch":1,"root_version":1}}]
+        });
+        packet["package_check_sha256"] = json!(PACKAGE_CHECK_SHA);
+        for key in [
+            "setup_manifest_path",
+            "package_check_path",
+            "r1cs_path",
+            "wasm_path",
+            "profile_path",
+            "input_map_path",
+        ] {
+            packet[key] = json!("private-or-pinned");
+        }
+        for role in ["base", "near"] {
+            for key in ["input_path", "wtns_path", "public_path"] {
+                packet["pairs"][0][role][key] = json!("private");
+            }
+            for key in ["input_sha256", "wtns_sha256", "public_sha256"] {
+                packet["pairs"][0][role][key] = json!("77".repeat(32));
+            }
+        }
+        packet
+    }
+    #[test]
+    fn separate_request_packet_admits_exactly_one_zero_to_one_training_pair() {
+        let packet = request_packet();
+        assert_eq!(packet_cases(&packet).unwrap().len(), 1);
+        for mutation in [
+            "extra_pair",
+            "generation",
+            "schema",
+            "cohort",
+            "source",
+            "stage",
+            "slot",
+            "root",
+            "digest",
+            "address",
+        ] {
+            let mut wrong = packet.clone();
+            match mutation {
+                "extra_pair" => wrong["pairs"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(packet["pairs"][0].clone()),
+                "generation" => wrong["pairs"][0]["base"]["root_version"] = json!(1),
+                "schema" => wrong["schema"] = json!("credential-v3-bounded-proof-contexts-v1"),
+                "cohort" => wrong["cohort"] = json!("heldout-v1"),
+                "source" => wrong["proof_source_identity"] = json!("00".repeat(32)),
+                "stage" => {
+                    wrong["application_stage"]
+                        .as_object_mut()
+                        .unwrap()
+                        .remove("finalized_request_sha256");
+                }
+                "slot" => wrong["application_stage"]["near_finalized_slot"] = json!(10),
+                "root" => wrong["application_stage"]["near_root"] = json!("1"),
+                "digest" => wrong["application_stage"]["loaded_elf_sha256"] = json!("ABC"),
+                _ => wrong["application_stage"]["request_address"] = json!("0".repeat(32)),
+            }
+            assert!(packet_cases(&wrong).is_err(), "{mutation}");
+        }
+    }
+    #[test]
+    fn request_zero_generation_is_separate_and_stage_action_and_roots_match() {
+        let packet = request_packet();
+        let base_flat = flatten_inputs(&inputs()).unwrap();
+        let mut raw = inputs();
+        raw["root"] = json!("2");
+        raw["siblings"][0] = json!("1");
+        let near_flat = flatten_inputs(&raw).unwrap();
+        let base_spec = &packet["pairs"][0]["base"];
+        let near_spec = &packet["pairs"][0]["near"];
+        assert!(derive_context(&base_flat, base_spec).is_err());
+        let base = derive_context_mode(&base_flat, base_spec, true).unwrap();
+        let near = derive_context_mode(&near_flat, near_spec, true).unwrap();
+        assert!(admit_root_only(&base, &near).is_err());
+        admit_pair(&base, &near, true).unwrap();
+        root_only_inputs(&base_flat, &near_flat).unwrap();
+        match_request_stage(&packet, &base_flat, &near_flat).unwrap();
+        for key in ["base_root", "near_root", "action_hash"] {
+            let mut wrong = packet.clone();
+            wrong["application_stage"][key] = json!("9");
+            assert!(match_request_stage(&wrong, &base_flat, &near_flat).is_err());
+        }
+        for field in ["actionHash", "slot", "issuerHash", "policyHash"] {
+            let mut wrong = raw.clone();
+            wrong[field] = json!("9");
+            assert!(root_only_inputs(&base_flat, &flatten_inputs(&wrong).unwrap()).is_err());
+        }
+        let mut wrong = near;
+        wrong.root_version = 2;
+        assert!(admit_pair(&base, &wrong, true).is_err());
+        wrong = near;
+        wrong.action[0] ^= 1;
+        assert!(admit_pair(&base, &wrong, true).is_err());
+    }
+    #[test]
+    fn request_schema_rejects_unknown_keys_and_noncanonical_pins() {
+        for scope in ["packet", "stage", "pair", "case"] {
+            let mut packet = request_packet();
+            let target = match scope {
+                "packet" => &mut packet,
+                "stage" => &mut packet["application_stage"],
+                "pair" => &mut packet["pairs"][0],
+                _ => &mut packet["pairs"][0]["base"],
+            };
+            target["extra"] = json!(true);
+            assert!(packet_cases(&packet).is_err(), "{scope}");
+        }
+        for key in ["base_root", "near_root", "action_hash"] {
+            let mut packet = request_packet();
+            packet["application_stage"][key] = json!("01");
+            assert!(packet_cases(&packet).is_err());
+        }
+        for bad in ["1".repeat(31), "1".repeat(33), "z".repeat(44)] {
+            assert!(base58_32(&bad).is_err());
+        }
+        base58_32("3nqhgGtpPD8UyYMYtYFb4nBLntsW36gDUnzPXh5j9JNi").unwrap();
     }
     #[test]
     fn cohort_count_is_exact_for_training_and_bounded_for_holdout() {

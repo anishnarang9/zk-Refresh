@@ -35,6 +35,7 @@ fn read_case(
     map: &BTreeMap<String, usize>,
     package: &PublicPackage,
     owner: u32,
+    request_bound: bool,
 ) -> Result<Case> {
     let bytes = received_bytes(
         Path::new(text(spec, "wtns_path")?),
@@ -57,7 +58,11 @@ fn read_case(
         owner,
     )?;
     let flat = match_inputs(&values, &input, map)?;
-    let context = derive_context(&flat, spec)?;
+    let context = if request_bound {
+        derive_context_mode(&flat, spec, true)?
+    } else {
+        derive_context(&flat, spec)?
+    };
     let encoded = encoded(&values)?;
     let validated = package.validate_assignment(&encoded, &public)?;
     Ok(Case {
@@ -72,8 +77,9 @@ fn delta_and_preflight(
     package: &PublicPackage,
     base: &Case,
     near: &Case,
+    request_bound: bool,
 ) -> Result<(Vec<(usize, [u8; 32])>, Value)> {
-    admit_root_only(&base.context, &near.context)?;
+    admit_pair(&base.context, &near.context, request_bound)?;
     root_only_inputs(&base.flat, &near.flat)?;
     required(
         base.public[1..] == near.public[1..] && base.public[0] != near.public[0],
@@ -94,7 +100,7 @@ fn delta_and_preflight(
         "bounded exact root-only public delta",
     )?;
     // Provisional binding is used only for mathematical support preflight. The
-    // actual update is reconstructed from the created Anchor's nonzero binding.
+    // actual update is reconstructed from the created Anchor's private binding.
     let binding = AnchorBinding::new(
         package,
         base.context.credential,
@@ -124,6 +130,12 @@ fn delta_and_preflight(
     ))
 }
 fn cross_context_negatives(contexts: &[(RootOnlyContext, RootOnlyContext)]) -> Result<usize> {
+    cross_context_negatives_mode(contexts, false)
+}
+fn cross_context_negatives_mode(
+    contexts: &[(RootOnlyContext, RootOnlyContext)],
+    request_bound: bool,
+) -> Result<usize> {
     let mut checks = 0;
     for (i, (base, own_near)) in contexts.iter().enumerate() {
         let valid = *own_near;
@@ -139,7 +151,7 @@ fn cross_context_negatives(contexts: &[(RootOnlyContext, RootOnlyContext)]) -> R
                 _ => wrong.root = base.root,
             }
             required(
-                admit_root_only(base, &wrong).is_err(),
+                admit_pair(base, &wrong, request_bound).is_err(),
                 "context mutation unexpectedly admitted",
             )?;
             checks += 1;
@@ -152,7 +164,7 @@ fn cross_context_negatives(contexts: &[(RootOnlyContext, RootOnlyContext)]) -> R
                     ..*other_near
                 };
                 required(
-                    admit_root_only(base, &other).is_err(),
+                    admit_pair(base, &other, request_bound).is_err(),
                     "cross-credential cache reuse admitted",
                 )?;
                 checks += 1;
@@ -177,7 +189,13 @@ fn engine_binding_negatives(
             0 => wrong.credential[0] ^= 1,
             1 => wrong.action[0] ^= 1,
             2 => wrong.anchor_state[0] ^= 1,
-            3 => wrong.generation = original.generation.saturating_sub(1),
+            3 => {
+                wrong.generation = if original.generation == 0 {
+                    1
+                } else {
+                    original.generation - 1
+                }
+            }
             4 => wrong.package.package_digest[0] ^= 1,
             _ => wrong.domain_size += 1,
         }
@@ -190,6 +208,7 @@ fn engine_binding_negatives(
             limits(),
         ) {
             Err(dynark_bn254::Error::AnchorBinding) => {}
+            Err(dynark_bn254::Error::Generation) if field == 3 && original.generation == 0 => {}
             Err(_) => return Err("unexpected binding-constructor rejection class".into()),
             Ok(transition) => {
                 match anchor.update(package, material, &transition, limits(), &mut rng) {
@@ -305,16 +324,29 @@ fn validate_full_receipt(
 fn execute(args: &[String]) -> Result<()> {
     let mode = args.get(1).map(String::as_str).ok_or("proof mode")?;
     required(
-        matches!(mode, "full-corpus" | "anchor-pilot" | "anchor-corpus"),
+        matches!(
+            mode,
+            "full-corpus" | "anchor-pilot" | "anchor-corpus" | "anchor-request-bound"
+        ),
         "proof-only explicit mode",
     )?;
+    let request_bound = mode == "anchor-request-bound";
     required(
-        args.len() == if mode == "full-corpus" { 5 } else { 7 },
+        args.len()
+            == if mode == "full-corpus" || request_bound {
+                5
+            } else {
+                7
+            },
         "proof mode argument count",
     )?;
     let packet_path = Path::new(&args[2]);
     let owner = fs::symlink_metadata(packet_path)?.uid();
     let packet = json_file(packet_path, &args[3], owner)?;
+    required(
+        (packet["schema"] == "credential-v3-request-bound-anchor-v1") == request_bound,
+        "packet schema matches explicit runner mode",
+    )?;
     let cases = packet_cases(&packet)?;
     heldout_boundary(&packet, owner)?;
     let map = mapping(&json_file(
@@ -322,7 +354,7 @@ fn execute(args: &[String]) -> Result<()> {
         text(&packet, "input_map_sha256")?,
         owner,
     )?)?;
-    if mode != "full-corpus" {
+    if mode != "full-corpus" && !request_bound {
         validate_full_receipt(Path::new(&args[4]), &args[5], &args[3], cases.len(), owner)?;
     }
     let out = Path::new(args.last().ok_or("fresh output")?);
@@ -336,14 +368,21 @@ fn execute(args: &[String]) -> Result<()> {
     // public updating tables or any private Anchor preparation.
     for pair in cases {
         let t = Instant::now();
-        let base = read_case(&pair["base"], &map, &package, owner)?;
-        let near = read_case(&pair["near"], &map, &package, owner)?;
-        let (_, stats) = delta_and_preflight(&package, &base, &near)?;
+        let base = read_case(&pair["base"], &map, &package, owner, request_bound)?;
+        let near = read_case(&pair["near"], &map, &package, owner, request_bound)?;
+        let (_, stats) = delta_and_preflight(&package, &base, &near, request_bound)?;
+        if request_bound {
+            match_request_stage(&packet, &base.flat, &near.flat)?;
+        }
         contexts.push((base.context, near.context));
         preflights.push(json!({"name":text(pair,"name")?,"support":stats}));
         event(out, "complete_pair_and_support_preflight", t)?;
     }
-    let local_negatives = cross_context_negatives(&contexts)?;
+    let local_negatives = if request_bound {
+        cross_context_negatives_mode(&contexts, true)?
+    } else {
+        cross_context_negatives(&contexts)?
+    };
     let mut counts = Counts::default();
     let mut rows = Vec::new();
     let mut rng = OsRng;
@@ -354,8 +393,8 @@ fn execute(args: &[String]) -> Result<()> {
             let t = Instant::now();
             let name = text(pair, "name")?;
             case_event(out, name, "full_credential_started", all)?;
-            let base = read_case(&pair["base"], &map, &package, owner)?;
-            let near = read_case(&pair["near"], &map, &package, owner)?;
+            let base = read_case(&pair["base"], &map, &package, owner, request_bound)?;
+            let near = read_case(&pair["near"], &map, &package, owner, request_bound)?;
             admit_root_only(&base.context, &near.context)?;
             root_only_inputs(&base.flat, &near.flat)?;
             let before = dynark_bn254::prove(
@@ -412,7 +451,11 @@ fn execute(args: &[String]) -> Result<()> {
             case_event(out, name, "one_credential_full_complete", t)?;
         }
     } else {
-        let pilot = text(&packet, "pilot_pair")?;
+        let pilot = if request_bound {
+            "request_bound_training"
+        } else {
+            text(&packet, "pilot_pair")?
+        };
         required(
             cases.iter().any(|c| c["name"] == pilot),
             "named pilot present",
@@ -431,10 +474,30 @@ fn execute(args: &[String]) -> Result<()> {
                 continue;
             }
             let case_t = Instant::now();
-            let base = read_case(&pair["base"], &map, &package, owner)?;
-            let near = read_case(&pair["near"], &map, &package, owner)?;
-            let (delta, _) = delta_and_preflight(&package, &base, &near)?;
+            let base = read_case(&pair["base"], &map, &package, owner, request_bound)?;
+            let near = read_case(&pair["near"], &map, &package, owner, request_bound)?;
+            let (delta, _) = delta_and_preflight(&package, &base, &near, request_bound)?;
             let base_public = base.public.clone();
+            if request_bound {
+                let t = Instant::now();
+                let old_full = dynark_bn254::prove(
+                    &package,
+                    &base.validated,
+                    base.context.root_version,
+                    &mut rng,
+                )?;
+                ordinary_checks::verify_save(
+                    &package,
+                    &old_full,
+                    &base.public,
+                    base.context.root_version,
+                    out,
+                    &format!("{name}_full_base"),
+                    &mut counts,
+                )?;
+                ordinary_checks::reject_cross_root(&package, &old_full, &near.public, &mut counts)?;
+                case_event(out, name, "old_base_full_verified_and_rejected_at_near", t)?;
+            }
             let binding = AnchorBinding::new(
                 &package,
                 base.context.credential,
@@ -489,6 +552,13 @@ fn execute(args: &[String]) -> Result<()> {
     }
     let expected = if mode == "full-corpus" {
         Counts::full(cases.len() as u64)
+    } else if request_bound {
+        Counts {
+            proofs: 2,
+            positives: 2,
+            altered: 12,
+            cross_root: 2,
+        }
     } else {
         Counts::anchor(if mode == "anchor-pilot" {
             1
@@ -500,7 +570,7 @@ fn execute(args: &[String]) -> Result<()> {
         counts.json() == expected.json() && package.identity() == id,
         "executed proof/check counts and shared identity",
     )?;
-    let report = json!({"schema":"credential-v3-bounded-proof-qualification-v1","passed":true,"mode":mode,
+    let mut report = json!({"schema":"credential-v3-bounded-proof-qualification-v1","passed":true,"mode":mode,
         "cohort":text(&packet,"cohort")?,"packet_sha256":args[3],"package_digest":PACKAGE_SHA,"identity":identity_json(id),
         "setup_manifest_sha256":SETUP_MANIFEST_SHA,"setup_binary_sha256":SETUP_BINARY_SHA,"setup_launcher_src_sha256":SETUP_SOURCE_SHA,
         "proof_binary_sha256":binary_hash(owner)?,"proof_source_identity":proof_source_identity(),
@@ -510,6 +580,13 @@ fn execute(args: &[String]) -> Result<()> {
         "public_package_loads":1,"public_material_preparations":usize::from(mode!="full-corpus"),"public_material_prepare_ms":material_ms,
         "total_paid_session_ms":all.elapsed().as_secs_f64()*1000.0,"setup_executed":false,"private_cache_persisted":false,
         "incremental_witness_enabled":false,"application_verified":false,"admitted":false});
+    if request_bound {
+        report["schema"] = json!("credential-v3-request-bound-anchor-proof-v1");
+        report["application_stage_pins"] = packet["application_stage"].clone();
+        report["application_stage_pins_authority"] =
+            json!("caller-supplied; external finalized-state verification required");
+        report["old_base_full_rejected_at_near_publics"] = json!(true);
+    }
     save_json(&out.join("proof-report.json"), &report)?;
     File::open(out)?.sync_all()?;
     println!(
@@ -573,6 +650,46 @@ mod tests {
             ..base
         };
         assert_eq!(cross_context_negatives(&[(base, near)]).unwrap(), 7);
+    }
+    #[test]
+    fn request_zero_generation_context_negatives_and_proof_counts() {
+        let base = RootOnlyContext {
+            package: [1; 32],
+            credential: [2; 32],
+            action: [3; 32],
+            root: [4; 32],
+            root_version: 0,
+            policy_version: 1,
+            allocation_epoch: 1,
+        };
+        let near = RootOnlyContext {
+            root: [5; 32],
+            root_version: 1,
+            ..base
+        };
+        admit_pair(&base, &near, true).unwrap();
+        assert_eq!(
+            cross_context_negatives_mode(&[(base, near)], true).unwrap(),
+            7
+        );
+        let counts = Counts {
+            proofs: 2,
+            positives: 2,
+            altered: 12,
+            cross_root: 2,
+        };
+        assert_eq!(counts.checks(), 16);
+        // The new mode accepts no legacy Full receipt positional arguments.
+        assert!(execute(&[
+            "runner".into(),
+            "anchor-request-bound".into(),
+            "packet".into(),
+            "sha".into(),
+            "receipt".into(),
+            "sha".into(),
+            "out".into()
+        ])
+        .is_err());
     }
     #[test]
     fn no_setup_or_unknown_runtime_mode() {
