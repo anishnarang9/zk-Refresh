@@ -97,6 +97,49 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
                 report_field='execute_report_sha256', report_sha256='a' * 64,
                 application_effect=True, effect_count=1)
 
+    def test_report_identity_joins_producer_report_summary_to_status_runtime(self):
+        elf_sha256 = 'a' * 64
+        program = 'program-address'
+        genesis = 'genesis-hash'
+        report = {
+            'program': program,
+            'genesis': genesis,
+            'loaded_program': {
+                'elf_match': True, 'elf_sha256': elf_sha256,
+                'loader': 'BPFLoaderUpgradeab1e11111111111111111111111',
+                'local_bytes': 123, 'remote_bytes': 123,
+            },
+        }
+        status = {'loaded_program': {
+            'elf_match': True, 'elf_sha256': elf_sha256,
+            'program': program, 'programdata': 'programdata-address',
+            'loader': 'BPFLoaderUpgradeab1e11111111111111111111111',
+            'elf_bytes': 123,
+            'program_account_sha256': 'b' * 64,
+            'programdata_account_sha256': 'c' * 64,
+            'genesis': genesis,
+        }}
+
+        identity_verifier = getattr(verifier, '_verify_report_runtime_identity', None)
+        self.assertIsNotNone(identity_verifier,
+                             'runtime identity join must be independently testable')
+        config = {'expected_genesis': genesis}
+        identity = identity_verifier(
+            report, status, config, elf_sha256,
+            expected_program=program, expected_genesis=genesis)
+
+        self.assertEqual(identity['program'], program)
+        self.assertEqual(identity['genesis'], genesis)
+        with self.assertRaisesRegex(ValueError, 'runtime identity'):
+            identity_verifier(
+                report, status, config, elf_sha256,
+                expected_program=program, expected_genesis='other-genesis')
+        status['loaded_program']['program'] = 'other-program'
+        with self.assertRaisesRegex(ValueError, 'runtime identity'):
+            identity_verifier(
+                report, status, config, elf_sha256,
+                expected_program=program, expected_genesis=genesis)
+
     def test_exporter_source_and_ordinary_adapter_have_distinct_role_pins(self):
         source_hashes = {'exporter': 'd' * 64}
         proof_hashes = {'exporter': 'd' * 64, 'adapter_binary': '5' * 64}

@@ -27,7 +27,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.part5.generate_v3_heldout_keys import FREEZE_SCHEMA, IDENTITY_ROLES
-from tools.part5.prepare_v3_heldout_context import COHORT_SCHEMA, CASE_SCHEMA
+from tools.part5.prepare_v3_heldout_context import COHORT_SCHEMA, CASE_SCHEMA, _base58
 from tools.part5.prepare_v3_revocation_cohort import membership_for_pair
 from tools.part5.registry_v3_vectors import h as poseidon_parent, leaf as poseidon_leaf
 from harness.tests.queue_v3_clone_ledger import inventory as ledger_inventory
@@ -498,7 +498,39 @@ def _declared_limits_match(declared, observed):
             and observed['poll_seconds'] == 0.2)
 
 
-def _validate_stage(stage_bundle, case):
+def _verify_report_runtime_identity(report, status, config, frozen_elf_sha256, *,
+                                   expected_program, expected_genesis):
+    """Join the report's ELF summary to the full identity saved in stop status."""
+    summary = report.get('loaded_program') if type(report) is dict else None
+    runtime = status.get('loaded_program') if type(status) is dict else None
+    _require(type(summary) is dict and type(runtime) is dict
+             and type(config) is dict and config.get('expected_genesis') == expected_genesis
+             and type(report.get('program')) is str and report['program']
+             and type(report.get('genesis')) is str and report['genesis']
+             and report.get('program') == expected_program
+             and report.get('genesis') == expected_genesis
+             and summary.get('elf_match') is True
+             and summary.get('elf_sha256') == frozen_elf_sha256
+             and summary.get('loader') == runtime.get('loader')
+             and type(summary.get('local_bytes')) is int
+             and summary.get('local_bytes') == runtime.get('elf_bytes')
+             and type(summary.get('remote_bytes')) is int
+             and summary.get('remote_bytes') == runtime.get('elf_bytes')
+             and runtime.get('elf_match') is True
+             and runtime.get('elf_sha256') == frozen_elf_sha256
+             and runtime.get('program') == report.get('program')
+             and runtime.get('genesis') == report.get('genesis')
+             and all(type(runtime.get(name)) is str and runtime.get(name)
+                     for name in ('program', 'programdata', 'loader', 'genesis'))
+             and _is_sha(runtime.get('program_account_sha256'))
+             and _is_sha(runtime.get('programdata_account_sha256')),
+             'report and stop-status runtime identity mismatch')
+    return {name: runtime[name] for name in (
+        'program', 'programdata', 'elf_sha256', 'program_account_sha256',
+        'programdata_account_sha256', 'genesis')}
+
+
+def _validate_stage(stage_bundle, case, frozen_elf_sha256):
     _require(type(stage_bundle) is dict and set(stage_bundle) == {
         'report', 'plan', 'allocations', 'signed_history', 'accounts',
         'config', 'status', 'monitor', 'monitor_owner'},
@@ -550,6 +582,11 @@ def _validate_stage(stage_bundle, case):
     history_chain = _verify_history(history, plan, case, [case['roots']['R0']])
     _require(type(plan) is dict and _field_bytes(plan.get('root'), 'stage root').hex()
              == case['roots']['R0'], 'stage plan must start from heldout R0')
+    expected_program = _base58(_field_bytes(plan.get('program'), 'stage program'))
+    expected_genesis = _base58(_field_bytes(plan.get('genesis'), 'stage genesis'))
+    runtime_identity = _verify_report_runtime_identity(
+        report, status, config, frozen_elf_sha256,
+        expected_program=expected_program, expected_genesis=expected_genesis)
     accounts = _accounts(stage_bundle, report, 'stage')
     _require(len(accounts['config']) == 381 and len(accounts['request']) == 2249
              and accounts['request'][:8] == b'DYNREQ03',
@@ -572,10 +609,11 @@ def _validate_stage(stage_bundle, case):
             'status_path': stage_bundle['status']['path'],
             'monitor': monitor, 'monitor_sha256': monitor_sha,
             'monitor_path': stage_bundle['monitor']['path'],
-            'monitor_owner': monitor_owner}
+            'monitor_owner': monitor_owner,
+            'runtime_identity': runtime_identity}
 
 
-def _verify_transition(bundle, stage, case):
+def _verify_transition(bundle, stage, case, frozen_elf_sha256):
     _require(type(bundle) is dict and set(bundle) == {
         'report', 'status', 'outer', 'config', 'monitor', 'monitor_owner',
         'context', 'signed_history',
@@ -614,6 +652,7 @@ def _verify_transition(bundle, stage, case):
              and _declared_limits_match(config.get('outer_limits_required'),
                                         outer.get('limits'))
              and config.get('scope') == 'part5-v3-local-unrelated-transition'
+             and config.get('expected_genesis') == stage['report'].get('genesis')
              and config.get('stage_root') == stage['config']['stage_output']
              and config.get('ledger') == stage['config'].get('ledger')
              and config.get('stage_report_sha256') == stage['report_sha256']
@@ -639,8 +678,16 @@ def _verify_transition(bundle, stage, case):
              and report.get('transition_context_sha256') == context_sha
              and report.get('signed_history_sha256') == history_sha
              and report.get('base_root') == case['roots']['R0']
-             and report.get('near_root') == case['roots']['R1'],
+             and report.get('near_root') == case['roots']['R1']
+             and report.get('program') == stage['report'].get('program')
+             and report.get('genesis') == stage['report'].get('genesis'),
              'signed unrelated-root transition does not bind R0 to R1')
+    runtime_identity = _verify_report_runtime_identity(
+        report, status, config, frozen_elf_sha256,
+        expected_program=stage['report']['program'],
+        expected_genesis=stage['report']['genesis'])
+    _require(runtime_identity == stage['runtime_identity'],
+             'transition loaded runtime differs from its exact stage')
     chain = _verify_history(history, stage['plan'], case,
                             [case['roots']['R0'], case['roots']['R1']])
     signed, _ = _json(bundle['signed_source'], cap=65536)
@@ -675,7 +722,8 @@ def _verify_transition(bundle, stage, case):
             'status_path': bundle['status']['path'],
             'monitor': monitor, 'monitor_sha256': monitor_sha,
             'monitor_path': bundle['monitor']['path'],
-            'monitor_owner': monitor_owner}
+            'monitor_owner': monitor_owner,
+            'runtime_identity': runtime_identity}
 
 
 def _verify_history(history, plan, case, expected_roots, *, final_change=None):
@@ -1315,7 +1363,12 @@ def _verify_branch(branch, bundle, case, globals_, slot_data, clone_destinations
                  and report.get('stage_plan_sha256') == stage['plan_sha256']
                  and report.get('transition_report_sha256') == transition['report_sha256']
                  and report.get('base_root') == case['roots']['R0']
-                 and report.get('near_root') == case['roots']['R1'],
+                 and report.get('near_root') == case['roots']['R1']
+                 and report.get('program') == stage['report'].get('program')
+                 and report.get('genesis') == stage['report'].get('genesis')
+                 and config.get('expected_genesis') == transition['report'].get('genesis')
+                 and transition['report'].get('program') == stage['report'].get('program')
+                 and transition['report'].get('genesis') == stage['report'].get('genesis'),
                  f'{branch} raw report must bind the independently verified transition')
         wires = result_bundle.get('wires')
         expected_wires = ({'full', 'anchor', 'full_near'} if branch == 'unrelated_full'
@@ -1398,16 +1451,14 @@ def _verify_branch(branch, bundle, case, globals_, slot_data, clone_destinations
         request_identity = r1['finalized_request_sha256']
 
     accounts = _accounts(result_bundle, report, f'{branch} result')
-    loaded = report.get('loaded_program')
-    _require(type(loaded) is dict and loaded.get('elf_match') is True
-             and loaded.get('elf_sha256') == globals_['freeze']['identities']['loaded_elf'],
-             f'{branch} loaded ELF differs from frozen ELF')
-    runtime_identity = {name: loaded.get(name) for name in (
-        'program', 'programdata', 'elf_sha256', 'program_account_sha256',
-        'programdata_account_sha256', 'genesis')}
-    _require(all(type(value) is str and value for value in runtime_identity.values())
-             and runtime_identity['elf_sha256'] == globals_['freeze']['identities']['loaded_elf'],
-             f'{branch} loaded program/genesis identity required')
+    runtime_identity = _verify_report_runtime_identity(
+        report, status, config, globals_['freeze']['identities']['loaded_elf'],
+        expected_program=stage['report']['program'],
+        expected_genesis=stage['report']['genesis'])
+    _require(runtime_identity == stage['runtime_identity']
+             and (branch == 'full'
+                  or runtime_identity == transition['runtime_identity']),
+             f'{branch} loaded runtime differs from its exact stage/transition chain')
     if branch != 'full':
         _require(len(accounts['head']) == 280
                  and accounts['head'][112:144].hex() == chain['publisher_sha256']
@@ -1683,9 +1734,10 @@ def verify_manifest(manifest_path):
         slots = {}
         for slot in ('A', 'B', 'C'):
             stage_bundle = stage_map[slot]
-            stage = _validate_stage(stage_bundle, case)
+            stage = _validate_stage(stage_bundle, case, frozen_hashes['loaded_elf'])
             transition_bundle = transition_map[slot]
-            transition = _verify_transition(transition_bundle, stage, case)
+            transition = _verify_transition(
+                transition_bundle, stage, case, frozen_hashes['loaded_elf'])
             sources = source_map[slot]
             _require(type(sources) is dict and set(sources) == {'R0', 'R1'},
                      f'request {slot} needs independent R0 and R1 source receipts')
