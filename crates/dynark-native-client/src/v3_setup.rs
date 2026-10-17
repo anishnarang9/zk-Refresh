@@ -139,6 +139,11 @@ pub struct V3SharedSetup {
     adapter_identity: V3OrdinaryVkIdentity,
 }
 impl V3SharedSetup {
+    /// Identity already admitted by load; caller records cannot replace it.
+    pub(crate) fn manifest(&self) -> &V3FullManifest {
+        &self.manifest
+    }
+
     /// Borrow the already admitted shared package; no replacement or mutation.
     pub(crate) fn package(&self) -> &PublicPackage {
         &self.package

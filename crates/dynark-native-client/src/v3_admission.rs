@@ -110,6 +110,10 @@ impl Drop for ImportedV3Credential {
     }
 }
 impl ImportedV3Credential {
+    /// Internal immutable DER bytes; never a public credential export.
+    pub(crate) fn certificate_der(&self) -> &[u8] {
+        &self.certificate
+    }
     pub fn summary(&self) -> &V3CredentialSummary {
         &self.summary
     }
@@ -355,3 +359,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/support/v3_imported_local_input.rs"]
+mod imported_local_input_tests;

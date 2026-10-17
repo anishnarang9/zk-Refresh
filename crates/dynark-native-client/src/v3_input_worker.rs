@@ -13,7 +13,8 @@
 //! witness import, R1CS validation under the admitted shared package, concrete chain
 //! authentication and a fresh state recheck. open_full remains closed elsewhere.
 use crate::{
-    decode_digest, ClientError, FieldBytes, OperationControl, PinnedFile, V3CredentialSummary,
+    decode_digest, ClientError, Digest, FieldBytes, ImportedV3Credential, OperationControl, PinnedFile,
+    V3CredentialSummary, V3FullManifest, V3LocalAccountSet, V3SharedSetup, V3_CERTIFICATE_BYTES,
 };
 use ark_bn254::Fr;
 use ark_serialize::CanonicalDeserialize;
@@ -86,6 +87,38 @@ pub struct V3InputWorkerRequest {
     expected_summary: V3CredentialSummary,
 }
 impl V3InputWorkerRequest {
+    /// Build exact V3Q1 from an imported credential and admitted setup. Account,
+    /// clock and membership/path observations remain UNTRUSTED caller data.
+    /// Local byte/action checks establish no finality or source authorization.
+    /// This does not verify holder RSA or membership; the pinned worker and full
+    /// relation check remain required, together with a concrete authority gate.
+    pub fn from_imported_local(
+        credential: &ImportedV3Credential,
+        setup: &V3SharedSetup,
+        accounts: &V3LocalAccountSet<'_>,
+        expected_action_be: Digest,
+        holder_signature: &[u8; 256],
+        path: &V3UntrustedLocalPath<'_>,
+        now: u64,
+        control: &OperationControl,
+    ) -> Result<Self, ClientError> {
+        control.check()?;
+        setup.manifest().check_identity(
+            setup.package().identity(),
+            setup.package().shape(),
+        )?;
+        build_imported_local_request(
+            credential,
+            setup.manifest(),
+            accounts,
+            expected_action_be,
+            holder_signature,
+            path,
+            now,
+            control,
+        )
+    }
+
     /// Require exact type/length/header, canonical action and state fields, bounded
     /// slot, and structurally extracted DER/TBS/signature matching the summary.
     /// Structural request validation alone performs no crypto/profile admission.
@@ -97,6 +130,59 @@ impl V3InputWorkerRequest {
         expected_inputs(&request)?;
         Ok(request)
     }
+}
+
+/// Untrusted local membership candidate. Neither construction nor canonical
+/// encoding authenticates allocation, issuer status or the current registry head.
+pub struct V3UntrustedLocalPath<'a> {
+    pub slot: u16,
+    pub siblings: &'a [FieldBytes; 10],
+}
+
+/// Pure input construction shared by the setup-token entry and structural tests.
+/// A frozen manifest here establishes identity policy only, never setup admission
+/// or current-state authority. No assignment or proof is constructed.
+pub(crate) fn build_imported_local_request(
+    credential: &ImportedV3Credential,
+    manifest: &V3FullManifest,
+    accounts: &V3LocalAccountSet<'_>,
+    expected_action_be: Digest,
+    holder_signature: &[u8; 256],
+    path: &V3UntrustedLocalPath<'_>,
+    now: u64,
+    control: &OperationControl,
+) -> Result<V3InputWorkerRequest, ClientError> {
+    control.check()?;
+    manifest.check()?;
+    let admission = credential.admission_identity();
+    admission.check().map_err(|_| ClientError::Identity)?;
+    if admission != manifest.admission
+        || credential.certificate_der().len() != V3_CERTIFICATE_BYTES
+    {
+        return Err(ClientError::Identity);
+    }
+    let summary = credential.summary();
+    let checked = accounts.check(summary, manifest, expected_action_be, now, control)?;
+    let public = checked.public_values();
+    let mut wire = [0; V3_INPUT_REQUEST_BYTES];
+    wire[..4].copy_from_slice(b"V3Q1");
+    wire[4..956].copy_from_slice(credential.certificate_der());
+    wire[956..1212].copy_from_slice(credential.issuer_public_modulus());
+    wire[1212..1244].copy_from_slice(&checked.action_be());
+    wire[1244..1500].copy_from_slice(holder_signature);
+    wire[1500..1502].copy_from_slice(&path.slot.to_be_bytes());
+    for (index, sibling) in path.siblings.iter().enumerate() {
+        let start = 1502 + 32 * index;
+        wire[start..start + 32].copy_from_slice(sibling);
+    }
+    wire[1822..1854].copy_from_slice(&public[0]);
+    wire[1854..1886].copy_from_slice(&public[1]);
+    wire[1886..1918].copy_from_slice(&public[5]);
+    let request = V3InputWorkerRequest::from_wire(&wire, summary);
+    wire.fill(0);
+    let request = request?;
+    control.check()?;
+    Ok(request)
 }
 
 /// Candidate only. Private construction prevents caller output from bypassing the
