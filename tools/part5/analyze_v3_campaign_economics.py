@@ -285,7 +285,7 @@ def _pair(slot, full, anchor, coalesced):
                 'coalesced_status': coalesced['status']}
     identity_fields = ('freeze_sha256', 'cohort_receipt_sha256', 'current_root',
                        'current_report_sha256', 'source_identities',
-                       'exact_request_sha256', 'outer_limits', 'outer_environment',
+                       'exact_request_sha256', 'outer_environment',
                        'preexisting_signed_history_preparation_charged',
                        'preexisting_ledger_clone_charged',
                        'preexisting_state_wait_charged',
@@ -310,6 +310,9 @@ def _pair(slot, full, anchor, coalesced):
             full['sampled_peak_owned_tree_rss_bytes'],
         'anchor_sampled_peak_owned_tree_rss_bytes':
             anchor['sampled_peak_owned_tree_rss_bytes'],
+        'full_outer_limits': full['outer_limits'],
+        'anchor_outer_limits': anchor['outer_limits'],
+        'coalesced_outer_limits': coalesced.get('outer_limits'),
         'full_sampled_peak_storage_growth_bytes':
             full['sampled_peak_storage_growth_bytes'],
         'anchor_sampled_peak_storage_growth_bytes':

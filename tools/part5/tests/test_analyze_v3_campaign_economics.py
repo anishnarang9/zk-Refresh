@@ -132,6 +132,30 @@ class CampaignEconomicsTests(unittest.TestCase):
             report['common_cost_accounting']['session_report_values'][
                 'preexisting_ledger_clone_charged'], [False])
 
+    def test_mode_specific_uncensored_runner_caps_do_not_break_pairing(self):
+        manifest = self.full_manifest()
+        for mode, runtime, storage in (
+                ('full', 2400, 256 * 1024 * 1024),
+                ('anchor', 3600, 192 * 1024 * 1024),
+                ('coalesced-full', 4800, 128 * 1024 * 1024)):
+            entry = next(row for row in manifest['sessions']
+                         if row['mode'] == mode and row['target_count'] == 1
+                         and row['repetition'] == 1)
+            outer = json.loads(Path(entry['outer_report']).read_text())
+            outer['limits']['runtime_seconds'] = runtime
+            outer['limits']['storage_growth_bytes'] = storage
+            Path(entry['outer_report']).write_text(json.dumps(outer))
+
+        report = aggregate(manifest, self.root)
+        pair = next(row for row in report['pairs']
+                    if row['target_count'] == 1 and row['repetition'] == 1)
+
+        self.assertEqual(pair['status'], 'matched')
+        self.assertEqual(pair['full_outer_limits']['runtime_seconds'], 2400)
+        self.assertEqual(pair['anchor_outer_limits']['runtime_seconds'], 3600)
+        self.assertEqual(pair['coalesced_outer_limits']['runtime_seconds'], 4800)
+        self.assertEqual(report['three_mode_groups'][1]['status'], 'matched')
+
     def test_manifest_generator_lists_all_absolute_report_slots(self):
         session_root = self.root / 'sessions'
         outer_root = self.root / 'outer'
