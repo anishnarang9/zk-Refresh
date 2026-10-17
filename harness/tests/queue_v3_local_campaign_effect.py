@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Supervise one finalized campaign proof effect on a stopped Rk ledger clone."""
+"""Supervise a finalized campaign proof check on a stopped Rk ledger clone."""
 import argparse
 import hashlib
 import json
@@ -20,12 +20,13 @@ from harness.tests import queue_v3_local_campaign_transition as transition
 from harness.tests import queue_v3_local_execute as execute
 from harness.tests import queue_v3_local_stage as stage
 from tools.part5.prepare_v3_campaign_context import derive, encoded
+from tools.part5.registry_v3_vectors import rebuild
 
 base = stage.base
 LIMITS = {'runtime_seconds': 180, 'rss_bytes': 4294967296,
           'storage_growth_bytes': 268435456}
 COUNTS = (0, 1, 2, 5, 10)
-MODES = ('full', 'anchor', 'coalesced-full')
+MODES = ('full', 'anchor', 'coalesced-full', 'own-revocation')
 RUNNER_CLEANUP_RESERVE_SECONDS = 60
 
 
@@ -65,8 +66,13 @@ def account_artifacts(root, report):
 def check_proof(config, packet, proof, staged, changed, context, original, wires, history_sha):
     count = config['target_count']
     mode = config['mode']
+    proof_mode = config.get('proof_mode', mode)
+    if (proof_mode not in ('full', 'anchor', 'coalesced-full')
+            or (mode == 'own-revocation' and proof_mode == 'coalesced-full')
+            or (mode != 'own-revocation' and proof_mode != mode)):
+        raise ValueError('pinned campaign proof mode required')
     expected_packet_schema = ('credential-v3-cumulative-coalesced-request-v1'
-                              if mode == 'coalesced-full'
+                              if proof_mode == 'coalesced-full'
                               else 'credential-v3-cumulative-request-v1')
     stage_pins = packet.get('application_stage', {})
     expected = {
@@ -88,7 +94,7 @@ def check_proof(config, packet, proof, staged, changed, context, original, wires
     expected_counts = ({'proofs': 1, 'positive_checks': 1,
                         'altered_public_checks': 6, 'cross_root_checks': 0,
                         'ordinary_checks': 7}
-                       if mode == 'coalesced-full'
+                       if proof_mode == 'coalesced-full'
                        else {'proofs': count + 1, 'positive_checks': count + 1,
                              'altered_public_checks': 6 * (count + 1),
                              'cross_root_checks': 2 * count,
@@ -103,7 +109,7 @@ def check_proof(config, packet, proof, staged, changed, context, original, wires
                != context['initial_allocations']['root_sequence_sha256']
             or proof.get('schema') != 'credential-v3-cumulative-proof-v1'
             or proof.get('passed') is not True
-            or proof.get('mode') != f'campaign-{mode}-k{count}'
+            or proof.get('mode') != f'campaign-{proof_mode}-k{count}'
             or proof.get('update_count') != count
             or proof.get('packet_sha256') != config['proof_packet_sha256']
             or proof.get('counts') != expected_counts
@@ -121,7 +127,7 @@ def check_proof(config, packet, proof, staged, changed, context, original, wires
             or wires['current'][128:160]
                != int(stage_pins['action_hash']).to_bytes(32, 'big')):
         raise ValueError('base/current proof wires differ from campaign root/action')
-    if mode == 'coalesced-full':
+    if proof_mode == 'coalesced-full':
         if wires['base'] is not None:
             raise ValueError('coalesced control must carry only final proof wire')
     elif (wires['base'] is None or len(wires['base']) != 448
@@ -147,7 +153,96 @@ def check_transactions(transactions, mode, count):
         raise ValueError('exact campaign effect transaction outcomes required')
 
 
-def signed_successor(output, stage_root, report, plan, history, context, count):
+def own_revocation_root(context, count):
+    allocations = context.get('initial_allocations', {})
+    encoded_digests = allocations.get('tbs_digests')
+    if (type(count) is not int or count not in COUNTS
+            or not isinstance(encoded_digests, list) or len(encoded_digests) != 11):
+        raise ValueError('eleven pinned campaign allocations required for own revocation')
+    try:
+        digests = [bytes.fromhex(value) for value in encoded_digests]
+    except (TypeError, ValueError) as error:
+        raise ValueError('canonical campaign TBS digests required') from error
+    if any(len(value) != 32 or value == bytes(32) for value in digests):
+        raise ValueError('canonical campaign TBS digests required')
+    unrelated = [(15 + index, digest, index > count)
+                 for index, digest in enumerate(digests[1:], 1)]
+    current = f'{rebuild([(0, digests[0], True)] + unrelated)[-1][0]:064x}'
+    if current != context['root_sequence'][count]:
+        raise ValueError('campaign active-root schedule differs from allocations')
+    return f'{rebuild([(0, digests[0], False)] + unrelated)[-1][0]:064x}'
+
+
+def check_own_revocation_transactions(transactions):
+    expected = [('v3-campaign-publish-own-revocation', None),
+                ('v3-campaign-observe-own-revocation', None),
+                ('v3-campaign-bind-own-revocation-head', None),
+                ('v3-campaign-own-revoked-old-root', 713),
+                ('v3-campaign-own-revoked-pre-revoke-current-root', 713)]
+    if (not isinstance(transactions, list) or len(transactions) != len(expected)
+            or any(row.get('scenario') != name or row.get('customError') != code
+                   or (row.get('err') is None) != (code is None)
+                   for row, (name, code) in zip(transactions, expected))):
+        raise ValueError('exact own-revocation rejection transaction outcomes required')
+
+
+def check_own_revocation_report(report, config, original, staged, changed,
+                                context, history_sha):
+    count = config['target_count']
+    revoked_root = own_revocation_root(context, count)
+    if (report.get('schema') != 'part5-v3-campaign-own-revocation-v1'
+            or report.get('passed') is not True
+            or report.get('mode') != 'own-revocation'
+            or report.get('target_count') != count
+            or report.get('training_only') is not True
+            or report.get('devnet') is not False
+            or report.get('application_effect') is not False
+            or type(report.get('effect_count')) is not int
+            or report.get('effect_count') != 0
+            or report.get('request_consumed') is not False
+            or report.get('registry_history_authenticated') is not True
+            or report.get('allocation_history_authenticated') is not True
+            or report.get('upstream_source_authentication') is not True
+            or report.get('upstream_publisher_authentication') is not True
+            or report.get('own_revocation_applied') is not True
+            or report.get('active_leaf_absent') is not True
+            or report.get('old_root_rejected') is not True
+            or report.get('pre_revocation_current_root_rejected') is not True
+            or report.get('stage_report_sha256') != config['stage_report_sha256']
+            or report.get('stage_plan_sha256') != config['stage_plan_sha256']
+            or report.get('transition_report_sha256') != config['transition_report_sha256']
+            or report.get('context_sha256') != config['context_sha256']
+            or report.get('signed_history_sha256') != history_sha
+            or report.get('base_wire_sha256') != config['base_wire_sha256']
+            or report.get('current_wire_sha256') != config['current_wire_sha256']
+            or report.get('base_root') != context['root_sequence'][0]
+            or report.get('pre_revocation_root') != context['root_sequence'][count]
+            or report.get('own_revoked_root') != revoked_root
+            or report.get('program') != original['program']
+            or report.get('genesis') != config['expected_genesis']
+            or report.get('source_sequence') != count + 2
+            or report.get('publication_sequence') != count + 2
+            or type(report.get('previous_finalized_slot')) is not int
+            or report['previous_finalized_slot'] < changed['finalized_slot']
+            or type(report.get('bound_finalized_slot')) is not int
+            or report['bound_finalized_slot'] < report['previous_finalized_slot']
+            or type(report.get('finalized_slot')) is not int
+            or report['finalized_slot'] < report['bound_finalized_slot']
+            or not isinstance(report.get('account_sha256'), list)
+            or len(report['account_sha256']) != 5):
+        raise ValueError('exact finalized own-revocation report required')
+    for digest in report['account_sha256']:
+        base.prep.canonical_sha(digest)
+    check_own_revocation_transactions(report.get('transactions'))
+    execute.report_loaded(report, original)
+    return revoked_root
+
+
+def signed_successor(output, stage_root, report, plan, history, context, count,
+                     own_revoked_root=None):
+    if (own_revoked_root is not None
+            and report.get('own_revoked_root') != own_revoked_root):
+        raise ValueError('signed own-revocation root differs from report')
     source_raw, source_sha = stage.snapshot_generated(output / 'effect-signed-source.json', 65536)
     publisher_raw, publisher_sha = stage.snapshot_generated(output / 'effect-signed-publisher.json', 65536)
     enrolled_raw, enrolled_sha = stage.snapshot_generated(output / 'effect-enrolled-source.json', 65536)
@@ -179,11 +274,17 @@ def signed_successor(output, stage_root, report, plan, history, context, count):
         prior_source, separators=(',', ':'), ensure_ascii=False).encode()
     prior_publisher_wire = b'DYNARK-V3-PUBLISHER-WIRE-v1\0' + json.dumps(
         prior_publisher, separators=(',', ':'), ensure_ascii=False).encode()
+    expected_changes = ([] if own_revoked_root is None else [{
+        'Revoke': {'tbs_digest': list(bytes.fromhex(
+            context['initial_allocations']['tbs_digests'][0]))}}])
+    expected_root = (context['root_sequence'][count]
+                     if own_revoked_root is None else own_revoked_root)
+    expected_root_version = count + (own_revoked_root is not None)
     if (enrolled['scope'] != observation['scope']
             or enrolled['issuer'] != observation['issuer']
             or bytes(enrolled['issuer']['source_key']) != source_key
             or observation['issuer_status_active'] is not True
-            or observation['changes'] != []
+            or observation['changes'] != expected_changes
             or observation['sequence'] != count + 2
             or bytes(observation['previous_digest']) != hashlib.sha256(prior_source_wire).digest()
             or type(observation['observed_at']) is not int
@@ -196,8 +297,8 @@ def signed_successor(output, stage_root, report, plan, history, context, count):
             or binding['publication_sequence'] != count + 2
             or bytes(binding['previous_publication_digest'])
                != hashlib.sha256(prior_publisher_wire).digest()
-            or binding['root_version'] != count
-            or bytes(binding['root']).hex() != context['root_sequence'][count]
+            or binding['root_version'] != expected_root_version
+            or bytes(binding['root']).hex() != expected_root
             or binding['source_head']['sequence'] != count + 2
             or bytes(binding['source_head']['digest']) != source_digest
             or report.get('source_head_digest') != source_digest.hex()
@@ -218,14 +319,34 @@ def signed_successor(output, stage_root, report, plan, history, context, count):
 
 
 def check_successor_accounts(before, after, staged, context, count, signed, binding,
-                             source_digest, publisher_digest):
-    execute.check_effect_bytes(before, after, staged)
+                             source_digest, publisher_digest,
+                             own_revoked_root=None):
+    if own_revoked_root is None:
+        execute.check_effect_bytes(before, after, staged)
+    else:
+        config_key = base.key(staged['config'])
+        expected_config = bytearray(before[0]) if len(before) == 5 else bytearray()
+        if len(expected_config) == 381:
+            expected_config[332:364] = bytes.fromhex(own_revoked_root)
+            expected_config[364:372] = (count + 1).to_bytes(8, 'big')
+        if (len(before) != 5 or len(after) != 5
+                or len(before[0]) != 381 or before[0][:8] != b'DYNCONF3'
+                or before[0][332:364] != bytes.fromhex(context['root_sequence'][count])
+                or before[0][364:372] != count.to_bytes(8, 'big')
+                or len(before[3]) != 2249 or before[3][:8] != b'DYNREQ03'
+                or before[3][8:40] != config_key or before[3][183] != 1
+                or len(before[4]) != 2090 or before[4][:8] != b'DYNQUE03'
+                or before[4][8:40] != config_key or any(before[4][40:])
+                or after[3] != before[3] or after[4] != before[4]
+                or after[0] != bytes(expected_config)):
+            raise ValueError('own revocation must preserve finalized request and empty queue')
     issuer, head = after[1], after[2]
     prior_issuer, prior_head = before[1], before[2]
     observation = signed['observation']
     sequence = (count + 2).to_bytes(8, 'big')
-    version = count.to_bytes(8, 'big')
-    root = bytes.fromhex(context['root_sequence'][count])
+    root = bytes.fromhex(context['root_sequence'][count]
+                         if own_revoked_root is None else own_revoked_root)
+    root_version = count + (own_revoked_root is not None)
     prior_envelope = prior_head[112:144]
     if (len(issuer) != 374 or len(head) != 280
             or issuer[:8] != b'DYNISS03' or head[:8] != b'DYNHEAD3'
@@ -235,13 +356,15 @@ def check_successor_accounts(before, after, staged, context, count, signed, bind
             or issuer[181:213] != source_digest
             or issuer[213:221] != observation['observed_at'].to_bytes(8, 'big', signed=True)
             or issuer[221:229] != observation['valid_until'].to_bytes(8, 'big', signed=True)
-            or issuer[229:261] != root or issuer[261:269] != version
+            or issuer[229:261] != root
+            or issuer[261:269] != root_version.to_bytes(8, 'big')
             or issuer[269:277] != sequence or issuer[277:309] != source_digest
             or head[:104] != prior_head[:104]
             or head[104:112] != sequence
             or head[112:144] != publisher_digest
             or head[144:176] != prior_envelope
-            or head[176:208] != root or head[208:216] != version
+            or head[176:208] != root
+            or head[208:216] != root_version.to_bytes(8, 'big')
             or head[216:224] != sequence or head[224:256] != source_digest
             or head[256:272] != prior_head[256:272]
             or int.from_bytes(head[272:280], 'big', signed=True) < 0
@@ -251,8 +374,17 @@ def check_successor_accounts(before, after, staged, context, count, signed, bind
 
 def admit(config):
     count = config.get('target_count')
+    proof_mode = config.get('proof_mode', config.get('mode'))
     if (config.get('schema') != 1 or config.get('scope') != 'part5-v3-campaign-effect'
             or config.get('mode') not in MODES or count not in COUNTS
+            or proof_mode not in ('full', 'anchor', 'coalesced-full')
+            or (config.get('mode') == 'own-revocation'
+                and proof_mode == 'coalesced-full')
+            or (config.get('mode') != 'own-revocation'
+                and proof_mode != config.get('mode'))
+            or (config.get('mode') == 'own-revocation'
+                and (config.get('base_wire') is None
+                     or config.get('base_wire_sha256') is None))
             or config.get('outer_limits_required') != LIMITS):
         raise ValueError('explicit bounded campaign effect contract required')
     stage_config = pinned(config['stage_config'], config['stage_config_sha256'])
@@ -430,6 +562,9 @@ def admit(config):
 
 
 def check_effect_report(report, config, original, staged, changed, context, history_sha):
+    if config['mode'] == 'own-revocation':
+        return check_own_revocation_report(report, config, original, staged,
+                                           changed, context, history_sha)
     count = config['target_count']
     if (report.get('schema') != 'part5-v3-campaign-effect-v1'
             or report.get('passed') is not True
@@ -591,17 +726,18 @@ def run(config, config_sha256):
                             else config['stage_root'])
         history_sha = stage.snapshot_generated(history_root / 'signed-history.json',
                                                1024 * 1024)[1]
-        check_effect_report(report, config, original, staged, changed, context,
-                            history_sha)
+        own_root = check_effect_report(report, config, original, staged, changed,
+                                       context, history_sha)
         report_loaded(report, original, loaded)
         signed, binding, source_digest, publisher_digest = signed_successor(
             output, config['stage_root'], report, plan, history, context,
-            config['target_count'])
+            config['target_count'], own_revoked_root=own_root)
         post_slot, after = execute.finalized_accounts(
             rpc, staged, max(pre_slot, report['finalized_slot']),
             original['program'], report['account_sha256'], sizes)
         check_successor_accounts(before, after, staged, context, config['target_count'],
-                                 signed, binding, source_digest, publisher_digest)
+                                 signed, binding, source_digest, publisher_digest,
+                                 own_revoked_root=own_root)
         for name, data in zip(execute.ACCOUNT_NAMES, after):
             artifact, _ = stage.snapshot_generated(output / (name + '.bin'), 4096)
             if artifact != data:
@@ -611,8 +747,12 @@ def run(config, config_sha256):
         execute.same_loaded(loaded, latest)
         base.prep.check_manifest(REPO, pinned(original['build_plan'],
                                                original['build_plan_sha256'])['source_manifest'])
-        status.update({'effect_verified': True, 'application_effect': True,
-                       'effect_outcome': 'verified', 'effect_count': 1,
+        own_revocation = config['mode'] == 'own-revocation'
+        status.update({'effect_verified': True,
+                       'application_effect': not own_revocation,
+                       'effect_outcome': ('verified_rejection' if own_revocation
+                                          else 'verified'),
+                       'effect_count': 0 if own_revocation else 1,
                        'effect_report_sha256': report_sha, 'finalized_slot': post_slot,
                        'loaded_program': latest, 'effect_output': str(output)})
     except Exception as error:

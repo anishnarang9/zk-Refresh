@@ -38,7 +38,8 @@ class CampaignEffectConfigTests(unittest.TestCase):
                 'loader': loaded['loader'], 'local_bytes': loaded['elf_bytes'],
                 'remote_bytes': loaded['elf_bytes']}
 
-    def fixture(self, count=0, mode='coalesced-full'):
+    def fixture(self, count=0, mode='coalesced-full', proof_mode=None):
+        proof_mode = proof_mode or ('full' if mode == 'own-revocation' else mode)
         context = self.root / 'context.json'
         context_sha = self.save(context, {'schema': 'part5-v3-campaign-context-v1',
                                           'root_sequence': ['00' * 32, '01' * 32]})
@@ -68,19 +69,19 @@ class CampaignEffectConfigTests(unittest.TestCase):
         proof_packet = self.root / 'packet.json'
         packet_sha = self.save(proof_packet, {
             'schema': ('credential-v3-cumulative-coalesced-request-v1'
-                       if mode == 'coalesced-full'
+                       if proof_mode == 'coalesced-full'
                        else 'credential-v3-cumulative-request-v1'),
             'update_count': count, 'application_stage': {'pin': 'same'}})
         proof_report = self.root / 'proof-report.json'
         self.save(proof_report, {'schema': 'credential-v3-cumulative-proof-v1',
-                                 'passed': True, 'mode': f'campaign-{mode}-k{count}',
+                                 'passed': True, 'mode': f'campaign-{proof_mode}-k{count}',
                                  'update_count': count, 'packet_sha256': packet_sha,
                                  'application_stage_pins': {'pin': 'same'}})
         current_wire = self.root / 'current-wire.bin'
         self.save(current_wire, bytes(448))
         base_wire = self.root / 'base-wire.bin'
         self.save(base_wire, bytes([1]) * 448)
-        args = argparse.Namespace(mode=mode, target_count=count,
+        args = argparse.Namespace(mode=mode, proof_mode=proof_mode, target_count=count,
             transition_config=None, transition_report=None, transition_status=None,
             transition_monitor=None, transition_monitor_owner=None,
             stage_config=str(stage_config), stage_status=str(stage_status),
@@ -88,7 +89,7 @@ class CampaignEffectConfigTests(unittest.TestCase):
             cohort_root=str(self.root / 'cohort'), clone_report=str(clone_report),
             proof_packet=str(proof_packet), proof_report=str(proof_report),
             stage_report=str(stage_report), stage_plan=str(stage_plan),
-            base_wire=None if mode == 'coalesced-full' else str(base_wire),
+            base_wire=None if proof_mode == 'coalesced-full' else str(base_wire),
             current_wire=str(current_wire), runner=str(runner),
             effect_output=str(self.root / 'application-v3-effect'),
             control_output=str(self.root / 'application-v3-control'),
@@ -172,6 +173,21 @@ class CampaignEffectConfigTests(unittest.TestCase):
         self.assertEqual(config['mode'], 'anchor')
         self.assertEqual(config['transition_root'], str(self.root / 'transition'))
         self.assertIsNotNone(config['base_wire_sha256'])
+
+    def test_rk_own_revocation_config_pins_full_proof_and_both_wires(self):
+        args = self.fixture(1, 'own-revocation')
+        tool.create(args)
+        config, _ = tool.document(args.output)
+        self.assertEqual(config['mode'], 'own-revocation')
+        self.assertEqual(config['proof_mode'], 'full')
+        self.assertEqual(config['target_count'], 1)
+        self.assertIsNotNone(config['base_wire_sha256'])
+        self.assertIsNotNone(config['current_wire_sha256'])
+
+    def test_own_revocation_cannot_use_final_only_coalesced_proof(self):
+        args = self.fixture(1, 'own-revocation', 'coalesced-full')
+        with self.assertRaisesRegex(ValueError, 'Full or Anchor proof pair'):
+            tool.create(args)
 
     def test_clone_or_proof_role_mismatch_is_rejected(self):
         args = self.fixture(1, 'anchor')

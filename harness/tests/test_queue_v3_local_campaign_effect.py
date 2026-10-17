@@ -9,6 +9,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from harness.tests import queue_v3_local_campaign_effect as effect
+from tools.part5.registry_v3_vectors import rebuild
 
 
 def sha(raw):
@@ -121,6 +122,12 @@ class CampaignEffectChecks(unittest.TestCase):
         with self.assertRaises(ValueError):
             effect.check_proof(*altered, 'history')
         effect.check_proof(*self.proof_fixture('coalesced-full'), 'history')
+        own = list(self.proof_fixture('full'))
+        own[0].update({'mode': 'own-revocation', 'proof_mode': 'full'})
+        effect.check_proof(*own, 'history')
+        own[0]['proof_mode'] = 'anchor'
+        with self.assertRaises(ValueError):
+            effect.check_proof(*own, 'history')
 
     def test_effect_report_requires_one_finalized_effect(self):
         config, _, _, staged, changed, context, original, _ = self.proof_fixture()
@@ -161,6 +168,65 @@ class CampaignEffectChecks(unittest.TestCase):
         report['request_consumed'] = False
         with self.assertRaises(ValueError):
             effect.check_effect_report(report, config, original, staged, changed, context, 'history')
+
+    def test_own_revocation_report_requires_zero_effect_and_both_rejections(self):
+        config, _, _, staged, changed, context, original, _ = self.proof_fixture('full', 2)
+        context['initial_allocations']['tbs_digests'] = [(bytes([i]) * 32).hex()
+                                                         for i in range(1, 12)]
+        # (slot, digest, active): own holder is revoked after two unrelated updates.
+        digests = [bytes.fromhex(value) for value in context['initial_allocations']['tbs_digests']]
+        unrelated = [(15 + index, digest, index > 2)
+                     for index, digest in enumerate(digests[1:], 1)]
+        context['root_sequence'][2] = f"{rebuild([(0, digests[0], True)] + unrelated)[-1][0]:064x}"
+        own_root = f"{rebuild([(0, digests[0], False)] + [
+            (15 + index, digest, index > 2)
+            for index, digest in enumerate(digests[1:], 1)])[-1][0]:064x}"
+        config.update({'mode': 'own-revocation', 'proof_mode': 'full',
+                       'stage_plan_sha256': 'plan', 'context_sha256': 'context',
+                       'base_wire_sha256': 'base', 'current_wire_sha256': 'current'})
+        rows = [{'scenario': name, 'customError': code,
+                 'err': None if code is None else {'Custom': code}}
+                for name, code in [
+                    ('v3-campaign-publish-own-revocation', None),
+                    ('v3-campaign-observe-own-revocation', None),
+                    ('v3-campaign-bind-own-revocation-head', None),
+                    ('v3-campaign-own-revoked-old-root', 713),
+                    ('v3-campaign-own-revoked-pre-revoke-current-root', 713)]]
+        report = {'schema': 'part5-v3-campaign-own-revocation-v1', 'passed': True,
+                  'mode': 'own-revocation', 'target_count': 2, 'training_only': True,
+                  'devnet': False, 'application_effect': False, 'effect_count': 0,
+                  'request_consumed': False, 'registry_history_authenticated': True,
+                  'allocation_history_authenticated': True,
+                  'upstream_source_authentication': True,
+                  'upstream_publisher_authentication': True,
+                  'own_revocation_applied': True, 'active_leaf_absent': True,
+                  'old_root_rejected': True,
+                  'pre_revocation_current_root_rejected': True,
+                  'stage_report_sha256': 'stage', 'stage_plan_sha256': 'plan',
+                  'transition_report_sha256': 'changed', 'context_sha256': 'context',
+                  'signed_history_sha256': 'history', 'base_wire_sha256': 'base',
+                  'current_wire_sha256': 'current', 'base_root': context['root_sequence'][0],
+                  'pre_revocation_root': context['root_sequence'][2],
+                  'own_revoked_root': own_root, 'program': 'program',
+                  'genesis': 'genesis', 'source_sequence': 4,
+                  'publication_sequence': 4, 'previous_finalized_slot': 20,
+                  'bound_finalized_slot': 21, 'finalized_slot': 22,
+                  'account_sha256': ['00' * 32] * 5, 'transactions': rows,
+                  'loaded_program': {'elf_match': True, 'elf_sha256': 'elf'}}
+        effect.check_effect_report(report, config, original, staged, changed, context, 'history')
+        for key, value in (('effect_count', 1), ('request_consumed', True),
+                           ('own_revoked_root', context['root_sequence'][2])):
+            with self.subTest(key=key):
+                invalid = dict(report, **{key: value})
+                with self.assertRaises(ValueError):
+                    effect.check_effect_report(invalid, config, original, staged,
+                                               changed, context, 'history')
+        invalid = dict(report, transactions=list(rows))
+        invalid['transactions'][3] = dict(rows[3], customError=714,
+                                          err={'Custom': 714})
+        with self.assertRaises(ValueError):
+            effect.check_effect_report(invalid, config, original, staged,
+                                       changed, context, 'history')
 
     def test_minimal_report_loaded_identity_matches_full_status(self):
         original = {'elf_sha256': 'a' * 64}
@@ -253,6 +319,79 @@ class CampaignEffectChecks(unittest.TestCase):
                 effect.signed_successor(output, stage_root, report, plan,
                                         history, context, 1)
 
+    def test_signed_own_revocation_successor_binds_new_root_and_change(self):
+        source_key = Ed25519PrivateKey.generate()
+        publisher_key = Ed25519PrivateKey.generate()
+        source_public = list(source_key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw))
+        publisher_public = list(publisher_key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw))
+        plan = {'source': source_public, 'publisher': publisher_public}
+        issuer = {'source_key': source_public}
+        scope = {'id': 1}
+        prior_source = {'observation': {'sequence': 2, 'observed_at': 99},
+                        'signature': []}
+        prior_publisher = {'publication_sequence': 2}
+        source_prior_digest = hashlib.sha256(
+            b'DYNARK-V3-SOURCE-WIRE-v1\0' + json.dumps(
+                prior_source, separators=(',', ':')).encode()).digest()
+        publisher_prior_digest = hashlib.sha256(
+            b'DYNARK-V3-PUBLISHER-WIRE-v1\0' + json.dumps(
+                prior_publisher, separators=(',', ':')).encode()).digest()
+        own_digest = bytes([5] * 32)
+        own_root = '03' * 32
+        obs = {'scope': scope, 'issuer': issuer, 'issuer_status_active': True,
+               'sequence': 3, 'previous_digest': list(source_prior_digest),
+               'observed_at': 100, 'valid_until': 280,
+               'changes': [{'Revoke': {'tbs_digest': list(own_digest)}}]}
+        source_message = b'DYNARK-V3-SOURCE-STATUS-v1\0' + json.dumps(
+            obs, separators=(',', ':')).encode()
+        signed = {'observation': obs, 'signature': list(source_key.sign(source_message))}
+        source_digest = hashlib.sha256(b'DYNARK-V3-SOURCE-WIRE-v1\0' +
+            json.dumps(signed, separators=(',', ':')).encode()).digest()
+        binding = {'scope': scope, 'issuer': issuer,
+                   'source_head': {'sequence': 3, 'digest': list(source_digest)},
+                   'root': list(bytes.fromhex(own_root)), 'root_version': 2,
+                   'publisher_key': publisher_public, 'publication_sequence': 3,
+                   'previous_publication_digest': list(publisher_prior_digest)}
+        publisher_message = b'DYNARK-V3-PUBLISHER-BINDING-v1\0' + json.dumps(
+            binding, separators=(',', ':')).encode()
+        binding['signature'] = list(publisher_key.sign(publisher_message))
+        publisher_digest = hashlib.sha256(b'DYNARK-V3-PUBLISHER-WIRE-v1\0' +
+            json.dumps(binding, separators=(',', ':')).encode()).digest()
+        report = {'source_head_digest': source_digest.hex(),
+                  'publisher_envelope_digest': publisher_digest.hex(),
+                  'own_revoked_root': own_root}
+        history = {'checkpoints': [{'source': prior_source,
+                                    'publisher': prior_publisher}]}
+        context = {'root_sequence': ['01' * 32, '02' * 32],
+                   'initial_allocations': {'tbs_digests': [own_digest.hex()]}}
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory).resolve()
+            stage_root = output / 'stage'
+            stage_root.mkdir(mode=0o700)
+            def write(name, value):
+                raw = json.dumps(value, separators=(',', ':')).encode()
+                fd = os.open(output / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                with os.fdopen(fd, 'wb') as stream:
+                    stream.write(raw)
+                return sha(raw)
+            report['effect_signed_source_sha256'] = write('effect-signed-source.json', signed)
+            report['effect_signed_publisher_sha256'] = write('effect-signed-publisher.json', binding)
+            report['effect_enrolled_source_sha256'] = write(
+                'effect-enrolled-source.json', {'scope': scope, 'issuer': issuer})
+            (stage_root / 'enrolled-source.json').write_bytes(
+                (output / 'effect-enrolled-source.json').read_bytes())
+            (stage_root / 'enrolled-source.json').chmod(0o600)
+            parsed = effect.signed_successor(output, stage_root, report, plan,
+                                             history, context, 1,
+                                             own_revoked_root=own_root)
+            self.assertEqual(parsed[2].hex(), source_digest.hex())
+            self.assertEqual(bytes(parsed[1]['root']).hex(), own_root)
+            wrong = dict(report, own_revoked_root='04' * 32)
+            with self.assertRaises(ValueError):
+                effect.signed_successor(output, stage_root, wrong, plan,
+                                        history, context, 1,
+                                        own_revoked_root='04' * 32)
+
     def test_finalized_successor_may_change_only_signed_status_and_one_queue_effect(self):
         config_key = bytes([1] * 32)
         request_key = bytes([2] * 32)
@@ -260,10 +399,16 @@ class CampaignEffectChecks(unittest.TestCase):
                   'request': effect.base.b58(request_key)}
         config = bytearray(381)
         config[:8] = b'DYNCONF3'
+        config[332:364] = bytes([2] * 32)
+        config[364:372] = (1).to_bytes(8, 'big')
         issuer = bytearray(374)
         issuer[:8] = b'DYNISS03'
+        issuer[229:261] = bytes([2] * 32)
+        issuer[261:269] = (1).to_bytes(8, 'big')
         head = bytearray(280)
         head[:8] = b'DYNHEAD3'
+        head[176:208] = bytes([2] * 32)
+        head[208:216] = (1).to_bytes(8, 'big')
         head[112:144] = bytes([7] * 32)
         request = bytearray(2249)
         request[:8] = b'DYNREQ03'
@@ -308,6 +453,65 @@ class CampaignEffectChecks(unittest.TestCase):
             effect.check_successor_accounts(before, wrong, staged, context, 1,
                                             signed, binding, source_digest,
                                             publisher_digest)
+
+    def test_own_revocation_successor_preserves_request_and_queue_bytes(self):
+        staged = {'config': effect.base.b58(bytes([1] * 32)),
+                  'request': effect.base.b58(bytes([2] * 32))}
+        config = bytearray(381)
+        config[:8] = b'DYNCONF3'
+        config[332:364] = bytes([2] * 32)
+        config[364:372] = (1).to_bytes(8, 'big')
+        issuer = bytearray(374)
+        issuer[:8] = b'DYNISS03'
+        issuer[229:261] = bytes([2] * 32)
+        issuer[261:269] = (1).to_bytes(8, 'big')
+        head = bytearray(280)
+        head[:8] = b'DYNHEAD3'
+        head[176:208] = bytes([2] * 32)
+        head[208:216] = (1).to_bytes(8, 'big')
+        request = bytearray(2249)
+        request[:8] = b'DYNREQ03'
+        request[8:40] = bytes([1] * 32)
+        request[183] = 1
+        queue = bytearray(2090)
+        queue[:8] = b'DYNQUE03'
+        queue[8:40] = bytes([1] * 32)
+        before = [bytes(value) for value in (config, issuer, head, request, queue)]
+        source_digest, publisher_digest = bytes([8] * 32), bytes([9] * 32)
+        revoked_root = bytes([3] * 32)
+        config[332:364] = revoked_root
+        config[364:372] = (2).to_bytes(8, 'big')
+        issuer[173:181] = (3).to_bytes(8, 'big')
+        issuer[181:213] = source_digest
+        issuer[213:221] = (100).to_bytes(8, 'big', signed=True)
+        issuer[221:229] = (280).to_bytes(8, 'big', signed=True)
+        issuer[229:261] = revoked_root
+        issuer[261:269] = (2).to_bytes(8, 'big')
+        issuer[269:277] = (3).to_bytes(8, 'big')
+        issuer[277:309] = source_digest
+        head[104:112] = (3).to_bytes(8, 'big')
+        head[112:144] = publisher_digest
+        head[176:208] = revoked_root
+        head[208:216] = (2).to_bytes(8, 'big')
+        head[216:224] = (3).to_bytes(8, 'big')
+        head[224:256] = source_digest
+        head[272:280] = (101).to_bytes(8, 'big', signed=True)
+        after = [bytes(value) for value in (config, issuer, head, request, queue)]
+        context = {'root_sequence': ['01' * 32, '02' * 32]}
+        signed = {'observation': {'observed_at': 100, 'valid_until': 280}}
+        binding = {'source_head': {'sequence': 3}}
+        effect.check_successor_accounts(before, after, staged, context, 1, signed,
+                                        binding, source_digest, publisher_digest,
+                                        own_revoked_root=revoked_root.hex())
+        consumed = list(after)
+        changed_request = bytearray(consumed[3])
+        changed_request[183] = 2
+        consumed[3] = bytes(changed_request)
+        with self.assertRaises(ValueError):
+            effect.check_successor_accounts(before, consumed, staged, context, 1,
+                                            signed, binding, source_digest,
+                                            publisher_digest,
+                                            own_revoked_root=revoked_root.hex())
 
 
 if __name__ == '__main__':

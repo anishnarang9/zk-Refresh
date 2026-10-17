@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pin a stopped signed Rk campaign clone and its final proof for one effect."""
+"""Pin a stopped signed campaign clone and proof pair for effect or rejection."""
 import argparse
 import hashlib
 import json
@@ -8,7 +8,7 @@ from pathlib import Path
 import stat
 
 COUNTS = (0, 1, 2, 5, 10)
-MODES = ('full', 'anchor', 'coalesced-full')
+MODES = ('full', 'anchor', 'coalesced-full', 'own-revocation')
 LIMITS = {'runtime_seconds': 180, 'rss_bytes': 4294967296,
           'storage_growth_bytes': 268435456}
 
@@ -70,6 +70,12 @@ def fresh(path):
 def create(args):
     if args.mode not in MODES or args.target_count not in COUNTS:
         raise ValueError('registered campaign effect mode/count required')
+    proof_mode = (getattr(args, 'proof_mode', None)
+                  or ('full' if args.mode == 'own-revocation' else args.mode))
+    if (proof_mode not in ('full', 'anchor', 'coalesced-full')
+            or (args.mode == 'own-revocation' and proof_mode == 'coalesced-full')
+            or (args.mode != 'own-revocation' and proof_mode != args.mode)):
+        raise ValueError('own-revocation requires a pinned Full or Anchor proof pair')
     count = args.target_count
     if count:
         if any(getattr(args, name) is None for name in (
@@ -107,9 +113,9 @@ def create(args):
     clone, clone_sha = document(args.clone_report)
     packet, packet_sha = document(args.proof_packet)
     proof, proof_sha = document(args.proof_report)
-    mode = f'campaign-{args.mode}-k{count}'
+    mode = f'campaign-{proof_mode}-k{count}'
     expected_packet_schema = ('credential-v3-cumulative-coalesced-request-v1'
-                              if args.mode == 'coalesced-full'
+                              if proof_mode == 'coalesced-full'
                               else 'credential-v3-cumulative-request-v1')
     stage_config, stage_config_sha = document(stage_config_path)
     stage_status, stage_status_sha = document(stage_status_path)
@@ -181,7 +187,7 @@ def create(args):
         raise ValueError('stage and transition artifact paths differ')
     _, stage_sha = read(args.stage_report, 65536)
     _, plan_sha = read(args.stage_plan, 8192)
-    if args.mode == 'coalesced-full':
+    if proof_mode == 'coalesced-full':
         if args.base_wire is not None:
             raise ValueError('coalesced final-only control has no R0 proof wire')
         base_wire_sha = None
@@ -201,7 +207,7 @@ def create(args):
     if len({effect_output, control_output, output}) != 3:
         raise ValueError('effect, control and config outputs must differ')
     config = {'schema': 1, 'scope': 'part5-v3-campaign-effect',
-              'mode': args.mode, 'target_count': count,
+              'mode': args.mode, 'proof_mode': proof_mode, 'target_count': count,
               'transition_config': args.transition_config,
               'transition_config_sha256': source_sha,
               'transition_report_sha256': changed_sha,
@@ -253,6 +259,7 @@ def create(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--mode', choices=MODES, required=True)
+    parser.add_argument('--proof-mode', choices=('full', 'anchor', 'coalesced-full'))
     parser.add_argument('--target-count', type=int, choices=COUNTS, required=True)
     for name in ('transition_config', 'transition_report', 'transition_status',
                  'transition_monitor', 'transition_monitor_owner', 'stage_config',
