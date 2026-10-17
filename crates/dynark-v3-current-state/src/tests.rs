@@ -205,8 +205,27 @@ fn immutable_authority_none_and_reserved_metadata_bytes() {
 }
 
 #[test]
-fn public_constructor_remains_closed_even_with_coherent_pins() {
-    assert_eq!(ConfiguredVerifier::new(fixture().pins).err(), Some(Error::Unavailable));
+fn public_constructor_accepts_canonical_loopback_without_network_or_admission() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let mut pins = fixture().pins;
+    pins.endpoint = format!("http://127.0.0.1:{}/", listener.local_addr().unwrap().port());
+    assert!(ConfiguredVerifier::new(pins).is_ok(), "construct the fixed local transport only");
+    assert_eq!(listener.accept().err().unwrap().kind(), std::io::ErrorKind::WouldBlock,
+        "construction must not read RPC or admit deployment/state");
+}
+
+#[test]
+fn public_constructor_rejects_noncanonical_and_nonloopback_endpoints() {
+    for endpoint in ["https://127.0.0.1:8899/", "http://localhost:8899/", "http://[::1]:8899/",
+        "http://127.0.0.2:8899/", "http://127.1:8899/", "http://2130706433:8899/",
+        "http://127.0.0.1:08899/", "http://127.0.0.1:0/", "http://127.0.0.1:65536/",
+        "http://127.0.0.1/", "http://127.0.0.1:8899", "http://127.0.0.1:8899/rpc",
+        "http://user@127.0.0.1:8899/", "http://127.0.0.1:8899/?x=1", "http://127.0.0.1:8899/#x"] {
+        let mut pins = fixture().pins;
+        pins.endpoint = endpoint.into();
+        assert_eq!(ConfiguredVerifier::new(pins).err(), Some(Error::Transport), "{endpoint}");
+    }
 }
 
 // Next tests-first slice: chain-current state only, as of a finalized context.
@@ -457,3 +476,6 @@ fn rejects_programdata_allocation_over_cap() {
     f.batch.accounts[1].bytes.resize(metadata+MAX_ELF_LENGTH+1,0);
     assert_eq!(run(f,1002).0.err(),Some(Error::Deployment));
 }
+
+#[path = "envelope_tests.rs"]
+mod envelope_join;

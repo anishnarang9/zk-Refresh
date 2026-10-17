@@ -686,6 +686,7 @@ dependencies = [
  "bincode",
  "bs58",
  "credential-registry",
+ "openssl",
  "reqwest",
  "serde",
  "serde_json",

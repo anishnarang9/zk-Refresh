@@ -1,4 +1,4 @@
-//! Tests-first finalized v3 deployment verifier scaffold; no authorization API.
+//! Bounded loopback finalized v3 deployment/current-state verification.
 //! JSON account records and user-implemented traits cannot mint capabilities.
 #![allow(deprecated)]
 use sha2::{Digest, Sha256};
@@ -18,7 +18,7 @@ pub enum Error { Unavailable, Transport, Deployment, Finality, Account, Clock }
 
 /// Publicly constructible pins are NOT an independent trust anchor. Verification
 /// establishes only consistency relative to these pins; application deployment
-/// policy must authenticate their provenance separately. HTTP will be loopback-only;
+/// policy must authenticate their provenance separately. HTTP is loopback-only;
 /// remote transport requires an explicit reviewed TLS trust policy.
 pub struct DeploymentPins {
     pub endpoint: String,
@@ -36,7 +36,7 @@ pub struct DeploymentPins {
 }
 
 /// Deployment evidence relative to the supplied pins only. Cannot authorize a
-/// proof, request or operation; no real RPC transport exists in this slice.
+/// proof, request or operation; detached source/publisher checks remain separate.
 pub struct VerifiedDeployment {
     program: Pubkey,
     config: Pubkey,
@@ -92,13 +92,19 @@ pub struct CurrentSelection {
 
 pub struct ConfiguredVerifier { pins: DeploymentPins, transport: Box<dyn Transport> }
 impl ConfiguredVerifier {
-    /// Concrete bounded HTTP transport is a later reviewed slice. No caller
-    /// supplied implementation can substitute for that trusted transport.
-    pub fn new(_pins: DeploymentPins) -> Result<Self, Error> { Err(Error::Unavailable) }
+    /// Construct only the fixed bounded loopback transport, without RPC reads.
+    /// Pins remain caller data: application policy must authenticate provenance.
+    /// This admits no deployment, current state, detached envelope or operation;
+    /// fresh verify_deployment/verify_current calls perform the account checks.
+    /// No caller-supplied transport implementation or endpoint fallback is used.
+    pub fn new(pins: DeploymentPins) -> Result<Self, Error> {
+        let transport = loopback_http::configured_transport(&pins.endpoint)?;
+        Ok(Self { pins, transport })
+    }
 
     /// Authenticate deployment and current records from ONE fresh finalized
     /// batch. There is no batch cache or caller-provided account/JSON input.
-    /// Production construction stays closed until real transport qualification.
+    /// Construction admits no state; each call performs fresh transport reads.
     pub fn verify_current(&self, selection: &CurrentSelection, local_unix: i64)
         -> Result<AuthenticatedV3Current, Error>
     {
@@ -295,3 +301,6 @@ mod tests;
 
 mod loopback_rpc;
 mod loopback_http;
+
+mod current_envelopes;
+pub use current_envelopes::AuthenticatedV3Envelopes;

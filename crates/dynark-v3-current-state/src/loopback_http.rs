@@ -1,6 +1,7 @@
 //! Private loopback-only HTTP transport. No public transport injection and no
-//! authority minting. ConfiguredVerifier::new remains closed. This uses the
-//! committed duplicate-aware parser, exact request IDs/ordered keys, and a fresh
+//! authority minting. The public constructor selects only this private factory.
+//! This uses the committed duplicate-aware parser, exact request IDs/ordered keys,
+//! and a fresh
 //! getGenesisHash + finalized getMultipleAccounts(minContextSlot) sequence.
 //!
 //! Endpoint contract: exactly http://127.0.0.1:PORT/, decimal port1..65535 with
@@ -20,6 +21,11 @@ const REQUEST_TIMEOUT:Duration=Duration::from_secs(2);
 const REQUEST_LIMIT:usize=4096;
 const GENESIS_LIMIT:usize=1024;
 const ACCOUNTS_LIMIT:usize=8*1024*1024;
+
+/// The parent can select this implementation but cannot inject raw RPC records.
+pub(super) fn configured_transport(endpoint:&str)->Result<Box<dyn Transport>,Error> {
+    Ok(Box::new(LoopbackRpc::new(endpoint)?))
+}
 
 struct LoopbackRpc {
     endpoint:String,
@@ -239,6 +245,30 @@ mod tests {
         assert_eq!(captured[0].json,json!({"jsonrpc":"2.0","id":1,"method":"getGenesisHash","params":[]}));
         assert_eq!(captured[1].json,json!({"jsonrpc":"2.0","id":2,"method":"getMultipleAccounts","params":[req.keys.iter().map(|k|k.to_string()).collect::<Vec<_>>(),
             {"encoding":"base64","commitment":"finalized","minContextSlot":90}]}));
+    }
+
+    #[test]
+    fn public_constructor_routes_genesis_through_the_fixed_private_transport() {
+        use crate::{ConfiguredVerifier, DeploymentPins};
+        let server = Server::start(vec![Reply::Genesis]);
+        let program = Pubkey::new_from_array([31;32]);
+        let admin = Pubkey::new_from_array([32;32]);
+        let seed = [33;32];
+        let pins = DeploymentPins {
+            endpoint:server.endpoint.clone(), genesis:[9;32], program,
+            programdata:Pubkey::find_program_address(&[program.as_ref()],
+                &solana_program::bpf_loader_upgradeable::id()).0,
+            config:zk_fresh_program::application_runtime_v3::config_address(&program,&admin,&seed).0,
+            admin, seed, elf_sha256:[34;32], elf_length:4,
+            upgrade_authority:None, minimum_finalized_slot:90, maximum_clock_age_seconds:5,
+        };
+        // Constructor/transport evidence only: the synthetic image pin is not
+        // loaded or admitted, and no current-state capability is requested.
+        let configured = ConfiguredVerifier::new(pins).expect("fixed loopback constructor");
+        assert_eq!(configured.transport.genesis(), Ok([9;32]));
+        let calls = server.requests();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].json, json!({"jsonrpc":"2.0","id":1,"method":"getGenesisHash","params":[]}));
     }
 
     #[test]
