@@ -1396,6 +1396,7 @@ def _verify_full_transactions(transactions, pre_execute_rejection_accounts):
         ('v3-wrong-policy', 713),
         ('v3-wrong-action', 712),
         ('v3-invalid-proof', 714),
+        ('v3-execute-readonly-request', 711),
         ('v3-valid-full-execute', None),
         ('v3-replay-new-transaction', 707),
     ]

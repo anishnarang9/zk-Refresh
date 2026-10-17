@@ -1369,6 +1369,17 @@ pub fn execute_from_env() -> Result<()> {
         Some(zk_fresh_program::application_v3::AppError::Proof as u64),
         &mut events,
     )?;
+    let mut wrong_privilege = p.execute(&wire)?;
+    wrong_privilege.accounts[3].is_writable = false;
+    transport::send(
+        &rpc,
+        &admin,
+        None,
+        wrong_privilege,
+        "v3-execute-readonly-request",
+        Some(zk_fresh_program::application_v3::AppError::Privileges as u64),
+        &mut events,
+    )?;
     let rooted = transport::wait_finalized(&rpc, &events)?;
     let (_, rejected) = finalized_accounts(&rpc, &p, rooted)?;
     ensure!(

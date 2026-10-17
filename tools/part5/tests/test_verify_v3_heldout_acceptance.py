@@ -619,6 +619,8 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
              'err': {'InstructionError': [1, {'Custom': 712}]}},
             {'scenario': 'v3-invalid-proof', 'customError': 714,
              'err': {'InstructionError': [1, {'Custom': 714}]}},
+            {'scenario': 'v3-execute-readonly-request', 'customError': 711,
+             'err': {'InstructionError': [1, {'Custom': 711}]}},
             {'scenario': 'v3-valid-full-execute', 'customError': None,
              'err': None},
             {'scenario': 'v3-replay-new-transaction', 'customError': 707,
@@ -629,6 +631,10 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         verifier._verify_full_transactions(rows, snapshots)
         with self.assertRaisesRegex(ValueError, 'transaction outcome mismatch'):
             verifier._verify_full_transactions(rows[1:] + rows[:1], snapshots)
+        rows[6]['err'] = {'InstructionError': [1, {'Custom': 710}]}
+        with self.assertRaisesRegex(ValueError, 'Full A transaction error mismatch'):
+            verifier._verify_full_transactions(rows, snapshots)
+        rows[6]['err'] = {'InstructionError': [1, {'Custom': 711}]}
         rows[2]['err'] = {'InstructionError': [1, {'Custom': 714}]}
         with self.assertRaisesRegex(ValueError, 'Full A transaction error mismatch'):
             verifier._verify_full_transactions(rows, snapshots)
