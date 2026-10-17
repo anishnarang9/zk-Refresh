@@ -570,6 +570,24 @@ fn check_publisher_envelope_claim(
     })
 }
 
+/// Crate-private historical replay bridge. All current fields and the
+/// predecessor must be supplied by the replay itself; no chain authority exits.
+pub(super) fn check_history_publisher_claim(
+    binding: &PublisherBinding,
+    source: &VerifiedSource,
+    current: &CurrentHead,
+    previous_sequence: u64,
+    previous_digest: [u8; 32],
+    now: i64,
+) -> Result<[u8; 32], Error> {
+    let previous = PublisherPredecessorClaim {
+        sequence: previous_sequence,
+        digest: previous_digest,
+    };
+    check_publisher_envelope_claim(binding, source, current, &previous, now)
+        .map(|checked| checked.envelope_digest)
+}
+
 impl PublisherBinding {
     /// Pure signature/digest/coherence checks against untrusted expected fields.
     /// Success establishes neither authenticated current state nor predecessor

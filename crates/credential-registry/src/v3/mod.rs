@@ -1,5 +1,6 @@
-//! Separate bounded-v3 membership math and a rejecting protocol RED scaffold.
-//! Tree membership alone grants no issuer, policy or application authority.
+//! Bounded-v3 membership math, signed-source checks and historical replay.
+//! These checks alone grant no current-chain or application authority.
+pub mod history;
 pub mod protocol;
 mod tree;
 pub use crate::{Error, Field};
