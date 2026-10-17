@@ -759,3 +759,199 @@ fn private_matched_k1_wires_pass_adapter_and_program_host() {
         assert_eq!(private(&output, 448, Some(448)).unwrap(), wire);
     }
 }
+
+#[test]
+#[ignore = "explicit private cumulative proof and final request fixture required"]
+fn private_campaign_final_wire_passes_adapter_and_program_host() {
+    let mode = std::env::var("M2_V3_CAMPAIGN_MODE").expect("campaign proof mode");
+    let (kind, suffix) = mode
+        .strip_prefix("campaign-")
+        .and_then(|value| value.rsplit_once("-k"))
+        .expect("campaign mode shape");
+    assert!(matches!(kind, "full" | "anchor" | "coalesced-full"));
+    let count = match suffix {
+        "0" => 0,
+        "1" => 1,
+        "2" => 2,
+        "5" => 5,
+        "10" => 10,
+        _ => panic!("registered campaign count required"),
+    };
+    let fixture = PathBuf::from(
+        std::env::var_os("M2_V3_CAMPAIGN_FINAL_FIXTURE").expect("final private fixture"),
+    );
+    let packet_path = PathBuf::from(
+        std::env::var_os("M2_V3_CAMPAIGN_PACKET").expect("private proof packet"),
+    );
+    let proofs = PathBuf::from(
+        std::env::var_os("M2_V3_CAMPAIGN_PROOFS").expect("private proof directory"),
+    );
+    for path in [&fixture, &proofs, packet_path.parent().expect("packet parent")] {
+        directory(path).expect("canonical owner0700 private directory");
+    }
+    let receipt_bytes = private(&fixture.join("training-receipt.json"), 16384, None).unwrap();
+    assert_eq!(
+        sha(&receipt_bytes),
+        std::env::var("M2_V3_CAMPAIGN_FINAL_RECEIPT_SHA256").expect("final receipt SHA")
+    );
+    let receipt: Value = serde_json::from_slice(&receipt_bytes).expect("final receipt JSON");
+    assert!(receipt["training_only"] == true && receipt["proof_created"] == false);
+    let q1 = private(&fixture.join("request.bin"), 1918, Some(1918)).unwrap();
+    let input = private(&fixture.join("input.json"), 65536, None).unwrap();
+    let public_json = private(&fixture.join("public.json"), 1024, None).unwrap();
+    for (name, bytes) in [
+        ("request.bin", &q1),
+        ("input.json", &input),
+        ("public.json", &public_json),
+    ] {
+        assert_eq!(receipt["artifact_sha256"][name].as_str(), Some(sha(bytes).as_str()));
+    }
+    let expected = expected_public(&public_json, &input, &q1)
+        .expect("exact final request/input/public equality");
+
+    let packet_bytes = private(&packet_path, 262144, None).unwrap();
+    let packet_sha = std::env::var("M2_V3_CAMPAIGN_PACKET_SHA256").expect("packet SHA");
+    assert_eq!(sha(&packet_bytes), packet_sha, "pinned proof packet");
+    let packet: Value = serde_json::from_slice(&packet_bytes).expect("proof packet JSON");
+    assert_eq!(
+        packet["schema"],
+        if kind == "coalesced-full" {
+            "credential-v3-cumulative-coalesced-request-v1"
+        } else {
+            "credential-v3-cumulative-request-v1"
+        }
+    );
+    assert!(
+        packet["synthetic_only"] == false
+            && packet["application_verified"] == false
+            && packet["cohort"] == "cumulative-training-v1"
+            && packet["update_count"].as_u64() == Some(count)
+    );
+    let final_case = if kind == "coalesced-full" {
+        &packet["final"]
+    } else {
+        let pairs = packet["pairs"].as_array().expect("campaign pairs");
+        assert_eq!(pairs.len(), count.max(1) as usize);
+        let last = pairs.last().unwrap();
+        assert_eq!(last["name"], format!("request_bound_training_r{count}"));
+        &last["near"]
+    };
+    assert_eq!(final_case["root_version"].as_u64(), Some(count));
+    assert_eq!(
+        final_case["input_path"].as_str(),
+        fixture.join("input.json").to_str()
+    );
+    assert_eq!(
+        final_case["public_path"].as_str(),
+        fixture.join("public.json").to_str()
+    );
+    assert_eq!(final_case["input_sha256"].as_str(), Some(sha(&input).as_str()));
+    assert_eq!(
+        final_case["public_sha256"].as_str(),
+        Some(sha(&public_json).as_str())
+    );
+
+    let report_bytes = private(&proofs.join("proof-report.json"), 65536, None).unwrap();
+    assert_eq!(
+        sha(&report_bytes),
+        std::env::var("M2_V3_CAMPAIGN_REPORT_SHA256").expect("proof report SHA")
+    );
+    let report: Value = serde_json::from_slice(&report_bytes).expect("proof report JSON");
+    let proof_count = if kind == "coalesced-full" { 1 } else { count + 1 };
+    let cross_root_checks = if kind == "coalesced-full" { 0 } else { 2 * count };
+    assert!(
+        report["schema"] == "credential-v3-cumulative-proof-v1"
+            && report["mode"] == mode
+            && report["cohort"] == packet["cohort"]
+            && report["update_count"].as_u64() == Some(count)
+            && report["packet_sha256"].as_str() == Some(packet_sha.as_str())
+            && report["passed"] == true
+            && report["application_verified"] == false
+            && report["admitted"] == false
+            && report["counts"]["proofs"].as_u64() == Some(proof_count)
+            && report["counts"]["positive_checks"].as_u64() == Some(proof_count)
+            && report["counts"]["altered_public_checks"].as_u64() == Some(6 * proof_count)
+            && report["counts"]["cross_root_checks"].as_u64() == Some(cross_root_checks)
+            && report["counts"]["ordinary_checks"].as_u64()
+                == Some(7 * proof_count + cross_root_checks)
+    );
+    let checkpoints = report["checkpoints"].as_array().expect("proof checkpoints");
+    assert_eq!(checkpoints.len(), proof_count as usize);
+    let last = checkpoints.last().unwrap();
+    assert_eq!(last["generation"].as_u64(), Some(count));
+    assert_eq!(
+        last["proof_kind"],
+        if kind == "coalesced-full" {
+            "coalesced-full"
+        } else if kind == "anchor" && count > 0 {
+            "anchor"
+        } else {
+            "full"
+        }
+    );
+    assert_eq!(report["application_stage_pins"], packet["application_stage"]);
+    assert_eq!(
+        report["application_stage_pins_authority"],
+        "caller-supplied; external finalized-state verification required"
+    );
+    assert_eq!(
+        report["application_stage_pins"]["near_root"],
+        expected[0].to_string()
+    );
+    assert_eq!(
+        report["application_stage_pins"]["action_hash"],
+        expected[4].to_string()
+    );
+    if count == 0 {
+        assert_eq!(report["application_stage_pins"]["base_root"], expected[0].to_string());
+    } else {
+        assert_ne!(report["application_stage_pins"]["base_root"], expected[0].to_string());
+    }
+    for name in [
+        "freeze_receipt_sha256",
+        "history_receipt_sha256",
+        "root_schedule_sha256",
+    ] {
+        assert_eq!(report[name], packet[name]);
+    }
+
+    let proof_name = if kind == "coalesced-full" {
+        format!("request_bound_training_coalesced_full_r{count}")
+    } else if kind == "anchor" && count > 0 {
+        format!("request_bound_training_anchor_r{count}")
+    } else {
+        format!("request_bound_training_full_r{count}")
+    };
+    let proof = private(&proofs.join(format!("{proof_name}.proof")), 128, Some(128)).unwrap();
+    let public = private(
+        &proofs.join(format!("{proof_name}-public.bin")),
+        200,
+        Some(200),
+    )
+    .unwrap();
+    let setup = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../artifacts/dynark/part5/v3-development-setup-001");
+    let vk = private(
+        &setup.canonicalize().unwrap().join("ordinary.vk"),
+        456,
+        Some(456),
+    )
+    .unwrap();
+    assert_eq!(report["ordinary_vk_file_sha256"], sha(&vk));
+    let wire = verify_join(&proof, &public, &expected, &vk)
+        .expect("final campaign ordinary proof/adapter/program host join");
+    let output = fixture.join(format!("{mode}-solana-wire.bin"));
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(&output)
+        .expect("fresh private campaign wire output");
+    file.set_permissions(fs::Permissions::from_mode(0o600))
+        .unwrap();
+    file.write_all(&wire).unwrap();
+    file.sync_all().unwrap();
+    assert_eq!(private(&output, 448, Some(448)).unwrap(), wire);
+    // Caller-supplied stage pins do not establish a finalized application effect.
+}
