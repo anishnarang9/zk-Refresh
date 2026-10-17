@@ -47,6 +47,35 @@ def membership_for_pair(own_digest, unrelated_digest, slot):
     return result
 
 
+def membership_for_sequence(holder_digest, unrelated_digests):
+    """Pure frozen k<=10 tree schedule; caller must admit the actual certificates.
+
+    Holder slot 0 stays active. Ten unrelated leaves occupy slots 16..25 and
+    are revoked in that order. This grants no source, allocation or chain trust.
+    """
+    digests = [holder_digest, *unrelated_digests]
+    if (len(digests) != 11 or any(type(value) is not bytes or len(value) != 32
+                                   or value == bytes(32) for value in digests)
+            or len(set(digests)) != 11):
+        raise ValueError('eleven distinct bounded TBS digests required')
+    slots = list(range(16, 26))
+    roots, holder_siblings = [], []
+    for count in range(11):
+        records = [(0, holder_digest, True)] + [
+            (slot, digest, index > count)
+            for index, (slot, digest) in enumerate(zip(slots, unrelated_digests), 1)]
+        levels = rebuild(records)
+        roots.append(levels[-1][0])
+        holder_siblings.append([int(word, 16) for word in siblings(levels, 0)])
+    if (len(set(roots)) != 11
+            or any([level for level, (a, b) in enumerate(zip(holder_siblings[0], path))
+                    if a != b] != [4] for path in holder_siblings[1:])):
+        raise ValueError('frozen root sequence or holder path shape changed')
+    return {'holder_slot': 0, 'unrelated_slots': slots,
+            'tbs_digests': [value.hex() for value in digests],
+            'roots': roots, 'holder_siblings': holder_siblings}
+
+
 def create(output):
     if not isinstance(output, Path) or not output.is_absolute() or output.resolve() != output:
         raise ValueError('canonical absolute output required')
