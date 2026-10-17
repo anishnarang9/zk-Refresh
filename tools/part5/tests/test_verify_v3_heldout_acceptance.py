@@ -173,6 +173,32 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         self.assertEqual(evidence['creation_time_basis'], 'cohort and key-generation receipt claims only')
         self.assertEqual(evidence['openssl_route_basis'],
                          'freeze-pinned source and receipt encoder labels; invocation not independently observed')
+        negative = evidence['local_negative_admission']
+        self.assertEqual(negative['scope'], 'local_admission_only')
+        self.assertFalse(negative['loaded_execute_observed'])
+        self.assertFalse(negative['changed_policy_allowlist_tested'])
+        self.assertEqual(negative['counts'], {
+            'certificates': 8,
+            'malformed_der_rejections': 8,
+            'wrong_issuer_key_rejections': 8,
+            'tampered_signed_organization_rejections': 8,
+        })
+        self.assertEqual([row['variant'] for row in negative['certificates']], list(range(8)))
+        for row in negative['certificates']:
+            self.assertEqual(row['malformed_der']['error_category'], 'der_content_exceeds_parent')
+            self.assertIn(row['wrong_issuer_key']['error_category'], {
+                'rsa_signature_verification_failed', 'noncanonical_rsa_signature'})
+            self.assertEqual(row['tampered_signed_organization']['error_category'],
+                             'rsa_signature_verification_failed')
+            self.assertTrue(row['tampered_signed_organization']['structurally_parseable'])
+            self.assertNotEqual(row['malformed_der']['der_sha256'], row['credential_sha256'])
+            self.assertNotEqual(row['tampered_signed_organization']['der_sha256'],
+                                row['credential_sha256'])
+            for case in row.values():
+                if isinstance(case, dict):
+                    for key, value in case.items():
+                        if key.endswith('_sha256'):
+                            self.assertRegex(value, r'^[0-9a-f]{64}$')
         serialized = json.dumps(evidence)
         for path in cohort_root.rglob('*'):
             if path.is_file() and path.suffix == '.pem':

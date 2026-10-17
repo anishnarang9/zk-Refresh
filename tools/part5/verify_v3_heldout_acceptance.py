@@ -33,7 +33,7 @@ if str(ROOT) not in sys.path:
 from tools.part5.generate_v3_heldout_keys import FREEZE_SCHEMA, IDENTITY_ROLES
 from tools.part5.prepare_v3_heldout_context import COHORT_SCHEMA, CASE_SCHEMA, _base58
 from tools.part5.prepare_v3_revocation_cohort import membership_for_pair
-from tools.part5.credential_profile import admit_certificate, public_bindings
+from tools.part5.credential_profile import ProfileError, admit_certificate, parse_tbs, public_bindings
 from tools.part5.registry_v3_vectors import h as poseidon_parent, leaf as poseidon_leaf
 from harness.tests.queue_v3_clone_ledger import inventory as ledger_inventory
 from harness.tests.queue_v3_clone_ledger import stale_admin_socket
@@ -164,6 +164,16 @@ def _spki_sha256(public_key):
         serialization.PublicFormat.SubjectPublicKeyInfo))
 
 
+def _expect_profile_rejection(certificate, issuer_modulus, expected_message):
+    try:
+        admit_certificate(certificate, issuer_modulus)
+    except ProfileError as error:
+        _require(str(error) == expected_message,
+                 'negative certificate admission rejected for unexpected reason')
+        return expected_message.casefold().replace(' ', '_')
+    raise ValueError('negative certificate admission unexpectedly succeeded')
+
+
 def _verify_cohort_import(cohort_root, by_variant, key_rows_by_identity,
                           prior_keys, freeze_sha, cohort_sha, *, frozen_at_unix_ns):
     """Independently import every generated key and issued certificate."""
@@ -199,6 +209,7 @@ def _verify_cohort_import(cohort_root, by_variant, key_rows_by_identity,
         imported_keys[(role, index)] = key
 
     certificate_evidence = []
+    negative_certificate_evidence = []
     for variant in range(8):
         row = by_variant[variant]
         issuer = imported_keys[('issuer', row['issuer_index'])]
@@ -225,6 +236,67 @@ def _verify_cohort_import(cohort_root, by_variant, key_rows_by_identity,
                  and str(issuer_hash) == row['issuer_hash']
                  and str(policy_hash) == row['policy_hash'],
                  'imported certificate fields or issuer/holder key bindings differ from receipt')
+
+        malformed = raw[:-1]
+        malformed_error = _expect_profile_rejection(
+            malformed, issuer.public_key().public_numbers().n,
+            'DER content exceeds parent')
+
+        signature_integer = int.from_bytes(raw[-256:], 'big')
+        wrong_issuer_candidates = [
+            index for index in range(4) if index != row['issuer_index']]
+        wrong_issuer_index = next((
+            index for index in wrong_issuer_candidates
+            if signature_integer < imported_keys[('issuer', index)].public_key()
+                .public_numbers().n), wrong_issuer_candidates[0])
+        wrong_issuer = imported_keys[('issuer', wrong_issuer_index)]
+        wrong_issuer_expected_error = (
+            'RSA signature verification failed'
+            if signature_integer < wrong_issuer.public_key().public_numbers().n
+            else 'noncanonical RSA signature')
+        wrong_issuer_error = _expect_profile_rejection(
+            raw, wrong_issuer.public_key().public_numbers().n,
+            wrong_issuer_expected_error)
+
+        tbs_start = raw.find(parsed['tbs'])
+        _require(tbs_start >= 0 and raw.count(parsed['tbs']) == 1,
+                 'unique imported TBS required for same-length mutation')
+        organization_offset = parsed['offsets']['organization']
+        _require(0 <= organization_offset < len(parsed['tbs']),
+                 'bounded signed organization offset required')
+        tampered_tbs = bytearray(parsed['tbs'])
+        tampered_tbs[organization_offset] ^= 1
+        tampered_tbs = bytes(tampered_tbs)
+        reparsed_tampered_tbs = parse_tbs(tampered_tbs)
+        _require(len(tampered_tbs) == len(parsed['tbs'])
+                 and reparsed_tampered_tbs['organization'] != parsed['organization'],
+                 'same-length structurally valid signed organization mutation required')
+        tampered = (raw[:tbs_start] + tampered_tbs
+                    + raw[tbs_start + len(parsed['tbs']):])
+        tampered_error = _expect_profile_rejection(
+            tampered, issuer.public_key().public_numbers().n,
+            'RSA signature verification failed')
+
+        negative_certificate_evidence.append({
+            'variant': variant,
+            'credential_sha256': cert_sha,
+            'malformed_der': {
+                'label': 'truncate_final_byte',
+                'der_sha256': _sha(malformed),
+                'error_category': malformed_error,
+            },
+            'wrong_issuer_key': {
+                'label': 'unmodified_der_with_other_cohort_issuer_key',
+                'issuer_public_key_sha256': _spki_sha256(wrong_issuer.public_key()),
+                'error_category': wrong_issuer_error,
+            },
+            'tampered_signed_organization': {
+                'label': 'same_length_organization_bit_flip_signature_unchanged',
+                'structurally_parseable': True,
+                'der_sha256': _sha(tampered),
+                'error_category': tampered_error,
+            },
+        })
         certificate_evidence.append({
             'variant': variant,
             'credential_sha256': cert_sha,
@@ -250,6 +322,18 @@ def _verify_cohort_import(cohort_root, by_variant, key_rows_by_identity,
             'freeze-pinned source and receipt encoder labels; invocation not independently observed'),
         'counts': {'issuer_keys': 4, 'holder_keys': 8, 'certificates': 8},
         'certificates': certificate_evidence,
+        'local_negative_admission': {
+            'scope': 'local_admission_only',
+            'loaded_execute_observed': False,
+            'changed_policy_allowlist_tested': False,
+            'counts': {
+                'certificates': len(negative_certificate_evidence),
+                'malformed_der_rejections': len(negative_certificate_evidence),
+                'wrong_issuer_key_rejections': len(negative_certificate_evidence),
+                'tampered_signed_organization_rejections': len(negative_certificate_evidence),
+            },
+            'certificates': negative_certificate_evidence,
+        },
     }
 
 
