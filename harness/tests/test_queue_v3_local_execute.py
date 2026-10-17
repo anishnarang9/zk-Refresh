@@ -163,8 +163,13 @@ class ExecuteTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             m.finalized_accounts(rpc, report, 10, 'program', digests, [12] * 5)
         accounts[0]['owner'] = 'program'
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, 'role=config context_slot=12') as caught:
             m.finalized_accounts(rpc, report, 10, 'program', ['0' * 64] * 5, [12] * 5)
+        message = str(caught.exception)
+        self.assertIn(f'expected_sha256={"0" * 64}', message)
+        self.assertIn(f'actual_sha256={m.base.sha(data[0])}', message)
+        self.assertIn('expected_size=12 actual_size=12', message)
+        self.assertNotIn(base64.b64encode(data[0]).decode(), message)
         with self.assertRaises(ValueError):
             m.finalized_accounts(rpc, report, 10, 'program', digests, [13] * 5)
         with self.assertRaises(m.base.NotReady):

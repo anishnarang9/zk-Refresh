@@ -119,8 +119,14 @@ def finalized_accounts(rpc, report, minimum, program, expected_hashes, sizes):
                 or account.get('executable') is not False):
             raise ValueError('finalized owner/executable mismatch')
         raw = base.account_bytes(account)
-        if len(raw) != sizes[index] or base.sha(raw) != expected_hashes[index]:
-            raise ValueError('finalized exact account bytes mismatch')
+        actual_hash = base.sha(raw)
+        if len(raw) != sizes[index] or actual_hash != expected_hashes[index]:
+            raise ValueError(
+                'finalized exact account bytes mismatch '
+                f'role={ACCOUNT_NAMES[index]} context_slot={slot} '
+                f'expected_sha256={expected_hashes[index]} actual_sha256={actual_hash} '
+                f'expected_size={sizes[index]} actual_size={len(raw)}'
+            )
         raw_accounts.append(raw)
     return slot, raw_accounts
 
