@@ -1,0 +1,33 @@
+{
+  "forbidden_public_key_sha256": [
+    "1536ea3db07220474834d51f384e6f09032c9c5e93877a925b36fea4ce8670f1",
+    "2321f1dbd65390105a7364deff3d72fb804bd3ca6316bd5b21344cf6b5c0bb74",
+    "445f3fcfc0f0a353610ba9f75d1904bedc5686f418f1a4024dc87670a5e609c6",
+    "50c78bb30be0b3b779ed5a573e6390c179baeca9aba45474898dc192cf38032e",
+    "7e7b89a6b09a121923d0442fe05db613b52acbd5be01682867aa297b1542ae85",
+    "ee3353e4e63d1826b6e1a8b164de1fc1475a482a60ad328ddb081a943832a7c4"
+  ],
+  "frozen_at_unix_ns": 1792264847938700000,
+  "identities": {
+    "application_source": "0db58d4b9738a60895107c8fbf2c7aee2e45027ddd27b3a8fc460349832e6ae5",
+    "circuit": "eae99530daf7331037f2d1c6dc93ccc582603bd448f38d06e6469c734e8252fe",
+    "client": "6f2d5cc52b3bff42365cb4ce9c7a7d74c0c51fb10e111db4bceb8e44e2110ecf",
+    "loaded_elf": "298c8c84c504038bafea858370a42872f03b016a09adbadd396dd4322991b99c",
+    "ordinary_adapter": "5e364d7ea4d2321a1135e697ed7cf3233abaa832d371bff2f4dfdf2ea5ff6521",
+    "ordinary_vk": "87edb4608c2140f3c7fddc8503e49b68931cda973711ce2c831bd44f1b98a875",
+    "profile": "2e5d26564fb055e70cff924c4cb6e296509030b8c0062130f86ad5af783f7918",
+    "proof_runner": "b564fc5d9159aa5d96589221a73cf0c1fba6d3cf91439e05a842f36e380c0305",
+    "r1cs": "976e9a76356ad015f0e4c587ccd79bba601b5caf80817b561aa4ca5442656888",
+    "registry": "08c6867b9702850ac0448a54a9cb591b1d33ffd0c855afa8b416d53989b0ffd7",
+    "setup_manifest": "d31f82e3f147e31b30074b3a570a9d7945c5e1f5d3f3dd74172801abbe984918",
+    "signer_interface": "2b97cd1e02174ff67203f4b107923501a20b5d24bf11de03f204b77980f5691f",
+    "witness_executable": "fbf73cff59660574add16ba8acafe824a9d57e0c91f23557b6462979b85c9aa6"
+  },
+  "schema": "credential-v3-training-campaign-cohort-freeze-v1",
+  "source_sha256": {
+    "campaign": "f1229b308fab6b2548b74b7d742152663cde20984d9d2bf0e8651208d4dfc187",
+    "issuance": "619908b599cb7a90359f714101500fce58b8dce711a31fb6ae4c6e5b367b203c",
+    "key_generation": "07559d796bd28051f4a3c5030c7360a5545914a9335880e3e2bb4b614ddde916",
+    "root_schedule": "bc4edcc1ea38ae92b6ee6ff4f2c51399dddb73b2ca14fa242d7b63a1f60d4797"
+  }
+}
