@@ -1,0 +1,115 @@
+{
+  "files": {
+    "adapter_binary": {
+      "path": "/Users/anishnarang/Zk-refresh/crates/dynark-solana-adapter/target/debug/build/dynark-solana-adapter/3a4659842a713e9a/out/v3_request_bound_host-3a4659842a713e9a",
+      "sha256": "f322df5fcfb35630ecc290c1efef32a903e1d29fcb1a5345a3b0e22595d1b43b"
+    },
+    "base_preparer": {
+      "path": "/Users/anishnarang/Zk-refresh/crates/dynark-native-client/tests/support/prepare_v3_request_bound_training.py",
+      "sha256": "de37e94a4319c34439fe656aba702a05a1469fc08940113b4012289a8f8bfe19"
+    },
+    "branch_runner": {
+      "path": "/Users/anishnarang/Zk-refresh/harness/target/debug/build/zk-fresh-benchmark/0d22d099108927cf/out/queue_v3-0d22d099108927cf",
+      "sha256": "6ce3cf299d9158f024b474ecb547d1f003f13ab9f7654ecc85d4f3b912aad46e"
+    },
+    "branch_supervisor": {
+      "path": "/Users/anishnarang/Zk-refresh/harness/tests/queue_v3_local_branch.py",
+      "sha256": "f4670e64f504935f53c72100362ac7c80e66ce6e17e4f1b5e916cec10465ad00"
+    },
+    "config_builder": {
+      "path": "/Users/anishnarang/Zk-refresh/tools/part5/create_v3_branch_config.py",
+      "sha256": "b03746fcd2f99303d29c37d81385da1c897b74b9ef1ce647470b8739f3d04841"
+    },
+    "exporter": {
+      "path": "/Users/anishnarang/Zk-refresh/program/target/debug/examples/export_v3_request_fixture",
+      "sha256": "d5b10820153334b5cb5996ad2f26aad95a033741e0883f69019ebf79fb051700"
+    },
+    "near_preparer": {
+      "path": "/Users/anishnarang/Zk-refresh/crates/dynark-native-client/tests/support/prepare_v3_request_bound_near.py",
+      "sha256": "d8437c0b53fd4e9b08990ab7c1759943a3c595ba18371cd6b4b05f66eb0f9add"
+    },
+    "node": {
+      "path": "/Users/anishnarang/.nvm/versions/node/v24.10.0/bin/node",
+      "sha256": "9e759d34d97af8a71b75854d20af297794611155406997f06d796b5e0f6d573b"
+    },
+    "old_packet": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-full-r1-proof-training-001/packet-003.json",
+      "sha256": "f74da66ef9a12c03a028ed52bee8cb4de2ddf0958abbecb0b7e528b22065512b"
+    },
+    "packet_builder": {
+      "path": "/Users/anishnarang/Zk-refresh/tools/part5/build_v3_request_bound_anchor_packet.py",
+      "sha256": "8b29b4f35bdf9429aa35c633304146b33259211cd2b94c3e37c9f024c32fa336"
+    },
+    "proof_binary": {
+      "path": "/Users/anishnarang/Zk-refresh/circuits/credential-v3-bounded/qualification/proof-runner-v1/target/release/credential-v3-bounded-proof-qualification-v1",
+      "sha256": "aa3509781335822bea338eba757c69ee07ef8929a6d99cab84deb944cb852f16"
+    },
+    "relation_checker": {
+      "path": "/Users/anishnarang/Zk-refresh/crates/dynark-native-client/tests/support/prepare_v3_relation.py",
+      "sha256": "ea5d1cf19cbe8840cea786dcda9738dccf9665b95480f9ab6c9a8ecad30e4d86"
+    },
+    "session_source": {
+      "path": "/Users/anishnarang/Zk-refresh/tools/part5/run_v3_matched_k1.py",
+      "sha256": "0a71f644ddc274b141e2c008d948bb3edc4530e6de9dade21a6bd45cc4e11f01"
+    },
+    "transition_config": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-local-transition-config-002.json",
+      "sha256": "6f324af65cf6f5d6bf1377bb2b272c8dbe97f3c51cfdc7bd115669961ab209da"
+    },
+    "transition_monitor": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-local-transition-bounded-002.json",
+      "sha256": "deb795097087391b5fa3d6f68d543bb8088d0b42ad9089c4f4f85b5b7089e623"
+    },
+    "transition_report": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-local-transition-private-001/transition-report.json",
+      "sha256": "ce65958081bb85e0d152c9370aaa425e07df6efd13a9f03a5b93e65544b4f40c"
+    },
+    "transition_status": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-local-transition-control-001/status.json",
+      "sha256": "e28e26487d7ed8c7af1b2fb5f0a36eacb7c3a550aca11666d0fbb3589f9d1fcd"
+    },
+    "witness_js": {
+      "path": "/Users/anishnarang/Zk-refresh/crates/dynark-native-client/tests/support/v3_relation_witness.cjs",
+      "sha256": "61226e940c7380ce83dd7119f6d03ba4058aaf3c75f652e36f7539d07483c86b"
+    }
+  },
+  "order": [
+    "full",
+    "anchor"
+  ],
+  "outer_limits": {
+    "poll_seconds": 0.25,
+    "rss_bytes": 4294967296,
+    "runtime_seconds": 2400,
+    "storage_bytes": 1073741824
+  },
+  "prior_failed_attempts": [
+    {
+      "outer_report_sha256": "772e1778302c75f1a6ae3fce316cd8fed4b4394671b16e12278143877c8617f4",
+      "reason": "branch output directories were not direct artifact-root children; validator not started"
+    },
+    {
+      "outer_report_sha256": "ca7dc42e01c860e545acb4d4bd4e143998303c68fe55a8c13885454f1461b758",
+      "reason": "R1 protected effect and replay checks succeeded, but supervisor rejected the exact v3-valid-anchor-R1 scenario string; branch_verified false under original freeze."
+    }
+  ],
+  "revision_reason": "Correct exact anchor-R1 valid transaction scenario in branch supervisor; rerun both modes under one new freeze.",
+  "root_sequence": [
+    "R0",
+    "R1-unrelated-revocation"
+  ],
+  "schema": "part5-v3-matched-k1-freeze-v1",
+  "source_dir": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-refresh-bound-training-001/source-003",
+  "source_sha256": {
+    "config.bin": "80c7a89deeb92bfb24b437de8ebacdac8f3f926224c2fd7bc11c4edef07dbfe6",
+    "credential.der": "ae8a7712e56a2e7ecd26ce1d460d0767452f2651870f23dc069c541d080fbb4d",
+    "holder.pem": "0a53c2db715d1a22ea7b5f079766f76a7eb7ea80116c844d99a49b2a7c3da6dc",
+    "issuer-modulus.bin": "8fb7f14ebf51907b5ce37ea2719add6ddb78e6447e0af7d0e02ff452171dcc5d",
+    "membership.json": "bd7a7f3c3c613f2f9da43c9142e8f5c96b76838132fdcc5e5577a0165f9fbdc1",
+    "parameters.json": "c284b49c9dd24c5cb3cae42d583f769b4a3c4f37a9aa01eb8bfba9129cf0b568",
+    "unrelated.der": "971f08a5fed872cc783f4ea50392508876f01deb9315ceefd3ef376e985e07a7"
+  },
+  "stage_root": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-local-stage-private-003",
+  "training_only": true,
+  "transition_root": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-local-transition-private-001"
+}
