@@ -265,7 +265,7 @@ class HeldoutSourceTests(unittest.TestCase):
         }
         self.write(self.transition / 'transition-report.json', tool.encoded(self.transition_report))
 
-    def patches(self, action_r1=None):
+    def patches(self, action_r1=None, admit_side_effect=None, binding_override=None):
         def parsed(raw, modulus):
             variant = int(raw.rstrip(b'!').decode().split('-')[1])
             row = self.rows[variant]
@@ -324,6 +324,9 @@ class HeldoutSourceTests(unittest.TestCase):
                 }
                 HeldoutSourceTests.write(output / 'training-receipt.json', tool.encoded(receipt))
 
+        admit = parsed if admit_side_effect is None else mock.Mock(side_effect=admit_side_effect)
+        bindings = (lambda cert, modulus: (1000, 2000 + cert['variant'] // 4)
+                    if binding_override is None else binding_override(cert))
         return (
             mock.patch.object(tool.keygen, '_freeze', return_value=(self.freeze_raw, {
                 'schema': 'credential-v3-frozen-holdout-boundary-v1',
@@ -332,16 +335,18 @@ class HeldoutSourceTests(unittest.TestCase):
             mock.patch.object(tool.rsa, 'RSAPrivateKey', SimpleNamespace),
             mock.patch.object(tool.serialization, 'load_pem_private_key', side_effect=load_key),
             mock.patch.object(tool, 'spki_fingerprint', side_effect=lambda key: key.fingerprint),
-            mock.patch.object(tool, 'admit_certificate', side_effect=parsed),
-            mock.patch.object(tool, 'public_bindings', side_effect=lambda cert, modulus:
-                              (1000, 2000 + cert['variant'] // 4)),
+            mock.patch.object(tool, 'admit_certificate', side_effect=admit),
+            mock.patch.object(tool, 'public_bindings', side_effect=bindings),
             mock.patch.object(tool.bridge, 'build_v3p1', side_effect=build),
             mock.patch.object(tool.bridge, 'finalize_v3p1', side_effect=finalize),
             mock.patch.object(tool, 'load_preparer', return_value=FakePreparer),
         )
 
     def run_prepare(self, variant, output, action_r1=None, **kwargs):
-        patches = self.patches(action_r1=action_r1)
+        admit_side_effect = kwargs.pop('_admit_side_effect', None)
+        binding_override = kwargs.pop('_binding_override', None)
+        patches = self.patches(action_r1=action_r1, admit_side_effect=admit_side_effect,
+                               binding_override=binding_override)
         with (patches[0], patches[1], patches[2], patches[3], patches[4],
               patches[5], patches[6], patches[7], patches[8]):
             return tool.prepare(
@@ -400,6 +405,30 @@ class HeldoutSourceTests(unittest.TestCase):
         self.write(self.case / 'credential.der', b'changed'.ljust(952, b'!'))
         with self.assertRaisesRegex(ValueError, 'heldout pair'):
             self.run_prepare('R0', self.output0)
+        self.assertEqual(list(self.output0.iterdir()), [])
+
+    def test_out_of_profile_der_admission_failure_is_rejected_before_output(self):
+        # Use the real strict DER parser against this fixture's intentionally non-DER bytes.
+        with self.assertRaisesRegex(ValueError, 'unexpected DER tag or truncated header'):
+            self.run_prepare('R0', self.output0,
+                             _admit_side_effect=tool.admit_certificate)
+        self.assertEqual(list(self.output0.iterdir()), [])
+
+    def test_issuer_binding_mismatch_is_rejected_before_output(self):
+        def wrong_issuer(cert):
+            return (1001 if cert['variant'] == 0 else 1000, 2000 + cert['variant'] // 4)
+
+        with self.assertRaisesRegex(ValueError, 'DER, issuer, holder or signed profile mismatch'):
+            self.run_prepare('R0', self.output0, _binding_override=wrong_issuer)
+        self.assertEqual(list(self.output0.iterdir()), [])
+
+    def test_signed_policy_binding_mismatch_is_rejected_before_output(self):
+        def wrong_policy(cert):
+            policy = 2001 if cert['variant'] == 0 else 2000 + cert['variant'] // 4
+            return 1000, policy
+
+        with self.assertRaisesRegex(ValueError, 'DER, issuer, holder or signed profile mismatch'):
+            self.run_prepare('R0', self.output0, _binding_override=wrong_policy)
         self.assertEqual(list(self.output0.iterdir()), [])
 
 
