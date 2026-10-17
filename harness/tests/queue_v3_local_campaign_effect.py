@@ -298,8 +298,7 @@ def admit(config):
     base.prep.compare_elf_payload(elf, elf, original['elf_sha256'])
     base.checked(original['validator'], original['validator_sha256'], 128 * 1024 * 1024)
     base.checked(config['runner'], config['runner_sha256'], 128 * 1024 * 1024)
-    execute.report_loaded(staged, original)
-    execute.same_loaded(stage_status['loaded_program'], staged['loaded_program'])
+    report_loaded(staged, original, stage_status['loaded_program'])
     if staged['program'] != original['program']:
         raise ValueError('campaign stage program identity changed')
     context_raw = base.checked(config['context'], config['context_sha256'], 8192)
@@ -359,8 +358,7 @@ def admit(config):
             raise ValueError('reviewed signed R0-to-Rk campaign transition required')
         reviewed_monitor(transition_monitor, config['transition_monitor_owner'],
                          transition.LIMITS)
-        execute.report_loaded(changed, original)
-        execute.same_loaded(transition_status['loaded_program'], changed['loaded_program'])
+        report_loaded(changed, original, transition_status['loaded_program'])
         history_root = Path(config['transition_root'])
         current = account_artifacts(history_root, changed)
     else:
@@ -475,6 +473,20 @@ def check_effect_report(report, config, original, staged, changed, context, hist
     execute.report_loaded(report, original)
 
 
+def report_loaded(report, original, loaded):
+    """Bind Rust's compact report identity to the supervisor's full identity."""
+    execute.report_loaded(report, original)
+    reported = report.get('loaded_program', {})
+    if (not isinstance(loaded.get('loader'), str) or not loaded['loader']
+            or type(loaded.get('elf_bytes')) is not int or loaded['elf_bytes'] <= 0
+            or reported.get('loader') != loaded.get('loader')
+            or type(reported.get('local_bytes')) is not int
+            or type(reported.get('remote_bytes')) is not int
+            or reported.get('local_bytes') != loaded.get('elf_bytes')
+            or reported.get('remote_bytes') != loaded.get('elf_bytes')):
+        raise ValueError('report loaded program size or loader mismatch')
+
+
 def run(config, config_sha256):
     if os.environ.get('P5_V3_CAMPAIGN_EFFECT_SUPERVISOR') != 'reviewed-campaign-clone':
         raise ValueError('explicit external bounded campaign effect scope required')
@@ -581,7 +593,7 @@ def run(config, config_sha256):
                                                1024 * 1024)[1]
         check_effect_report(report, config, original, staged, changed, context,
                             history_sha)
-        execute.same_loaded(loaded, report['loaded_program'])
+        report_loaded(report, original, loaded)
         signed, binding, source_digest, publisher_digest = signed_successor(
             output, config['stage_root'], report, plan, history, context,
             config['target_count'])

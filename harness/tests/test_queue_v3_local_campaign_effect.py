@@ -162,6 +162,23 @@ class CampaignEffectChecks(unittest.TestCase):
         with self.assertRaises(ValueError):
             effect.check_effect_report(report, config, original, staged, changed, context, 'history')
 
+    def test_minimal_report_loaded_identity_matches_full_status(self):
+        original = {'elf_sha256': 'a' * 64}
+        full = {'elf_match': True, 'elf_sha256': 'a' * 64, 'elf_bytes': 4096,
+                'loader': 'BPFLoaderUpgradeab1e11111111111111111111111'}
+        report = {'loaded_program': {'elf_match': True, 'elf_sha256': 'a' * 64,
+                    'loader': full['loader'], 'local_bytes': 4096, 'remote_bytes': 4096}}
+        effect.report_loaded(report, original, full)
+        for key, value in (('elf_sha256', 'f' * 64), ('loader', 'other-loader'),
+                           ('local_bytes', 4095), ('remote_bytes', 4095)):
+            with self.subTest(key=key):
+                report['loaded_program'][key] = value
+                with self.assertRaises(ValueError):
+                    effect.report_loaded(report, original, full)
+                report['loaded_program'][key] = {
+                    'elf_sha256': 'a' * 64, 'loader': full['loader'],
+                    'local_bytes': 4096, 'remote_bytes': 4096}[key]
+
     def test_signed_no_change_successor_and_account_binding(self):
         source_key = Ed25519PrivateKey.generate()
         publisher_key = Ed25519PrivateKey.generate()

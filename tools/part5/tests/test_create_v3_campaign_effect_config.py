@@ -25,6 +25,19 @@ class CampaignEffectConfigTests(unittest.TestCase):
         path.write_bytes(raw)
         return hashlib.sha256(raw).hexdigest()
 
+    def loaded_identity(self):
+        return {'elf_match': True, 'elf_sha256': 'a' * 64, 'elf_bytes': 4096,
+                'program': 'program', 'programdata': 'programdata',
+                'program_account_sha256': 'b' * 64,
+                'programdata_account_sha256': 'c' * 64, 'genesis': 'genesis',
+                'loader': 'BPFLoaderUpgradeab1e11111111111111111111111'}
+
+    def loaded_report(self):
+        loaded = self.loaded_identity()
+        return {'elf_match': True, 'elf_sha256': loaded['elf_sha256'],
+                'loader': loaded['loader'], 'local_bytes': loaded['elf_bytes'],
+                'remote_bytes': loaded['elf_bytes']}
+
     def fixture(self, count=0, mode='coalesced-full'):
         context = self.root / 'context.json'
         context_sha = self.save(context, {'schema': 'part5-v3-campaign-context-v1',
@@ -37,12 +50,14 @@ class CampaignEffectConfigTests(unittest.TestCase):
                                  'expected_genesis': 'genesis'})
         stage_report = self.stage / 'stage-report.json'
         stage_sha = self.save(stage_report, {'schema': 'part5-v3-campaign-stage-v1',
-                                             'passed': True})
+                                             'passed': True,
+                                             'loaded_program': self.loaded_report()})
         stage_plan = self.stage / 'plan.json'
         plan_sha = self.save(stage_plan, {'root': []})
         stage_status = self.root / 'stage-status.json'
         stage_status_sha = self.save(stage_status, {'stage_verified': True,
-                                                   'stage_report_sha256': stage_sha})
+                                                   'stage_report_sha256': stage_sha,
+                                                   'loaded_program': self.loaded_identity()})
         stage_monitor = self.root / 'stage-monitor.json'
         stage_monitor_sha = self.save(stage_monitor, {'owner': 'stage-owner',
                                                      'stop_reason': None,
@@ -86,7 +101,8 @@ class CampaignEffectConfigTests(unittest.TestCase):
                 'schema': 'part5-v3-campaign-transition-v1', 'passed': True,
                 'target_count': count, 'stage_report_sha256': stage_sha,
                 'stage_plan_sha256': plan_sha, 'context_sha256': context_sha,
-                'current_root': '01' * 32})
+                'current_root': '01' * 32,
+                'loaded_program': self.loaded_report()})
             transition_config = self.root / 'transition-config.json'
             transition_config_sha = self.save(transition_config, {
                 'schema': 1, 'scope': 'part5-v3-campaign-transition',
@@ -108,7 +124,8 @@ class CampaignEffectConfigTests(unittest.TestCase):
                 'scope': 'part5-v3-campaign-transition', 'transition_verified': True,
                 'config_sha256': transition_config_sha,
                 'transition_report_sha256': changed_sha,
-                'transition_output': str(transition)})
+                'transition_output': str(transition),
+                'loaded_program': self.loaded_identity()})
             transition_monitor = self.root / 'transition-monitor.json'
             transition_monitor_sha = self.save(transition_monitor, {
                 'owner': 'transition-owner', 'stop_reason': None,
@@ -175,6 +192,20 @@ class CampaignEffectConfigTests(unittest.TestCase):
         args.base_wire = args.current_wire
         with self.assertRaisesRegex(ValueError, 'no R0 proof wire'):
             tool.create(args)
+
+    def test_minimal_stage_report_identity_must_match_full_status(self):
+        for key, value in (('elf_sha256', 'f' * 64), ('loader', 'other-loader'),
+                           ('local_bytes', 4095), ('remote_bytes', 4095)):
+            with self.subTest(key=key):
+                args = self.fixture()
+                report, _ = tool.document(args.stage_report)
+                report['loaded_program'][key] = value
+                stage_sha = self.save(Path(args.stage_report), report)
+                status, _ = tool.document(args.stage_status)
+                status['stage_report_sha256'] = stage_sha
+                self.save(Path(args.stage_status), status)
+                with self.assertRaisesRegex(ValueError, 'report loaded program'):
+                    tool.create(args)
 
 
 if __name__ == '__main__':

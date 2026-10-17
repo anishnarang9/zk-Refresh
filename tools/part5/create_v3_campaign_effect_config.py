@@ -42,6 +42,23 @@ def document(path, cap=1024 * 1024):
     return json.loads(raw), digest
 
 
+def report_loaded(report, status):
+    """Check Rust's compact report identity against the supervisor status."""
+    reported = report.get('loaded_program', {})
+    loaded = status.get('loaded_program', {})
+    if (loaded.get('elf_match') is not True
+            or reported.get('elf_match') is not True
+            or reported.get('elf_sha256') != loaded.get('elf_sha256')
+            or not isinstance(loaded.get('loader'), str) or not loaded['loader']
+            or reported.get('loader') != loaded.get('loader')
+            or type(loaded.get('elf_bytes')) is not int or loaded['elf_bytes'] <= 0
+            or type(reported.get('local_bytes')) is not int
+            or type(reported.get('remote_bytes')) is not int
+            or reported.get('local_bytes') != loaded.get('elf_bytes')
+            or reported.get('remote_bytes') != loaded.get('elf_bytes')):
+        raise ValueError('report loaded program size or loader mismatch')
+
+
 def fresh(path):
     path = Path(path)
     if (not path.is_absolute() or path.exists() or path.is_symlink()
@@ -97,6 +114,8 @@ def create(args):
     stage_config, stage_config_sha = document(stage_config_path)
     stage_status, stage_status_sha = document(stage_status_path)
     stage_monitor, stage_monitor_sha = document(stage_monitor_path)
+    stage_report, _ = document(args.stage_report, 65536)
+    report_loaded(stage_report, stage_status)
     context, context_sha = document(context_path, 8192)
     if (stage_config.get('scope') != 'part5-v3-campaign-stage'
             or stage_config.get('stage_output') != stage_root
@@ -150,6 +169,7 @@ def create(args):
                 or clone.get('target_count') != count
                 or clone.get('current_root') != changed['current_root']):
             raise ValueError('signed Rk transition and final clone roles differ')
+        report_loaded(changed, status)
     elif (clone.get('schema') != 'part5-v3-campaign-r0-ledger-clone-v1'
           or clone.get('source') != stage_config['ledger']
           or clone.get('stage_report_sha256') != read(args.stage_report, 65536)[1]
