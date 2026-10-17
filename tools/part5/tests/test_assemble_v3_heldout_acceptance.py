@@ -30,6 +30,10 @@ class HeldoutAcceptanceAssemblerTests(unittest.TestCase):
         }
         self.fragments = []
         for variant in range(8):
+            branch_costs = {
+                name: {'proof_seconds': 1.0, 'clone_seconds': 2.0,
+                       'effect_seconds': 3.0, 'total_seconds': 6.0}
+                for name in ('full', 'unrelated_full', 'anchor', 'own_revocation')}
             payload = {
                 'variant': variant,
                 'case_context': self.ref,
@@ -44,6 +48,20 @@ class HeldoutAcceptanceAssemblerTests(unittest.TestCase):
                 'branches': {name: {'result': {'report': self.ref}}
                              for name in ('full', 'unrelated_full', 'anchor',
                                           'own_revocation')},
+                'run_manifest': self.ref,
+                'run_journal': self.ref,
+                'all_step_wall_seconds': {'step': 1.0},
+                'shared_costs': {'shared_stage_seconds': 2.0,
+                                 'shared_transition_seconds': 3.0},
+                'branch_wall_components': branch_costs,
+                'branch_wall_seconds': {name: 6.0 for name in branch_costs},
+                'shared_stage_transition_wall_seconds': {
+                    'stage': {slot: 1.0 for slot in 'ABC'},
+                    'transition': {slot: 1.0 for slot in 'ABC'}},
+                'branch_order': (['unrelated_full', 'anchor'] if variant % 2 == 0
+                                 else ['anchor', 'unrelated_full']),
+                'proof_order': {'unrelated_compare': (
+                    ['full', 'anchor'] if variant % 2 == 0 else ['anchor', 'full'])},
             }
             case_dir = self.root / f'case-{variant}'
             case_dir.mkdir(mode=0o700)
@@ -65,6 +83,34 @@ class HeldoutAcceptanceAssemblerTests(unittest.TestCase):
         self.assertEqual(manifest['schema'], assembler.MANIFEST_SCHEMA)
         self.assertEqual([case['variant'] for case in manifest['cases']], list(range(8)))
         self.assertEqual(manifest['proof_inputs'], self.globals['proof_inputs'])
+        self.assertEqual(manifest['cases'][0]['run_journal'], self.ref)
+        self.assertEqual(manifest['cases'][0]['branch_order'],
+                         ['unrelated_full', 'anchor'])
+        self.assertEqual(manifest['cases'][1]['proof_order'],
+                         {'unrelated_compare': ['anchor', 'full']})
+        self.assertIn('all_step_wall_seconds', manifest['cases'][0])
+        self.assertEqual(manifest['cases'][0]['run_manifest'], self.ref)
+
+    def test_rejects_missing_pinned_run_manifest(self):
+        changed = json.loads(self.fragments[0].read_text())
+        del changed['run_manifest']
+        self.fragments[0].write_text(json.dumps(changed))
+        with self.assertRaisesRegex(ValueError, 'complete normalized heldout case'):
+            self.assemble()
+
+    def test_rejects_missing_cost_evidence(self):
+        changed = json.loads(self.fragments[0].read_text())
+        del changed['branch_order']
+        self.fragments[0].write_text(json.dumps(changed))
+        with self.assertRaisesRegex(ValueError, 'complete normalized heldout case'):
+            self.assemble()
+
+    def test_rejects_incorrect_order_parity(self):
+        changed = json.loads(self.fragments[0].read_text())
+        changed['branch_order'] = ['anchor', 'unrelated_full']
+        self.fragments[0].write_text(json.dumps(changed))
+        with self.assertRaisesRegex(ValueError, 'registered branch/proof order'):
+            self.assemble()
 
     def test_rejects_duplicate_variant(self):
         duplicate = json.loads(self.fragments[7].read_text())

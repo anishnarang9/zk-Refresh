@@ -1,0 +1,673 @@
+#!/usr/bin/env python3
+"""Recompute matched heldout request-B wall costs from pinned run journals.
+
+This is a post-run accounting tool. It does not run application jobs, infer CPU
+cost, or classify an economic winner.
+"""
+import argparse
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import re
+import stat
+import sys
+from statistics import median
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from tools.part5.assemble_v3_heldout_acceptance import MANIFEST_SCHEMA
+
+JOURNAL_SCHEMA = 'credential-v3-heldout-case-run-journal-v1'
+RUN_MANIFEST_SCHEMA = 'credential-v3-heldout-case-run-v1'
+ACCEPTANCE_SCHEMA = 'credential-v3-heldout-application-report-v1'
+OUTPUT_SCHEMA = 'credential-v3-heldout-cost-analysis-v1'
+VARIANTS = set(range(8))
+BRANCHES = {'full', 'unrelated_full', 'anchor', 'own_revocation'}
+HEX64 = re.compile(r'[0-9a-f]{64}\Z')
+MAX_JSON = 16 * 1024 * 1024
+
+
+def _sha(raw):
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _identity(info):
+    return (info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_nlink,
+            info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+
+def _read(path, *, cap=MAX_JSON):
+    path = Path(path)
+    before = path.lstat()
+    if (not path.is_absolute() or path.resolve(strict=True) != path
+            or not stat.S_ISREG(before.st_mode) or before.st_uid != os.getuid()
+            or before.st_nlink != 1 or before.st_mode & 0o022
+            or before.st_size <= 0 or before.st_size > cap):
+        raise ValueError('canonical bounded owner-controlled file required')
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
+    with os.fdopen(fd, 'rb') as stream:
+        opened = os.fstat(stream.fileno())
+        if _identity(opened) != _identity(before):
+            raise ValueError('input changed at open')
+        raw = stream.read(cap + 1)
+        if _identity(os.fstat(stream.fileno())) != _identity(before):
+            raise ValueError('input changed during read')
+    if len(raw) != before.st_size or _identity(path.lstat()) != _identity(before):
+        raise ValueError('input changed while reading')
+    return raw
+
+
+def _unique_pairs(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError('duplicate JSON key')
+        result[key] = value
+    return result
+
+
+def _json_bytes(raw):
+    return json.loads(raw, object_pairs_hook=_unique_pairs,
+                      parse_constant=lambda _: (_ for _ in ()).throw(
+                          ValueError('non-finite JSON number')))
+
+
+def _number(value):
+    return type(value) in (int, float) and math.isfinite(value) and value >= 0
+
+
+def _close(actual, expected):
+    return math.isclose(float(actual), float(expected), rel_tol=1e-9, abs_tol=1e-6)
+
+
+def _read_ref(ref, *, cap=MAX_JSON):
+    if (type(ref) is not dict or set(ref) != {'path', 'sha256'}
+            or type(ref['path']) is not str or not Path(ref['path']).is_absolute()
+            or type(ref['sha256']) is not str or HEX64.fullmatch(ref['sha256']) is None):
+        raise ValueError('absolute pinned artifact reference required')
+    raw = _read(ref['path'], cap=cap)
+    if _sha(raw) != ref['sha256']:
+        raise ValueError('artifact SHA-256 pin mismatch')
+    return raw
+
+
+def _load_pinned_json(ref, label):
+    try:
+        return _json_bytes(_read_ref(ref))
+    except (OSError, ValueError, json.JSONDecodeError, UnicodeDecodeError) as error:
+        raise ValueError(f'{label} pin or JSON invalid: {error}') from None
+
+
+def _load_input_ref(ref, label):
+    try:
+        raw = _read_ref(ref)
+    except (OSError, ValueError) as error:
+        raise ValueError(f'{label} pin invalid: {error}') from None
+    try:
+        value = _json_bytes(raw)
+    except (ValueError, json.JSONDecodeError, UnicodeDecodeError) as error:
+        raise ValueError(f'{label} JSON invalid: {error}') from None
+    if type(value) is not dict:
+        raise ValueError(f'{label} JSON object required')
+    return value, _sha(raw)
+
+
+def _step_names():
+    names = ['pair-view']
+    request_modes = {
+        'positive_full': ('full',),
+        'unrelated_compare': ('full', 'anchor'),
+        'own_revocation': ('anchor',),
+    }
+    for request, modes in request_modes.items():
+        names.extend(f'{request}:{suffix}' for suffix in
+                     ('prepare', 'stage', 'transition', 'source-R0', 'source-R1'))
+        names.extend(f'{request}:proof-{mode}' for mode in modes)
+    names.extend((
+        'positive_full:r0-clone', 'positive_full:execute',
+        'unrelated_compare:unrelated_full:clone',
+        'unrelated_compare:unrelated_full:effect',
+        'unrelated_compare:anchor:clone', 'unrelated_compare:anchor:effect',
+        'own_revocation:r1-clone', 'own_revocation:effect'))
+    return set(names)
+
+
+def _duration_map(journal, manifest_sha256):
+    if (type(journal) is not dict or journal.get('schema') != JOURNAL_SCHEMA
+            or type(journal.get('manifest_sha256')) is not str
+            or HEX64.fullmatch(journal['manifest_sha256']) is None
+            or journal['manifest_sha256'] != manifest_sha256):
+        raise ValueError('heldout case journal schema/identity required')
+    steps = journal.get('steps')
+    if type(steps) is not dict or set(steps) != _step_names():
+        raise ValueError('journal step-map does not match registered heldout run')
+    durations = {}
+    for name, row in steps.items():
+        if (type(row) is not dict or row.get('status') != 'passed'
+                or not _number(row.get('wall_seconds'))):
+            raise ValueError(f'passed finite journal duration required for {name}')
+        durations[name] = float(row['wall_seconds'])
+    costs = journal.get('costs')
+    if (type(costs) is not dict
+            or set(costs) != {'shared_stage_seconds', 'shared_transition_seconds'}
+            or any(not _number(value) for value in costs.values())):
+        raise ValueError('journal shared cost totals required')
+    for kind, key in (('stage', 'shared_stage_seconds'),
+                      ('transition', 'shared_transition_seconds')):
+        actual = sum(durations[f'{req}:{kind}'] for req in
+                     ('positive_full', 'unrelated_compare', 'own_revocation'))
+        if not _close(costs[key], actual):
+            raise ValueError(f'journal {kind} aggregate does not equal step map')
+    return durations
+
+
+def _check_order(case, variant):
+    branch_order = (['unrelated_full', 'anchor'] if variant % 2 == 0
+                    else ['anchor', 'unrelated_full'])
+    proof_order = ['full', 'anchor'] if variant % 2 == 0 else ['anchor', 'full']
+    if (case.get('branch_order') != branch_order
+            or case.get('proof_order') != {'unrelated_compare': proof_order}):
+        raise ValueError('recorded branch/proof order does not match registered parity')
+
+
+def _check_summary(case, journal, durations):
+    wall_map = case.get('all_step_wall_seconds')
+    if (type(wall_map) is not dict or set(wall_map) != set(durations)
+            or any(not _number(value) or not _close(value, durations[name])
+                   for name, value in wall_map.items())):
+        raise ValueError('journal timing summaries disagree with pinned journal')
+    if type(case.get('shared_costs')) is not dict:
+        raise ValueError('journal timing summaries disagree with pinned journal')
+    shared_costs = case['shared_costs']
+    if set(shared_costs) != {'shared_stage_seconds', 'shared_transition_seconds'}:
+        raise ValueError('journal timing summaries disagree with pinned journal')
+    for key, value in shared_costs.items():
+        if (not _number(value) or not _close(value, journal['costs'][key])):
+            raise ValueError('journal timing summaries disagree with pinned journal')
+
+    stage_transition = case.get('shared_stage_transition_wall_seconds')
+    if type(stage_transition) is not dict or set(stage_transition) != {'stage', 'transition'}:
+        raise ValueError('journal timing summaries disagree with pinned journal')
+    req_for_slot = {'A': 'positive_full', 'B': 'unrelated_compare',
+                    'C': 'own_revocation'}
+    for kind in ('stage', 'transition'):
+        row = stage_transition[kind]
+        if type(row) is not dict or set(row) != set(req_for_slot):
+            raise ValueError('journal timing summaries disagree with pinned journal')
+        for slot, req in req_for_slot.items():
+            if not _number(row[slot]) or not _close(row[slot], durations[f'{req}:{kind}']):
+                raise ValueError('journal timing summaries disagree with pinned journal')
+
+    expected = {
+        'full': ('positive_full:proof-full', 'positive_full:r0-clone',
+                 'positive_full:execute'),
+        'unrelated_full': ('unrelated_compare:proof-full',
+                           'unrelated_compare:unrelated_full:clone',
+                           'unrelated_compare:unrelated_full:effect'),
+        'anchor': ('unrelated_compare:proof-anchor',
+                   'unrelated_compare:anchor:clone',
+                   'unrelated_compare:anchor:effect'),
+        'own_revocation': ('own_revocation:proof-anchor',
+                           'own_revocation:r1-clone', 'own_revocation:effect'),
+    }
+    components = case.get('branch_wall_components')
+    totals = case.get('branch_wall_seconds')
+    if type(components) is not dict or set(components) != BRANCHES or \
+            type(totals) is not dict or set(totals) != BRANCHES:
+        raise ValueError('branch cost summaries disagree with pinned journal')
+    for branch, (proof, clone, effect) in expected.items():
+        values = (durations[proof], durations[clone], durations[effect])
+        recorded = components[branch]
+        if (type(recorded) is not dict
+                or set(recorded) != {'proof_seconds', 'clone_seconds', 'effect_seconds',
+                                     'total_seconds'}
+                or not all(_number(value) for value in recorded.values())
+                or not all(_close(recorded[key], value) for key, value in zip(
+                    ('proof_seconds', 'clone_seconds', 'effect_seconds'), values))
+                or not _close(recorded['total_seconds'], sum(values))
+                or not _number(totals[branch])
+                or not _close(totals[branch], sum(values))):
+            raise ValueError('branch cost summaries disagree with pinned journal')
+
+
+def _outer(ref, owner=None):
+    outer, _ = _load_input_ref(ref, 'bounded monitor')
+    duration = outer.get('duration_seconds')
+    if (outer.get('schema') != 1 or not _number(duration) or duration <= 0
+            or type(outer.get('sample_count')) is not int or outer['sample_count'] <= 0
+            or outer.get('stop_reason') is not None
+            or outer.get('runner_error_type') is not None
+            or outer.get('cleanup_remaining_owned_processes') != 0
+            or outer.get('cleanup_status_unknown') is not False
+            or (owner is not None and outer.get('owner') != owner)):
+        raise ValueError('pinned bounded monitor report shape/owner required')
+    accepted_stop = (outer.get('passed') is False and outer.get('exit_code') == 1)
+    accepted_success = (outer.get('passed') is True and outer.get('exit_code') == 0)
+    if not (accepted_stop or accepted_success):
+        raise ValueError('bounded monitor did not record a complete reviewed run')
+    rss = outer.get('sampled_peak_owned_tree_rss_bytes')
+    storage = outer.get('sampled_peak_storage_growth_bytes')
+    if type(rss) is not int or rss < 0 or type(storage) is not int or storage < 0:
+        raise ValueError('sampled monitor RSS/storage values required')
+    return float(duration), rss, storage
+
+
+def _verify_monitor_durations(case, journal, durations):
+    monitor_refs = {}
+    samples_by_step = {}
+    for step, row in journal['steps'].items():
+        if step == 'pair-view' or ':proof-' in step:
+            continue
+        if (type(row.get('monitor')) is not str
+                or type(row.get('monitor_sha256')) is not str):
+            raise ValueError(f'pinned bounded monitor reference required for {step}')
+        monitor_refs[step] = {'path': row['monitor'], 'sha256': row['monitor_sha256']}
+        if row.get('monitor_owner') is not None:
+            owner = row['monitor_owner']
+        else:
+            owner = None
+        measured, rss, storage = _outer(monitor_refs[step], owner)
+        if durations[step] + 1e-6 < measured:
+            raise ValueError('journal wall time is below monitor duration')
+        samples_by_step[step] = (rss, storage)
+
+    # The normalized acceptance case must retain the same monitor references
+    # for stage, transition, and application outcomes.
+    explicit = []
+    for slot, request in (('A', 'positive_full'), ('B', 'unrelated_compare'),
+                          ('C', 'own_revocation')):
+        stage = case['stage'][slot]
+        transition = case['transition'][slot]
+        explicit.append((stage.get('monitor'), f'{request}:stage',
+                         stage.get('monitor_owner')))
+        explicit.append((transition.get('monitor'), f'{request}:transition',
+                         transition.get('monitor_owner')))
+    effect_steps = {
+        'full': 'positive_full:execute',
+        'unrelated_full': 'unrelated_compare:unrelated_full:effect',
+        'anchor': 'unrelated_compare:anchor:effect',
+        'own_revocation': 'own_revocation:effect',
+    }
+    for branch, step in effect_steps.items():
+        result = case['branches'][branch]['result']
+        explicit.append((result.get('outer'), step, result.get('monitor_owner')))
+    for ref, step, owner in explicit:
+        if ref is None:
+            raise ValueError('normalized stage/transition/effect monitor reference required')
+        if (ref.get('path') != monitor_refs[step]['path']
+                or ref.get('sha256') != monitor_refs[step]['sha256']):
+            raise ValueError('normalized monitor ref differs from run journal')
+        _outer(ref, owner)
+
+    return samples_by_step
+
+
+def _verify_b_request(report_case, case):
+    branches = report_case.get('branches')
+    if type(branches) is not dict or not BRANCHES.issubset(branches):
+        raise ValueError('independent acceptance report branches required')
+    full = branches['unrelated_full']
+    anchor = branches['anchor']
+    identity_fields = ('action_hash', 'current_root', 'finalized_request_sha256',
+                       'request_account_sha256', 'source_receipt_sha256',
+                       'r1_source_receipt_sha256')
+    if (full.get('request_slot') != 'B' or anchor.get('request_slot') != 'B'
+            or any(full.get(key) is None or full.get(key) != anchor.get(key)
+                   for key in identity_fields)
+            or full.get('effect_count') != 1 or anchor.get('effect_count') != 1
+            or full.get('request_consumed') is not True
+            or anchor.get('request_consumed') is not True):
+        raise ValueError('Full and Anchor must share the same B request identity')
+    full_clone = case['branches']['unrelated_full'].get('r1_clone', {}).get('receipt')
+    anchor_clone = case['branches']['anchor'].get('r1_clone', {}).get('receipt')
+    if (type(full_clone) is not dict or type(anchor_clone) is not dict
+            or full_clone.get('path') == anchor_clone.get('path')
+            or full_clone.get('sha256') == anchor_clone.get('sha256')):
+        raise ValueError('matched B outcomes require separate R1 clone receipts')
+    clone_receipts = []
+    for ref in (full_clone, anchor_clone):
+        receipt = _load_pinned_json(ref, 'R1 clone receipt')
+        if (receipt.get('schema') != 'part5-v3-r1-ledger-clone-v1'
+                or receipt.get('training_only') is not True
+                or receipt.get('source_stable') is not True
+                or receipt.get('copy_identical') is not True
+                or receipt.get('application_effect') is not False
+                or receipt.get('request_unconsumed') not in (None, True)):
+            raise ValueError('verified independent unconsumed R1 clone required')
+        clone_receipts.append(receipt)
+    left, right = clone_receipts
+    if (left.get('source') != right.get('source')
+            or left.get('transition_report_sha256') != right.get('transition_report_sha256')
+            or left.get('destination') == right.get('destination')
+            or left.get('tree_sha256') != right.get('tree_sha256')
+            or left.get('entry_count') != right.get('entry_count')):
+        raise ValueError('matched B outcomes require equal-source distinct R1 clones')
+
+
+def _canonical_manifest_sha256(manifest):
+    raw = (json.dumps(manifest, sort_keys=True, separators=(',', ':'),
+                      allow_nan=False) + '\n').encode()
+    return _sha(raw)
+
+
+def _verify_run_manifest(case):
+    run_manifest, raw_sha = _load_input_ref(case.get('run_manifest'), 'run manifest')
+    variant = case.get('variant')
+    if (run_manifest.get('schema') != RUN_MANIFEST_SCHEMA
+            or type(run_manifest.get('variant')) is not int
+            or run_manifest['variant'] != variant):
+        raise ValueError('pinned per-variant heldout run manifest required')
+    return _canonical_manifest_sha256(run_manifest), raw_sha
+
+
+def _verify_case_identity(report_case, case):
+    context = _load_pinned_json(case.get('case_context'), 'case context')
+    target = context.get('target') if type(context) is dict else None
+    roots = context.get('membership') if type(context) is dict else None
+    if (type(target) is not dict or type(roots) is not dict
+            or target.get('variant') != case.get('variant')
+            or target.get('credential_sha256') != report_case.get('target_credential_sha256')
+            or target.get('tbs_sha256') != report_case.get('target_tbs_sha256')
+            or target.get('issuer_index') != report_case.get('issuer_index')
+            or target.get('holder_index') != report_case.get('holder_index')
+            or report_case.get('roots') != {key: roots.get(key) for key in ('R0', 'R1', 'R2')}):
+        raise ValueError('accepted target identity differs from assembled case context')
+
+    expected = {
+        'full': ('A', 'R0', 'R0'),
+        'unrelated_full': ('B', 'R1', 'R1'),
+        'anchor': ('B', 'R1', 'R1'),
+        'own_revocation': ('C', 'R1', 'R2'),
+    }
+    branches = report_case.get('branches')
+    if type(branches) is not dict or set(branches) != BRANCHES:
+        raise ValueError('accepted branch identities required')
+    for branch, (slot, action_root, result_root) in expected.items():
+        accepted = branches[branch]
+        slot_sources = case.get('sources', {}).get(slot)
+        slot_stage = case.get('stage', {}).get(slot)
+        if (type(accepted) is not dict or type(slot_sources) is not dict
+                or type(slot_stage) is not dict):
+            raise ValueError('assembled source and stage slot identities required')
+        refs = {name: slot_sources.get(name, {}).get('receipt')
+                for name in ('R0', 'R1')}
+        receipts = {name: _load_pinned_json(refs[name], f'{slot} {name} source receipt')
+                    for name in ('R0', 'R1')}
+        request_ref = slot_stage.get('accounts', {}).get('request')
+        request_sha = _sha(_read_ref(request_ref))
+        expected_finalized = receipts[action_root]['finalized_request_sha256']
+        expected_action = receipts['R0']['action_hash']
+        if (accepted.get('request_slot') != slot
+                or accepted.get('source_receipt_sha256') != refs['R0'].get('sha256')
+                or accepted.get('r1_source_receipt_sha256') != refs['R1'].get('sha256')
+                or accepted.get('finalized_request_sha256') != expected_finalized
+                or accepted.get('action_hash') != expected_action
+                or receipts['R1'].get('action_hash') != expected_action
+                or accepted.get('request_account_sha256') != request_sha
+                or accepted.get('current_root') != roots.get(result_root)
+                or any(receipt.get('target_der_sha256') != target.get('credential_sha256')
+                       or receipt.get('target_tbs_sha256') != target.get('tbs_sha256')
+                       for receipt in receipts.values())):
+            raise ValueError(f'accepted {branch} request/source identity differs from assembled case')
+
+
+def _verify_analyzer_frozen_source(manifest):
+    relative = 'tools/part5/analyze_v3_heldout_costs.py'
+    rows = manifest.get('frozen_bundles', {}).get('client')
+    if type(rows) is not list:
+        raise ValueError('frozen client bundle required for cost analyzer provenance')
+    matches = [row for row in rows if type(row) is dict and row.get('path') == relative]
+    source_path = ROOT / relative
+    if len(matches) != 1 or Path(matches[0].get('artifact', {}).get('path', '')) != source_path:
+        raise ValueError('cost analyzer must be a pinned frozen client bundle member')
+    ref = matches[0]['artifact']
+    raw = _read_ref(ref)
+    if raw != _read(source_path):
+        raise ValueError('frozen cost analyzer source differs from live analyzer')
+
+
+def _proof_bundle_seconds(bundle):
+    if type(bundle) is not dict or set(bundle) != {'receipt', 'artifacts'}:
+        raise ValueError('proof receipt bundle required for bounded duration accounting')
+    receipt = _load_pinned_json(bundle['receipt'], 'proof receipt')
+    if receipt.get('schema') != 'credential-v3-heldout-proof-evidence-v1':
+        raise ValueError('heldout proof receipt schema required for timing accounting')
+    reports = receipt.get('supervisor_reports')
+    expected = {'r0-witness', 'r0-relation', 'r1-witness', 'r1-relation',
+                'proof', 'adapter'}
+    if type(reports) is not dict or set(reports) != expected:
+        raise ValueError('complete proof supervisor report set required')
+    total = 0.0
+    sampled = []
+    for name, row in reports.items():
+        if type(row) is not dict or set(row) != {'path', 'sha256', 'limits'}:
+            raise ValueError(f'pinned {name} proof supervisor report required')
+        report = _load_pinned_json({'path': row['path'], 'sha256': row['sha256']},
+                                   f'{name} proof supervisor report')
+        duration = report.get('duration_seconds')
+        if (report.get('schema') != 1 or report.get('passed') is not True
+                or report.get('exit_code') != 0
+                or report.get('censored', False) is not False
+                or type(report.get('sample_count')) is not int
+                or report['sample_count'] <= 0 or not _number(duration)
+                or duration <= 0 or report.get('stop_reason') is not None
+                or report.get('runner_error_type') is not None
+                or report.get('cleanup_remaining_owned_processes') != 0
+                or report.get('cleanup_status_unknown') is not False):
+            raise ValueError(f'completed {name} proof supervisor duration required')
+        rss = report.get('sampled_peak_owned_tree_rss_bytes')
+        storage = report.get('sampled_peak_storage_growth_bytes')
+        if type(rss) is not int or rss < 0 or type(storage) is not int or storage < 0:
+            raise ValueError(f'{name} proof supervisor RSS/storage samples required')
+        total += float(duration)
+        sampled.append((rss, storage))
+    return total, sampled
+
+
+def _verify_proof_durations(case, durations):
+    branch_proofs = case['branches']
+    mappings = (
+        (branch_proofs['full'].get('proof'), 'positive_full:proof-full'),
+        (branch_proofs['unrelated_full'].get('proof', {}).get('full'),
+         'unrelated_compare:proof-full'),
+        (branch_proofs['unrelated_full'].get('proof', {}).get('anchor'),
+         'unrelated_compare:proof-anchor'),
+        (branch_proofs['own_revocation'].get('proof'), 'own_revocation:proof-anchor'),
+    )
+    sampled = {}
+    for bundle, step in mappings:
+        if bundle is None:
+            raise ValueError('proof receipt required for bounded duration accounting')
+        total, proof_samples = _proof_bundle_seconds(bundle)
+        if total > durations[step] + 1e-6:
+            raise ValueError('journal proof wall time is below bounded supervisor durations')
+        sampled[step] = proof_samples
+    b_anchor = branch_proofs['anchor'].get('proof')
+    full_anchor = branch_proofs['unrelated_full'].get('proof', {}).get('anchor')
+    if (type(b_anchor) is not dict or type(full_anchor) is not dict
+            or b_anchor.get('receipt') != full_anchor.get('receipt')):
+        raise ValueError('B Anchor timing must use the proof shared by both outcomes')
+    return sampled
+
+
+def _summary(rows, field):
+    values = [row[field] for row in rows]
+    return {'median': median(values), 'min': min(values), 'max': max(values),
+            'spread': max(values) - min(values), 'n': len(values)}
+
+
+def _sampled_peak(samples):
+    if not samples:
+        raise ValueError('sampled resource observations required for each B mode')
+    return {
+        'monitor_report_count': len(samples),
+        'sampled_peak_owned_tree_rss_bytes': max(row[0] for row in samples),
+        'sampled_peak_storage_growth_bytes': max(row[1] for row in samples),
+    }
+
+
+def analyze(manifest_ref, acceptance_ref):
+    manifest, manifest_sha = _load_input_ref(manifest_ref, 'assembled manifest')
+    acceptance, acceptance_sha = _load_input_ref(acceptance_ref, 'acceptance report')
+    if manifest.get('schema') != MANIFEST_SCHEMA:
+        raise ValueError('assembled heldout acceptance manifest required')
+    if (acceptance.get('schema') != ACCEPTANCE_SCHEMA
+            or acceptance.get('verified') is not True
+            or acceptance.get('heldout_acceptance') is not True
+            or acceptance.get('internal_training_mode_reused') is not True):
+        raise ValueError('independent verified heldout acceptance receipt required')
+    if acceptance.get('manifest_sha256') != manifest_sha:
+        raise ValueError('acceptance report does not pin the exact assembled manifest')
+    _verify_analyzer_frozen_source(manifest)
+    freeze_ref, cohort_ref = manifest.get('freeze_receipt'), manifest.get('cohort_receipt')
+    if (type(freeze_ref) is not dict or type(cohort_ref) is not dict
+            or acceptance.get('freeze_sha256') != freeze_ref.get('sha256')
+            or acceptance.get('cohort_receipt_sha256') != cohort_ref.get('sha256')):
+        raise ValueError('manifest and independent acceptance pins differ')
+    cases = manifest.get('cases')
+    accepted_cases = acceptance.get('cases')
+    if (type(cases) is not list or len(cases) != 8
+            or type(accepted_cases) is not list or len(accepted_cases) != 8
+            or acceptance.get('counts', {}).get('variants') != 8):
+        raise ValueError('eight verified heldout cases required')
+    by_variant = {}
+    for row in accepted_cases:
+        variant = row.get('variant') if type(row) is dict else None
+        if type(variant) is not int or variant not in VARIANTS or variant in by_variant:
+            raise ValueError('unique independent acceptance variants 0 through 7 required')
+        by_variant[variant] = row
+    if set(by_variant) != VARIANTS:
+        raise ValueError('independent acceptance report must cover variants 0 through 7')
+
+    output_rows = []
+    sampled = []
+    for case in cases:
+        if type(case) is not dict:
+            raise ValueError('assembled heldout case object required')
+        variant = case.get('variant')
+        if type(variant) is not int or variant not in VARIANTS:
+            raise ValueError('assembled variant 0 through 7 required')
+        report_case = by_variant[variant]
+        if (report_case.get('target_tbs_sha256') is None
+                or case.get('variant') != report_case.get('variant')):
+            raise ValueError('assembled and accepted case identity mismatch')
+        run_manifest_sha, _ = _verify_run_manifest(case)
+        journal, _ = _load_input_ref(case.get('run_journal'), 'run journal')
+        durations = _duration_map(journal, run_manifest_sha)
+        _check_order(case, variant)
+        _check_summary(case, journal, durations)
+        _verify_case_identity(report_case, case)
+        _verify_b_request(report_case, case)
+        proof_samples = _verify_proof_durations(case, durations)
+        monitor_samples = _verify_monitor_durations(case, journal, durations)
+        for observations in proof_samples.values():
+            sampled.extend(observations)
+        sampled.extend(monitor_samples.values())
+
+        shared = sum(durations[f'unrelated_compare:{name}'] for name in
+                     ('prepare', 'stage', 'transition', 'source-R0', 'source-R1'))
+        full = shared + sum(durations[name] for name in
+            ('unrelated_compare:proof-full',
+             'unrelated_compare:unrelated_full:clone',
+             'unrelated_compare:unrelated_full:effect'))
+        anchor = shared + sum(durations[name] for name in
+            ('unrelated_compare:proof-anchor',
+             'unrelated_compare:anchor:clone',
+             'unrelated_compare:anchor:effect'))
+        pair_view = durations['pair-view']
+        shared_b_steps = [f'unrelated_compare:{suffix}' for suffix in
+                          ('prepare', 'stage', 'transition', 'source-R0', 'source-R1')]
+        full_b_steps = shared_b_steps + ['unrelated_compare:unrelated_full:clone',
+                                         'unrelated_compare:unrelated_full:effect']
+        anchor_b_steps = shared_b_steps + ['unrelated_compare:anchor:clone',
+                                           'unrelated_compare:anchor:effect']
+        full_samples = [monitor_samples[step] for step in shared_b_steps]
+        full_samples.extend(proof_samples['unrelated_compare:proof-full'])
+        full_samples.extend(monitor_samples[step] for step in full_b_steps[5:])
+        anchor_samples = [monitor_samples[step] for step in shared_b_steps]
+        anchor_samples.extend(proof_samples['unrelated_compare:proof-anchor'])
+        anchor_samples.extend(monitor_samples[step] for step in anchor_b_steps[5:])
+        output_rows.append({
+            'variant': variant,
+            'pair_view_one_time_seconds': pair_view,
+            'shared_B_seconds': shared,
+            'full_B_branch_only_seconds': full - shared,
+            'anchor_B_branch_only_seconds': anchor - shared,
+            'full_B_seconds': full,
+            'anchor_B_seconds': anchor,
+            'anchor_minus_full_B_seconds': anchor - full,
+            'B_sampled_resources': {
+                'full': _sampled_peak(full_samples),
+                'anchor': _sampled_peak(anchor_samples),
+            },
+            'action_hash': report_case['branches']['anchor']['action_hash'],
+            'current_root': report_case['branches']['anchor']['current_root'],
+        })
+    if {row['variant'] for row in output_rows} != VARIANTS:
+        raise ValueError('assembled manifest must cover variants 0 through 7')
+    output_rows.sort(key=lambda row: row['variant'])
+    summary = {field: _summary(output_rows, field) for field in
+               ('shared_B_seconds', 'full_B_seconds', 'anchor_B_seconds',
+                'anchor_minus_full_B_seconds', 'pair_view_one_time_seconds')}
+    rss_values = [row[0] for row in sampled]
+    storage_values = [row[1] for row in sampled]
+    return {
+        'schema': OUTPUT_SCHEMA,
+        'assembled_manifest_sha256': manifest_sha,
+        'acceptance_report_sha256': acceptance_sha,
+        'basis': 'request-B preparation, stage, transition, source, proof, clone, and effect wall time',
+        'shared_B_formula': 'B:prepare+B:stage+B:transition+B:source-R0+B:source-R1',
+        'full_B_formula': 'shared_B+B:proof-full+B:unrelated_full:clone+B:unrelated_full:effect',
+        'anchor_B_formula': 'shared_B+B:proof-anchor+B:anchor:clone+B:anchor:effect',
+        'pair_view_accounting': 'reported separately once per case and excluded from both B totals',
+        'spread_definition': 'maximum minus minimum across the eight heldout variants',
+        'pairs': output_rows,
+        'summary': summary,
+        'resource_observations': {
+            'monitor_report_count': len(sampled),
+            'sampled_peak_owned_tree_rss_bytes_max': max(rss_values) if sampled else None,
+            'sampled_peak_storage_growth_bytes_max': max(storage_values) if sampled else None,
+            'caveat': ('Supervisor samples are discrete RSS/storage observations from available '
+                       'bounded monitors; they are not continuous maxima or complete resource '
+                       'accounting.'),
+        },
+        'claims': {'cpu_savings': False, 'whole_application_benefit': False},
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--manifest', required=True, help='assembled manifest PATH:SHA256')
+    parser.add_argument('--acceptance-report', required=True,
+                        help='independent verifier report PATH:SHA256')
+    parser.add_argument('--output', required=True, type=Path)
+    args = parser.parse_args()
+    try:
+        def parse_ref(value):
+            path, separator, pin = value.rpartition(':')
+            if not separator or HEX64.fullmatch(pin) is None:
+                raise ValueError('input must be PATH:SHA256')
+            return {'path': path, 'sha256': pin}
+        result = analyze(parse_ref(args.manifest), parse_ref(args.acceptance_report))
+        raw = (json.dumps(result, sort_keys=True, indent=2, allow_nan=False) + '\n').encode()
+        output = args.output
+        if (not output.is_absolute() or output.exists() or output.is_symlink()
+                or output.parent.resolve(strict=True) != output.parent):
+            raise ValueError('fresh absolute output path required')
+        fd = os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, 'wb') as stream:
+            stream.write(raw)
+            stream.flush()
+            os.fsync(stream.fileno())
+    except Exception:
+        raise SystemExit('heldout cost analysis rejected') from None
+    print(json.dumps({'path': str(output), 'sha256': _sha(raw),
+                      'pairs': len(result['pairs'])}, sort_keys=True))
+
+
+if __name__ == '__main__':
+    main()

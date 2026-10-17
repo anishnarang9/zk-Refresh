@@ -66,6 +66,20 @@ def encoded(value):
                        allow_nan=False) + '\n').encode()
 
 
+def run_manifest_identity(path, raw, manifest):
+    """Pin the exact run-config file and its canonical journal identity."""
+    path = Path(path)
+    if not path.is_absolute() or path.resolve(strict=True) != path:
+        raise ValueError('canonical absolute run manifest path required')
+    try:
+        loaded = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError('valid run manifest JSON required') from error
+    if loaded != manifest:
+        raise ValueError('run manifest bytes differ from loaded configuration')
+    return ({'path': str(path), 'sha256': digest(raw)}, digest(encoded(manifest)))
+
+
 def _hash(value):
     return (type(value) is str and len(value) == 64
             and all(c in HEX for c in value))
@@ -113,13 +127,16 @@ def reviewed_r1_branch(outer, status, report, mode):
         and reviewed_runner_exit(status.get('runner_cleanup')))
 
 
-def _read(path, expected=None, cap=16 * 1024 * 1024):
+def _read(path, expected=None, cap=16 * 1024 * 1024, *, executable=False):
     path = Path(path)
     before = path.lstat()
     if (not path.is_absolute() or path.resolve(strict=True) != path
             or not stat.S_ISREG(before.st_mode) or before.st_uid != os.getuid()
-            or before.st_size <= 0 or before.st_size > cap):
-        raise ValueError('canonical bounded owner-controlled input required')
+            or before.st_size <= 0 or before.st_size > cap
+            or (executable and not before.st_mode & stat.S_IXUSR)):
+        message = ('canonical bounded owner-controlled executable required'
+                   if executable else 'canonical bounded owner-controlled input required')
+        raise ValueError(message)
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(fd, 'rb') as stream:
         opened = os.fstat(stream.fileno())
@@ -322,9 +339,7 @@ def validate_manifest(manifest):
     if set(base) != prepare_keys:
         raise ValueError('local prepare template has unexpected configuration fields')
     runner = Path(manifest['runner'])
-    if runner != REPO / 'results/dynark/part5/session_runner.py':
-        raise ValueError('bounded application runner must use the frozen session runner')
-    _read(runner, manifest['runner_sha256'], 128 * 1024 * 1024)
+    _read(runner, manifest['runner_sha256'], 128 * 1024 * 1024, executable=True)
     roles = manifest.get('frozen_files')
     identities = freeze_doc.get('identities')
     if type(roles) is not dict or type(identities) is not dict:
@@ -554,8 +569,17 @@ class RunJournal:
 
 class HeldoutCaseRunner:
     """Per-certificate driver; job injection exists only for focused unit tests."""
-    def __init__(self, manifest, output_root, *, bounded_run=None):
+    def __init__(self, manifest, output_root, *, run_manifest_ref,
+                 manifest_sha256, bounded_run=None):
         self.manifest = manifest
+        if (type(run_manifest_ref) is not dict
+                or set(run_manifest_ref) != {'path', 'sha256'}
+                or not Path(run_manifest_ref['path']).is_absolute()
+                or not _hash(run_manifest_ref['sha256'])
+                or manifest_sha256 != digest(encoded(manifest))):
+            raise ValueError('pinned run manifest identity required')
+        self.run_manifest_ref = run_manifest_ref
+        self.manifest_sha256 = manifest_sha256
         self.base_prepare, self.cohort_doc, self.freeze_doc = validate_manifest(manifest)
         output_root = Path(output_root)
         fresh_root = not output_root.exists()
@@ -585,7 +609,7 @@ class HeldoutCaseRunner:
         self.run_id = run_id
         self.bounded_run = bounded_run or self._bounded_run
         self.journal = RunJournal(journal_path,
-                                  digest(encoded(manifest)))
+                                  self.manifest_sha256)
         self._active_job = False
         self.toolpaths = {
             'prepare': REPO / 'harness/tests/queue_v3_local_prepare.py',
@@ -1384,6 +1408,7 @@ class HeldoutCaseRunner:
             all_wall_times = all_step_wall_seconds(journal_doc)
             fragment = {'schema': 'credential-v3-heldout-acceptance-case-fragment-v1',
                 'variant': self.variant,
+                'run_manifest': self.run_manifest_ref,
                 'case_context': self._artifact(case_context / 'case-context.json'),
                 'stage_context': self._artifact(case_context / 'stage-context.json'),
                 'pair_receipt': self._artifact(case_context / 'cohort-receipt.json'),
@@ -1405,6 +1430,8 @@ class HeldoutCaseRunner:
                 'frozen_bundles': self.manifest['frozen_bundles'],
                 'application_source_manifest': self.manifest['application_source_manifest'],
                 'application_source_files': self.manifest['application_source_files']}
+            if journal_doc.get('manifest_sha256') != self.manifest_sha256:
+                raise ValueError('run journal identity differs from pinned run manifest')
             fragment_path = self.output_root / 'acceptance-case-fragment.json'
             if fragment_path.exists():
                 if json.loads(_read(fragment_path)) != fragment:
@@ -1423,7 +1450,11 @@ def main():
     try:
         manifest_raw = _read(args.manifest, cap=1024 * 1024)
         manifest = json.loads(manifest_raw)
-        result = HeldoutCaseRunner(manifest, args.output_root).run()
+        run_manifest_ref, manifest_sha256 = run_manifest_identity(
+            args.manifest, manifest_raw, manifest)
+        result = HeldoutCaseRunner(manifest, args.output_root,
+            run_manifest_ref=run_manifest_ref,
+            manifest_sha256=manifest_sha256).run()
     except Exception as error:
         raise SystemExit(f'heldout application case rejected: {type(error).__name__}: {str(error)[:180]}') from None
     print(json.dumps({'schema': RUN_SCHEMA, 'variant': manifest['variant'],

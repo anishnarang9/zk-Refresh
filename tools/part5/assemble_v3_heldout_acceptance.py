@@ -7,6 +7,7 @@ or validator and never copies artifact contents into the manifest.
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import stat
@@ -32,7 +33,12 @@ GLOBAL_FIELDS = ('freeze_receipt', 'cohort_receipt', 'frozen_files',
                  'frozen_bundles', 'application_source_manifest',
                  'application_source_files', 'source_files', 'proof_inputs')
 CASE_FIELDS = ('variant', 'case_context', 'stage_context', 'pair_receipt',
-               'membership', 'stage', 'transition', 'sources', 'branches')
+               'membership', 'stage', 'transition', 'sources', 'branches',
+               'run_manifest', 'run_journal', 'all_step_wall_seconds', 'shared_costs',
+               'branch_wall_components', 'branch_wall_seconds',
+               'shared_stage_transition_wall_seconds', 'branch_order',
+               'proof_order')
+COST_BRANCHES = {'full', 'unrelated_full', 'anchor', 'own_revocation'}
 
 
 def _sha(raw):
@@ -98,6 +104,54 @@ def _verify_ref(ref, *, cap=512 * 1024 * 1024):
         raise ValueError('artifact reference pin mismatch')
 
 
+def _finite_cost(value):
+    return (type(value) in (int, float) and math.isfinite(value)
+            and value >= 0)
+
+
+def _validate_cost_fields(case):
+    _verify_ref(case['run_manifest'], cap=1024 * 1024)
+    _verify_ref(case['run_journal'], cap=4 * 1024 * 1024)
+    steps = case['all_step_wall_seconds']
+    if (type(steps) is not dict or not steps
+            or any(type(name) is not str or not name or not _finite_cost(value)
+                   for name, value in steps.items())):
+        raise ValueError('complete finite journal wall-time map required')
+    shared = case['shared_costs']
+    if (type(shared) is not dict
+            or set(shared) != {'shared_stage_seconds', 'shared_transition_seconds'}
+            or any(not _finite_cost(value) for value in shared.values())):
+        raise ValueError('complete shared stage/transition cost totals required')
+    components = case['branch_wall_components']
+    if type(components) is not dict or set(components) != COST_BRANCHES:
+        raise ValueError('complete four-branch wall-time components required')
+    for name, row in components.items():
+        if (type(row) is not dict
+                or set(row) != {'proof_seconds', 'clone_seconds', 'effect_seconds',
+                                'total_seconds'}
+                or any(not _finite_cost(value) for value in row.values())):
+            raise ValueError(f'complete finite {name} wall-time components required')
+    totals = case['branch_wall_seconds']
+    if (type(totals) is not dict or set(totals) != COST_BRANCHES
+            or any(not _finite_cost(value) for value in totals.values())):
+        raise ValueError('complete four-branch wall-time totals required')
+    shared_parts = case['shared_stage_transition_wall_seconds']
+    if (type(shared_parts) is not dict or set(shared_parts) != {'stage', 'transition'}
+            or any(type(shared_parts[kind]) is not dict
+                   or set(shared_parts[kind]) != {'A', 'B', 'C'}
+                   or any(not _finite_cost(value)
+                          for value in shared_parts[kind].values())
+                   for kind in ('stage', 'transition'))):
+        raise ValueError('complete A/B/C stage and transition wall times required')
+    expected_branch_order = (['unrelated_full', 'anchor'] if case['variant'] % 2 == 0
+                             else ['anchor', 'unrelated_full'])
+    expected_proof_order = (['full', 'anchor'] if case['variant'] % 2 == 0
+                            else ['anchor', 'full'])
+    if (case['branch_order'] != expected_branch_order
+            or case['proof_order'] != {'unrelated_compare': expected_proof_order}):
+        raise ValueError('registered branch/proof order parity required')
+
+
 def _verify_globals(globals_):
     if type(globals_) is not dict or set(globals_) != set(GLOBAL_FIELDS):
         raise ValueError('complete common acceptance identities required')
@@ -152,6 +206,7 @@ def _case_from_fragment(fragment):
     if type(case['branches']) is not dict or set(case['branches']) != {
             'full', 'unrelated_full', 'anchor', 'own_revocation'}:
         raise ValueError('all four heldout branch references required')
+    _validate_cost_fields(case)
     return case
 
 
@@ -179,9 +234,9 @@ def assemble(fragment_refs):
             current = {name: fragment.get(name) for name in GLOBAL_FIELDS}
         if _canonical(current) != _canonical(globals_):
             raise ValueError('case fragments disagree on byte-pinned common identities')
-        case = _case_from_fragment(fragment)
-        if case['variant'] in seen:
+        if fragment['variant'] in seen:
             raise ValueError('duplicate heldout variant')
+        case = _case_from_fragment(fragment)
         seen.add(case['variant'])
         cases.append(case)
     if seen != VARIANTS:

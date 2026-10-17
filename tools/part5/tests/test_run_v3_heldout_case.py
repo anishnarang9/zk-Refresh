@@ -38,6 +38,39 @@ def test_application_artifact_names_are_stable_per_run_and_fresh_between_runs():
     assert one.startswith('application-v3-heldout-03-')
 
 
+def test_run_manifest_reference_pins_file_and_matches_journal_identity(tmp_path):
+    manifest = {'schema': runner.RUN_SCHEMA, 'variant': 3}
+    raw = (json.dumps(manifest, sort_keys=True, indent=2) + '\n').encode()
+    path = tmp_path / 'case-03.json'
+    path.write_bytes(raw)
+
+    reference, manifest_sha256 = runner.run_manifest_identity(path, raw, manifest)
+
+    assert reference == {'path': str(path), 'sha256': hashlib.sha256(raw).hexdigest()}
+    assert manifest_sha256 == hashlib.sha256(runner.encoded(manifest)).hexdigest()
+    assert manifest_sha256 != reference['sha256']
+
+
+def test_runner_role_requires_python_executable_not_supervisor_script(tmp_path):
+    python = tmp_path / 'python3'
+    python_raw = f'#!{sys.executable}\npass\n'.encode()
+    python.write_bytes(python_raw)
+    python.chmod(0o700)
+
+    session_runner = REPO / 'results/dynark/part5/session_runner.py'
+    session_runner_raw = session_runner.read_bytes()
+
+    assert runner._read(python, hashlib.sha256(python_raw).hexdigest(),
+                        executable=True) == python_raw
+    try:
+        runner._read(session_runner, hashlib.sha256(session_runner_raw).hexdigest(),
+                     executable=True)
+    except ValueError as error:
+        assert 'executable' in str(error)
+    else:
+        raise AssertionError('session_runner.py must not satisfy the Python executable role')
+
+
 def test_journal_records_one_running_step_and_resumes_only_matching_pins(tmp_path):
     journal = runner.RunJournal(tmp_path / 'journal.json', manifest_sha256='a' * 64)
     with journal:
@@ -216,6 +249,12 @@ def test_case_fragment_shape_matches_assembler_and_verifier_contracts(tmp_path):
     journal_path = tmp_path / 'run-journal.json'
     journal_raw = b'{"schema":"fixture"}\n'
     journal_path.write_bytes(journal_raw)
+    run_manifest = {'schema': runner.RUN_SCHEMA, 'variant': 0}
+    run_manifest_raw = (json.dumps(run_manifest, sort_keys=True, indent=2) + '\n').encode()
+    run_manifest_path = tmp_path / 'case-00.json'
+    run_manifest_path.write_bytes(run_manifest_raw)
+    run_manifest_ref, _ = runner.run_manifest_identity(
+        run_manifest_path, run_manifest_raw, run_manifest)
     branches = ('full', 'unrelated_full', 'anchor', 'own_revocation')
     branch_components = {name: {'proof_seconds': 0.0, 'clone_seconds': 0.0,
                                 'effect_seconds': 0.0, 'total_seconds': 0.0}
@@ -226,6 +265,7 @@ def test_case_fragment_shape_matches_assembler_and_verifier_contracts(tmp_path):
         'pair_receipt': {'path': '/unused/pair.json', 'sha256': 'c' * 64},
         'membership': {'path': '/unused/membership.json', 'sha256': 'd' * 64},
         **slots, 'branches': emitted_branches,
+        'run_manifest': run_manifest_ref,
         'run_journal': {'path': str(journal_path),
                         'sha256': hashlib.sha256(journal_raw).hexdigest()},
         'all_step_wall_seconds': {'prepare': 1.0},
