@@ -326,11 +326,16 @@ fn execute(args: &[String]) -> Result<()> {
     required(
         matches!(
             mode,
-            "full-corpus" | "anchor-pilot" | "anchor-corpus" | "anchor-request-bound"
+            "full-corpus"
+                | "full-request-bound"
+                | "anchor-pilot"
+                | "anchor-corpus"
+                | "anchor-request-bound"
         ),
         "proof-only explicit mode",
     )?;
-    let request_bound = mode == "anchor-request-bound";
+    let full_request_bound = mode == "full-request-bound";
+    let request_bound = mode == "anchor-request-bound" || full_request_bound;
     required(
         args.len()
             == if mode == "full-corpus" || request_bound {
@@ -388,14 +393,14 @@ fn execute(args: &[String]) -> Result<()> {
     let mut rng = OsRng;
     let mut binding_negatives = 0;
     let mut material_ms = 0.0;
-    if mode == "full-corpus" {
+    if mode == "full-corpus" || full_request_bound {
         for pair in cases {
             let t = Instant::now();
             let name = text(pair, "name")?;
             case_event(out, name, "full_credential_started", all)?;
             let base = read_case(&pair["base"], &map, &package, owner, request_bound)?;
             let near = read_case(&pair["near"], &map, &package, owner, request_bound)?;
-            admit_root_only(&base.context, &near.context)?;
+            admit_pair(&base.context, &near.context, request_bound)?;
             root_only_inputs(&base.flat, &near.flat)?;
             let before = dynark_bn254::prove(
                 &package,
@@ -550,7 +555,7 @@ fn execute(args: &[String]) -> Result<()> {
             case_event(out, name, "one_private_anchor_credential_complete", case_t)?;
         }
     }
-    let expected = if mode == "full-corpus" {
+    let expected = if mode == "full-corpus" || full_request_bound {
         Counts::full(cases.len() as u64)
     } else if request_bound {
         Counts {
@@ -577,11 +582,15 @@ fn execute(args: &[String]) -> Result<()> {
         "proof_package_lock_sha256":hex(&Sha256::digest(include_bytes!("../Cargo.lock"))),
         "ordinary_vk_file_sha256":ORDINARY_VK_FILE_SHA,"public_inputs":PUBLIC_FIELDS,"counts":counts.json(),
         "preflights":preflights,"cases":rows,"local_context_rejections":local_negatives,"engine_binding_rejections":binding_negatives,
-        "public_package_loads":1,"public_material_preparations":usize::from(mode!="full-corpus"),"public_material_prepare_ms":material_ms,
+        "public_package_loads":1,"public_material_preparations":usize::from(mode!="full-corpus" && !full_request_bound),"public_material_prepare_ms":material_ms,
         "total_paid_session_ms":all.elapsed().as_secs_f64()*1000.0,"setup_executed":false,"private_cache_persisted":false,
         "incremental_witness_enabled":false,"application_verified":false,"admitted":false});
     if request_bound {
-        report["schema"] = json!("credential-v3-request-bound-anchor-proof-v1");
+        report["schema"] = json!(if full_request_bound {
+            "credential-v3-request-bound-full-proof-v1"
+        } else {
+            "credential-v3-request-bound-anchor-proof-v1"
+        });
         report["application_stage_pins"] = packet["application_stage"].clone();
         report["application_stage_pins_authority"] =
             json!("caller-supplied; external finalized-state verification required");
