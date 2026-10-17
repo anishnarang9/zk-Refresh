@@ -2,6 +2,7 @@ import importlib.util
 import signal
 import base64
 import contextlib
+import hashlib
 import io
 import json
 import os
@@ -17,6 +18,47 @@ if Path(spec.origin).exists():
 
 
 class ExecuteTests(unittest.TestCase):
+    def test_heldout_full_accepts_only_pinned_identical_r0_clone(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            runtime = root / 'runtime'
+            source = runtime / 'ledger'
+            clone = root / 'clone' / 'ledger'
+            for path in (runtime, source, clone.parent, clone):
+                path.mkdir(mode=0o700)
+            for path in (source / 'genesis.bin', clone / 'genesis.bin'):
+                path.write_bytes(b'genesis')
+                path.chmod(0o600)
+            rows = m.ledger_inventory(clone)
+            report = {'schema': 'part5-v3-heldout-r0-ledger-clone-v1',
+                      'heldout_acceptance': False,
+                      'stage_report_sha256': 'a' * 64,
+                      'stage_status_sha256': 'b' * 64,
+                      'stage_monitor_sha256': 'c' * 64,
+                      'source': str(source), 'destination': str(clone),
+                      'entry_count': len(rows),
+                      'tree_sha256': hashlib.sha256(json.dumps(rows, separators=(',', ':')).encode()).hexdigest(),
+                      'source_stable': True, 'copy_identical': True,
+                      'loaded_identity_rechecked_after_restart': False,
+                      'application_effect': False}
+            report_path = clone.parent / 'clone-report.json'
+            report_path.write_text(json.dumps(report))
+            report_path.chmod(0o600)
+            config = {'ledger': str(clone), 'stage_report_sha256': 'a' * 64,
+                      'prior_stage_status_sha256': 'b' * 64,
+                      'prior_stage_monitor_sha256': 'c' * 64,
+                      'heldout_r0_clone_report': str(report_path),
+                      'heldout_r0_clone_report_sha256': hashlib.sha256(report_path.read_bytes()).hexdigest()}
+            prior = {'ledger': str(source)}
+            original = {'runtime_output': str(runtime)}
+            self.assertEqual(m.review_ledger(config, prior, original), clone)
+            self.assertEqual(m.review_ledger({'ledger': str(source)}, prior, original), source)
+            (clone / 'genesis.bin').write_bytes(b'changed')
+            with self.assertRaisesRegex(ValueError, 'R0 clone'):
+                m.review_ledger(config, prior, original)
+            with self.assertRaises(ValueError):
+                m.review_ledger({'ledger': str(clone)}, prior, original)
+
     def test_validator_startup_retries_only_rpc_readiness_envelopes(self):
         calls = []
         def delayed(*args, **kwargs):

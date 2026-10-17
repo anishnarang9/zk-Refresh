@@ -5,7 +5,9 @@ The external bounded runner owns whole-tree resource limits and cleanup. Finaliz
 application evidence and graceful persistent-ledger shutdown are separate facts.
 """
 import argparse
+import hashlib
 import importlib.util
+import json
 import os
 from pathlib import Path
 import signal
@@ -14,11 +16,15 @@ import subprocess
 import sys
 import time
 
+REPO = Path(__file__).resolve().parents[2]
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+from harness.tests.queue_v3_clone_ledger import inventory as ledger_inventory
+
 _spec = importlib.util.spec_from_file_location('v3_stage', Path(__file__).with_name('queue_v3_local_stage.py'))
 stage = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(stage)
 base = stage.base
-REPO = Path(__file__).resolve().parents[2]
 LIMITS = {'runtime_seconds': 180, 'rss_bytes': 4294967296, 'storage_growth_bytes': 268435456}
 IDENTITY_FIELDS = ('program', 'programdata', 'elf_sha256', 'program_account_sha256',
                    'programdata_account_sha256', 'genesis')
@@ -158,6 +164,40 @@ def check_effect_bytes(before, after, report):
         raise ValueError('effect must only consume request and append it once')
 
 
+def review_ledger(config, prior_config, original):
+    source = Path(prior_config['ledger'])
+    if source != Path(original['runtime_output']) / 'ledger':
+        raise ValueError('original persistent ledger required')
+    ledger = private_directory(config['ledger'])
+    clone_path = config.get('heldout_r0_clone_report')
+    if clone_path is None:
+        if ledger != source or 'heldout_r0_clone_report_sha256' in config:
+            raise ValueError('original persistent ledger required')
+    else:
+        if (Path(clone_path) != ledger.parent / 'clone-report.json'
+                or ledger == source or source in ledger.parents
+                or ledger in source.parents):
+            raise ValueError('separate R0 clone receipt required')
+        clone = pinned_json(clone_path, config['heldout_r0_clone_report_sha256'])
+        expected = {'schema': 'part5-v3-heldout-r0-ledger-clone-v1',
+                    'heldout_acceptance': False,
+                    'stage_report_sha256': config['stage_report_sha256'],
+                    'stage_status_sha256': config['prior_stage_status_sha256'],
+                    'stage_monitor_sha256': config['prior_stage_monitor_sha256'],
+                    'source': str(source), 'destination': str(ledger),
+                    'source_stable': True, 'copy_identical': True,
+                    'loaded_identity_rechecked_after_restart': False,
+                    'application_effect': False}
+        if any(clone.get(key) != value for key, value in expected.items()):
+            raise ValueError('pinned heldout R0 clone receipt required')
+        rows = ledger_inventory(ledger)
+        tree_sha = hashlib.sha256(json.dumps(rows, separators=(',', ':')).encode()).hexdigest()
+        if clone.get('entry_count') != len(rows) or clone.get('tree_sha256') != tree_sha:
+            raise ValueError('R0 clone byte inventory changed')
+    stage.snapshot_generated(ledger / 'genesis.bin', 16 * 1024 * 1024)
+    return ledger
+
+
 def admit(config):
     if (config.get('schema') != 1 or config.get('scope') != 'part5-v3-local-execute'
             or config.get('outer_limits_required') != LIMITS):
@@ -202,10 +242,7 @@ def admit(config):
         if not data or digest != expected:
             raise ValueError('staged account artifact identity changed')
         sizes.append(len(data))
-    ledger = private_directory(config['ledger'])
-    if str(ledger) != prior_config['ledger'] or ledger != Path(original['runtime_output']) / 'ledger':
-        raise ValueError('original persistent ledger required')
-    stage.snapshot_generated(ledger / 'genesis.bin', 16 * 1024 * 1024)
+    review_ledger(config, prior_config, original)
     output = base.fresh_child(config['execute_output'], REPO / 'artifacts/dynark/part5')
     control = base.fresh_child(config['control_output'], REPO / 'artifacts/dynark/part5')
     stage.validate_stage_paths(output, control, REPO / 'artifacts/dynark/part5')
