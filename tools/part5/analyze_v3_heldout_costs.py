@@ -431,12 +431,49 @@ def _verify_analyzer_frozen_source(manifest):
         raise ValueError('frozen cost analyzer source differs from live analyzer')
 
 
+def _load_proof_report(bundle):
+    if type(bundle) is not dict or set(bundle) != {'receipt', 'artifacts'}:
+        raise ValueError('proof receipt bundle required for pinned proof report')
+    receipt = _load_pinned_json(bundle['receipt'], 'proof receipt')
+    if receipt.get('schema') != 'credential-v3-heldout-proof-evidence-v1':
+        raise ValueError('heldout proof receipt schema required for pinned proof report')
+    mode = receipt.get('mode')
+    expected_mode = {'full': 'matched-full-k1', 'anchor': 'matched-anchor-k1'}.get(mode)
+    report_ref = receipt.get('proof_report')
+    if (expected_mode is None or receipt.get('proof_mode') != expected_mode
+            or type(report_ref) is not dict):
+        raise ValueError('proof receipt mode and report reference required')
+    report = _load_pinned_json(report_ref, 'proof report')
+    if (report.get('schema') != 'credential-v3-matched-k1-proof-v1'
+            or report.get('passed') is not True
+            or report.get('mode') != expected_mode):
+        raise ValueError('pinned proof report mode/schema mismatch')
+    return receipt, report
+
+
+def _anchor_preparation_seconds(bundle):
+    receipt, report = _load_proof_report(bundle)
+    if receipt.get('mode') != 'anchor' or report.get('mode') != 'matched-anchor-k1':
+        raise ValueError('Anchor proof report must use matched-anchor-k1 mode')
+    public_ms = report.get('public_material_prepare_ms')
+    cases = report.get('cases')
+    if (not _number(public_ms) or type(cases) is not list or len(cases) != 1
+            or type(cases[0]) is not dict
+            or not _number(cases[0].get('private_anchor_prepare_ms'))):
+        raise ValueError('Anchor proof report must contain finite nonnegative preparation times')
+    public_seconds = float(public_ms) / 1000.0
+    private_seconds = float(cases[0]['private_anchor_prepare_ms']) / 1000.0
+    return {
+        'public_material_prepare': public_seconds,
+        'private_anchor_prepare': private_seconds,
+        'total': public_seconds + private_seconds,
+    }
+
+
 def _proof_bundle_seconds(bundle):
     if type(bundle) is not dict or set(bundle) != {'receipt', 'artifacts'}:
         raise ValueError('proof receipt bundle required for bounded duration accounting')
-    receipt = _load_pinned_json(bundle['receipt'], 'proof receipt')
-    if receipt.get('schema') != 'credential-v3-heldout-proof-evidence-v1':
-        raise ValueError('heldout proof receipt schema required for timing accounting')
+    receipt, _ = _load_proof_report(bundle)
     reports = receipt.get('supervisor_reports')
     expected = {'r0-witness', 'r0-relation', 'r1-witness', 'r1-relation',
                 'proof', 'adapter'}
@@ -573,6 +610,11 @@ def analyze(manifest_ref, acceptance_ref):
         _verify_b_request(report_case, case)
         proof_samples = _verify_proof_durations(case, journal, durations)
         monitor_samples = _verify_monitor_durations(case, journal, durations)
+        anchor_preparation = {
+            'B': _anchor_preparation_seconds(case['branches']['anchor'].get('proof')),
+            'C': _anchor_preparation_seconds(
+                case['branches']['own_revocation'].get('proof')),
+        }
         for observations in proof_samples.values():
             sampled.extend(observations)
         sampled.extend(monitor_samples.values())
@@ -616,6 +658,7 @@ def analyze(manifest_ref, acceptance_ref):
             'B_total_wall_savings_fraction': (full - anchor) / full,
             'B_plus_pair_view_wall_savings_fraction': (
                 full - anchor) / (full + pair_view),
+            'anchor_preparation_seconds': anchor_preparation,
             'B_sampled_resources': {
                 'full': _sampled_peak(full_samples),
                 'anchor': _sampled_peak(anchor_samples),
@@ -632,6 +675,15 @@ def analyze(manifest_ref, acceptance_ref):
                 'full_B_plus_pair_view_seconds', 'anchor_B_plus_pair_view_seconds',
                 'B_total_wall_savings_fraction',
                 'B_plus_pair_view_wall_savings_fraction')}
+    summary['anchor_preparation_seconds'] = {
+        slot: {
+            field: _summary([
+                {'value': row['anchor_preparation_seconds'][slot][field]}
+                for row in output_rows], 'value')
+            for field in ('public_material_prepare', 'private_anchor_prepare', 'total')
+        }
+        for slot in ('B', 'C')
+    }
     rss_values = [row[0] for row in sampled]
     storage_values = [row[1] for row in sampled]
     return {

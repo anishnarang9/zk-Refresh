@@ -164,6 +164,19 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
                 'application_effect': False,
                 'destination': f'/clone/anchor/{variant}'})
             def proof_bundle(label):
+                mode = 'anchor' if label in ('B-anchor', 'C-anchor') else 'full'
+                proof_report = self.write_json(
+                    f'{variant}-{label}-proof-report.json', {
+                        'schema': 'credential-v3-matched-k1-proof-v1',
+                        'passed': True,
+                        'mode': 'matched-anchor-k1' if mode == 'anchor'
+                                else 'matched-full-k1',
+                        'public_material_prepare_ms': (
+                            1000.0 + variant if mode == 'anchor' else 0.0),
+                        'cases': ([{'private_anchor_prepare_ms': 2000.0 + variant}]
+                                  if mode == 'anchor'
+                                  else [{'private_anchor_prepare_ms': None}]),
+                    })
                 supervisors = {}
                 for supervisor in ('r0-witness', 'r0-relation', 'r1-witness',
                                    'r1-relation', 'proof', 'adapter'):
@@ -179,6 +192,10 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
                     supervisors[supervisor] = {**ref, 'limits': {}}
                 receipt = self.write_json(f'{variant}-{label}-proof-receipt.json', {
                     'schema': 'credential-v3-heldout-proof-evidence-v1',
+                    'mode': mode,
+                    'proof_mode': 'matched-anchor-k1' if mode == 'anchor'
+                                  else 'matched-full-k1',
+                    'proof_report': proof_report,
                     'supervisor_reports': supervisors,
                 })
                 return {'receipt': receipt, 'artifacts': {}}
@@ -368,6 +385,16 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         self.assertEqual(pair['shared_B_seconds'], 15.0)
         self.assertEqual(pair['full_B_seconds'], 38.0)
         self.assertEqual(pair['anchor_B_seconds'], 43.0)
+        self.assertEqual(pair['anchor_preparation_seconds']['B'], {
+            'public_material_prepare': 1.0,
+            'private_anchor_prepare': 2.0,
+            'total': 3.0,
+        })
+        self.assertEqual(pair['anchor_preparation_seconds']['C'], {
+            'public_material_prepare': 1.0,
+            'private_anchor_prepare': 2.0,
+            'total': 3.0,
+        })
         self.assertEqual(pair['pair_view_one_time_seconds'], 0.5)
         self.assertEqual(pair['full_B_plus_pair_view_seconds'], 38.5)
         self.assertEqual(pair['anchor_B_plus_pair_view_seconds'], 43.5)
@@ -377,6 +404,17 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         self.assertEqual(result['summary']['full_B_seconds']['median'], 38.0)
         self.assertEqual(result['summary']['full_B_plus_pair_view_seconds']['median'], 38.5)
         self.assertEqual(result['summary']['anchor_B_seconds']['spread'], 0.0)
+        self.assertEqual(
+            result['summary']['anchor_preparation_seconds']['B']['total'], {
+                'median': 3.007, 'min': 3.0, 'max': 3.0140000000000002,
+                'spread': 0.014000000000000234, 'n': 8,
+            })
+        public_summary = result['summary']['anchor_preparation_seconds']['C'][
+            'public_material_prepare']
+        self.assertAlmostEqual(public_summary['median'], 1.0035)
+        self.assertEqual((public_summary['min'], public_summary['max'], public_summary['n']),
+                         (1.0, 1.007, 8))
+        self.assertAlmostEqual(public_summary['spread'], 0.007)
         self.assertEqual(pair['B_sampled_resources']['full'], {
             'monitor_report_count': 13,
             'sampled_peak_owned_tree_rss_bytes': 5000,
@@ -413,6 +451,49 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
                 altered_journal['steps'][step]['receipt_sha256'] = 'f' * 64
                 with self.assertRaisesRegex(ValueError, 'proof receipt.*journal'):
                     analyzer._verify_proof_durations(case, altered_journal, durations)
+
+    def test_anchor_preparation_requires_pinned_anchor_mode_report_and_finite_times(self):
+        case = json.loads(Path(self.manifest['path']).read_text())['cases'][0]
+        bundle = case['branches']['unrelated_full']['proof']['anchor']
+        self.assertEqual(analyzer._anchor_preparation_seconds(bundle), {
+            'public_material_prepare': 1.0,
+            'private_anchor_prepare': 2.0,
+            'total': 3.0,
+        })
+
+        receipt = json.loads(Path(bundle['receipt']['path']).read_text())
+        report = json.loads(Path(receipt['proof_report']['path']).read_text())
+        for case_name, field, bad_value in (
+                ('wrong-mode', 'mode', 'matched-full-k1'),
+                ('nonfinite-public', 'public_material_prepare_ms', float('nan')),
+                ('negative-public', 'public_material_prepare_ms', -1.0)):
+            with self.subTest(case=case_name):
+                changed = dict(report)
+                changed[field] = bad_value
+                ref = self.write_json(f'bad-anchor-report-{case_name}.json', changed)
+                altered_receipt = dict(receipt, proof_report=ref)
+                receipt_ref = self.write_json(
+                    f'bad-anchor-receipt-{case_name}.json', altered_receipt)
+                bundle_with_bad_pin = {'receipt': receipt_ref, 'artifacts': {}}
+                with self.assertRaisesRegex(ValueError, 'proof report'):
+                    analyzer._anchor_preparation_seconds(bundle_with_bad_pin)
+
+        bad_pin = dict(receipt, proof_report={
+            **receipt['proof_report'], 'sha256': 'f' * 64})
+        bad_pin_ref = self.write_json('bad-anchor-proof-report-pin.json', bad_pin)
+        with self.assertRaisesRegex(ValueError, 'proof report pin'):
+            analyzer._anchor_preparation_seconds({'receipt': bad_pin_ref,
+                                                  'artifacts': {}})
+
+        report['public_material_prepare_ms'] = 1000.0
+        report['cases'][0]['private_anchor_prepare_ms'] = -1.0
+        report_ref = self.write_json('bad-anchor-negative-private.json', report)
+        receipt_ref = self.write_json(
+            'bad-anchor-negative-private-receipt.json',
+            dict(receipt, proof_report=report_ref))
+        with self.assertRaisesRegex(ValueError, 'Anchor proof report'):
+            analyzer._anchor_preparation_seconds({'receipt': receipt_ref,
+                                                  'artifacts': {}})
 
     def test_accepts_reference_shape_without_measurement_or_censored_fields(self):
         # Both application and proof monitor fixtures intentionally use the
