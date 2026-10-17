@@ -1,6 +1,6 @@
 //! Non-authorizing structural/current-state preflight only. Even success cannot
 //! establish a valid ordinary proof or authorize a queue append. Runtime Execute
-//! remains unavailable until independent verifier/effect integration is reviewed.
+//! independently verifies the proof before applying the queue effect.
 use crate::{
     application_runtime_v3 as addresses,
     application_v3::{
@@ -22,7 +22,7 @@ fn owned_role(program: &Pubkey, account: &AccountInfo, writable: bool) -> Progra
 
 /// Check only the supplied account view and public statement. This function
 /// authenticates no RPC finality, external time, network pin, source envelope or
-/// ordinary proof. A future runtime must supply its actual program/accounts and
+/// ordinary proof. The runtime must supply its actual program/accounts and
 /// Clock, then independently verify the proof before any application effect.
 ///
 /// Exact ordered accounts: config RO, issuer RO, publisher head RO, request W,

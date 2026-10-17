@@ -1,4 +1,4 @@
-//! Six-public-field queue state/parser and request staging. Execute remains unavailable.
+//! Six-public-field queue state/parser and request staging for verified queue execution.
 //! Account layout v3, BE integers; epoch extensions implement fresh-after-reenable.
 use solana_program::{program_error::ProgramError, pubkey::Pubkey};
 pub const PREFIX: u8 = 0x51;
@@ -449,7 +449,7 @@ impl Issuer {
         i.valid()?;
         Ok(i)
     }
-    /// Tuple/epoch check only. The future runtime must first authenticate the actual
+    /// Tuple/epoch check only. The runtime must first authenticate the actual
     /// config key, issuer owner and PDA association; this value has no account key.
     pub fn admitted(&self, config: &Config) -> Result<()> {
         config.valid()?;

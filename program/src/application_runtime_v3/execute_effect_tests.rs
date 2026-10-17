@@ -1,6 +1,6 @@
 //! Private atomic-effect mechanics only. Synthetic program-owned bytes are not
 //! authenticated deployment/current state, a holder proof, or authorization.
-//! Execute dispatch must remain closed until a real request-bound Full gate.
+//! Runtime Execute checks current accounts and the request-bound proof separately.
 use super::*;
 
 const NOW:i64=100;

@@ -1,4 +1,4 @@
-//! V3 administrative and request-staging runtime. Execute remains unavailable.
+//! V3 administrative, request-staging and verified queue execution runtime.
 use crate::application_v3::{
     AppError, AppInstruction, Authority, Config, Issuer, PublisherHead, Queue, RelevantMeta,
     Request, RequestState, CONFIG_LEN, HEAD_LEN, ISSUER_LEN, QUEUE_LEN, REQUEST_LEN,
@@ -55,7 +55,7 @@ pub fn publisher_head_address(
 // 12 SetIssuerEnabled: admin signer, config RO, issuer W.
 // 13/revision1 BindWithHead: publisher signer+writable, config RO, issuer W,
 // head W, executable System RO. Same metas for initial allocation and updates.
-// Signer authorities may be writable fee payers. Execute effects remain disabled.
+// Signer authorities may be writable fee payers.
 fn count(accounts: &[AccountInfo], expected: usize) -> ProgramResult {
     if accounts.len() != expected {
         return Err(AppError::Accounts.into());
@@ -190,7 +190,7 @@ const FQ: [u8; 32] = [
     0x97, 0x81, 0x6a, 0x91, 0x68, 0x71, 0xca, 0x8d, 0x3c, 0x20, 0x8c, 0x16, 0xd8, 0x7c, 0xfd, 0x47,
 ];
 /// Six-field ordinary Groth16 verification only; this does not authorize an
-/// application effect. Execute dispatch remains unavailable. The ABI is -A,
+/// application effect. Execute independently checks current accounts. The ABI is -A,
 /// B(x.c1,x.c0,y.c1,y.c0), C with canonical BE Fq components. Curve/subgroup and
 /// pairing checks are performed by groth16-solana and its BN254 syscalls.
 pub fn verify(inputs: &[[u8; 32]; 6], proof: &[u8; 256]) -> ProgramResult {
@@ -219,11 +219,8 @@ pub fn verify(inputs: &[[u8; 32]; 6], proof: &[u8; 256]) -> ProgramResult {
     verifier.verify().map_err(|_| AppError::Proof.into())
 }
 
-/// Private effect-only mechanics, intentionally disconnected from Execute.
-/// Synthetic unit tests exercise commit mechanics without proving authorization.
-/// A future caller must first authenticate current accounts and verify the real
-/// request-bound proof. No public API or dispatch route bypasses that boundary.
-#[allow(dead_code)]
+/// Private effect mechanics called only after current-account preflight and
+/// request-bound proof verification. Both destinations are prepared before writes.
 fn apply_execute_effect(
     request_account: &AccountInfo,
     queue_account: &AccountInfo,
@@ -670,9 +667,7 @@ pub fn process(program: &Pubkey, accounts: &[AccountInfo], bytes: &[u8]) -> Prog
             let now = Clock::get()?.unix_timestamp;
             crate::application_preflight_v3::check(program, accounts, &inputs, now)?;
             verify(&inputs, &proof)?;
-            // A valid statement still cannot authorize an effect until a real
-            // request-bound Full proof and atomic append/consume tests exist.
-            return Err(AppError::Unavailable.into());
+            apply_execute_effect(&accounts[3], &accounts[4], now)?;
         }
     }
     Ok(())
