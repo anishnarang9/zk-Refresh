@@ -92,6 +92,13 @@ def _summarize_spread(rows):
                 'median_full_minus_anchor_total_wall_seconds': None,
                 'median_total_wall_savings_fraction': None,
                 'fraction_min': None, 'fraction_max': None,
+                'expected_pairs': len(REPETITIONS),
+                'paired_sign_counts': {
+                    'full_minus_anchor_positive': 0,
+                    'full_minus_anchor_zero': 0,
+                    'full_minus_anchor_negative': 0,
+                    'matched_pairs': 0,
+                    'expected_pairs': len(REPETITIONS)},
                 'registered_20_percent_total_wall_target': 'incomplete_pairs'}
     fractions = [row['total_wall_savings_fraction'] for row in rows]
     full = [row['full_total_wall_seconds'] for row in rows]
@@ -99,6 +106,13 @@ def _summarize_spread(rows):
     deltas = [row['full_minus_anchor_total_wall_seconds'] for row in rows]
     median_fraction = statistics.median(fractions)
     complete = len(rows) == len(REPETITIONS)
+    paired_sign_counts = {
+        'full_minus_anchor_positive': sum(delta > 0 for delta in deltas),
+        'full_minus_anchor_zero': sum(delta == 0 for delta in deltas),
+        'full_minus_anchor_negative': sum(delta < 0 for delta in deltas),
+        'matched_pairs': len(rows),
+        'expected_pairs': len(REPETITIONS),
+    }
     return {
         'matched_pairs': len(rows),
         'expected_pairs': len(REPETITIONS),
@@ -108,6 +122,7 @@ def _summarize_spread(rows):
         'median_total_wall_savings_fraction': median_fraction,
         'fraction_min': min(fractions),
         'fraction_max': max(fractions),
+        'paired_sign_counts': paired_sign_counts,
         'per_repetition_total_wall_savings_fraction': {
             str(row['repetition']): row['total_wall_savings_fraction'] for row in rows},
         'registered_20_percent_total_wall_target': (
@@ -174,6 +189,8 @@ def summarize(reconciliation, economics):
 
     by_pair_key = {(row['repetition'], row['target_count']): row for row in pair_rows}
     break_even = {}
+    first_crossing_distribution = {str(count): 0 for count in COUNTS}
+    first_crossing_distribution.update(not_crossed_through_k10=0, incomplete=0)
     for repetition in REPETITIONS:
         crossing = None
         incomplete_before_crossing = False
@@ -189,10 +206,13 @@ def summarize(reconciliation, economics):
                 break
         if crossing is not None:
             state, reason = 'crossed', 'first measured sampled count'
+            first_crossing_distribution[str(crossing)] += 1
         elif incomplete_before_crossing:
             state, reason = 'incomplete', 'a preceding sampled count is missing'
+            first_crossing_distribution['incomplete'] += 1
         elif complete_through_max:
             state, reason = 'not_crossed_through_k10', 'all registered counts measured'
+            first_crossing_distribution['not_crossed_through_k10'] += 1
         else:
             state, reason = 'incomplete', 'registered sequence incomplete'
         break_even[str(repetition)] = {
@@ -221,6 +241,14 @@ def summarize(reconciliation, economics):
         'break_even': {
             'basis': 'first sampled k with total Anchor wall <= total Full wall per repetition',
             'per_repetition': break_even,
+            'first_crossing_distribution': {
+                'by_sampled_k': {str(count): first_crossing_distribution[str(count)]
+                                 for count in COUNTS},
+                'not_crossed_through_k10': first_crossing_distribution[
+                    'not_crossed_through_k10'],
+                'incomplete': first_crossing_distribution['incomplete'],
+                'expected_repetitions': len(REPETITIONS),
+            },
             'interpolation_or_extrapolation_used': False,
         },
         'one_time_costs': {

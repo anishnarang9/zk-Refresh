@@ -54,6 +54,56 @@ class CampaignTotalSummaryTests(unittest.TestCase):
         }
         return economics, reconciler
 
+    def complete_fixtures(self):
+        economics_pairs, total_pairs = [], []
+        crossing = {1: 0, 2: 2, 3: 5, 4: None}
+        for rep in range(1, 5):
+            for count in tool.COUNTS:
+                full, common, full_clone, anchor_clone = 100.0, 10.0, 1.0, 2.0
+                anchor = 90.0 if crossing[rep] is not None and count >= crossing[rep] else 110.0
+                if rep == 1 and count == 0:
+                    anchor = full + full_clone - anchor_clone
+                econ, total = self.pair(count, rep, full, anchor, common,
+                                        full_clone, anchor_clone)
+                economics_pairs.append(econ)
+                total_pairs.append(total)
+        economics = {'schema': 'part5-v3-campaign-economics-report-v1',
+                     'training_only': True, 'pairs': economics_pairs}
+        reconciler = {
+            'schema': 'part5-v3-campaign-observed-component-costs-v1',
+            'training_only': True,
+            'directly_timed_whole_application_session': False,
+            'matrix_manifest_sha256': 'a' * 64,
+            'economics_report_sha256': 'b' * 64,
+            'pairs': total_pairs,
+            'one_time': {'development_setup_seconds': 500.0,
+                         'cohort_preparation_seconds': 700.0,
+                         'charged_per_request': False},
+        }
+        return economics, reconciler
+
+    def test_reports_paired_signs_and_first_crossing_distribution(self):
+        economics, reconciler = self.complete_fixtures()
+        report = tool.summarize(reconciler, economics)
+
+        self.assertEqual(report['matched_pairs'], 20)
+        self.assertEqual(report['by_update_count']['0']['paired_sign_counts'],
+                         {'full_minus_anchor_positive': 0,
+                          'full_minus_anchor_zero': 1,
+                          'full_minus_anchor_negative': 3,
+                          'matched_pairs': 4, 'expected_pairs': 4})
+        self.assertEqual(report['by_update_count']['2']['paired_sign_counts'],
+                         {'full_minus_anchor_positive': 2,
+                          'full_minus_anchor_zero': 0,
+                          'full_minus_anchor_negative': 2,
+                          'matched_pairs': 4, 'expected_pairs': 4})
+        self.assertEqual(report['break_even']['first_crossing_distribution'], {
+            'by_sampled_k': {'0': 1, '1': 0, '2': 1, '5': 1, '10': 0},
+            'not_crossed_through_k10': 1,
+            'incomplete': 0,
+            'expected_repetitions': 4,
+        })
+
     def test_summarizes_total_pair_costs_spread_break_even_and_target(self):
         economics, reconciler = self.fixtures()
         report = tool.summarize(reconciler, economics)
@@ -83,6 +133,7 @@ class CampaignTotalSummaryTests(unittest.TestCase):
         report = tool.summarize(reconciler, economics)
         self.assertEqual(report['break_even']['per_repetition']['2']['status'], 'incomplete')
         self.assertIsNone(report['break_even']['per_repetition']['2']['first_measured_break_even_k'])
+        self.assertEqual(report['break_even']['first_crossing_distribution']['incomplete'], 1)
 
     def test_rejects_pair_rows_that_do_not_match_or_reconcile(self):
         economics, reconciler = self.fixtures()
