@@ -23,7 +23,7 @@ class ProfileTests(unittest.TestCase):
         cls.issuer = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         cls.holder = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
-    def certificate(self, variant=0, wrong_policy=False):
+    def certificate(self, variant=0, wrong_policy=False, aki=None, organization=None):
         kind = _ASN1Type.PrintableString if variant & 1 else _ASN1Type.UTF8String
         issuer_length, subject_length = ((24, 40) if variant & 4 else (40, 24))
         name = lambda text: x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, text, _type=kind)])
@@ -34,12 +34,14 @@ class ProfileTests(unittest.TestCase):
              .not_valid_after(datetime.datetime(2028, 2, 1 + variant, tzinfo=datetime.timezone.utc)))
         # Independent x509 encoder; no profile DER constructor is used.
         extensions = [
-            (x509.AuthorityKeyIdentifier(bytes([variant + 1])*20, None, None), False),
+            (x509.AuthorityKeyIdentifier(
+                bytes([variant + 1])*20 if aki is None else aki, None, None), False),
             (x509.KeyUsage(True, False, False, False, False, False, False, None, None), True),
             (x509.BasicConstraints(False, None), True),
             (x509.ExtendedKeyUsage([ObjectIdentifier(p.TEST_OIDS['group'] if wrong_policy else p.TEST_OIDS['purpose'])]), True),
             (x509.UnrecognizedExtension(ObjectIdentifier(p.TEST_OIDS['organization']),
-                 b'\x04\x10' + bytes([variant])*16), True),
+                 b'\x04' + bytes([16 if organization is None else len(organization)]) +
+                 (bytes([variant])*16 if organization is None else organization)), True),
             (x509.UnrecognizedExtension(ObjectIdentifier(p.TEST_OIDS['group']), b'\x04\x20'+bytes([variant+1])*32), True),
         ]
         for value, critical in reversed(extensions) if variant & 2 else extensions:
@@ -76,6 +78,42 @@ class ProfileTests(unittest.TestCase):
         for bad in (cert+b'\x00', cert[:-1], b'\x30\x83\x00'+cert[2:]):
             with self.assertRaises(p.ProfileError):
                 p.admit_certificate(bad, self.issuer.public_key().public_numbers().n)
+
+    def test_der_outer_and_tbs_declared_lengths_cannot_escape_parent(self):
+        self.assertTrue(PATH.exists(), 'bounded profile implementation missing')
+        cert = self.certificate()
+        # This fixed-profile certificate uses two-octet long-form lengths for
+        # the outer certificate and TBS sequence. Increase each declaration
+        # without adding content, so the next parser boundary must reject it.
+        self.assertEqual(cert[:2], b'\x30\x82')
+        self.assertEqual(cert[4:6], b'\x30\x82')
+        bad_outer = cert[:2] + (int.from_bytes(cert[2:4], 'big') + 1).to_bytes(2, 'big') + cert[4:]
+        bad_tbs = cert[:6] + (int.from_bytes(cert[6:8], 'big') + 1).to_bytes(2, 'big') + cert[8:]
+        for label, bad in (('outer', bad_outer), ('tbs', bad_tbs)):
+            with self.subTest(length=label), self.assertRaises(p.ProfileError):
+                p.admit_certificate(bad, self.issuer.public_key().public_numbers().n)
+
+    def test_unsupported_issuer_layout_and_aki_shape_rejected(self):
+        self.assertTrue(PATH.exists(), 'bounded profile implementation missing')
+        modulus = self.holder.public_key().public_numbers().n
+        # Keep the TBS length fixed while moving one byte between the two CNs.
+        # The resulting issuer/subject pair is parseable DER but outside the
+        # declared 40/24 or 24/40 name layouts.
+        unsupported_issuer = p.build_tbs(modulus, issuer=b'I'*39, subject=b'H'*25)
+        self.assertEqual(len(unsupported_issuer), 672)
+        with self.assertRaisesRegex(p.ProfileError, 'unsupported name layout'):
+            p.parse_tbs(unsupported_issuer)
+
+        # Build a real, independently encoded and issuer-signed certificate.
+        # The 17-byte organization extension keeps the TBS size unchanged, so
+        # rejection reaches the 20-byte AKI profile constraint.
+        supported_tbs = x509.load_der_x509_certificate(self.certificate()).tbs_certificate_bytes
+        unsupported_aki = self.certificate(aki=b'A'*19, organization=b'O'*17)
+        unsupported_tbs = x509.load_der_x509_certificate(unsupported_aki).tbs_certificate_bytes
+        self.assertEqual(len(supported_tbs), 672)
+        self.assertEqual(len(unsupported_tbs), len(supported_tbs))
+        with self.assertRaisesRegex(p.ProfileError, 'unsupported authorization extension value'):
+            p.admit_certificate(unsupported_aki, self.issuer.public_key().public_numbers().n)
 
     def test_frozen_profile_and_source_match_generator(self):
         self.assertTrue(hasattr(p, 'circom_profile'), 'circuit profile generator missing')

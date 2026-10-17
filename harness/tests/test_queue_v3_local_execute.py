@@ -192,6 +192,64 @@ class ExecuteTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(ValueError):
                 m.check_effect_report(dict(report, **{field: value}), config, {'program': 'program'})
 
+    def test_runner_exit_without_report_requires_reconciliation_not_effect_success(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output, control = root / 'execute', root / 'control'
+            data = [b'config', b'issuer', b'head', b'request', b'queue']
+            hashes = [m.base.sha(raw) for raw in data]
+            loaded = {name: name for name in m.IDENTITY_FIELDS}
+            original = {'program': 'program', 'elf': '/elf', 'elf_sha256': 'elf-sha',
+                        'validator': '/validator'}
+            prior = {'loaded_program': loaded}
+            staged = {'account_sha256': hashes}
+            config = {'ledger': '/ledger', 'runner': '/runner', 'runner_sha256': 'runner-sha',
+                      'stage_root': '/stage', 'prior_stage_status_sha256': 'status-sha',
+                      'stage_report_sha256': 'report-sha', 'stage_plan_sha256': 'plan-sha',
+                      'full_wire': '/wire', 'full_wire_sha256': 'wire-sha',
+                      'replay_full_wire': '/replay-wire', 'replay_full_wire_sha256': 'replay-sha',
+                      'context': '/context', 'context_sha256': 'context-sha',
+                      'expected_genesis': 'genesis'}
+
+            class Proc:
+                def __init__(self, code): self.returncode = code
+                def poll(self): return self.returncode
+                def wait(self, timeout=None): return self.returncode
+                def send_signal(self, sig): self.returncode = -signal.SIGINT
+
+            spawns = []
+            def spawn(*args, **kwargs):
+                spawns.append(args[0])
+                return Proc(None) if len(spawns) == 1 else Proc(0)
+
+            snapshots = iter([(raw, digest) for raw, digest in zip(data, hashes)])
+            def snapshot(path, cap):
+                try:
+                    return next(snapshots)
+                except StopIteration:
+                    raise FileNotFoundError('runner produced no execute report')
+
+            with patch.object(m, 'admit', return_value=(original, prior, staged, b'elf',
+                                                        list(map(len, data)), output, control)), \
+                 patch.object(m.stage, 'resume_argv', return_value=['/validator']), \
+                 patch.object(m.base, 'ports_free'), patch.object(m.base, 'LocalRpc'), \
+                 patch.object(m, 'wait_loaded_after_start', return_value=loaded), \
+                 patch.object(m, 'wait_staged_finality', return_value=(5, data)), \
+                 patch.object(m.stage, 'snapshot_generated', side_effect=snapshot), \
+                 patch.object(m, 'finalized_accounts') as accounts, \
+                 patch.object(m.subprocess, 'Popen', side_effect=spawn), \
+                 patch.dict(os.environ, {'P5_V3_EXEC_SUPERVISOR': 'local-ledger-review-and-execute'}), \
+                 contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(m.run(config, 'config-sha'), 1)
+
+            accounts.assert_not_called()
+            status = json.loads((control / 'status.json').read_bytes())
+            self.assertEqual(len(spawns), 2, status)
+            self.assertEqual(status['status'], 'failed')
+            self.assertFalse(status['effect_verified'])
+            self.assertIsNone(status['application_effect'])
+            self.assertEqual(status['effect_outcome'], 'requires_reconciliation')
+
     def test_replay_wire_must_be_distinct_proof_for_the_same_statement(self):
         self.assertTrue(hasattr(m, 'check_replay_wire'), 'fresh replay wire validation missing')
         primary = bytes(range(256)) + bytes(range(192))
