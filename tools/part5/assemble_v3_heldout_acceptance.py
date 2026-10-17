@@ -126,9 +126,12 @@ def _validate_cost_fields(case):
     if type(components) is not dict or set(components) != COST_BRANCHES:
         raise ValueError('complete four-branch wall-time components required')
     for name, row in components.items():
+        component_names = {'proof_seconds', 'clone_seconds', 'effect_seconds',
+                           'total_seconds'}
+        if name == 'own_revocation':
+            component_names.add('r2_active_witness_seconds')
         if (type(row) is not dict
-                or set(row) != {'proof_seconds', 'clone_seconds', 'effect_seconds',
-                                'total_seconds'}
+                or set(row) != component_names
                 or any(not _finite_cost(value) for value in row.values())):
             raise ValueError(f'complete finite {name} wall-time components required')
     totals = case['branch_wall_seconds']

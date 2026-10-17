@@ -273,6 +273,9 @@ def acceptance_branch_bundles(branches, *, result_bundle, proof_bundle,
                      'proof': proof_bundle(effect['proof'])}
         if name == 'full':
             out[name]['replay_proof'] = proof_bundle(effect['replay_proof'])
+        if name == 'own_revocation':
+            out[name]['current_r2_witness_rejection'] = effect[
+                'current_r2_witness_rejection']
         clone = effect.get(clone_role, row.get('clone'))
         out[name][clone_role] = clone_bundle(clone)
     return out
@@ -298,7 +301,8 @@ def acceptance_wall_costs(steps):
                  'effect_seconds': elapsed('unrelated_compare:anchor:effect')},
         'own_revocation': {'proof_seconds': elapsed('own_revocation:proof-anchor'),
                  'clone_seconds': elapsed('own_revocation:r1-clone'),
-                 'effect_seconds': elapsed('own_revocation:effect')},
+                 'effect_seconds': elapsed('own_revocation:effect'),
+                 'r2_active_witness_seconds': elapsed('own_revocation:r2-active-witness')},
     }
     for row in components.values():
         row['total_seconds'] = sum(row.values())
@@ -1148,6 +1152,148 @@ class HeldoutCaseRunner:
             'proof': proof_bundle, 'wall_seconds': outer['duration_seconds']}
         return result
 
+    def _r2_active_witness_rejection(self, root, case_root, r1_source, proof, effect):
+        """Record the current-R2 failed witness and an independent R1CS counterfactual."""
+        from tools.part5 import prepare_v3_heldout_proof as proof_tool
+
+        branch = _json(effect['report'], effect['report_sha256'])
+        membership = _json(case_root / 'membership.json')
+        r2_root = membership['R2']
+        if (branch.get('mode') != 'own-revocation'
+                or branch.get('application_effect') is not False
+                or branch.get('current_root') != r2_root
+                or branch.get('request_consumed') is not False):
+            raise ValueError('loaded own-revocation R2 denial required before witness check')
+        source = _json(r1_source['receipt'], r1_source['receipt_sha256'])
+        proof_receipt = _json(proof['receipt'], proof['receipt_sha256'])
+        if (source.get('selected_root') != membership['R1']
+                or proof_receipt.get('source_receipts', {}).get('R1', {}).get('sha256')
+                   != r1_source['receipt_sha256']):
+            raise ValueError('C R1 witness source and proof required')
+        source_input_path = Path(r1_source['root']) / 'input.json'
+        source_input = _json(source_input_path, source['artifacts_sha256']['input.json'])
+        near_input_ref = proof_receipt['artifacts']['near/input.json']
+        if _json(near_input_ref['path'], near_input_ref['sha256']) != source_input:
+            raise ValueError('C R1 proof input differs from C source input')
+        coordinates_path = Path(r1_source['root']) / 'input-coordinates.bin'
+        coordinates_ref = {'path': str(coordinates_path),
+                           'sha256': source['artifacts_sha256']['input-coordinates.bin']}
+        coordinates = _read(coordinates_path, coordinates_ref['sha256'], 4096)
+        r1_witness_ref = proof_receipt['artifacts']['near/output.wtns']
+        r1_witness = _read(r1_witness_ref['path'], r1_witness_ref['sha256'],
+                           32 * 1024 * 1024)
+        siblings = membership['own_revoked_siblings']
+        candidate_input = proof_tool.build_r2_active_witness_input(
+            source_input, r2_root, siblings)
+        if (source_input['root'] != str(int(membership['R1'], 16))
+                or candidate_input['actionHash'] != str(int(source['action_hash'], 16))):
+            raise ValueError('R2 candidate must preserve C R1 root and action')
+
+        work = root / 'r2-active-witness'
+        if work.exists() or work.is_symlink():
+            raise ValueError('partial R2 witness rejection output requires manual review')
+        _private_dir(work, fresh=True, ignored=True)
+        candidate_dir = _private_dir(work / 'candidate', fresh=True)
+        relation_dir = _private_dir(work / 'relation', fresh=True)
+        supervision = _private_dir(work / 'supervisor', fresh=True)
+        base_path, candidate_path = work / 'base-r1-input.json', candidate_dir / 'input.json'
+        base_ref = {'path': str(base_path), 'sha256': _write_new(base_path, encoded(source_input))}
+        candidate_ref = {'path': str(candidate_path),
+                         'sha256': _write_new(candidate_path, encoded(candidate_input))}
+        frozen = self.manifest['frozen_files']
+        proof_inputs = self.manifest['proof_inputs']
+        session_runner = _load_module('heldout_r2_session_runner',
+                                      REPO / 'results/dynark/part5/session_runner.py')
+
+        def supervised(label, command, limits, storage_path):
+            if self._active_job:
+                raise RuntimeError('only one bounded child may run at a time')
+            owner = f'heldout-v{self.variant:02d}-own-r2-{label}'
+            monitor_dir = supervision / (label + '-monitor')
+            report_path = supervision / (label + '-report.json')
+            self._active_job = True
+            try:
+                outer = session_runner.run(owner=owner, command=[str(v) for v in command],
+                    cwd=str(REPO), private_output=str(monitor_dir), report=str(report_path),
+                    runtime_seconds=limits['runtime_seconds'],
+                    rss_bytes=limits['rss_bytes'], storage_bytes=limits['storage_bytes'],
+                    storage_paths=[str(storage_path)], poll_seconds=0.25,
+                    environment={'RAYON_NUM_THREADS': '4', 'OMP_NUM_THREADS': '1',
+                                 'TZ': 'UTC'})
+            finally:
+                self._active_job = False
+            if (outer.get('stop_reason') is not None or outer.get('censored') is not False
+                    or outer.get('runner_error_type') is not None
+                    or outer.get('cleanup_remaining_owned_processes') != 0
+                    or outer.get('cleanup_status_unknown') is not False):
+                raise ValueError(f'bounded R2 {label} did not complete cleanly')
+            return (outer, {'path': str(report_path),
+                            'sha256': digest(_read(report_path, cap=1024 * 1024))},
+                    {'path': str(monitor_dir / 'invocation.json'),
+                     'sha256': digest(_read(monitor_dir / 'invocation.json'))}, owner)
+
+        generated, generator_ref, generator_invocation_ref, _ = supervised('generator', [
+            proof_inputs['node']['path'], proof_inputs['witness_js']['path'],
+            candidate_dir], proof_tool.WITNESS_LIMITS, candidate_dir)
+        if (generated.get('exit_code') != 2 or generated.get('passed') is not False
+                or (candidate_dir / 'output.wtns').exists()
+                or (candidate_dir / 'output.wtns').is_symlink()):
+            raise ValueError('pinned R2 active witness generator did not reject without WTNS')
+        patched = proof_tool.patch_r1_wtns_for_r2_counterfactual(
+            r1_witness, coordinates, r2_root, siblings)
+        patched_path = work / 'counterfactual.wtns'
+        patched_ref = {'path': str(patched_path), 'sha256': _write_new(patched_path, patched)}
+        result_path = relation_dir / 'r1cs-result.json'
+        checker = REPO / 'tools/part5/check_v3_r2_counterfactual.py'
+        checker_ref = self._artifact(checker)
+        relation, relation_ref, relation_invocation_ref, relation_owner = supervised('relation', [
+            sys.executable, '-B', checker,
+            '--candidate-input', candidate_path,
+            '--candidate-input-sha256', candidate_ref['sha256'],
+            '--witness', patched_path, '--witness-sha256', patched_ref['sha256'],
+            '--base-r1-witness', r1_witness_ref['path'],
+            '--base-r1-witness-sha256', r1_witness_ref['sha256'],
+            '--r1cs', frozen['r1cs']['path'], '--r1cs-sha256', frozen['r1cs']['sha256'],
+            '--relation-checker', proof_inputs['relation_checker']['path'],
+            '--relation-checker-sha256', proof_inputs['relation_checker']['sha256'],
+            '--output', result_path], proof_tool.RELATION_LIMITS, relation_dir)
+        if relation.get('exit_code') != 0 or relation.get('passed') is not True:
+            raise ValueError('pinned R2 counterfactual relation check did not complete')
+        relation_result = _json(result_path)
+        result_ref = self._artifact(result_path)
+        receipt = proof_tool.r2_active_witness_rejection_receipt(
+            base_input=source_input, candidate_input=candidate_input,
+            r2_root=r2_root, own_revoked_siblings=siblings,
+            action_hash=source['action_hash'],
+            target_credential_sha256=source['target_der_sha256'],
+            target_tbs_sha256=source['target_tbs_sha256'],
+            witness_generator_sha256=proof_inputs['witness_js']['sha256'],
+            relation_checker_sha256=proof_inputs['relation_checker']['sha256'],
+            r1cs_sha256=frozen['r1cs']['sha256'],
+            bounded_supervisor_sha256=proof_inputs['bounded_supervisor']['sha256'],
+            generator_supervisor_ref=generator_ref,
+            generator_invocation_ref=generator_invocation_ref,
+            generator_supervisor_limits=proof_tool.WITNESS_LIMITS,
+            generator_exit_code=generated['exit_code'], generated_wtns_present=False,
+            base_input_ref=base_ref, candidate_input_ref=candidate_ref,
+            input_coordinates_ref=coordinates_ref, r1_witness_ref=r1_witness_ref,
+            counterfactual_witness_ref=patched_ref, relation_result=relation_result,
+            relation_result_ref=result_ref, relation_supervisor_ref=relation_ref,
+            relation_invocation_ref=relation_invocation_ref,
+            relation_supervisor_limits=proof_tool.RELATION_LIMITS,
+            relation_exit_code=relation['exit_code'])
+        receipt_path = work / 'r2-active-witness-rejection.json'
+        receipt_ref = {'path': str(receipt_path),
+                       'sha256': _write_new(receipt_path, encoded(receipt))}
+        return {'status': 'passed', 'receipt': str(receipt_path),
+                'receipt_sha256': receipt_ref['sha256'],
+                'monitor': relation_ref['path'], 'monitor_sha256': relation_ref['sha256'],
+                'monitor_owner': relation_owner,
+                'generator_monitor': generator_ref['path'],
+                'generator_monitor_sha256': generator_ref['sha256'],
+                'counterfactual_checker_sha256': checker_ref['sha256'],
+                'wall_seconds': generated['duration_seconds'] + relation['duration_seconds']}
+
     @staticmethod
     def _proof_bundle(proof):
         receipt = _json(Path(proof['receipt']))
@@ -1436,6 +1582,23 @@ class HeldoutCaseRunner:
                         reuse=lambda saved: self._verify_record(saved,
                             ('report', 'status_path', 'config', 'outer', 'signed_history'),
                             ('report_sha256', 'status_sha256')))
+                    r2_rejection = self.journal.run_step('own_revocation:r2-active-witness',
+                        inputs={'effect_report_sha256': effect['report_sha256'],
+                                'r1_source_receipt_sha256': r1_source['receipt_sha256'],
+                                'anchor_proof_receipt_sha256': anchor_proof['receipt_sha256'],
+                                'membership_sha256': digest(_read(case_root / 'membership.json')),
+                                'frozen_client_sha256': self.freeze_doc['identities']['client']},
+                        job=lambda root=root, case_root=case_root, r1_source=r1_source,
+                                   anchor_proof=anchor_proof, effect=effect:
+                            self._r2_active_witness_rejection(
+                                root, case_root, r1_source, anchor_proof, effect),
+                        reuse=lambda saved: self._verify_record(saved,
+                            ('receipt', 'monitor', 'generator_monitor'),
+                            ('receipt_sha256', 'monitor_sha256',
+                             'generator_monitor_sha256')))
+                    effect['current_r2_witness_rejection'] = {
+                        'path': r2_rejection['receipt'],
+                        'sha256': r2_rejection['receipt_sha256']}
                     effect['r1_clone'] = clone
                     branch_results['own_revocation'] = {'stage': stage, 'transition': transition,
                         'sources': {'R0': r0_source, 'R1': r1_source}, 'effect': effect,

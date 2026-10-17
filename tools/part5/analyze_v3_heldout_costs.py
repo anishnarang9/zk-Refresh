@@ -133,7 +133,8 @@ def _step_names():
         'unrelated_compare:unrelated_full:clone',
         'unrelated_compare:unrelated_full:effect',
         'unrelated_compare:anchor:clone', 'unrelated_compare:anchor:effect',
-        'own_revocation:r1-clone', 'own_revocation:effect'))
+        'own_revocation:r1-clone', 'own_revocation:effect',
+        'own_revocation:r2-active-witness'))
     return set(names)
 
 
@@ -213,29 +214,33 @@ def _check_summary(case, journal, durations):
                    'unrelated_compare:anchor:clone',
                    'unrelated_compare:anchor:effect'),
         'own_revocation': ('own_revocation:proof-anchor',
-                           'own_revocation:r1-clone', 'own_revocation:effect'),
+                           'own_revocation:r1-clone', 'own_revocation:effect',
+                           'own_revocation:r2-active-witness'),
     }
     components = case.get('branch_wall_components')
     totals = case.get('branch_wall_seconds')
     if type(components) is not dict or set(components) != BRANCHES or \
             type(totals) is not dict or set(totals) != BRANCHES:
         raise ValueError('branch cost summaries disagree with pinned journal')
-    for branch, (proof, clone, effect) in expected.items():
-        values = (durations[proof], durations[clone], durations[effect])
+    for branch, steps in expected.items():
+        values = tuple(durations[step] for step in steps)
         recorded = components[branch]
+        component_names = ('proof_seconds', 'clone_seconds', 'effect_seconds')
+        if branch == 'own_revocation':
+            component_names += ('r2_active_witness_seconds',)
+        expected_component_names = set(component_names) | {'total_seconds'}
         if (type(recorded) is not dict
-                or set(recorded) != {'proof_seconds', 'clone_seconds', 'effect_seconds',
-                                     'total_seconds'}
+                or set(recorded) != expected_component_names
                 or not all(_number(value) for value in recorded.values())
-                or not all(_close(recorded[key], value) for key, value in zip(
-                    ('proof_seconds', 'clone_seconds', 'effect_seconds'), values))
+                or not all(_close(recorded[key], value) for key, value in
+                           zip(component_names, values))
                 or not _close(recorded['total_seconds'], sum(values))
                 or not _number(totals[branch])
                 or not _close(totals[branch], sum(values))):
             raise ValueError('branch cost summaries disagree with pinned journal')
 
 
-def _outer(ref, owner=None):
+def _outer(ref, owner=None, expected_exit=None):
     outer, _ = _load_input_ref(ref, 'bounded monitor')
     duration = outer.get('duration_seconds')
     if (outer.get('schema') != 1 or not _number(duration) or duration <= 0
@@ -246,9 +251,14 @@ def _outer(ref, owner=None):
             or outer.get('cleanup_status_unknown') is not False
             or (owner is not None and outer.get('owner') != owner)):
         raise ValueError('pinned bounded monitor report shape/owner required')
-    accepted_stop = (outer.get('passed') is False and outer.get('exit_code') == 1)
-    accepted_success = (outer.get('passed') is True and outer.get('exit_code') == 0)
-    if not (accepted_stop or accepted_success):
+    if expected_exit is None:
+        accepted_stop = (outer.get('passed') is False and outer.get('exit_code') == 1)
+        accepted_success = (outer.get('passed') is True and outer.get('exit_code') == 0)
+        accepted = accepted_stop or accepted_success
+    else:
+        accepted = (outer.get('exit_code') == expected_exit
+                    and outer.get('passed') is (expected_exit == 0))
+    if not accepted:
         raise ValueError('bounded monitor did not record a complete reviewed run')
     rss = outer.get('sampled_peak_owned_tree_rss_bytes')
     storage = outer.get('sampled_peak_storage_growth_bytes')
@@ -267,14 +277,46 @@ def _verify_monitor_durations(case, journal, durations):
                 or type(row.get('monitor_sha256')) is not str):
             raise ValueError(f'pinned bounded monitor reference required for {step}')
         monitor_refs[step] = {'path': row['monitor'], 'sha256': row['monitor_sha256']}
-        if row.get('monitor_owner') is not None:
-            owner = row['monitor_owner']
-        else:
-            owner = None
+        owner = row.get('monitor_owner')
+        if step == 'own_revocation:r2-active-witness':
+            if (type(row.get('generator_monitor')) is not str
+                    or type(row.get('generator_monitor_sha256')) is not str):
+                raise ValueError('pinned generator monitor reference required for R2 active witness')
+            measured, rss, storage = _outer(
+                monitor_refs[step], owner, expected_exit=0)
+            generator_ref = {'path': row['generator_monitor'],
+                             'sha256': row['generator_monitor_sha256']}
+            generator_measured, generator_rss, generator_storage = _outer(
+                generator_ref, expected_exit=2)
+            if durations[step] + 1e-6 < measured + generator_measured:
+                raise ValueError('journal wall time is below combined R2 witness monitor durations')
+            samples_by_step[step] = ((rss, storage),
+                                     (generator_rss, generator_storage))
+            continue
         measured, rss, storage = _outer(monitor_refs[step], owner)
         if durations[step] + 1e-6 < measured:
             raise ValueError('journal wall time is below monitor duration')
         samples_by_step[step] = (rss, storage)
+
+    r2_step = 'own_revocation:r2-active-witness'
+    r2_row = journal['steps'][r2_step]
+    rejection_ref = case['branches']['own_revocation'].get(
+        'current_r2_witness_rejection')
+    journal_receipt_ref = {'path': r2_row.get('receipt'),
+                           'sha256': r2_row.get('receipt_sha256')}
+    if (type(rejection_ref) is not dict
+            or rejection_ref != journal_receipt_ref
+            or type(journal_receipt_ref['path']) is not str
+            or type(journal_receipt_ref['sha256']) is not str):
+        raise ValueError('R2 witness receipt reference differs from run journal')
+    rejection, _ = _load_input_ref(rejection_ref, 'R2 active witness rejection receipt')
+    generator_ref = {'path': r2_row['generator_monitor'],
+                     'sha256': r2_row['generator_monitor_sha256']}
+    if (type(rejection.get('generator_attempt')) is not dict
+            or rejection['generator_attempt'].get('supervisor_ref') != generator_ref
+            or type(rejection.get('relation_supervisor')) is not dict
+            or rejection['relation_supervisor'].get('ref') != monitor_refs[r2_step]):
+        raise ValueError('R2 witness receipt supervisor refs differ from run journal')
 
     # The normalized acceptance case must retain the same monitor references
     # for stage, transition, and application outcomes.
@@ -617,7 +659,12 @@ def analyze(manifest_ref, acceptance_ref):
         }
         for observations in proof_samples.values():
             sampled.extend(observations)
-        sampled.extend(monitor_samples.values())
+        for observations in monitor_samples.values():
+            if (type(observations) is tuple and len(observations) == 2
+                    and type(observations[0]) is int):
+                sampled.append(observations)
+            else:
+                sampled.extend(observations)
 
         shared = sum(durations[f'unrelated_compare:{name}'] for name in
                      ('prepare', 'stage', 'transition', 'source-R0', 'source-R1'))

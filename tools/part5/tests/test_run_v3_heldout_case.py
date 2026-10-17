@@ -259,7 +259,8 @@ def test_acceptance_branch_bundle_has_proof_separate_from_result():
                            'clone': 'clone-B-full'},
         'anchor': {'effect': {'result': 'anchor-B', 'proof': 'anchor-proof-B'},
                    'clone': 'clone-B-anchor'},
-        'own_revocation': {'effect': {'result': 'own-C', 'proof': 'proof-C'},
+        'own_revocation': {'effect': {'result': 'own-C', 'proof': 'proof-C',
+                                     'current_r2_witness_rejection': 'r2-rejection'},
                            'clone': 'clone-C'},
     }, result_bundle=lambda result: result['result'],
        proof_bundle=lambda proof: proof,
@@ -269,7 +270,8 @@ def test_acceptance_branch_bundle_has_proof_separate_from_result():
                  'replay_proof': 'fresh-proof-A', 'r0_clone': 'r0-clone'},
         'unrelated_full': {'result': 'full-B', 'proof': 'proof-B', 'r1_clone': 'clone-B-full'},
         'anchor': {'result': 'anchor-B', 'proof': 'anchor-proof-B', 'r1_clone': 'clone-B-anchor'},
-        'own_revocation': {'result': 'own-C', 'proof': 'proof-C', 'r1_clone': 'clone-C'},
+        'own_revocation': {'result': 'own-C', 'proof': 'proof-C', 'r1_clone': 'clone-C',
+                           'current_r2_witness_rejection': 'r2-rejection'},
     }
 
 
@@ -315,6 +317,12 @@ def test_case_fragment_shape_matches_assembler_and_verifier_contracts(tmp_path):
     }
     branch_inputs['full']['effect']['replay_proof'] = {
         'receipt': 'fresh-full-proof', 'artifacts': {}}
+    r2_rejection = tmp_path / 'r2-rejection.json'
+    r2_rejection_raw = b'{"outcome":"fixture"}\n'
+    r2_rejection.write_bytes(r2_rejection_raw)
+    branch_inputs['own_revocation']['effect']['current_r2_witness_rejection'] = {
+        'path': str(r2_rejection),
+        'sha256': hashlib.sha256(r2_rejection_raw).hexdigest()}
     emitted_branches = runner.acceptance_branch_bundles(
         branch_inputs, result_bundle=lambda value: value['result'],
         proof_bundle=lambda value: value,
@@ -332,6 +340,7 @@ def test_case_fragment_shape_matches_assembler_and_verifier_contracts(tmp_path):
     branch_components = {name: {'proof_seconds': 0.0, 'clone_seconds': 0.0,
                                 'effect_seconds': 0.0, 'total_seconds': 0.0}
                          for name in branches}
+    branch_components['own_revocation']['r2_active_witness_seconds'] = 0.0
     fragment = {'schema': assembler.FRAGMENT_SCHEMA, 'variant': 0,
         'case_context': {'path': '/unused/case.json', 'sha256': 'a' * 64},
         'stage_context': {'path': '/unused/stage.json', 'sha256': 'b' * 64},
@@ -359,6 +368,8 @@ def test_case_fragment_shape_matches_assembler_and_verifier_contracts(tmp_path):
         expected = {'result', 'proof', clone}
         if name == 'full':
             expected.add('replay_proof')
+        if name == 'own_revocation':
+            expected.add('current_r2_witness_rejection')
         assert set(bundle) == expected
         expected_result = {'report', 'status', 'outer', 'config', 'monitor',
                            'monitor_owner', 'wires', 'accounts'}
@@ -381,6 +392,7 @@ def test_acceptance_costs_include_full_branch_wall_and_shared_setup_wall():
         'own_revocation:proof-anchor': {'wall_seconds': 13},
         'own_revocation:r1-clone': {'wall_seconds': 8},
         'own_revocation:effect': {'wall_seconds': 9},
+        'own_revocation:r2-active-witness': {'wall_seconds': 4},
         'positive_full:stage': {'wall_seconds': 1.25},
         'positive_full:transition': {'wall_seconds': 2.5},
         'unrelated_compare:stage': {'wall_seconds': 1.5},
@@ -389,7 +401,8 @@ def test_acceptance_costs_include_full_branch_wall_and_shared_setup_wall():
         'own_revocation:transition': {'wall_seconds': 3.0},
     })
     assert costs['branch_wall_seconds'] == {
-        'full': 15, 'unrelated_full': 20, 'anchor': 25, 'own_revocation': 30}
+        'full': 15, 'unrelated_full': 20, 'anchor': 25, 'own_revocation': 34}
+    assert costs['branch_wall_components']['own_revocation']['r2_active_witness_seconds'] == 4
     assert costs['shared_stage_transition_wall_seconds'] == {
         'stage': {'A': 1.25, 'B': 1.5, 'C': 1.75},
         'transition': {'A': 2.5, 'B': 2.75, 'C': 3.0}}

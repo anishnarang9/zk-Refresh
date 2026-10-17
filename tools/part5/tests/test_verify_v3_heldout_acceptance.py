@@ -3,8 +3,10 @@ import hashlib
 import inspect
 import json
 from pathlib import Path
+import sys
 import tempfile
 import unittest
+from unittest import mock
 
 from tools.part5 import verify_v3_heldout_acceptance as verifier
 from tools.part5.generate_v3_heldout_keys import FREEZE_SCHEMA, IDENTITY_ROLES
@@ -582,6 +584,228 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         case['roots']['R2'] = case['roots']['R1']
         with self.assertRaisesRegex(ValueError, 'active from finalized R2'):
             verifier._verify_leaf_absent(case)
+
+    def test_current_r2_witness_receipt_rejects_generic_failure(self):
+        receipt = {'schema': 'part5-v3-r2-active-witness-rejection-v1',
+                   'outcome': 'generator_failed'}
+        with mock.patch.object(verifier, '_json', return_value=(receipt, 'a' * 64)):
+            with self.assertRaisesRegex(ValueError, 'separate generator and R1CS outcomes'):
+                verifier._verify_current_r2_witness_rejection(
+                    {'path': '/unused/receipt.json', 'sha256': 'a' * 64}, {}, {}, {}, {})
+
+    def test_current_r2_witness_receipt_rejects_old_r1_proof_rejection_only(self):
+        receipt = {'schema': 'part5-v3-r2-active-witness-rejection-v1',
+                   'outcome': 'old_r1_proof_rejected_at_r2'}
+        with mock.patch.object(verifier, '_json', return_value=(receipt, 'b' * 64)):
+            with self.assertRaisesRegex(ValueError, 'separate generator and R1CS outcomes'):
+                verifier._verify_current_r2_witness_rejection(
+                    {'path': '/unused/receipt.json', 'sha256': 'b' * 64}, {}, {}, {}, {})
+
+    def test_current_r2_receipt_requires_independent_generator_and_relation_supervisors(self):
+        receipt = {'schema': 'part5-v3-r2-active-witness-rejection-v1',
+                   'outcome': 'generator_rejected_plus_counterfactual_r1cs_unsatisfied',
+                   'generator_attempt': {'exit_code': 1}}
+        with mock.patch.object(verifier, '_json', return_value=(receipt, 'c' * 64)):
+            with self.assertRaisesRegex(ValueError, 'separate generator and R1CS outcomes'):
+                verifier._verify_current_r2_witness_rejection(
+                    {'path': '/unused/receipt.json', 'sha256': 'c' * 64}, {}, {}, {}, {})
+
+    def test_current_r2_receipt_accepts_only_cross_pinned_counterfactual_row(self):
+        def write(path, raw):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(raw)
+            path.chmod(0o600)
+            return {'path': str(path), 'sha256': hashlib.sha256(raw).hexdigest()}
+
+        def json_ref(name, value):
+            return write(self.root / name, verifier._canonical_json(value))
+
+        r1_root, r2_root = f'{1:064x}', f'{2:064x}'
+        action_hash = f'{8:064x}'
+        own_siblings = [40 + index for index in range(10)]
+        base_input = {'root': str(int(r1_root, 16)),
+                      'siblings': [str(3 + index) for index in range(10)],
+                      'issuerHash': '4', 'notBefore': '5', 'notAfter': '6',
+                      'actionHash': str(int(action_hash, 16)), 'policyHash': '9'}
+        candidate_input = dict(base_input, root=str(int(r2_root, 16)),
+                               siblings=[str(value) for value in own_siblings])
+        base_input_ref = json_ref('base-input.json', base_input)
+        candidate_input_ref = json_ref('candidate-input.json', candidate_input)
+
+        coordinates = list(range(1, 752))
+        coordinates_raw = b''.join(value.to_bytes(4, 'little') for value in coordinates)
+        coordinates_ref = write(self.root / 'input-coordinates.bin', coordinates_raw)
+        values = [0] * 784796
+        values[0] = 1
+        values[1:7] = [int(base_input[name]) for name in (
+            'root', 'issuerHash', 'notBefore', 'notAfter', 'actionHash', 'policyHash')]
+        for index, wire in enumerate(coordinates[731:741]):
+            values[wire] = int(base_input['siblings'][index])
+
+        def wtns_bytes(assignment):
+            fr = 21888242871839275222246405745257275088548364400416034343698204186575808495617
+            header = ((32).to_bytes(4, 'little') + fr.to_bytes(32, 'little')
+                      + len(assignment).to_bytes(4, 'little'))
+            section1 = (1).to_bytes(4, 'little') + len(header).to_bytes(8, 'little') + header
+            data = b''.join(value.to_bytes(32, 'little') for value in assignment)
+            section2 = (2).to_bytes(4, 'little') + len(data).to_bytes(8, 'little') + data
+            return b'wtns' + (2).to_bytes(4, 'little') + (2).to_bytes(4, 'little') + section1 + section2
+
+        base_witness_ref = write(self.root / 'base.wtns', wtns_bytes(values))
+        patched_values = list(values)
+        patched_values[1] = int(r2_root, 16)
+        for index, wire in enumerate(coordinates[731:741]):
+            patched_values[wire] = own_siblings[index]
+        patched_witness_ref = write(self.root / 'patched.wtns', wtns_bytes(patched_values))
+        receipt_hashes = {
+            'candidate_input_sha256': candidate_input_ref['sha256'],
+            'witness_sha256': patched_witness_ref['sha256'],
+            'base_r1_witness_sha256': base_witness_ref['sha256'],
+            'r1cs_sha256': 'e' * 64,
+            'relation_checker_sha256': 'd' * 64,
+        }
+        relation_result = {
+            'schema': 'part5-v3-r2-active-witness-r1cs-result-v1',
+            'status': 'unsatisfied', 'scan': 'first_unsatisfied_row',
+            'constraint_row': 73,
+            'expected_public': [candidate_input[name] for name in (
+                'root', 'issuerHash', 'notBefore', 'notAfter', 'actionHash', 'policyHash')],
+            **receipt_hashes,
+        }
+        result_ref = json_ref('r1cs-result.json', relation_result)
+        witness_limits = {'runtime_seconds': 300, 'rss_bytes': 4 * 1024**3,
+                          'storage_bytes': 512 * 1024**2}
+        relation_limits = {'runtime_seconds': 600, 'rss_bytes': 4 * 1024**3,
+                           'storage_bytes': 512 * 1024**2}
+
+        def outer_ref(name, exit_code, limits):
+            outer = {'schema': 1, 'passed': exit_code == 0, 'exit_code': exit_code,
+                     'stop_reason': None, 'runner_error_type': None,
+                     'cleanup_remaining_owned_processes': 0,
+                     'cleanup_status_unknown': False,
+                     'duration_seconds': 1.0, 'sample_count': 1,
+                     'limits': {'runtime_seconds': limits['runtime_seconds'],
+                                'owned_tree_rss_bytes': limits['rss_bytes'],
+                                'storage_growth_bytes': limits['storage_bytes'],
+                                'poll_seconds': verifier.PROOF_POLL_SECONDS}}
+            outer['owner'] = name.replace('.json', '-owner')
+            return json_ref(name, outer)
+
+        generator_ref = outer_ref('generator-outer.json', 2, witness_limits)
+        relation_ref = outer_ref('relation-outer.json', 0, relation_limits)
+        candidate_dir = self.root / 'candidate'
+        candidate_dir.mkdir()
+        # Move the candidate artifact into its actual generator input directory.
+        candidate_input_ref = write(candidate_dir / 'input.json',
+                                    verifier._canonical_json(candidate_input))
+        candidate_input_ref['sha256'] = hashlib.sha256(
+            verifier._canonical_json(candidate_input)).hexdigest()
+        relation_dir = self.root / 'relation'
+        relation_dir.mkdir()
+        result_ref = json_ref('relation/r1cs-result.json', relation_result)
+        generator_monitor = self.root / 'generator-monitor'
+        relation_monitor = self.root / 'relation-monitor'
+        generator_monitor.mkdir()
+        relation_monitor.mkdir()
+        generator_argv = ['/frozen/node', '/frozen/witness.cjs', str(candidate_dir)]
+        relation_argv = [sys.executable, '-B',
+                         str(verifier.ROOT / 'tools/part5/check_v3_r2_counterfactual.py'),
+                         '--candidate-input', candidate_input_ref['path'],
+                         '--candidate-input-sha256', candidate_input_ref['sha256'],
+                         '--witness', str(self.root / 'patched.wtns'),
+                         '--witness-sha256', patched_witness_ref['sha256'],
+                         '--base-r1-witness', str(self.root / 'base.wtns'),
+                         '--base-r1-witness-sha256', base_witness_ref['sha256'],
+                         '--r1cs', '/frozen/r1cs', '--r1cs-sha256', 'e' * 64,
+                         '--relation-checker', '/frozen/relation.py',
+                         '--relation-checker-sha256', 'd' * 64,
+                         '--output', result_ref['path']]
+
+        def invocation_ref(path, owner, argv, roots):
+            return json_ref(path, {'owner': owner, 'argv': argv, 'cwd': str(verifier.ROOT),
+                                   'started_at_utc': '2026-10-17T12:00:00Z',
+                                   'storage_roots': roots})
+
+        generator_invocation_ref = invocation_ref(
+            'generator-monitor/invocation.json', 'generator-outer-owner', generator_argv,
+            [str(generator_monitor), str(candidate_dir)])
+        relation_invocation_ref = invocation_ref(
+            'relation-monitor/invocation.json', 'relation-outer-owner', relation_argv,
+            [str(relation_monitor), str(relation_dir)])
+        receipt = {
+            'schema': 'part5-v3-r2-active-witness-rejection-v1',
+            'outcome': 'generator_rejected_plus_counterfactual_r1cs_unsatisfied',
+            'r2_root': r2_root, 'base_r1_root': r1_root,
+            'own_revoked_siblings_sha256': verifier._sha(verifier._canonical_json(own_siblings)),
+            'base_r1_input_sha256': base_input_ref['sha256'],
+            'candidate_input_sha256': candidate_input_ref['sha256'],
+            'base_r1_input_ref': base_input_ref,
+            'candidate_input_ref': candidate_input_ref,
+            'generator_invocation_ref': generator_invocation_ref,
+            'relation_invocation_ref': relation_invocation_ref,
+            'input_coordinates_ref': coordinates_ref,
+            'input_coordinates_sha256': coordinates_ref['sha256'],
+            'target_credential_sha256': 'a' * 64, 'target_tbs_sha256': 'b' * 64,
+            'action_hash': action_hash, 'witness_generator_sha256': 'g' * 64,
+            'relation_checker_sha256': 'd' * 64, 'r1cs_sha256': 'e' * 64,
+            'bounded_supervisor_sha256': 'f' * 64,
+            'generator_attempt': {'exit_code': 2, 'output_wtns_present': False,
+                                  'input_sha256': candidate_input_ref['sha256'],
+                                  'supervisor_ref': generator_ref,
+                                  'supervisor_limits': witness_limits},
+            'counterfactual_assignment': {
+                'label': 'counterfactual_r1_wtns_with_r2_public_root_and_revoked_siblings',
+                'base_r1_witness_ref': base_witness_ref,
+                'base_r1_witness_sha256': base_witness_ref['sha256'],
+                'patched_witness_ref': patched_witness_ref,
+                'patched_witness_sha256': patched_witness_ref['sha256']},
+            'r1cs_result': relation_result, 'r1cs_result_ref': result_ref,
+            'relation_supervisor': {'ref': relation_ref, 'limits': relation_limits,
+                                    'exit_code': 0},
+        }
+        receipt_ref = json_ref('receipt.json', receipt)
+        case = {'roots': {'R1': r1_root, 'R2': r2_root},
+                'membership': {'own_revoked_siblings': own_siblings},
+                'target': {'credential_sha256': 'a' * 64, 'tbs_sha256': 'b' * 64}}
+        slot_data = {'r1_input': base_input,
+                     'r1_input_sha256': base_input_ref['sha256'],
+                     'r1': {'action_hash': action_hash}}
+        globals_ = {
+            'freeze': {'identities': {'witness_executable': 'c' * 64, 'r1cs': 'e' * 64}},
+            'proof_inputs': {'witness_js': 'g' * 64, 'relation_checker': 'd' * 64,
+                             'bounded_supervisor': 'f' * 64},
+            'proof_input_paths': {'node': Path('/frozen/node'),
+                                  'witness_js': Path('/frozen/witness.cjs'),
+                                  'relation_checker': Path('/frozen/relation.py')},
+            'frozen_paths': {'r1cs': Path('/frozen/r1cs')},
+            'packet_template': {'input_map_sha256': coordinates_ref['sha256']},
+        }
+        result = verifier._verify_current_r2_witness_rejection(
+            receipt_ref, case, globals_, slot_data,
+            {'artifacts': {'near/output.wtns': base_witness_ref}})
+        self.assertEqual(result['r1cs_constraint_row'], 73)
+        self.assertEqual(result['generator_output_absence_scope'],
+                         'present-time only; not historical proof')
+
+        bad_invocation = {'owner': 'generator-outer-owner', 'argv': generator_argv[:-1]
+                          + ['/wrong/candidate'], 'cwd': str(verifier.ROOT),
+                          'started_at_utc': '2026-10-17T12:00:00Z',
+                          'storage_roots': [str(generator_monitor), str(candidate_dir)]}
+        receipt['generator_invocation_ref'] = json_ref(
+            'generator-monitor/invocation.json', bad_invocation)
+        receipt_ref = json_ref('receipt.json', receipt)
+        with self.assertRaisesRegex(ValueError, 'exact argv, cwd, owner, and storage roots'):
+            verifier._verify_current_r2_witness_rejection(
+                receipt_ref, case, globals_, slot_data,
+                {'artifacts': {'near/output.wtns': base_witness_ref}})
+
+        receipt['r2_root'] = r1_root
+        receipt['generator_invocation_ref'] = generator_invocation_ref
+        receipt_ref = json_ref('receipt.json', receipt)
+        with self.assertRaisesRegex(ValueError, 'membership, target, and C action'):
+            verifier._verify_current_r2_witness_rejection(
+                receipt_ref, case, globals_, slot_data,
+                {'artifacts': {'near/output.wtns': base_witness_ref}})
 
     def test_four_outcomes_map_to_three_request_identities(self):
         branches = {

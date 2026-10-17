@@ -33,7 +33,11 @@ class HeldoutAcceptanceAssemblerTests(unittest.TestCase):
             branch_costs = {
                 name: {'proof_seconds': 1.0, 'clone_seconds': 2.0,
                        'effect_seconds': 3.0, 'total_seconds': 6.0}
-                for name in ('full', 'unrelated_full', 'anchor', 'own_revocation')}
+                for name in ('full', 'unrelated_full', 'anchor')}
+            branch_costs['own_revocation'] = {
+                'proof_seconds': 1.0, 'clone_seconds': 2.0,
+                'effect_seconds': 3.0, 'r2_active_witness_seconds': 4.0,
+                'total_seconds': 10.0}
             payload = {
                 'variant': variant,
                 'case_context': self.ref,
@@ -138,6 +142,15 @@ class HeldoutAcceptanceAssemblerTests(unittest.TestCase):
         del changed['branch_order']
         self.fragments[0].write_text(json.dumps(changed))
         with self.assertRaisesRegex(ValueError, 'complete normalized heldout case'):
+            self.assemble()
+
+    def test_own_revocation_cost_requires_r2_active_witness_component(self):
+        changed = json.loads(self.fragments[0].read_text())
+        del changed['branch_wall_components']['own_revocation'][
+            'r2_active_witness_seconds']
+        self.fragments[0].write_text(json.dumps(changed))
+        with self.assertRaisesRegex(ValueError,
+                                    'complete finite own_revocation wall-time components'):
             self.assemble()
 
     def test_rejects_incorrect_order_parity(self):

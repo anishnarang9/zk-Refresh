@@ -1549,6 +1549,8 @@ def _verify_case_run_provenance(case_bundle, variant, globals_, freeze_sha,
 
 def _verify_branch(branch, bundle, case, globals_, slot_data, clone_destinations):
     expected_branch_keys = {'result', 'proof'}
+    if branch == 'own_revocation':
+        expected_branch_keys.add('current_r2_witness_rejection')
     if branch == 'full':
         expected_branch_keys.add('replay_proof')
     clone_role = 'r0_clone' if branch == 'full' else 'r1_clone'
@@ -1759,6 +1761,10 @@ def _verify_branch(branch, bundle, case, globals_, slot_data, clone_destinations
                  'R1 outcome must retain R1 generation')
     proof_outputs = _validate_proof_bundle(bundle['proof'], branch, case,
                                            globals_, slot_data, result_bundle['wires'])
+    if branch == 'own_revocation':
+        r2_witness_rejection = _verify_current_r2_witness_rejection(
+            bundle['current_r2_witness_rejection'], case, globals_, slot_data,
+            bundle['proof'])
     if branch == 'full':
         replay = _validate_proof_one(
             bundle['replay_proof'], 'full', 'fresh Full replay', case,
@@ -1775,7 +1781,9 @@ def _verify_branch(branch, bundle, case, globals_, slot_data, clone_destinations
             'current_root': current_root, 'runtime_identity': runtime_identity,
             'action_hash': r0['action_hash'], 'effect_count': report.get('effect_count'),
             'request_consumed': report.get('request_consumed'),
-            'proof_evidence': proof_outputs}
+            'proof_evidence': proof_outputs,
+            **({'current_r2_witness_rejection': r2_witness_rejection}
+               if branch == 'own_revocation' else {})}
 
 
 def _pin_sha(ref):
@@ -1814,6 +1822,317 @@ def _verify_leaf_absent(case):
 
     _require(root(False) == case['roots']['R2'] and root(True) != case['roots']['R2'],
              'own leaf is active from finalized R2 membership root')
+
+
+def _canonical_json(value):
+    return (json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False)
+            + '\n').encode('ascii')
+
+
+def _wtns_assignment(ref):
+    """Read the bounded canonical v2 BN254 WTNS assignment used by this circuit."""
+    path, digest, _ = _artifact(ref, cap=32 * 1024 * 1024)
+    before = path.lstat()
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
+    with os.fdopen(fd, 'rb') as stream:
+        opened = os.fstat(stream.fileno())
+        _require(_identity(opened) == _identity(before), 'WTNS changed at open')
+        raw = stream.read(32 * 1024 * 1024 + 1)
+        _require(_identity(os.fstat(stream.fileno())) == _identity(before)
+                 and _identity(path.lstat()) == _identity(before)
+                 and len(raw) == before.st_size and _sha(raw) == digest,
+                 'WTNS changed while reading')
+    _require(len(raw) == 25113548 and raw[:8] == b'wtns\x02\x00\x00\x00'
+             and int.from_bytes(raw[8:12], 'little') == 2,
+             'complete frozen v3 WTNS assignment required')
+    offset, sections = 12, {}
+    for _ in range(2):
+        _require(offset + 12 <= len(raw), 'truncated WTNS section table')
+        kind = int.from_bytes(raw[offset:offset + 4], 'little')
+        size = int.from_bytes(raw[offset + 4:offset + 12], 'little')
+        start = offset + 12
+        _require(kind not in sections and start + size <= len(raw),
+                 'invalid WTNS section bounds')
+        sections[kind] = (start, size)
+        offset = start + size
+    _require(offset == len(raw) and set(sections) == {1, 2},
+             'complete WTNS sections required')
+    header_start, header_size = sections[1]
+    _require(header_size == 40
+             and int.from_bytes(raw[header_start:header_start + 4], 'little') == 32
+             and int.from_bytes(raw[header_start + 4:header_start + 36], 'little')
+                == 21888242871839275222246405745257275088548364400416034343698204186575808495617,
+             'canonical BN254 WTNS field required')
+    count = int.from_bytes(raw[header_start + 36:header_start + 40], 'little')
+    assignment_start, assignment_size = sections[2]
+    _require(count == 784796 and assignment_size == count * 32,
+             'complete frozen v3 WTNS field assignment required')
+    values = [int.from_bytes(raw[assignment_start + index * 32:
+                                 assignment_start + (index + 1) * 32], 'little')
+              for index in range(count)]
+    _require(values[0] == 1 and all(value < 21888242871839275222246405745257275088548364400416034343698204186575808495617
+                                     for value in values),
+             'WTNS values must be canonical BN254 fields')
+    return digest, values
+
+
+def _verify_current_r2_witness_rejection(ref, case, globals_, slot_data, proof_bundle):
+    """Require a pinned R2 generator rejection and counterfactual R1CS result."""
+    receipt, _ = _json(ref, cap=65536)
+    required = {
+        'schema', 'outcome', 'r2_root', 'base_r1_root',
+        'own_revoked_siblings_sha256', 'base_r1_input_sha256',
+        'r1cs_sha256', 'r1cs_result_ref', 'target_credential_sha256',
+        'target_tbs_sha256', 'action_hash', 'base_r1_input_ref',
+        'candidate_input_ref', 'input_coordinates_ref',
+        'input_coordinates_sha256', 'candidate_input_sha256',
+        'witness_generator_sha256', 'relation_checker_sha256',
+        'bounded_supervisor_sha256', 'generator_attempt',
+        'generator_invocation_ref', 'relation_invocation_ref',
+        'counterfactual_assignment', 'r1cs_result', 'r1cs_result_ref',
+        'relation_supervisor',
+    }
+    _require(type(receipt) is dict and set(receipt) == required
+             and receipt.get('schema') == 'part5-v3-r2-active-witness-rejection-v1'
+             and receipt.get('outcome')
+                == 'generator_rejected_plus_counterfactual_r1cs_unsatisfied',
+             'current-R2 active witness requires separate generator and R1CS outcomes')
+
+    base_input = slot_data.get('r1_input')
+    _require(type(base_input) is dict and set(base_input) >= {
+        'root', 'siblings', 'issuerHash', 'notBefore', 'notAfter', 'actionHash',
+        'policyHash'}, 'C R1 source witness input required for R2 rejection')
+    _require(type(base_input['root']) is str and base_input['root'].isdecimal()
+             and str(int(base_input['root'])) == base_input['root']
+             and int(base_input['root']) == int(case['roots']['R1'], 16),
+             'R2 witness rejection base input must be the exact C R1 root')
+
+    base_ref = receipt.get('base_r1_input_ref')
+    candidate_ref = receipt.get('candidate_input_ref')
+    _require(type(base_ref) is dict and set(base_ref) == {'path', 'sha256'}
+             and type(candidate_ref) is dict and set(candidate_ref) == {'path', 'sha256'},
+             'pinned base and current-R2 candidate witness inputs required')
+    _, base_sha, base_raw = _artifact(base_ref, cap=65536)
+    _require(base_raw == _canonical_json(base_input)
+             and base_input == slot_data.get('r1_input'),
+             'canonical base witness input differs from C R1 source input')
+    _, candidate_sha, candidate_raw = _artifact(candidate_ref, cap=65536)
+    try:
+        candidate = json.loads(candidate_raw, object_pairs_hook=_unique_pairs,
+                               parse_constant=lambda _: (_ for _ in ()).throw(
+                                   ValueError('non-finite JSON number')))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError('canonical current-R2 candidate input required') from error
+    siblings = case['membership']['own_revoked_siblings']
+    candidate_expected = dict(base_input)
+    candidate_expected['root'] = str(int(case['roots']['R2'], 16))
+    candidate_expected['siblings'] = [str(value) for value in siblings]
+    expected_base_sha = _sha(_canonical_json(base_input))
+    expected_candidate_sha = _sha(_canonical_json(candidate_expected))
+    _require(base_sha == expected_base_sha
+             and candidate == candidate_expected
+             and candidate_raw == _canonical_json(candidate)
+             and candidate_sha == expected_candidate_sha
+             and receipt.get('base_r1_input_sha256') == expected_base_sha
+             and receipt.get('candidate_input_sha256') == expected_candidate_sha,
+             'R2 candidate must preserve the C R1 input except R2 root and own-revoked path')
+
+    source = slot_data['r1']
+    _require(receipt.get('r2_root') == case['roots']['R2']
+             and receipt.get('base_r1_root') == case['roots']['R1']
+             and receipt.get('own_revoked_siblings_sha256') == _sha(_canonical_json(siblings))
+             and receipt.get('target_credential_sha256')
+                == case['target']['credential_sha256']
+             and receipt.get('target_tbs_sha256') == case['target']['tbs_sha256']
+             and receipt.get('action_hash') == source['action_hash']
+             and int(base_input['actionHash']) == int(source['action_hash'], 16),
+             'R2 active witness receipt must cross-pin membership, target, and C action')
+
+    frozen = globals_['freeze']['identities']
+    proof_inputs = globals_['proof_inputs']
+    _require(receipt.get('witness_generator_sha256') == proof_inputs['witness_js']
+             and receipt.get('relation_checker_sha256') == proof_inputs['relation_checker']
+             and receipt.get('r1cs_sha256') == frozen['r1cs'],
+             'R2 active witness tooling differs from frozen JS wrapper, checker, or R1CS')
+    coordinates_ref = receipt.get('input_coordinates_ref')
+    _require(type(coordinates_ref) is dict and set(coordinates_ref) == {'path', 'sha256'}
+             and receipt.get('input_coordinates_sha256') == coordinates_ref['sha256'],
+             'R2 input-coordinate artifact hash must be pinned')
+    _, coordinates_sha, coordinates_raw = _artifact(coordinates_ref, cap=65536)
+    _require(coordinates_sha == receipt['input_coordinates_sha256'],
+             'R2 input-coordinate artifact SHA-256 mismatch')
+    _require(coordinates_sha == globals_['packet_template']['input_map_sha256']
+             and len(coordinates_raw) == 751 * 4,
+             'R2 counterfactual input map must match the frozen 751-coordinate file')
+    coordinates = [int.from_bytes(coordinates_raw[index:index + 4], 'little')
+                   for index in range(0, len(coordinates_raw), 4)]
+    _require(len(coordinates) == 751 and coordinates[:6] == [1, 2, 3, 4, 5, 6]
+             and len(set(coordinates)) == len(coordinates)
+             and all(0 < value < 784796 for value in coordinates)
+             and len(set([coordinates[0], *coordinates[731:741]])) == 11,
+             'frozen R2 coordinate map must pin distinct root and sibling wires')
+    expected_coordinates = [int(candidate['root']), int(base_input['issuerHash']),
+                            int(base_input['notBefore']), int(base_input['notAfter']),
+                            int(base_input['actionHash']), int(base_input['policyHash'])]
+
+    attempt = receipt.get('generator_attempt')
+    witness_limits = {'runtime_seconds': 300, 'rss_bytes': 4 * 1024**3,
+                      'storage_bytes': 512 * 1024**2}
+    _require(type(attempt) is dict and set(attempt) == {
+        'exit_code', 'output_wtns_present', 'input_sha256',
+        'supervisor_ref', 'supervisor_limits'}
+             and attempt.get('exit_code') == 2
+             and attempt.get('output_wtns_present') is False
+             and attempt.get('input_sha256') == expected_candidate_sha
+             and attempt.get('supervisor_limits') == witness_limits,
+             'R2 generator rejection must be a labeled no-WTNS exit 2')
+    generator_outer = _outer(attempt['supervisor_ref'],
+                             'current-R2 witness generator', expected_exit=2)
+    _require(_proof_outer_limits_match(generator_outer, witness_limits),
+             'R2 generator supervisor limits differ from frozen bounds')
+    candidate_dir = Path(candidate_ref['path']).parent
+    generator_report_dir = Path(attempt['supervisor_ref']['path']).parent
+    generator_monitor = generator_report_dir / 'generator-monitor'
+    generator_invocation = _verify_r2_invocation(
+        receipt['generator_invocation_ref'], generator_monitor, generator_outer,
+        [str(globals_['proof_input_paths']['node']),
+         str(globals_['proof_input_paths']['witness_js']), str(candidate_dir)],
+        [str(generator_monitor), str(candidate_dir)], 'R2 witness generator')
+    # This is only a present-time filesystem check, not proof of historical absence.
+    output_wtns = candidate_dir / 'output.wtns'
+    _require(not output_wtns.exists() and not output_wtns.is_symlink(),
+             'current-R2 candidate directory has a present output.wtns')
+
+    assignment = receipt.get('counterfactual_assignment')
+    _require(type(assignment) is dict and set(assignment) == {
+        'label', 'base_r1_witness_ref', 'base_r1_witness_sha256',
+        'patched_witness_ref', 'patched_witness_sha256'}
+             and assignment.get('label')
+                == 'counterfactual_r1_wtns_with_r2_public_root_and_revoked_siblings'
+             and assignment.get('base_r1_witness_ref', {}).get('sha256')
+                == assignment.get('base_r1_witness_sha256')
+             and assignment.get('patched_witness_ref', {}).get('sha256')
+                == assignment.get('patched_witness_sha256')
+             and assignment.get('base_r1_witness_sha256')
+                != assignment.get('patched_witness_sha256'),
+             'counterfactual R1 witness assignment must be explicitly labeled and pinned')
+    _, base_witness_sha, _ = _artifact(assignment['base_r1_witness_ref'],
+                                        cap=32 * 1024 * 1024)
+    _, patched_witness_sha, _ = _artifact(assignment['patched_witness_ref'],
+                                           cap=32 * 1024 * 1024)
+    _require(base_witness_sha == assignment['base_r1_witness_sha256']
+             and patched_witness_sha == assignment['patched_witness_sha256'],
+             'counterfactual base and patched WTNS files differ from pinned hashes')
+    proof_artifacts = proof_bundle.get('artifacts') if type(proof_bundle) is dict else None
+    _require(type(proof_artifacts) is dict
+             and proof_artifacts.get('near/output.wtns')
+                == assignment['base_r1_witness_ref'],
+             'counterfactual base WTNS must equal the verified C R1 proof witness')
+    _, base_values = _wtns_assignment(assignment['base_r1_witness_ref'])
+    _, patched_values = _wtns_assignment(assignment['patched_witness_ref'])
+    sibling_wires = coordinates[731:741]
+    expected_siblings = [int(value) for value in siblings]
+    _require(base_values[coordinates[0]] == int(case['roots']['R1'], 16)
+             and [base_values[index] for index in sibling_wires]
+                == [int(value) for value in base_input['siblings']]
+             and base_values[1:7] == [int(case['roots']['R1'], 16),
+                                       int(base_input['issuerHash']),
+                                       int(base_input['notBefore']),
+                                       int(base_input['notAfter']),
+                                       int(base_input['actionHash']),
+                                       int(base_input['policyHash'])]
+             and patched_values[coordinates[0]] == int(case['roots']['R2'], 16)
+             and [patched_values[index] for index in sibling_wires] == expected_siblings
+             and patched_values[1:7] == expected_coordinates,
+             'counterfactual WTNS must contain the R2 root/path and exact public request')
+    changed = {coordinates[0], *sibling_wires}
+    _require(all(before == after for index, (before, after) in enumerate(
+        zip(base_values, patched_values)) if index not in changed),
+        'counterfactual WTNS may change only the root and ten sibling assignments')
+
+    result = receipt.get('r1cs_result')
+    _require(type(result) is dict and set(result) == {
+        'schema', 'status', 'scan', 'constraint_row', 'expected_public',
+        'candidate_input_sha256', 'witness_sha256', 'base_r1_witness_sha256', 'r1cs_sha256',
+        'relation_checker_sha256'}
+             and result.get('schema') == 'part5-v3-r2-active-witness-r1cs-result-v1'
+             and result.get('status') == 'unsatisfied'
+             and result.get('scan') == 'first_unsatisfied_row'
+             and type(result.get('constraint_row')) is int
+             and 0 <= result['constraint_row'] < 793681
+             and result.get('expected_public') == [str(value) for value in expected_coordinates]
+             and result.get('candidate_input_sha256') == expected_candidate_sha
+             and result.get('witness_sha256') == assignment['patched_witness_sha256']
+             and result.get('base_r1_witness_sha256')
+                == assignment['base_r1_witness_sha256']
+             and result.get('r1cs_sha256') == frozen['r1cs']
+             and result.get('relation_checker_sha256') == proof_inputs['relation_checker'],
+             'R2 rejection must pin a frozen R1CS first-unsatisfied-row result')
+    result_ref = receipt.get('r1cs_result_ref')
+    result_file, result_sha, result_raw = _artifact(result_ref, cap=65536)
+    _require(result_sha == result_ref.get('sha256')
+             and result_sha == _sha(_canonical_json(result))
+             and result_raw == _canonical_json(result),
+             'pinned relation result file must exactly match canonical receipt result')
+
+    relation = receipt.get('relation_supervisor')
+    relation_limits = {'runtime_seconds': 600, 'rss_bytes': 4 * 1024**3,
+                       'storage_bytes': 512 * 1024**2}
+    _require(type(relation) is dict and set(relation) == {'ref', 'limits', 'exit_code'}
+             and relation.get('limits') == relation_limits
+             and relation.get('exit_code') == 0
+             and receipt.get('bounded_supervisor_sha256')
+                == proof_inputs.get('bounded_supervisor'),
+             'R2 active witness relation requires the frozen bounded supervisor')
+    relation_outer = _outer(relation['ref'], 'counterfactual R1CS relation', expected_exit=0)
+    _require(_proof_outer_limits_match(relation_outer, relation_limits),
+             'counterfactual R1CS supervisor limits differ from frozen bounds')
+    relation_dir = Path(result_ref['path']).parent
+    relation_monitor = Path(relation['ref']['path']).parent / 'relation-monitor'
+    proof_paths = globals_['proof_input_paths']
+    relation_argv = [sys.executable, '-B', str(ROOT / 'tools/part5/check_v3_r2_counterfactual.py'),
+                     '--candidate-input', candidate_ref['path'],
+                     '--candidate-input-sha256', candidate_ref['sha256'],
+                     '--witness', assignment['patched_witness_ref']['path'],
+                     '--witness-sha256', assignment['patched_witness_ref']['sha256'],
+                     '--base-r1-witness', assignment['base_r1_witness_ref']['path'],
+                     '--base-r1-witness-sha256', assignment['base_r1_witness_ref']['sha256'],
+                     '--r1cs', str(globals_['frozen_paths']['r1cs']),
+                     '--r1cs-sha256', frozen['r1cs'],
+                     '--relation-checker', str(proof_paths['relation_checker']),
+                     '--relation-checker-sha256', proof_inputs['relation_checker'],
+                     '--output', result_ref['path']]
+    _verify_r2_invocation(receipt['relation_invocation_ref'], relation_monitor,
+                          relation_outer, relation_argv,
+                          [str(relation_monitor), str(relation_dir)],
+                          'counterfactual R1CS relation')
+    return {'receipt_sha256': _pin_sha(ref), 'candidate_input_sha256': expected_candidate_sha,
+            'witness_sha256': assignment['patched_witness_sha256'],
+            'r1cs_constraint_row': result['constraint_row'],
+            'generator_failure_cause': 'unknown; pinned wrapper suppresses diagnostics',
+            'generator_output_absence_scope': 'present-time only; not historical proof',
+            'generator_invocation_sha256': _pin_sha(receipt['generator_invocation_ref']),
+            'relation_invocation_sha256': _pin_sha(receipt['relation_invocation_ref']),
+            'generator_supervisor_sha256': _pin_sha(attempt['supervisor_ref']),
+            'relation_supervisor_sha256': _pin_sha(relation['ref'])}
+
+
+def _verify_r2_invocation(ref, monitor_dir, outer, argv, storage_roots, label):
+    _require(type(ref) is dict and set(ref) == {'path', 'sha256'}
+             and Path(ref['path']) == monitor_dir / 'invocation.json',
+             f'{label} invocation reference must point to its monitor invocation.json')
+    invocation, _ = _json(ref, cap=65536)
+    _require(type(invocation) is dict and set(invocation) == {
+        'owner', 'argv', 'cwd', 'started_at_utc', 'storage_roots'}
+             and type(invocation.get('owner')) is str and invocation['owner']
+             and invocation['owner'] == outer.get('owner')
+             and invocation.get('argv') == argv
+             and invocation.get('cwd') == str(ROOT)
+             and type(invocation.get('started_at_utc')) is str
+             and invocation['started_at_utc']
+             and invocation.get('storage_roots') == storage_roots,
+             f'{label} invocation must pin exact argv, cwd, owner, and storage roots')
+    return invocation
 
 
 def _validate_request_triads(branch_results, seen_finalized_requests,
@@ -1895,9 +2214,11 @@ def verify_manifest(manifest_path):
     _require(type(proof_inputs) is dict and set(proof_inputs) == set(PROOF_INPUT_ROLES),
              'complete frozen proof/helper input map required')
     proof_input_hashes = {}
+    proof_input_paths = {}
     for role, ref in proof_inputs.items():
         _, actual, _ = _artifact(ref)
         proof_input_hashes[role] = actual
+        proof_input_paths[role] = Path(ref['path'])
         _require(actual == ref['sha256'], f'{role} proof input hash mismatch')
     _require(proof_input_hashes['proof_runner'] == frozen_hashes['proof_runner'],
              'proof runner must match frozen product pin')
@@ -1947,9 +2268,11 @@ def verify_manifest(manifest_path):
                 'cohort': cohort, 'cohort_sha256': cohort_sha,
                 'source_files': source_hashes,
                 'proof_inputs': proof_input_hashes,
+                'proof_input_paths': proof_input_paths,
                 'proof_source_hashes': proof_source_hashes,
                 'packet_template': packet_template,
-                'frozen_hashes': frozen_hashes}
+                'frozen_hashes': frozen_hashes,
+                'frozen_paths': frozen_paths}
     seen_variants, seen_requests, seen_finalized_requests, output_cases = (
         set(), set(), set(), [])
     runtime_identity = None
@@ -2036,8 +2359,17 @@ def verify_manifest(manifest_path):
             _require(type(sources) is dict and set(sources) == {'R0', 'R1'},
                      f'request {slot} needs independent R0 and R1 source receipts')
             r0, r0_sha, _ = _source(sources['R0'], 'R0', globals_, case, stage)
-            r1, r1_sha, _ = _source(sources['R1'], 'R1', globals_, case, stage,
-                                    transition['report_sha256'], r0_sha, r0)
+            r1, r1_sha, r1_files = _source(sources['R1'], 'R1', globals_, case, stage,
+                                           transition['report_sha256'], r0_sha, r0)
+            try:
+                r1_input = json.loads(r1_files['input.json'][1],
+                                      object_pairs_hook=_unique_pairs,
+                                      parse_constant=lambda _: (_ for _ in ()).throw(
+                                          ValueError('non-finite JSON number')))
+            except (KeyError, TypeError, UnicodeDecodeError, json.JSONDecodeError) as error:
+                raise ValueError('canonical C R1 witness input required') from error
+            _require(type(r1_input) is dict,
+                     'C R1 witness input object required')
             r0['receipt_ref'], r1['receipt_ref'] = sources['R0']['receipt'], sources['R1']['receipt']
             _require(r0['action_hash'] == r1['action_hash']
                      and r0['staged_request_sha256'] == r1['staged_request_sha256']
@@ -2047,7 +2379,8 @@ def verify_manifest(manifest_path):
             slots[slot] = {'stage_bundle': stage_bundle, 'stage': stage,
                            'transition_bundle': transition_bundle,
                            'transition': transition, 'r0': r0, 'r0_sha256': r0_sha,
-                           'r1': r1, 'r1_sha256': r1_sha}
+                           'r1': r1, 'r1_sha256': r1_sha,
+                           'r1_input': r1_input}
         _require(len({slots[slot]['stage']['request_sha256'] for slot in ('A', 'B', 'C')}) == 3,
                  'independent A/B/C stage request accounts required')
         branches = case_bundle.get('branches')

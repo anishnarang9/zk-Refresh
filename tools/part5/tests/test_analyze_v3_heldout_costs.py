@@ -44,6 +44,7 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
                       'unrelated_compare:anchor:clone',
                       'unrelated_compare:anchor:effect',
                       'own_revocation:r1-clone', 'own_revocation:effect'))
+        names.append('own_revocation:r2-active-witness')
         return names
 
     def test_step_map_matches_all_registered_runner_steps(self):
@@ -66,9 +67,10 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
             'own_revocation:transition', 'own_revocation:source-R0',
             'own_revocation:source-R1', 'own_revocation:proof-anchor',
             'own_revocation:r1-clone', 'own_revocation:effect',
+            'own_revocation:r2-active-witness',
         }
         self.assertEqual(analyzer._step_names(), expected)
-        self.assertEqual(len(expected), 29)
+        self.assertEqual(len(expected), 30)
 
     def make_inputs(self):
         manifest_cases, acceptance_cases = [], []
@@ -123,7 +125,9 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
                 'anchor': {'proof_seconds': 7.0, 'clone_seconds': 10.0,
                            'effect_seconds': 11.0, 'total_seconds': 28.0},
                 'own_revocation': {'proof_seconds': 1.0, 'clone_seconds': 1.0,
-                                   'effect_seconds': 1.0, 'total_seconds': 3.0},
+                                   'effect_seconds': 1.0,
+                                   'r2_active_witness_seconds': 1.0,
+                                   'total_seconds': 4.0},
             }
             monitors = {}
             for key, duration in (('stage', 1.5), ('transition', 2.5),
@@ -153,6 +157,16 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
                 'sampled_peak_owned_tree_rss_bytes': 900 + variant,
                 'sampled_peak_storage_growth_bytes': 1900 + variant,
             })
+            generator_outer = self.write_json(
+                f'outer-{variant}-r2-generator.json', {
+                    'schema': 1, 'passed': False, 'exit_code': 2,
+                    'stop_reason': None, 'runner_error_type': None,
+                    'cleanup_remaining_owned_processes': 0,
+                    'cleanup_status_unknown': False, 'duration_seconds': 0.2,
+                    'sample_count': 2,
+                    'sampled_peak_owned_tree_rss_bytes': 950 + variant,
+                    'sampled_peak_storage_growth_bytes': 1950 + variant,
+                })
             full_clone = self.write_json(f'full-clone-{variant}.json', {
                 'schema': 'part5-v3-r1-ledger-clone-v1', 'training_only': True,
                 'source_stable': True, 'copy_identical': True,
@@ -265,6 +279,19 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
                 steps[step]['monitor'] = ref['path']
                 steps[step]['monitor_sha256'] = ref['sha256']
                 monitor_for_step[step] = ref
+            steps['own_revocation:r2-active-witness'].update({
+                'generator_monitor': generator_outer['path'],
+                'generator_monitor_sha256': generator_outer['sha256'],
+            })
+            r2_rejection = self.write_json(f'r2-rejection-{variant}.json', {
+                'generator_attempt': {'supervisor_ref': generator_outer},
+                'relation_supervisor': {
+                    'ref': monitor_for_step['own_revocation:r2-active-witness']},
+            })
+            steps['own_revocation:r2-active-witness'].update({
+                'receipt': r2_rejection['path'],
+                'receipt_sha256': r2_rejection['sha256'],
+            })
             stage_evidence = {
                 'A': {'monitor': monitor_for_step['positive_full:stage']},
                 'B': {'monitor': monitors['stage']},
@@ -310,7 +337,8 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
                         'r1_clone': {'receipt': anchor_clone}},
                     'own_revocation': {
                         'result': {'outer': monitors['own_revocation']},
-                        'proof': proof_c},
+                        'proof': proof_c,
+                        'current_r2_witness_rejection': r2_rejection},
                 },
             }
             manifest_cases.append(case)
@@ -500,7 +528,7 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         # accepted session_runner schema variant that omits these optional keys.
         result = analyzer.analyze(self.manifest, self.acceptance)
         self.assertEqual(result['resource_observations']['monitor_report_count'],
-                         8 * (23 + 5 * 6))
+                         8 * (23 + 5 * 6 + 2))
 
     def test_rejects_manifest_pin_mismatch(self):
         with self.assertRaisesRegex(ValueError, 'manifest pin'):
@@ -626,6 +654,73 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         self._repin_acceptance_manifest()
         with self.assertRaisesRegex(ValueError, 'journal wall time is below monitor duration'):
             analyzer.analyze(self.manifest, self.acceptance)
+
+    def test_r2_active_witness_requires_generator_exit_two_monitor(self):
+        manifest = json.loads(Path(self.manifest['path']).read_text())
+        case = manifest['cases'][0]
+        journal = json.loads(Path(case['run_journal']['path']).read_text())
+        durations = analyzer._duration_map(
+            journal, analyzer._verify_run_manifest(case)[0])
+        monitor = json.loads(Path(
+            journal['steps']['own_revocation:r2-active-witness'][
+                'generator_monitor']).read_text())
+        monitor['passed'] = True
+        monitor['exit_code'] = 0
+        bad_ref = self.write_json('r2-generator-wrong-exit.json', monitor)
+        step = journal['steps']['own_revocation:r2-active-witness']
+        step['generator_monitor'] = bad_ref['path']
+        step['generator_monitor_sha256'] = bad_ref['sha256']
+        with self.assertRaisesRegex(ValueError,
+                                    'bounded monitor did not record a complete reviewed run'):
+            analyzer._verify_monitor_durations(case, journal, durations)
+
+    def test_own_revocation_cost_is_joined_to_r2_active_witness_step(self):
+        manifest = json.loads(Path(self.manifest['path']).read_text())
+        case = manifest['cases'][0]
+        journal = json.loads(Path(case['run_journal']['path']).read_text())
+        durations = analyzer._duration_map(
+            journal, analyzer._verify_run_manifest(case)[0])
+        analyzer._check_summary(case, journal, durations)
+        case['branch_wall_components']['own_revocation'][
+            'r2_active_witness_seconds'] += 1.0
+        with self.assertRaisesRegex(ValueError,
+                                    'branch cost summaries disagree with pinned journal'):
+            analyzer._check_summary(case, journal, durations)
+
+    def test_r2_active_witness_wall_time_covers_both_monitors(self):
+        manifest = json.loads(Path(self.manifest['path']).read_text())
+        case = manifest['cases'][0]
+        journal = json.loads(Path(case['run_journal']['path']).read_text())
+        durations = analyzer._duration_map(
+            journal, analyzer._verify_run_manifest(case)[0])
+        durations['own_revocation:r2-active-witness'] = 0.4
+        with self.assertRaisesRegex(
+                ValueError, 'journal wall time is below combined R2 witness monitor durations'):
+            analyzer._verify_monitor_durations(case, journal, durations)
+
+    def test_r2_active_witness_monitors_match_pinned_rejection_receipt(self):
+        manifest = json.loads(Path(self.manifest['path']).read_text())
+        case = manifest['cases'][0]
+        journal = json.loads(Path(case['run_journal']['path']).read_text())
+        durations = analyzer._duration_map(
+            journal, analyzer._verify_run_manifest(case)[0])
+        rejection = json.loads(Path(
+            case['branches']['own_revocation'][
+                'current_r2_witness_rejection']['path']).read_text())
+        rejection['relation_supervisor']['ref'] = {
+            'path': journal['steps']['own_revocation:r2-active-witness']['generator_monitor'],
+            'sha256': journal['steps']['own_revocation:r2-active-witness'][
+                'generator_monitor_sha256'],
+        }
+        bad_receipt = self.write_json('r2-rejection-wrong-monitor.json', rejection)
+        case['branches']['own_revocation']['current_r2_witness_rejection'] = bad_receipt
+        journal['steps']['own_revocation:r2-active-witness'].update({
+            'receipt': bad_receipt['path'],
+            'receipt_sha256': bad_receipt['sha256'],
+        })
+        with self.assertRaisesRegex(
+                ValueError, 'R2 witness receipt supervisor refs differ from run journal'):
+            analyzer._verify_monitor_durations(case, journal, durations)
 
     def _repin_acceptance_manifest(self):
         path = Path(self.acceptance['path'])
