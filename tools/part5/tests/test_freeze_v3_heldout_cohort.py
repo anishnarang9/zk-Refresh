@@ -14,6 +14,61 @@ from tools.part5 import freeze_v3_heldout_cohort as tool
 from tools.part5 import build_v3_heldout_cohort as builder
 
 
+class HeldoutFreezePinClosureTests(unittest.TestCase):
+    def test_declared_source_bundles_cover_local_python_import_closure(self):
+        import ast
+
+        root = Path(__file__).resolve().parents[3]
+        pinned = set(tool.CLIENT_FILES + tool.REGISTRY_FILES)
+
+        def local_module_path(module):
+            if module.startswith('tools.part5.'):
+                base = root / 'tools/part5'
+                relative = module.removeprefix('tools.part5.')
+            elif module.startswith('harness.tests.'):
+                base = root / 'harness/tests'
+                relative = module.removeprefix('harness.tests.')
+            else:
+                return None
+            candidate = base / (relative.replace('.', '/') + '.py')
+            return candidate.relative_to(root).as_posix() if candidate.is_file() else None
+
+        pending = list(pinned)
+        visited = set()
+        missing = set()
+        while pending:
+            relative = pending.pop()
+            if relative in visited:
+                continue
+            visited.add(relative)
+            source = root / relative
+            if source.suffix != '.py' or not source.is_file():
+                continue
+            tree = ast.parse(source.read_text())
+            dependencies = set()
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom) and node.module:
+                    path = local_module_path(node.module)
+                    if path:
+                        dependencies.add(path)
+                    if node.module in ('tools.part5', 'harness.tests'):
+                        for alias in node.names:
+                            path = local_module_path(node.module + '.' + alias.name)
+                            if path:
+                                dependencies.add(path)
+                elif isinstance(node, ast.Import):
+                    for alias in node.names:
+                        path = local_module_path(alias.name)
+                        if path:
+                            dependencies.add(path)
+            for dependency in dependencies:
+                if dependency not in pinned:
+                    missing.add(dependency)
+                pending.append(dependency)
+
+        self.assertEqual(missing, set())
+
+
 class HeldoutFreezeTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
