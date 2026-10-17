@@ -698,6 +698,8 @@ def _validate_stage(stage_bundle, case, frozen_elf_sha256):
              and report.get('initial_allocations_sha256') == allocations_sha
              and allocations == case['stage_context'].get('initial_allocations'),
              'raw heldout stage report does not bind its plan/history/allocations')
+    _verify_pre_enrollment_create(
+        report.get('transactions'), report.get('pre_enrollment_create_request_absent'))
     _require(type(monitor_owner) is str and monitor_owner
              and config.get('scope') == 'part5-v3-local-stage'
              and config.get('stage_output') == str(Path(stage_bundle['report']['path']).parent)
@@ -1230,17 +1232,57 @@ def _txs(transactions, expected, label):
                  f'{label} transaction outcome mismatch')
 
 
-def _verify_full_transactions(transactions):
+def _verify_pre_enrollment_create(transactions, request_absent):
+    """Require the heldout stage to reject Create before issuer enrollment."""
+    _require(request_absent is True,
+             'pre-enrollment Create must leave its request PDA absent')
+    _require(type(transactions) is list and all(type(row) is dict for row in transactions),
+             'pre-enrollment Create transaction journal required')
+    scenarios = [row.get('scenario') for row in transactions]
+    expected = ('v3-initialize', 'v3-pre-enrollment-create', 'v3-enroll', 'v3-create')
+    positions = []
+    for scenario in expected:
+        _require(scenarios.count(scenario) == 1,
+                 'pre-enrollment Create transaction order mismatch')
+        positions.append(scenarios.index(scenario))
+    initialize_at, pre_enrollment_at, enroll_at, create_at = positions
+    _require(pre_enrollment_at == initialize_at + 1
+             and pre_enrollment_at < enroll_at < create_at,
+             'pre-enrollment Create must fail before enrollment')
+    pre_enrollment = transactions[pre_enrollment_at]
+    _require(pre_enrollment.get('customError') == 710
+             and pre_enrollment.get('err') == {
+                 'InstructionError': [1, {'Custom': 710}]},
+             'pre-enrollment Create error mismatch')
+    for position in (enroll_at, create_at):
+        _require(transactions[position].get('customError') is None
+                 and transactions[position].get('err') is None,
+                 'enrollment and subsequent Create must succeed')
+
+
+def _verify_full_transactions(transactions, pre_execute_rejection_accounts):
     """Verify the complete R0 Full execution sequence emitted by the harness."""
     expected = [
         ('v3-refresh-active-source', None),
         ('v3-bind-refreshed-head', None),
+        ('v3-wrong-issuer', 713),
+        ('v3-wrong-policy', 713),
         ('v3-wrong-action', 712),
         ('v3-invalid-proof', 714),
         ('v3-valid-full-execute', None),
         ('v3-replay-new-transaction', 707),
     ]
     _txs(transactions, expected, 'Full A')
+    _require(type(pre_execute_rejection_accounts) is dict
+             and set(pre_execute_rejection_accounts) == {'before_sha256', 'after_sha256'},
+             'Full A pre-execute rejection account hashes required')
+    before = pre_execute_rejection_accounts['before_sha256']
+    after = pre_execute_rejection_accounts['after_sha256']
+    _require(type(before) is list and type(after) is list
+             and len(before) == len(after) == 5
+             and all(_is_sha(value) for value in before + after)
+             and before == after,
+             'Full A rejected transactions must preserve all five accounts')
     for row, (_, code) in zip(transactions, expected):
         if code is None:
             _require(row.get('err') is None,
@@ -1558,7 +1600,8 @@ def _verify_branch(branch, bundle, case, globals_, slot_data, clone_destinations
                  and report.get('replay_wire_sha256')
                     == _pin_sha(result_bundle['wires']['replay_full']),
                  'Full config/report wires differ from staged R0 request')
-        _verify_full_transactions(report.get('transactions'))
+        _verify_full_transactions(report.get('transactions'),
+                                  report.get('pre_execute_rejection_accounts'))
         clone = _verify_r0_clone(bundle['r0_clone'], config, stage_bundle, stage)
         clone_destinations.add(clone['destination'])
         current_root = case['roots']['R0']

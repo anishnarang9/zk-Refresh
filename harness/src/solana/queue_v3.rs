@@ -823,6 +823,20 @@ fn stage_with_context(campaign: bool) -> Result<()> {
     transport::send(
         &rpc,
         &admin,
+        Some(&creator),
+        p.create()?,
+        "v3-pre-enrollment-create",
+        Some(zk_fresh_program::application_v3::AppError::Owner as u64),
+        &mut events,
+    )?;
+    let pre_enrollment_create_request_absent = rpc.account(&a.request)?.is_none();
+    ensure!(
+        pre_enrollment_create_request_absent,
+        "pre-enrollment Create must not create a request"
+    );
+    transport::send(
+        &rpc,
+        &admin,
         None,
         p.enroll(1, evidence_digest),
         "v3-enroll",
@@ -1040,6 +1054,7 @@ fn stage_with_context(campaign: bool) -> Result<()> {
             "request":a.request.to_string(),"queue":a.queue.to_string(),
             "plan_sha256":hex::encode(Sha256::digest(fs::read(output.join("plan.json"))?)),
             "account_sha256":bytes.iter().map(|data| hex::encode(Sha256::digest(data))).collect::<Vec<_>>(),
+            "pre_enrollment_create_request_absent":pre_enrollment_create_request_absent,
             "funding_signatures":funding,"transactions":events,
         }),
     )?;
@@ -1300,6 +1315,36 @@ pub fn execute_from_env() -> Result<()> {
             && current_head.source_digest == source_digest,
         "finalized refreshed source/head differs from exact signed update"
     );
+    let distinct_public_word = |current: &[u8]| {
+        let mut word = [0; 32];
+        word[31] = 1;
+        if current == word {
+            word[31] = 2;
+        }
+        word
+    };
+    let mut wrong_issuer = wire.clone();
+    wrong_issuer[32..64].copy_from_slice(&distinct_public_word(&wire[32..64]));
+    transport::send(
+        &rpc,
+        &admin,
+        None,
+        p.execute(&wrong_issuer)?,
+        "v3-wrong-issuer",
+        Some(zk_fresh_program::application_v3::AppError::Policy as u64),
+        &mut events,
+    )?;
+    let mut wrong_policy = wire.clone();
+    wrong_policy[160..192].copy_from_slice(&distinct_public_word(&wire[160..192]));
+    transport::send(
+        &rpc,
+        &admin,
+        None,
+        p.execute(&wrong_policy)?,
+        "v3-wrong-policy",
+        Some(zk_fresh_program::application_v3::AppError::Policy as u64),
+        &mut events,
+    )?;
     let mut wrong_action = wire.clone();
     let mut changed_action = [0; 32];
     changed_action[31] = u8::from(wire[128..160] == [0; 32]);
@@ -1381,6 +1426,10 @@ pub fn execute_from_env() -> Result<()> {
             "loaded_program":loaded, "finalized_slot":finalized_slot,
             "stage_report_sha256":report_sha, "stage_plan_sha256":plan_sha,
             "wire_sha256":wire_sha, "replay_wire_sha256":replay_wire_sha,
+            "pre_execute_rejection_accounts":{
+                "before_sha256":bound.iter().map(|data| hex::encode(Sha256::digest(data))).collect::<Vec<_>>(),
+                "after_sha256":rejected.iter().map(|data| hex::encode(Sha256::digest(data))).collect::<Vec<_>>(),
+            },
             "source_sequence":next_sequence,
             "publication_sequence":next_publication,
             "account_sha256":after.iter().map(|data| hex::encode(Sha256::digest(data))).collect::<Vec<_>>(),

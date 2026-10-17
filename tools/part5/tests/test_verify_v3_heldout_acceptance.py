@@ -500,6 +500,10 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
              'err': None},
             {'scenario': 'v3-bind-refreshed-head', 'customError': None,
              'err': None},
+            {'scenario': 'v3-wrong-issuer', 'customError': 713,
+             'err': {'InstructionError': [1, {'Custom': 713}]}},
+            {'scenario': 'v3-wrong-policy', 'customError': 713,
+             'err': {'InstructionError': [1, {'Custom': 713}]}},
             {'scenario': 'v3-wrong-action', 'customError': 712,
              'err': {'InstructionError': [1, {'Custom': 712}]}},
             {'scenario': 'v3-invalid-proof', 'customError': 714,
@@ -509,12 +513,38 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
             {'scenario': 'v3-replay-new-transaction', 'customError': 707,
              'err': {'InstructionError': [1, {'Custom': 707}]}},
         ]
-        verifier._verify_full_transactions(rows)
+        snapshots = {'before_sha256': [f'{n:064x}' for n in range(1, 6)],
+                     'after_sha256': [f'{n:064x}' for n in range(1, 6)]}
+        verifier._verify_full_transactions(rows, snapshots)
         with self.assertRaisesRegex(ValueError, 'transaction outcome mismatch'):
-            verifier._verify_full_transactions(rows[1:] + rows[:1])
+            verifier._verify_full_transactions(rows[1:] + rows[:1], snapshots)
         rows[2]['err'] = {'InstructionError': [1, {'Custom': 714}]}
         with self.assertRaisesRegex(ValueError, 'Full A transaction error mismatch'):
-            verifier._verify_full_transactions(rows)
+            verifier._verify_full_transactions(rows, snapshots)
+        rows[2]['err'] = {'InstructionError': [1, {'Custom': 713}]}
+        snapshots['after_sha256'][0] = 'f' * 64
+        with self.assertRaisesRegex(ValueError, 'preserve all five accounts'):
+            verifier._verify_full_transactions(rows, snapshots)
+
+    def test_stage_receipt_requires_pre_enrollment_create_rejection_before_enrollment(self):
+        rows = [
+            {'scenario': 'v3-initialize', 'customError': None, 'err': None},
+            {'scenario': 'v3-pre-enrollment-create', 'customError': 710,
+             'err': {'InstructionError': [1, {'Custom': 710}]}},
+            {'scenario': 'v3-enroll', 'customError': None, 'err': None},
+            {'scenario': 'v3-create', 'customError': None, 'err': None},
+        ]
+        verifier._verify_pre_enrollment_create(rows, True)
+        reordered = rows[:]
+        reordered[1], reordered[2] = reordered[2], reordered[1]
+        with self.assertRaisesRegex(ValueError, 'pre-enrollment Create must fail before enrollment'):
+            verifier._verify_pre_enrollment_create(reordered, True)
+        with self.assertRaisesRegex(ValueError, 'request PDA absent'):
+            verifier._verify_pre_enrollment_create(rows, False)
+        rows[1]['customError'] = 713
+        rows[1]['err'] = {'InstructionError': [1, {'Custom': 713}]}
+        with self.assertRaisesRegex(ValueError, 'pre-enrollment Create error mismatch'):
+            verifier._verify_pre_enrollment_create(rows, True)
 
     def test_own_leaf_absence_is_rebuilt_from_pair_membership(self):
         own, unrelated = b't' * 32, b'u' * 32
