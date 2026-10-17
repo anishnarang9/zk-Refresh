@@ -2,6 +2,11 @@
 //! Constructing an instruction or PDA does not authenticate current chain state.
 use super::queue_v2 as transport;
 use super::*;
+use credential_registry::v3::protocol::{
+    CurrentHead, EnrolledSource, IssuerScope, Observation, PublisherBinding,
+    PublisherEnvelopeCommitment, Scope, SignedSource, SourceEnvelopeCommitment, SourceHead,
+    SOURCE_SIGN_TAG,
+};
 use zk_fresh_program::application_v3::{
     Authority, Config, Issuer, PublisherHead, Queue, Request, RequestState, CONFIG_LEN, HEAD_LEN,
     ISSUER_LEN, QUEUE_LEN, REQUEST_LEN,
@@ -189,6 +194,167 @@ fn validate_full_wire(
     Ok(())
 }
 
+// Initial status authenticates no allocation changes or prior registry history.
+fn signed_initial_source(
+    p: &V3QueuePlan,
+    evidence_digest: [u8; 32],
+    observed: i64,
+    source: &Keypair,
+) -> Result<(EnrolledSource, SignedSource, [u8; 32])> {
+    use zk_fresh_program::generated_vk_v3 as identity;
+    ensure!(
+        source.pubkey().to_bytes() == p.source,
+        "initial enrolled source key"
+    );
+    let a = p.addresses();
+    let enrolled = EnrolledSource {
+        scope: Scope {
+            network: p.genesis,
+            program: p.program,
+            config: a.config.to_bytes(),
+            registry: a.queue.to_bytes(),
+            profile: identity::PROFILE_ID,
+            circuit: identity::CIRCUIT_ID,
+            schema: identity::SEMANTIC_SCHEMA_ID,
+            package: identity::PACKAGE_ID,
+            ordinary_vk: identity::ORDINARY_VK_DIGEST,
+            policy_hash: p.policy_id,
+            policy_version: 1,
+            config_eligibility_epoch: 0,
+            leaf_domain: credential_registry::v3::LEAF_DOMAIN,
+            depth: credential_registry::v3::DEPTH as u8,
+        },
+        issuer: IssuerScope {
+            issuer_account: a.issuer.to_bytes(),
+            issuer_hash: p.issuer_hash,
+            source_key: p.source,
+            issuer_eligibility_epoch: 0,
+            enrollment_evidence_version: 1,
+            evidence_digest,
+        },
+        config_enabled: true,
+        issuer_enabled: true,
+        max_age_seconds: 240,
+    };
+    let observation = Observation {
+        scope: enrolled.scope.clone(),
+        issuer: enrolled.issuer.clone(),
+        sequence: 1,
+        previous_digest: [0; 32],
+        observed_at: observed,
+        valid_until: observed
+            .checked_add(240)
+            .context("initial source expiry overflow")?,
+        issuer_status_active: true,
+        changes: Vec::new(),
+    };
+    let mut message = SOURCE_SIGN_TAG.to_vec();
+    message.extend(serde_json::to_vec(&observation)?);
+    let signed = SignedSource {
+        observation,
+        signature: source.sign_message(&message).as_ref().to_vec(),
+    };
+    let digest = signed
+        .verify(
+            &enrolled,
+            &SourceHead {
+                sequence: 0,
+                digest: [0; 32],
+            },
+            observed,
+        )
+        .map_err(|e| anyhow::anyhow!("initial signed source {e:?}"))?
+        .head()
+        .digest;
+    Ok((enrolled, signed, digest))
+}
+
+fn check_finalized_envelopes(
+    enrolled: &EnrolledSource,
+    source: &SignedSource,
+    publisher: &PublisherBinding,
+    c: &Config,
+    i: &Issuer,
+    h: &PublisherHead,
+    now: i64,
+) -> Result<()> {
+    use zk_fresh_program::application_runtime_v3 as addresses;
+    let program = Pubkey::new_from_array(enrolled.scope.program);
+    let issuer_key = addresses::issuer_address(&program, &i.config, &i.issuer_hash).0;
+    ensure!(
+        enrolled.scope.network == c.genesis
+            && enrolled.scope.config == i.config.to_bytes()
+            && enrolled.scope.registry
+                == addresses::queue_address(&program, &i.config).0.to_bytes()
+            && enrolled.scope.profile == c.profile_id
+            && enrolled.scope.circuit == c.circuit_id
+            && enrolled.scope.schema == c.schema_id
+            && enrolled.scope.package == c.package_id
+            && enrolled.scope.ordinary_vk == c.ordinary_vk_digest
+            && enrolled.scope.policy_hash == c.policy_id
+            && enrolled.scope.policy_version == c.policy_version
+            && enrolled.scope.config_eligibility_epoch == c.eligibility_epoch
+            && enrolled.issuer.issuer_account == issuer_key.to_bytes()
+            && enrolled.issuer.issuer_hash == i.issuer_hash
+            && enrolled.issuer.source_key == i.source.to_bytes()
+            && enrolled.issuer.issuer_eligibility_epoch == i.eligibility_epoch
+            && enrolled.issuer.enrollment_evidence_version == i.enrollment_version
+            && enrolled.issuer.evidence_digest == i.evidence_digest
+            && enrolled.config_enabled == c.enabled
+            && enrolled.issuer_enabled == i.enabled
+            && h.config == i.config
+            && h.issuer == issuer_key
+            && h.publisher == c.publisher
+            && h.root == c.root
+            && h.root_version == c.root_version
+            && h.source_sequence == i.sequence
+            && h.source_digest == i.digest
+            && h.config_epoch == c.eligibility_epoch
+            && h.issuer_epoch == i.eligibility_epoch,
+        "detached envelope scope differs from finalized accounts"
+    );
+    publisher
+        .check_current_envelopes(
+            source,
+            enrolled,
+            &SourceEnvelopeCommitment {
+                source_head: SourceHead {
+                    sequence: i.sequence,
+                    digest: i.digest,
+                },
+                observed_at: i.observed_at,
+                valid_until: i.expires_at,
+                issuer_status_active: i.status_valid,
+            },
+            &PublisherEnvelopeCommitment {
+                current: CurrentHead {
+                    scope: enrolled.scope.clone(),
+                    issuer: enrolled.issuer.clone(),
+                    source_head: SourceHead {
+                        sequence: h.source_sequence,
+                        digest: h.source_digest,
+                    },
+                    root: h.root,
+                    root_version: h.root_version,
+                    publisher_key: h.publisher.to_bytes(),
+                    config_enabled: c.enabled,
+                    issuer_enabled: i.enabled,
+                    status_valid: i.status_valid,
+                    observed_config_epoch: i.observed_config_epoch,
+                    observed_issuer_epoch: i.observed_issuer_epoch,
+                    clock_unix: now,
+                    valid_until: i.expires_at,
+                },
+                publication_sequence: h.publication_sequence,
+                envelope_digest: h.envelope_digest,
+                previous_publication_digest: h.previous_publication_digest,
+                committed_at: h.committed_at,
+            },
+            now,
+        )
+        .map_err(|e| anyhow::anyhow!("finalized signed envelopes {e:?}"))
+}
+
 /// Prepare one training request through the loaded SBF program. The external
 /// supervisor authenticates the live validator, bounds this child and owns it.
 /// This function does not create or verify a proof or authorize an Execute.
@@ -302,17 +468,10 @@ pub fn stage_from_env() -> Result<()> {
         &mut events,
     )?;
     let observed = transport::clock(&rpc)?;
-    let source_digest: [u8; 32] = Sha256::digest(
-        [
-            b"part5-v3-local-source-training-v1".as_slice(),
-            &root,
-            &issuer_hash,
-            &evidence_digest,
-            &observed.to_be_bytes(),
-        ]
-        .concat(),
-    )
-    .into();
+    let (enrolled, signed_source, source_digest) =
+        signed_initial_source(&p, evidence_digest, observed, &source)?;
+    transport::new_json(&output.join("signed-source.json"), &signed_source)?;
+    transport::new_json(&output.join("enrolled-source.json"), &enrolled)?;
     transport::send(
         &rpc,
         &admin,
@@ -322,15 +481,19 @@ pub fn stage_from_env() -> Result<()> {
         None,
         &mut events,
     )?;
-    let envelope_digest: [u8; 32] = Sha256::digest(
-        [
-            b"part5-v3-local-head-training-v1".as_slice(),
-            &root,
-            &source_digest,
-        ]
-        .concat(),
-    )
-    .into();
+    let (signed_publisher, envelope_digest) = branch::signed_publisher_envelope(
+        &enrolled,
+        SourceHead {
+            sequence: 1,
+            digest: source_digest,
+        },
+        root,
+        0,
+        &publisher,
+        1,
+        [0; 32],
+    )?;
+    transport::new_json(&output.join("signed-publisher.json"), &signed_publisher)?;
     let binding = V3HeadBinding {
         expected_config_epoch: 0,
         expected_issuer_epoch: 0,
@@ -427,6 +590,15 @@ pub fn stage_from_env() -> Result<()> {
             && q.entries.is_empty(),
         "finalized v3 account state differs from exact prepared request"
     );
+    check_finalized_envelopes(
+        &enrolled,
+        &signed_source,
+        &signed_publisher,
+        &c,
+        &i,
+        &h,
+        checked_at,
+    )?;
     transport::new_json(&output.join("plan.json"), &p)?;
     for (name, data) in [
         ("config.bin", &bytes[0]),
@@ -441,7 +613,11 @@ pub fn stage_from_env() -> Result<()> {
         &output.join("stage-report.json"),
         &json!({
             "schema":"part5-v3-local-stage-v1", "passed":true,
-            "training_only":true,"upstream_source_authentication":false,
+            "training_only":true,"upstream_source_authentication":true,
+            "upstream_publisher_authentication":true,"registry_history_authenticated":false,
+            "allocation_history_authenticated":false,
+            "source_head_digest":hex::encode(source_digest),
+            "publisher_envelope_digest":hex::encode(envelope_digest),
             "proof_created":false,"application_effect":false,"devnet":false,
             "program":Pubkey::new_from_array(program).to_string(),
             "genesis":Hash::new_from_array(genesis).to_string(),"loaded_program":loaded,
@@ -1602,6 +1778,153 @@ mod tests {
             payload: vec![0, 1, 2, 3],
         }
     }
+    #[test]
+    fn initial_signed_envelopes_bind_sequence_one_and_root_zero_without_allocation_claims() {
+        use zk_fresh_program::application_v3::PublisherHeadBinding;
+        use zk_fresh_program::generated_vk_v3 as identity;
+        let source = Keypair::new();
+        let publisher = Keypair::new();
+        let mut p = plan();
+        p.source = source.pubkey().to_bytes();
+        p.publisher = publisher.pubkey().to_bytes();
+        let a = p.addresses();
+        let c = Config {
+            admin: Pubkey::new_from_array(p.admin),
+            seed: p.seed,
+            publisher: publisher.pubkey(),
+            genesis: p.genesis,
+            policy_id: p.policy_id,
+            policy_version: 1,
+            circuit_id: identity::CIRCUIT_ID,
+            package_id: identity::PACKAGE_ID,
+            schema_id: identity::SEMANTIC_SCHEMA_ID,
+            profile_id: identity::PROFILE_ID,
+            ordinary_vk_digest: identity::ORDINARY_VK_DIGEST,
+            root: p.root,
+            root_version: 0,
+            eligibility_epoch: 0,
+            enabled: true,
+        };
+        let (enrolled, signed, digest) = signed_initial_source(&p, [31; 32], 100, &source).unwrap();
+        assert_eq!(signed.observation.sequence, 1);
+        assert_eq!(signed.observation.previous_digest, [0; 32]);
+        assert!(
+            signed.observation.changes.is_empty(),
+            "no authenticated allocation history"
+        );
+        let mut issuer = Issuer::enroll(
+            a.config,
+            &c,
+            Authority {
+                key: c.admin,
+                is_signer: true,
+            },
+            p.issuer_hash,
+            p.aki,
+            source.pubkey(),
+            1,
+            [31; 32],
+        )
+        .unwrap();
+        issuer
+            .observe(
+                &c,
+                Authority {
+                    key: source.pubkey(),
+                    is_signer: true,
+                },
+                0,
+                0,
+                0,
+                1,
+                digest,
+                true,
+                100,
+                340,
+                100,
+            )
+            .unwrap();
+        let (binding, envelope_digest) = branch::signed_publisher_envelope(
+            &enrolled,
+            SourceHead {
+                sequence: 1,
+                digest,
+            },
+            p.root,
+            0,
+            &publisher,
+            1,
+            [0; 32],
+        )
+        .unwrap();
+        let (issuer, head) = PublisherHead::prepare_bind(
+            a.config,
+            a.issuer,
+            &c,
+            &issuer,
+            Authority {
+                key: publisher.pubkey(),
+                is_signer: true,
+            },
+            None,
+            &PublisherHeadBinding {
+                expected_config_epoch: 0,
+                expected_issuer_epoch: 0,
+                expected_root: p.root,
+                expected_root_version: 0,
+                expected_source_sequence: 1,
+                expected_source_digest: digest,
+                expected_publication_sequence: 0,
+                expected_publication_digest: [0; 32],
+                next_publication_sequence: 1,
+                envelope_digest,
+            },
+            105,
+        )
+        .unwrap();
+        let issuer = Issuer::decode(&issuer.encode()).unwrap();
+        let head = PublisherHead::decode(&head.encode()).unwrap();
+        check_finalized_envelopes(&enrolled, &signed, &binding, &c, &issuer, &head, 110).unwrap();
+        for field in 0..6 {
+            let mut changed_source = signed.clone();
+            let mut changed_binding = binding.clone();
+            let mut changed_issuer = issuer.clone();
+            let mut changed_head = head.clone();
+            match field {
+                0 => changed_source.signature[0] ^= 1,
+                1 => changed_binding.signature[0] ^= 1,
+                2 => {
+                    changed_issuer.digest =
+                        Sha256::digest(b"part5-v3-local-source-training-v1").into()
+                }
+                3 => {
+                    changed_head.envelope_digest =
+                        Sha256::digest(b"part5-v3-local-head-training-v1").into()
+                }
+                4 => changed_head.root_version = 1,
+                _ => changed_head.previous_publication_digest = [1; 32],
+            }
+            assert!(
+                check_finalized_envelopes(
+                    &enrolled,
+                    &changed_source,
+                    &changed_binding,
+                    &c,
+                    &changed_issuer,
+                    &changed_head,
+                    110
+                )
+                .is_err(),
+                "initial substitution {field}"
+            );
+        }
+        assert!(
+            check_finalized_envelopes(&enrolled, &signed, &binding, &c, &issuer, &head, 340)
+                .is_err()
+        );
+        assert!(signed_initial_source(&p, [31; 32], 100, &publisher).is_err());
+    }
+
     #[test]
     fn independent_pd_as_and_admin_instructions_match_v3_parser() {
         let p = plan();

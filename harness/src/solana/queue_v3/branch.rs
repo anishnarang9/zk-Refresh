@@ -1,8 +1,8 @@
 //! Restart a byte-pinned R1 request in one of two isolated local ledger branches.
 use super::*;
 use credential_registry::v3::protocol::{
-    Change, EnrolledSource, IssuerScope, Observation, Scope, SignedSource, SourceHead,
-    SOURCE_SIGN_TAG,
+    Change, EnrolledSource, IssuerScope, Observation, PublisherBinding, Scope, SignedSource,
+    SourceHead, SOURCE_SIGN_TAG,
 };
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
@@ -38,6 +38,57 @@ fn report_accounts(root: &Path, report: &Value) -> Result<[Vec<u8>; 5]> {
     result
         .try_into()
         .map_err(|_| anyhow::anyhow!("account width"))
+}
+
+#[derive(serde::Serialize)]
+struct PublisherSigningBody<'a> {
+    scope: &'a Scope,
+    issuer: &'a IssuerScope,
+    source_head: &'a SourceHead,
+    root: [u8; 32],
+    root_version: u64,
+    publisher_key: [u8; 32],
+    publication_sequence: u64,
+    previous_publication_digest: [u8; 32],
+}
+
+// Exact registry canonical field order and domains; this creates local training
+// evidence only. The finalized account check below establishes its commitment.
+pub(super) fn signed_publisher_envelope(
+    enrolled: &EnrolledSource,
+    source_head: SourceHead,
+    root: [u8; 32],
+    root_version: u64,
+    publisher: &Keypair,
+    publication_sequence: u64,
+    previous_publication_digest: [u8; 32],
+) -> Result<(PublisherBinding, [u8; 32])> {
+    let publisher_key = publisher.pubkey().to_bytes();
+    let mut message = b"DYNARK-V3-PUBLISHER-BINDING-v1\0".to_vec();
+    message.extend(serde_json::to_vec(&PublisherSigningBody {
+        scope: &enrolled.scope,
+        issuer: &enrolled.issuer,
+        source_head: &source_head,
+        root,
+        root_version,
+        publisher_key,
+        publication_sequence,
+        previous_publication_digest,
+    })?);
+    let binding = PublisherBinding {
+        scope: enrolled.scope.clone(),
+        issuer: enrolled.issuer.clone(),
+        source_head,
+        root,
+        root_version,
+        publisher_key,
+        publication_sequence,
+        previous_publication_digest,
+        signature: publisher.sign_message(&message).as_ref().to_vec(),
+    };
+    let mut wire = b"DYNARK-V3-PUBLISHER-WIRE-v1\0".to_vec();
+    wire.extend(serde_json::to_vec(&binding)?);
+    Ok((binding, Sha256::digest(&wire).into()))
 }
 
 fn sign_and_bind(
@@ -190,17 +241,19 @@ fn sign_and_bind(
         .publication_sequence
         .checked_add(1)
         .context("head sequence overflow")?;
-    let envelope_digest: [u8; 32] = Sha256::digest(
-        [
-            b"part5-v3-r1-branch-head-v1".as_slice(),
-            &target_root,
-            &source_digest,
-            &h.envelope_digest,
-            &observed.to_be_bytes(),
-        ]
-        .concat(),
-    )
-    .into();
+    let (signed_publisher, envelope_digest) = signed_publisher_envelope(
+        &enrolled,
+        SourceHead {
+            sequence,
+            digest: source_digest,
+        },
+        target_root,
+        expected_config.root_version,
+        &publisher,
+        next_publication,
+        h.envelope_digest,
+    )?;
+    transport::new_json(&output.join("signed-publisher.json"), &signed_publisher)?;
     let binding = V3HeadBinding {
         expected_config_epoch: c.eligibility_epoch,
         expected_issuer_epoch: i.eligibility_epoch,
@@ -226,8 +279,9 @@ fn sign_and_bind(
     let (slot, after) = finalized_accounts(rpc, p, rooted)?;
     let next_issuer = Issuer::decode(&after[1]).map_err(|e| anyhow::anyhow!("issuer {e:?}"))?;
     let next_head = PublisherHead::decode(&after[2]).map_err(|e| anyhow::anyhow!("head {e:?}"))?;
+    let checked_at = transport::clock(rpc)?;
     next_issuer
-        .fresh(&expected_config, transport::clock(rpc)?)
+        .fresh(&expected_config, checked_at)
         .map_err(|e| anyhow::anyhow!("fresh issuer {e:?}"))?;
     next_issuer
         .binding_current(&expected_config)
@@ -251,6 +305,15 @@ fn sign_and_bind(
             && next_head.source_digest == source_digest,
         "signed successor differs from finalized config/status/head"
     );
+    check_finalized_envelopes(
+        &enrolled,
+        &signed,
+        &signed_publisher,
+        &expected_config,
+        &next_issuer,
+        &next_head,
+        checked_at,
+    )?;
     Ok((slot, after, events, source_digest))
 }
 
@@ -597,4 +660,153 @@ pub fn branch_from_env() -> Result<()> {
         }),
     )?;
     Ok(())
+}
+
+#[cfg(test)]
+mod publisher_envelope_tests {
+    use super::*;
+    use credential_registry::v3::protocol::{
+        CurrentHead, PublisherEnvelopeCommitment, SourceEnvelopeCommitment,
+    };
+
+    fn fixture() -> (
+        EnrolledSource,
+        SignedSource,
+        SourceEnvelopeCommitment,
+        Keypair,
+    ) {
+        let source = Keypair::new();
+        let publisher = Keypair::new();
+        let scope = Scope {
+            network: [1; 32],
+            program: [2; 32],
+            config: [3; 32],
+            registry: [4; 32],
+            profile: [5; 32],
+            circuit: [6; 32],
+            schema: [7; 32],
+            package: [8; 32],
+            ordinary_vk: [9; 32],
+            policy_hash: [10; 32],
+            policy_version: 1,
+            config_eligibility_epoch: 0,
+            leaf_domain: credential_registry::v3::LEAF_DOMAIN,
+            depth: credential_registry::v3::DEPTH as u8,
+        };
+        let issuer = IssuerScope {
+            issuer_account: [11; 32],
+            issuer_hash: [12; 32],
+            source_key: source.pubkey().to_bytes(),
+            issuer_eligibility_epoch: 0,
+            enrollment_evidence_version: 1,
+            evidence_digest: [13; 32],
+        };
+        let enrolled = EnrolledSource {
+            scope: scope.clone(),
+            issuer: issuer.clone(),
+            config_enabled: true,
+            issuer_enabled: true,
+            max_age_seconds: 180,
+        };
+        let observation = Observation {
+            scope,
+            issuer,
+            sequence: 2,
+            previous_digest: [14; 32],
+            observed_at: 100,
+            valid_until: 280,
+            issuer_status_active: true,
+            changes: Vec::new(),
+        };
+        let mut message = SOURCE_SIGN_TAG.to_vec();
+        message.extend(serde_json::to_vec(&observation).unwrap());
+        let signed = SignedSource {
+            observation,
+            signature: source.sign_message(&message).as_ref().to_vec(),
+        };
+        let verified = signed
+            .verify(
+                &enrolled,
+                &SourceHead {
+                    sequence: 1,
+                    digest: [14; 32],
+                },
+                100,
+            )
+            .unwrap();
+        let commitment = SourceEnvelopeCommitment {
+            source_head: verified.head().clone(),
+            observed_at: 100,
+            valid_until: 280,
+            issuer_status_active: true,
+        };
+        (enrolled, signed, commitment, publisher)
+    }
+
+    #[test]
+    fn signed_publisher_wire_matches_exact_current_head_and_rejects_substitutions() {
+        let (enrolled, source, issuer, publisher) = fixture();
+        let (binding, digest) = signed_publisher_envelope(
+            &enrolled,
+            issuer.source_head.clone(),
+            [15; 32],
+            0,
+            &publisher,
+            2,
+            [16; 32],
+        )
+        .unwrap();
+        let head = PublisherEnvelopeCommitment {
+            current: CurrentHead {
+                scope: enrolled.scope.clone(),
+                issuer: enrolled.issuer.clone(),
+                source_head: issuer.source_head.clone(),
+                root: [15; 32],
+                root_version: 0,
+                publisher_key: publisher.pubkey().to_bytes(),
+                config_enabled: true,
+                issuer_enabled: true,
+                status_valid: true,
+                observed_config_epoch: 0,
+                observed_issuer_epoch: 0,
+                clock_unix: 110,
+                valid_until: 280,
+            },
+            publication_sequence: 2,
+            envelope_digest: digest,
+            previous_publication_digest: [16; 32],
+            committed_at: 105,
+        };
+        assert!(binding
+            .check_current_envelopes(&source, &enrolled, &issuer, &head, 110)
+            .is_ok());
+        for field in 0..7 {
+            let mut changed = binding.clone();
+            match field {
+                0 => changed.signature[0] ^= 1,
+                1 => changed.root[31] ^= 1,
+                2 => changed.source_head.digest[0] ^= 1,
+                3 => changed.previous_publication_digest[0] ^= 1,
+                4 => changed.publication_sequence += 1,
+                5 => changed.publisher_key = enrolled.issuer.source_key,
+                _ => changed.scope.registry[0] ^= 1,
+            }
+            assert!(
+                changed
+                    .check_current_envelopes(&source, &enrolled, &issuer, &head, 110)
+                    .is_err(),
+                "publisher substitution {field}"
+            );
+        }
+        let mut label_head = head.clone();
+        label_head.envelope_digest = Sha256::digest(b"part5-v3-r1-branch-head-v1").into();
+        assert!(binding
+            .check_current_envelopes(&source, &enrolled, &issuer, &label_head, 110)
+            .is_err());
+        let mut different_head = head.clone();
+        different_head.envelope_digest[0] ^= 1;
+        assert!(binding
+            .check_current_envelopes(&source, &enrolled, &issuer, &different_head, 110)
+            .is_err());
+    }
 }
