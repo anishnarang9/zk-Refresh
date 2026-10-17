@@ -225,6 +225,7 @@ def verify_boundary(args):
     return {'freeze_sha256': digest(args.freeze),
             'cohort_receipt_sha256': digest(Path(args.cohort_root) / 'cohort-receipt.json'),
             'clone_report_sha256': digest(args.clone_report),
+            'exact_request_sha256': digest(Path(args.stage_root) / 'plan.json'),
             'current_root': str(current_root), 'current_report_sha256': current_report_sha,
             'source_identities': identities}
 

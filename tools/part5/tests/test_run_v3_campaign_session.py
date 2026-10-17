@@ -51,6 +51,7 @@ class CampaignSessionTests(unittest.TestCase):
         boundary = {'freeze_sha256': 'f' * 64,
                     'cohort_receipt_sha256': 'c' * 64,
                     'clone_report_sha256': 'd' * 64,
+                    'exact_request_sha256': 'a' * 64,
                     'current_root': str(args.stage_root if args.target_count == 0 else args.transition_root),
                     'current_report_sha256': 'e' * 64,
                     'source_identities': {'proof_runner': 'p' * 64}}
@@ -164,6 +165,7 @@ class CampaignSessionTests(unittest.TestCase):
             'r0_witness', 'r0_relation', 'r1_witness', 'r1_relation',
             'r2_witness', 'r2_relation'])
         self.assertTrue(report['effect_verified'])
+        self.assertEqual(report['exact_request_sha256'], 'a' * 64)
         self.assertEqual(report['stage_wall_seconds_sum'], 1.5)
         self.assertFalse(report['complete_tree_cpu_qualified'])
         packet = next(command for name, command, _ in calls if name == 'packet')
