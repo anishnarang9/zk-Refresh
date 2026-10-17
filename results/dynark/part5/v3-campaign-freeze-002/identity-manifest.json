@@ -1,0 +1,400 @@
+{
+  "application_manifest": {
+    "schema": 1,
+    "scope": "v3 reviewed program source inventory",
+    "source_pins": {
+      "program/Cargo.lock": "f7f2890062ab6c7e77560a49e49139ef7d1452e0981e8bdd1feef592cf6d33ef",
+      "program/Cargo.toml": "e3ebad8d663c1fa27cfa628f3e19119121bc3c962797f48666f2fc26bdc5e836",
+      "program/src/application_preflight_v3.rs": "7ebaea7b8663404f7e74b372d9ab7ef75151253a3a3d55992a5b6d25e8fd659b",
+      "program/src/application_runtime_v2.rs": "bec0a6f4de76a0c3bcccc6a1d541745009d1131b937789f23b70bde037752f6c",
+      "program/src/application_runtime_v3.rs": "29f56912d9c219b0ab5da691d468b943d67e62ffbc30be1ff612919599cdf2d9",
+      "program/src/application_runtime_v3/execute_effect_tests.rs": "20a71d420c0ba76bc474d5750dcafc5e4764250e2deeb1e05d3dd50947396df6",
+      "program/src/application_v2.rs": "5dbf40968e53fb9380abbcba2a89a3e0ae923bdd4600d5fa381d35d48c4dcf86",
+      "program/src/application_v3.rs": "62c281184049844499b9452976a69808ec91b0dfdc71ab92f91da01ce93f2bd0",
+      "program/src/generated_vk.rs": "13a2ba1f321b0f85e27efea6e3d637d06459442a918b940d103cbb7ef80b2900",
+      "program/src/generated_vk_v2.rs": "9383d7338279e60035b88478ace92bc39e8cda3e47d91e797f07162dd5f5f1b8",
+      "program/src/generated_vk_v3.rs": "9814f370dd3895a07d2c48cf3de46a11222a2c67887a72345a350a7c43155d38",
+      "program/src/lib.rs": "5c0952dabd038d9b9dd1ec4dc5abbba808d4bfc1a98aed6baa4d7a45af518256"
+    },
+    "v3_vk": {
+      "circuit_id": "eae99530daf7331037f2d1c6dc93ccc582603bd448f38d06e6469c734e8252fe",
+      "engine_extended_vk_digest": "2611d58c8c8d0b0c1f2c3f0facc4516e5c08e1fb3a7f14b16e32b948bc8f3c70",
+      "ic_count": 7,
+      "ordinary_vk_digest": "2f9b770ff51ac399619a3127ddb32efad67697402f10c4549441a3578e4f9a4e",
+      "ordinary_vk_file_sha256": "87edb4608c2140f3c7fddc8503e49b68931cda973711ce2c831bd44f1b98a875",
+      "package_id": "61d941890d823433468048dd1bd91da80c1bf7e1b3d2b6f5d509077a47ed06c8",
+      "profile_id": "2e5d26564fb055e70cff924c4cb6e296509030b8c0062130f86ad5af783f7918",
+      "public_inputs": 6,
+      "semantic_schema_id": "eabfaa2d95e4abc9126b87a04e94397091c103891e92dbaefaafba79cf3b26d4",
+      "setup_manifest_sha256": "d31f82e3f147e31b30074b3a570a9d7945c5e1f5d3f3dd74172801abbe984918",
+      "source_sha256": "9814f370dd3895a07d2c48cf3de46a11222a2c67887a72345a350a7c43155d38"
+    }
+  },
+  "application_source_identity_source": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-prepare-control-002/status.json",
+  "circuit_identity_source": "accepted setup-manifest identity.circuit",
+  "client_members": [
+    {
+      "path": "crates/dynark-native-client/src/v3_binding.rs",
+      "sha256": "86a13d44c00aed116290b033a33a5c7dddc1866700823fceac21681bd7ab794c"
+    },
+    {
+      "path": "crates/dynark-native-client/tests/support/prepare_v3_relation.py",
+      "sha256": "ea5d1cf19cbe8840cea786dcda9738dccf9665b95480f9ab6c9a8ecad30e4d86"
+    },
+    {
+      "path": "crates/dynark-native-client/tests/support/prepare_v3_request_bound_training.py",
+      "sha256": "de37e94a4319c34439fe656aba702a05a1469fc08940113b4012289a8f8bfe19"
+    },
+    {
+      "path": "crates/dynark-native-client/tests/support/v3_relation_witness.cjs",
+      "sha256": "61226e940c7380ce83dd7119f6d03ba4058aaf3c75f652e36f7539d07483c86b"
+    },
+    {
+      "path": "crates/dynark-native-client/workers/v3_input_worker.py",
+      "sha256": "b1349652a0acc86b4d8a820020ea6c8cdbba1f021958c6a9770a200e3124762e"
+    },
+    {
+      "path": "tools/part5/build_v3_campaign_packet.py",
+      "sha256": "2aabc63cbe70f0516f886d198e9d82c195493d46f0256ecb109aed305af691f6"
+    },
+    {
+      "path": "tools/part5/prepare_v3_campaign_target.py",
+      "sha256": "5ae49667f8bccc9f2db0e5b472d862c950279e872f17d43d0424835ec3858c28"
+    },
+    {
+      "path": "tools/part5/prepare_v3_campaign_training_source.py",
+      "sha256": "e03cf69a84ded27824dcca40dcea0c2a1e8ddc5830813a5c407894e301d8cb56"
+    }
+  ],
+  "freeze_sha256": "37ea465e2493d53a20cbd7ba24cb75a5ecb83c51b91a4abde1f38d1b7021d4c6",
+  "freeze_tool_sha256": "7e5fbc2f0692fe7d29c312ffdf062b2bad6cc0c4602dc31ecee8a5e071b62e14",
+  "identities": {
+    "application_source": "0db58d4b9738a60895107c8fbf2c7aee2e45027ddd27b3a8fc460349832e6ae5",
+    "circuit": "eae99530daf7331037f2d1c6dc93ccc582603bd448f38d06e6469c734e8252fe",
+    "client": "4d9b83ba25eadbe3f7efafe54c166bea3abd9a16c33e6af41b03396614108408",
+    "loaded_elf": "298c8c84c504038bafea858370a42872f03b016a09adbadd396dd4322991b99c",
+    "ordinary_adapter": "5e364d7ea4d2321a1135e697ed7cf3233abaa832d371bff2f4dfdf2ea5ff6521",
+    "ordinary_vk": "87edb4608c2140f3c7fddc8503e49b68931cda973711ce2c831bd44f1b98a875",
+    "profile": "2e5d26564fb055e70cff924c4cb6e296509030b8c0062130f86ad5af783f7918",
+    "proof_runner": "b564fc5d9159aa5d96589221a73cf0c1fba6d3cf91439e05a842f36e380c0305",
+    "r1cs": "976e9a76356ad015f0e4c587ccd79bba601b5caf80817b561aa4ca5442656888",
+    "registry": "91cbc29170a385721279ed5bc2f6b2e15ac745708688c09d10dcc13dd62f53dc",
+    "setup_manifest": "d31f82e3f147e31b30074b3a570a9d7945c5e1f5d3f3dd74172801abbe984918",
+    "signer_interface": "2b97cd1e02174ff67203f4b107923501a20b5d24bf11de03f204b77980f5691f",
+    "witness_executable": "fbf73cff59660574add16ba8acafe824a9d57e0c91f23557b6462979b85c9aa6"
+  },
+  "identity_inputs": {
+    "loaded_elf": {
+      "path": "artifacts/dynark/part5/application-v3-sbf-build-002/elf/zk_fresh_program.so",
+      "sha256": "298c8c84c504038bafea858370a42872f03b016a09adbadd396dd4322991b99c"
+    },
+    "ordinary_adapter": {
+      "path": "crates/dynark-solana-adapter/target/debug/build/dynark-solana-adapter/3a4659842a713e9a/out/v3_request_bound_host-3a4659842a713e9a",
+      "sha256": "5e364d7ea4d2321a1135e697ed7cf3233abaa832d371bff2f4dfdf2ea5ff6521"
+    },
+    "ordinary_vk": {
+      "path": "artifacts/dynark/part5/v3-development-setup-001/ordinary.vk",
+      "sha256": "87edb4608c2140f3c7fddc8503e49b68931cda973711ce2c831bd44f1b98a875"
+    },
+    "profile": {
+      "path": "circuits/credential-v3-bounded/profile.json",
+      "sha256": "2e5d26564fb055e70cff924c4cb6e296509030b8c0062130f86ad5af783f7918"
+    },
+    "proof_runner": {
+      "path": "circuits/credential-v3-bounded/qualification/proof-runner-v1/target/release/credential-v3-bounded-proof-qualification-v1",
+      "sha256": "b564fc5d9159aa5d96589221a73cf0c1fba6d3cf91439e05a842f36e380c0305"
+    },
+    "r1cs": {
+      "path": "artifacts/dynark/part5/v3-compile-001/credential.r1cs",
+      "sha256": "976e9a76356ad015f0e4c587ccd79bba601b5caf80817b561aa4ca5442656888"
+    },
+    "setup_manifest": {
+      "path": "artifacts/dynark/part5/v3-development-setup-001/setup-manifest.json",
+      "sha256": "d31f82e3f147e31b30074b3a570a9d7945c5e1f5d3f3dd74172801abbe984918"
+    },
+    "signer_interface": {
+      "path": "tools/part5/prepare_v3_request_fixture.py",
+      "sha256": "2b97cd1e02174ff67203f4b107923501a20b5d24bf11de03f204b77980f5691f"
+    },
+    "witness_executable": {
+      "path": "artifacts/dynark/part5/v3-compile-001/credential_js/credential.wasm",
+      "sha256": "fbf73cff59660574add16ba8acafe824a9d57e0c91f23557b6462979b85c9aa6"
+    }
+  },
+  "prepare_status_sha256": "b56d7def28b50c183ddd62d5b944119fa33f6a20140c10db6c0d28f3a11c231f",
+  "prior_key_inventory_scope": "all .pem/.der files under artifacts/dynark/part5",
+  "prior_public_key_count": 18,
+  "prior_public_key_sources": [
+    {
+      "path": "artifacts/dynark/part5/application-v2-synthetic-context-001-private/certificate.synthetic.der",
+      "public_key_sha256": "7e7b89a6b09a121923d0442fe05db613b52acbd5be01682867aa297b1542ae85",
+      "sha256": "12abb9154d2fa60dc01cf2220c2896f0e47fee10b4d33110cc0864256fa6b96b"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v2-synthetic-context-001-private/holder.synthetic.pem",
+      "public_key_sha256": "7e7b89a6b09a121923d0442fe05db613b52acbd5be01682867aa297b1542ae85",
+      "sha256": "96509193fa9466935a329ac2c75792779d80b225f2aa8d0f657796893ffdb422"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v2-synthetic-context-001-private/issuer.synthetic.pem",
+      "public_key_sha256": "2321f1dbd65390105a7364deff3d72fb804bd3ca6316bd5b21344cf6b5c0bb74",
+      "sha256": "9f92009d2ac7374f7f402ab847bde0e0416028e9b546630451251c7df0ce9fbf"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/credential-0.der",
+      "public_key_sha256": "e7ccb509d4e79bd2002a8727d392d0e8aa42ee19f583cf6ba966fa093b5ee179",
+      "sha256": "d458285f6b42c58b8686d3bc4953f17bf27d7a7b190b069efaf47049125337fd"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/credential-1.der",
+      "public_key_sha256": "eff07d047fa0ee2dd16dc03625be8d41d368290aede82d9a37c5225d833e68c1",
+      "sha256": "c3ca62bca25c88b0de5482e82f2e2509e6ae736bd67d0c2ddeb70bec1fe75c8f"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/credential-10.der",
+      "public_key_sha256": "08e4ee6dda48408a43676bcf8ac57ca7add82e224e5322f65c27573a93e8cd10",
+      "sha256": "cddae623407c064d08d30388e8641af44bd8a1df61f256394737bc9f49ccc4d9"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/credential-2.der",
+      "public_key_sha256": "f083b368680a535ac40bececac192623be9822f6ad46f5a728bdbf40a1eebd53",
+      "sha256": "9d607be7a53eb1bb0fd432da2daebe7e1deb18e696237491b2ced2bfdc78efd7"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/credential-3.der",
+      "public_key_sha256": "b1123b9a944e92769a2b4ebbb7a7ad30cfa86eaba46db320fdb8f14c8a648e2b",
+      "sha256": "9de99322903c263cba4959799d3d8c8728e94eae012887a7e0e3396d3d24b328"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/credential-4.der",
+      "public_key_sha256": "fa639a4867472e2a4418e557e250fc91bf9c7cd3f0883dfd94ea05becde2b433",
+      "sha256": "9c6488775e0e7be4c809618eceb6f9bec278746147d39e1d3451a4566949dd3f"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/credential-5.der",
+      "public_key_sha256": "67e95680e1630f86957830bec004ff80676fc7454a838b3b36c562faa602d119",
+      "sha256": "27f4b197f2b5befc2bb96cbe00ff2b8f2f1ef05b8f5b1fd17d43e2e29567e69e"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/credential-6.der",
+      "public_key_sha256": "5750fe64571b93ffdfdca2a45b758943c3cadafd415bab0ab8c3cbc817de3a17",
+      "sha256": "3654f44d6e35027d3b6e0764c7b1016ed7552fa9107cfa3e027afab1c8434bdf"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/credential-7.der",
+      "public_key_sha256": "f55661d0ac8e23e794729cc20e4614e14330164f9e015af9edddfcc209c77bc7",
+      "sha256": "72d8b2bae382cb7902a5de1748baeef12c3439751fae93faa883a8ae44604c4c"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/credential-8.der",
+      "public_key_sha256": "a5f760b60e0a2bcd1b4e6515f36c218e0f91c420ff71b5519195579641c6a8b3",
+      "sha256": "d20f1e751a8ba2f4bf4581b8198ebc90647474926c86ba15df4c37d06e9532e0"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/credential-9.der",
+      "public_key_sha256": "d6e66c007562598a1a1632727b355762692e9804862bcbaecbbf3f5999bd4bb3",
+      "sha256": "16f71ab5700fe139277afd9a6bac710e8d689d988f63d435d84dfadd832ee9d7"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/holder-0.pem",
+      "public_key_sha256": "e7ccb509d4e79bd2002a8727d392d0e8aa42ee19f583cf6ba966fa093b5ee179",
+      "sha256": "96fb411d5356ee08cccdd28b1dc1273ca98d13ea26f124e2464c9ea0581fac9b"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/holder-1.pem",
+      "public_key_sha256": "eff07d047fa0ee2dd16dc03625be8d41d368290aede82d9a37c5225d833e68c1",
+      "sha256": "7a601d341baa1bd9f899268ce4ccd9d66f1cb347a0f8f48babfc944461b7207e"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/holder-10.pem",
+      "public_key_sha256": "08e4ee6dda48408a43676bcf8ac57ca7add82e224e5322f65c27573a93e8cd10",
+      "sha256": "842d277b850e5ac9cee8f0f4d5f6be97177530c7a0eb12ba9b830b252603a29b"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/holder-2.pem",
+      "public_key_sha256": "f083b368680a535ac40bececac192623be9822f6ad46f5a728bdbf40a1eebd53",
+      "sha256": "7a87cebf8cae5a21ee5a1a3e3556603ea88bfcb70bc097f322441bc8b289b4a2"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/holder-3.pem",
+      "public_key_sha256": "b1123b9a944e92769a2b4ebbb7a7ad30cfa86eaba46db320fdb8f14c8a648e2b",
+      "sha256": "a4a59d9874882b26fa4c525011561bab66e540b2286c3e40a8b17af9734d2bd8"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/holder-4.pem",
+      "public_key_sha256": "fa639a4867472e2a4418e557e250fc91bf9c7cd3f0883dfd94ea05becde2b433",
+      "sha256": "772c3b6722d40c1c34f18e48182b51b566ba568d33bedec6286ae9ef39f3b480"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/holder-5.pem",
+      "public_key_sha256": "67e95680e1630f86957830bec004ff80676fc7454a838b3b36c562faa602d119",
+      "sha256": "43b5b293b49915278bd7bda4788bd0bd2a2fc162fe31afc43c831b1f73ed9527"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/holder-6.pem",
+      "public_key_sha256": "5750fe64571b93ffdfdca2a45b758943c3cadafd415bab0ab8c3cbc817de3a17",
+      "sha256": "4a6de0eb2b00d091408f477bc029836240487a36a0812b7de95a4021d04c184a"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/holder-7.pem",
+      "public_key_sha256": "f55661d0ac8e23e794729cc20e4614e14330164f9e015af9edddfcc209c77bc7",
+      "sha256": "1e8598311883079b7e7c0bfba6cb21e212e33f8546be55a876a9a04d561dfcf6"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/holder-8.pem",
+      "public_key_sha256": "a5f760b60e0a2bcd1b4e6515f36c218e0f91c420ff71b5519195579641c6a8b3",
+      "sha256": "3d822fd6b8642bb26bad8d3e3c85f602b5a054e29ce9b0bd615ca6aafc0567d7"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/holder-9.pem",
+      "public_key_sha256": "d6e66c007562598a1a1632727b355762692e9804862bcbaecbbf3f5999bd4bb3",
+      "sha256": "4a6ee3011b8c6632822d426763eb533e4d75c9ef26cdf5660b0c683094a4b416"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-cohort-001/cohort/issuer.pem",
+      "public_key_sha256": "d6bbfe9d1c895a5b427624a008c50efe5e31bdf02c3c5b1176e1abc87e4d6712",
+      "sha256": "82cb0aaafc81c008f07bb2d17dc32bae595ded82d80e37e73331ea7edd233561"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-preflight-001/source/credential.der",
+      "public_key_sha256": "e7ccb509d4e79bd2002a8727d392d0e8aa42ee19f583cf6ba966fa093b5ee179",
+      "sha256": "d458285f6b42c58b8686d3bc4953f17bf27d7a7b190b069efaf47049125337fd"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-campaign-preflight-001/source/holder.pem",
+      "public_key_sha256": "e7ccb509d4e79bd2002a8727d392d0e8aa42ee19f583cf6ba966fa093b5ee179",
+      "sha256": "96fb411d5356ee08cccdd28b1dc1273ca98d13ea26f124e2464c9ea0581fac9b"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-revocation-cohort-001/credential.der",
+      "public_key_sha256": "1536ea3db07220474834d51f384e6f09032c9c5e93877a925b36fea4ce8670f1",
+      "sha256": "ae8a7712e56a2e7ecd26ce1d460d0767452f2651870f23dc069c541d080fbb4d"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-revocation-cohort-001/holder.pem",
+      "public_key_sha256": "1536ea3db07220474834d51f384e6f09032c9c5e93877a925b36fea4ce8670f1",
+      "sha256": "0a53c2db715d1a22ea7b5f079766f76a7eb7ea80116c844d99a49b2a7c3da6dc"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-revocation-cohort-001/issuer.pem",
+      "public_key_sha256": "ee3353e4e63d1826b6e1a8b164de1fc1475a482a60ad328ddb081a943832a7c4",
+      "sha256": "8213ea6dc26c3c0fe3ffcd458db0a29d54bf6a033aa52fc66b4e5fe09cded619"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-revocation-cohort-001/unrelated-holder.pem",
+      "public_key_sha256": "50c78bb30be0b3b779ed5a573e6390c179baeca9aba45474898dc192cf38032e",
+      "sha256": "58406bd63651bae48a192c83de607f3b2096d701cadf5822f8030f7270a73db7"
+    },
+    {
+      "path": "artifacts/dynark/part5/application-v3-revocation-cohort-001/unrelated.der",
+      "public_key_sha256": "50c78bb30be0b3b779ed5a573e6390c179baeca9aba45474898dc192cf38032e",
+      "sha256": "971f08a5fed872cc783f4ea50392508876f01deb9315ceefd3ef376e985e07a7"
+    },
+    {
+      "path": "artifacts/dynark/part5/v3-bound-local-full-001/source/credential.der",
+      "public_key_sha256": "445f3fcfc0f0a353610ba9f75d1904bedc5686f418f1a4024dc87670a5e609c6",
+      "sha256": "2ca10301db7d349347dd0e59fb85173dca00ce576864faab0c7ac705ec6c5c5c"
+    },
+    {
+      "path": "artifacts/dynark/part5/v3-bound-local-full-001/source/holder.pem",
+      "public_key_sha256": "445f3fcfc0f0a353610ba9f75d1904bedc5686f418f1a4024dc87670a5e609c6",
+      "sha256": "acafc5dd80c0980a11eecf65b5bb6f932c6493b38f92aa66d9aa940b0237b0cd"
+    },
+    {
+      "path": "artifacts/dynark/part5/v3-refresh-bound-training-001/source-002/credential.der",
+      "public_key_sha256": "1536ea3db07220474834d51f384e6f09032c9c5e93877a925b36fea4ce8670f1",
+      "sha256": "ae8a7712e56a2e7ecd26ce1d460d0767452f2651870f23dc069c541d080fbb4d"
+    },
+    {
+      "path": "artifacts/dynark/part5/v3-refresh-bound-training-001/source-002/holder.pem",
+      "public_key_sha256": "1536ea3db07220474834d51f384e6f09032c9c5e93877a925b36fea4ce8670f1",
+      "sha256": "0a53c2db715d1a22ea7b5f079766f76a7eb7ea80116c844d99a49b2a7c3da6dc"
+    },
+    {
+      "path": "artifacts/dynark/part5/v3-refresh-bound-training-001/source-003/credential.der",
+      "public_key_sha256": "1536ea3db07220474834d51f384e6f09032c9c5e93877a925b36fea4ce8670f1",
+      "sha256": "ae8a7712e56a2e7ecd26ce1d460d0767452f2651870f23dc069c541d080fbb4d"
+    },
+    {
+      "path": "artifacts/dynark/part5/v3-refresh-bound-training-001/source-003/holder.pem",
+      "public_key_sha256": "1536ea3db07220474834d51f384e6f09032c9c5e93877a925b36fea4ce8670f1",
+      "sha256": "0a53c2db715d1a22ea7b5f079766f76a7eb7ea80116c844d99a49b2a7c3da6dc"
+    },
+    {
+      "path": "artifacts/dynark/part5/v3-refresh-bound-training-001/source-003/unrelated.der",
+      "public_key_sha256": "50c78bb30be0b3b779ed5a573e6390c179baeca9aba45474898dc192cf38032e",
+      "sha256": "971f08a5fed872cc783f4ea50392508876f01deb9315ceefd3ef376e985e07a7"
+    },
+    {
+      "path": "artifacts/dynark/part5/v3-refresh-bound-training-001/source/credential.der",
+      "public_key_sha256": "1536ea3db07220474834d51f384e6f09032c9c5e93877a925b36fea4ce8670f1",
+      "sha256": "ae8a7712e56a2e7ecd26ce1d460d0767452f2651870f23dc069c541d080fbb4d"
+    },
+    {
+      "path": "artifacts/dynark/part5/v3-refresh-bound-training-001/source/holder.pem",
+      "public_key_sha256": "1536ea3db07220474834d51f384e6f09032c9c5e93877a925b36fea4ce8670f1",
+      "sha256": "0a53c2db715d1a22ea7b5f079766f76a7eb7ea80116c844d99a49b2a7c3da6dc"
+    },
+    {
+      "path": "artifacts/dynark/part5/v3-refresh-bound-training-history-001/source-001/credential.der",
+      "public_key_sha256": "1536ea3db07220474834d51f384e6f09032c9c5e93877a925b36fea4ce8670f1",
+      "sha256": "ae8a7712e56a2e7ecd26ce1d460d0767452f2651870f23dc069c541d080fbb4d"
+    },
+    {
+      "path": "artifacts/dynark/part5/v3-refresh-bound-training-history-001/source-001/holder.pem",
+      "public_key_sha256": "1536ea3db07220474834d51f384e6f09032c9c5e93877a925b36fea4ce8670f1",
+      "sha256": "0a53c2db715d1a22ea7b5f079766f76a7eb7ea80116c844d99a49b2a7c3da6dc"
+    },
+    {
+      "path": "artifacts/dynark/part5/v3-refresh-bound-training-history-001/source-001/unrelated.der",
+      "public_key_sha256": "50c78bb30be0b3b779ed5a573e6390c179baeca9aba45474898dc192cf38032e",
+      "sha256": "971f08a5fed872cc783f4ea50392508876f01deb9315ceefd3ef376e985e07a7"
+    },
+    {
+      "path": "artifacts/dynark/part5/v3-request-bound-training-001/source/credential.der",
+      "public_key_sha256": "445f3fcfc0f0a353610ba9f75d1904bedc5686f418f1a4024dc87670a5e609c6",
+      "sha256": "2ca10301db7d349347dd0e59fb85173dca00ce576864faab0c7ac705ec6c5c5c"
+    },
+    {
+      "path": "artifacts/dynark/part5/v3-request-bound-training-001/source/holder.pem",
+      "public_key_sha256": "445f3fcfc0f0a353610ba9f75d1904bedc5686f418f1a4024dc87670a5e609c6",
+      "sha256": "acafc5dd80c0980a11eecf65b5bb6f932c6493b38f92aa66d9aa940b0237b0cd"
+    }
+  ],
+  "registry_members": [
+    {
+      "path": "crates/credential-registry/src/lib.rs",
+      "sha256": "74b0f31e048c2fe56656a00fba967555039d4faf060f42b308b4eab391f72ff9"
+    },
+    {
+      "path": "crates/credential-registry/src/v3/history.rs",
+      "sha256": "b15c9074455c8397eaa2cbe1b5345e4271629d88636eaa4afd08ad322376c75f"
+    },
+    {
+      "path": "crates/credential-registry/src/v3/mod.rs",
+      "sha256": "7d96698eb5efa4c85849e41c13527c5158e667efb3264f47c7b87e8134df1c0f"
+    },
+    {
+      "path": "crates/credential-registry/src/v3/protocol.rs",
+      "sha256": "1f98789e12ededf7b8732bdb4549e32e21505b27b41bbb176cbb7fc54c1abd40"
+    },
+    {
+      "path": "crates/credential-registry/src/v3/tree.rs",
+      "sha256": "798eadc673f459b88431df97b8c33f29da2a8fbaf77ff7318a76b549302af6ab"
+    },
+    {
+      "path": "harness/src/solana/queue_v3/campaign.rs",
+      "sha256": "5de29e9c8bbb208f6e5531c223ceb2761f4b30fe071e7661ccf68188f94f435b"
+    },
+    {
+      "path": "harness/tests/queue_v3_local_campaign_transition.py",
+      "sha256": "cd05591683da2c9f6d6086ccb31895fe478dba17dcacefec3f017d8567292153"
+    },
+    {
+      "path": "tools/part5/prepare_v3_campaign_context.py",
+      "sha256": "ece3e09f02c6a7c9d1de3c35887bd6a008ecc7b517b7329e7c734862481d5c9c"
+    }
+  ],
+  "schema": "part5-v3-training-campaign-identity-manifest-v1",
+  "training_only": true
+}
