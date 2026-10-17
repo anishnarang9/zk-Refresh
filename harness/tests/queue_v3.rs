@@ -17,6 +17,12 @@ fn root_pinned_queue_v3_campaign_transition() {
 }
 
 #[test]
+#[ignore = "requires pinned R0/Rk campaign clone, actual proof wire and supervised loaded validator"]
+fn root_pinned_queue_v3_campaign_effect() {
+    zk_fresh_benchmark::solana::queue_v3::campaign_effect_from_env().unwrap();
+}
+
+#[test]
 #[ignore = "requires pinned staged ledger, exact Full proof, and supervised loopback validator"]
 fn root_pinned_queue_v3_execute() {
     zk_fresh_benchmark::solana::queue_v3::execute_from_env().unwrap();

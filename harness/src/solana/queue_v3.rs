@@ -740,6 +740,10 @@ pub fn campaign_transition_from_env() -> Result<()> {
     campaign::transition_from_env()
 }
 
+pub fn campaign_effect_from_env() -> Result<()> {
+    campaign::effect_from_env()
+}
+
 fn stage_with_context(campaign: bool) -> Result<()> {
     ensure!(
         transport::env("P5_V3_STAGE_SCOPE")?
