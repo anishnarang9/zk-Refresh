@@ -98,6 +98,60 @@ mod tests {
         assert_eq!(&b[30..], &[1, 2]);
         assert!(b[..30].iter().all(|x| *x == 0));
     }
+
+    #[test]
+    fn cumulative_request_context_accepts_only_registered_zero_to_target_steps() {
+        let base = RootOnlyContext {
+            root_version: 0,
+            ..base()
+        };
+        for count in [1, 2, 5, 10] {
+            let target = RootOnlyContext {
+                root: [count as u8 + 4; 32],
+                root_version: count,
+                ..base
+            };
+            admit_cumulative_request(&base, &target, count).unwrap();
+            let mut wrong = target;
+            wrong.action[0] ^= 1;
+            assert!(admit_cumulative_request(&base, &wrong, count).is_err());
+            wrong = target;
+            wrong.root_version -= 1;
+            assert!(admit_cumulative_request(&base, &wrong, count).is_err());
+            wrong = target;
+            wrong.root = base.root;
+            assert!(admit_cumulative_request(&base, &wrong, count).is_err());
+        }
+        admit_cumulative_request(&base, &base, 0).unwrap();
+        let mut wrong = base;
+        wrong.root[0] ^= 1;
+        assert!(admit_cumulative_request(&base, &wrong, 0).is_err());
+        for count in [3, 4, 11] {
+            assert!(admit_cumulative_request(&base, &base, count).is_err());
+        }
+    }
+
+    #[test]
+    fn zero_update_control_requires_identical_complete_inputs() {
+        let mut base = BTreeMap::new();
+        for name in PUBLIC_FIELDS.into_iter().chain(["layout", "slot"]) {
+            base.insert(format!("main.{name}"), Fr::from(1u64));
+        }
+        for (name, count) in ARRAYS {
+            for index in 0..count {
+                base.insert(format!("main.{name}[{index}]"), Fr::from(1u64));
+            }
+        }
+        assert_eq!(base.len(), 751);
+        root_only_inputs_cumulative(&base, &base, 0).unwrap();
+        let mut changed = base.clone();
+        *changed.get_mut("main.actionHash").unwrap() = Fr::from(2u64);
+        assert!(root_only_inputs_cumulative(&base, &changed, 0).is_err());
+        let mut changed = base.clone();
+        *changed.get_mut("main.siblings[4]").unwrap() = Fr::from(2u64);
+        assert!(root_only_inputs_cumulative(&base, &changed, 0).is_err());
+        assert!(root_only_inputs_cumulative(&base, &base, 1).is_err());
+    }
 }
 
 fn admit_same_context(base: &RootOnlyContext, target: &RootOnlyContext) -> Result<()> {
@@ -232,6 +286,20 @@ pub(crate) fn root_only_inputs(
     }
     required(siblings == 1, "qualified single-sibling retry")
 }
+pub(crate) fn root_only_inputs_cumulative(
+    base: &BTreeMap<String, Fr>,
+    target: &BTreeMap<String, Fr>,
+    count: u64,
+) -> Result<()> {
+    if count == 0 {
+        required(
+            base.len() == 751 && base == target,
+            "zero-update control requires identical complete inputs",
+        )
+    } else {
+        root_only_inputs(base, target)
+    }
+}
 pub(crate) fn fr_be(value: &Fr) -> Result<[u8; 32]> {
     let mut out = [0u8; 32];
     value.serialize_compressed(&mut out[..])?;
@@ -299,8 +367,8 @@ pub(crate) fn derive_context_mode(
         root_version: if request_bound {
             spec["root_version"]
                 .as_u64()
-                .filter(|n| *n <= 1)
-                .ok_or("request generation 0 or 1")?
+                .filter(|n| *n <= 10)
+                .ok_or("bounded request generation 0 to 10")?
         } else {
             version(spec, "root_version")?
         },
@@ -325,6 +393,28 @@ pub(crate) fn admit_pair(
     } else {
         admit_root_only(base, near)
     }
+}
+
+/// The registered campaign compares one immutable R0 action with one current
+/// target after a fixed number of distinct, unrelated signed revocations.
+/// k=0 is the no-refresh Full control. This mathematical guard is not source,
+/// allocation, finality, request or current-chain authentication.
+pub(crate) fn admit_cumulative_request(
+    base: &RootOnlyContext,
+    target: &RootOnlyContext,
+    count: u64,
+) -> Result<()> {
+    required(
+        matches!(count, 0 | 1 | 2 | 5 | 10),
+        "registered update count",
+    )?;
+    admit_same_context(base, target)?;
+    required(
+        base.root_version == 0
+            && target.root_version == count
+            && (base.root != target.root) == (count > 0),
+        "registered R0 to current target",
+    )
 }
 fn exact_fields(value: &Value, names: &[&str]) -> Result<()> {
     let object = value.as_object().ok_or("exact schema object")?;
@@ -357,33 +447,63 @@ fn base58_32(value: &str) -> Result<()> {
         "canonical 32-byte base58",
     )
 }
-fn request_bound_cases(packet: &Value) -> Result<&Vec<Value>> {
-    exact_fields(
-        packet,
-        &[
-            "schema",
-            "synthetic_only",
-            "application_verified",
-            "package_digest",
-            "cohort",
-            "proof_source_identity",
-            "setup_manifest_path",
-            "setup_manifest_sha256",
-            "package_check_path",
-            "package_check_sha256",
-            "r1cs_path",
-            "wasm_path",
-            "profile_path",
-            "input_map_path",
-            "input_map_sha256",
-            "application_stage",
-            "pairs",
-        ],
-    )?;
+fn request_bound_cases(packet: &Value, campaign: bool) -> Result<&Vec<Value>> {
+    let mut fields = vec![
+        "schema",
+        "synthetic_only",
+        "application_verified",
+        "package_digest",
+        "cohort",
+        "proof_source_identity",
+        "setup_manifest_path",
+        "setup_manifest_sha256",
+        "package_check_path",
+        "package_check_sha256",
+        "r1cs_path",
+        "wasm_path",
+        "profile_path",
+        "input_map_path",
+        "input_map_sha256",
+        "application_stage",
+        "pairs",
+    ];
+    if campaign {
+        fields.extend([
+            "update_count",
+            "freeze_receipt_sha256",
+            "history_receipt_sha256",
+            "root_schedule_sha256",
+        ]);
+    }
+    exact_fields(packet, &fields)?;
+    let count = if campaign {
+        let count = packet["update_count"]
+            .as_u64()
+            .ok_or("campaign update count")?;
+        required(
+            matches!(count, 0 | 1 | 2 | 5 | 10),
+            "registered update count",
+        )?;
+        for name in [
+            "freeze_receipt_sha256",
+            "history_receipt_sha256",
+            "root_schedule_sha256",
+        ] {
+            unhex(text(packet, name)?)?;
+        }
+        count
+    } else {
+        1
+    };
     required(
         packet["synthetic_only"] == false
             && packet["application_verified"] == false
-            && text(packet, "cohort")? == "request-bound-training-v1"
+            && text(packet, "cohort")?
+                == if campaign {
+                    "cumulative-training-v1"
+                } else {
+                    "request-bound-training-v1"
+                }
             && text(packet, "package_digest")? == PACKAGE_SHA
             && text(packet, "setup_manifest_sha256")? == SETUP_MANIFEST_SHA
             && text(packet, "package_check_sha256")? == PACKAGE_CHECK_SHA
@@ -439,54 +559,88 @@ fn request_bound_cases(packet: &Value) -> Result<&Vec<Value>> {
         .filter(|n| *n > 0)
         .ok_or("base finalized slot")?;
     required(
-        stage["near_finalized_slot"]
-            .as_u64()
-            .is_some_and(|n| n > base_slot),
-        "newer near finalized slot",
+        stage["near_finalized_slot"].as_u64().is_some_and(|n| {
+            if count == 0 {
+                n == base_slot
+            } else {
+                n > base_slot
+            }
+        }),
+        "target finalized slot sequence",
     )?;
-    required(
-        scalar(&stage["base_root"])? != scalar(&stage["near_root"])?,
-        "distinct stage roots",
-    )?;
+    if count > 0 {
+        required(
+            scalar(&stage["base_root"])? != scalar(&stage["near_root"])?,
+            "distinct stage roots",
+        )?;
+    } else {
+        required(
+            stage["base_root"] == stage["near_root"]
+                && stage["base_config_sha256"] == stage["near_config_sha256"],
+            "zero-update unchanged root and config",
+        )?;
+    }
     scalar(&stage["action_hash"])?;
     let pairs = packet["pairs"].as_array().ok_or("request pair array")?;
-    required(pairs.len() == 1, "exactly one request-bound training pair")?;
-    let pair = &pairs[0];
-    exact_fields(pair, &["name", "base", "near"])?;
     required(
-        text(pair, "name")? == "request_bound_training",
-        "request training pair name",
+        pairs.len()
+            == if campaign {
+                usize::try_from(count.max(1))?
+            } else {
+                1
+            },
+        "exact registered request checkpoint count",
     )?;
-    for (role, generation) in [("base", 0), ("near", 1)] {
-        let spec = &pair[role];
-        exact_fields(
-            spec,
-            &[
-                "wtns_path",
-                "wtns_sha256",
-                "public_path",
-                "public_sha256",
-                "input_path",
-                "input_sha256",
-                "issuer_version",
-                "policy_version",
-                "allocation_epoch",
-                "root_version",
-            ],
-        )?;
+    for (index, pair) in pairs.iter().enumerate() {
+        exact_fields(pair, &["name", "base", "near"])?;
+        let generation = if campaign && count > 0 {
+            index as u64 + 1
+        } else {
+            count
+        };
+        let expected_name = if campaign {
+            format!("request_bound_training_r{generation}")
+        } else {
+            "request_bound_training".to_owned()
+        };
         required(
-            spec["root_version"].as_u64() == Some(generation),
-            "request generation 0 to 1",
+            text(pair, "name")? == expected_name,
+            "registered request checkpoint name",
         )?;
-        for key in ["wtns_sha256", "public_sha256", "input_sha256"] {
-            unhex(text(spec, key)?)?;
+        if index > 0 {
+            required(pair["base"] == pairs[0]["base"], "immutable R0 case")?;
         }
-        for key in ["wtns_path", "public_path", "input_path"] {
-            required(!text(spec, key)?.is_empty(), "request case path")?;
+        for (role, generation) in [("base", 0), ("near", generation)] {
+            let spec = &pair[role];
+            exact_fields(
+                spec,
+                &[
+                    "wtns_path",
+                    "wtns_sha256",
+                    "public_path",
+                    "public_sha256",
+                    "input_path",
+                    "input_sha256",
+                    "issuer_version",
+                    "policy_version",
+                    "allocation_epoch",
+                    "root_version",
+                ],
+            )?;
+            required(
+                spec["root_version"].as_u64() == Some(generation),
+                "registered request generation",
+            )?;
+            for key in ["wtns_sha256", "public_sha256", "input_sha256"] {
+                unhex(text(spec, key)?)?;
+            }
+            for key in ["wtns_path", "public_path", "input_path"] {
+                required(!text(spec, key)?.is_empty(), "request case path")?;
+            }
+            u32::try_from(version(spec, "issuer_version")?)?;
+            u32::try_from(version(spec, "policy_version")?)?;
+            version(spec, "allocation_epoch")?;
         }
-        u32::try_from(version(spec, "issuer_version")?)?;
-        u32::try_from(version(spec, "policy_version")?)?;
-        version(spec, "allocation_epoch")?;
     }
     Ok(pairs)
 }
@@ -506,7 +660,10 @@ pub(crate) fn match_request_stage(
 }
 pub(crate) fn packet_cases(packet: &Value) -> Result<&Vec<Value>> {
     if packet["schema"] == "credential-v3-request-bound-anchor-v1" {
-        return request_bound_cases(packet);
+        return request_bound_cases(packet, false);
+    }
+    if packet["schema"] == "credential-v3-cumulative-request-v1" {
+        return request_bound_cases(packet, true);
     }
     required(
         text(packet, "schema")? == "credential-v3-bounded-proof-contexts-v1"
@@ -685,6 +842,46 @@ mod binding_tests {
             }
         }
         packet
+    }
+    #[test]
+    fn registered_cumulative_packet_requires_exact_count_roots_and_history_pins() {
+        let mut packet = request_packet();
+        packet["schema"] = json!("credential-v3-cumulative-request-v1");
+        packet["cohort"] = json!("cumulative-training-v1");
+        packet["update_count"] = json!(2);
+        packet["freeze_receipt_sha256"] = json!("77".repeat(32));
+        packet["history_receipt_sha256"] = json!("88".repeat(32));
+        packet["root_schedule_sha256"] = json!("99".repeat(32));
+        packet["pairs"][0]["name"] = json!("request_bound_training_r1");
+        let mut second = packet["pairs"][0].clone();
+        second["name"] = json!("request_bound_training_r2");
+        second["near"]["root_version"] = json!(2);
+        packet["pairs"].as_array_mut().unwrap().push(second);
+        packet_cases(&packet).unwrap();
+        packet["pairs"][1]["near"]["root_version"] = json!(1);
+        assert!(packet_cases(&packet).is_err());
+        packet["pairs"][1]["near"]["root_version"] = json!(2);
+        packet["pairs"][1]["base"]["root_version"] = json!(1);
+        assert!(packet_cases(&packet).is_err());
+        packet["pairs"][1]["base"]["root_version"] = json!(0);
+        packet["history_receipt_sha256"] = json!("bad");
+        assert!(packet_cases(&packet).is_err());
+        packet["history_receipt_sha256"] = json!("88".repeat(32));
+        packet["update_count"] = json!(3);
+        assert!(packet_cases(&packet).is_err());
+
+        packet["update_count"] = json!(0);
+        packet["pairs"].as_array_mut().unwrap().truncate(1);
+        packet["pairs"][0]["name"] = json!("request_bound_training_r0");
+        packet["pairs"][0]["near"]["root_version"] = json!(0);
+        packet["application_stage"]["near_root"] = packet["application_stage"]["base_root"].clone();
+        packet["application_stage"]["near_finalized_slot"] =
+            packet["application_stage"]["base_finalized_slot"].clone();
+        packet["application_stage"]["near_config_sha256"] =
+            packet["application_stage"]["base_config_sha256"].clone();
+        packet_cases(&packet).unwrap();
+        packet["application_stage"]["near_config_sha256"] = json!("66".repeat(32));
+        assert!(packet_cases(&packet).is_err());
     }
     #[test]
     fn separate_request_packet_admits_exactly_one_zero_to_one_training_pair() {

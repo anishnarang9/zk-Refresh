@@ -79,8 +79,31 @@ fn delta_and_preflight(
     near: &Case,
     request_bound: bool,
 ) -> Result<(Vec<(usize, [u8; 32])>, Value)> {
-    admit_pair(&base.context, &near.context, request_bound)?;
-    root_only_inputs(&base.flat, &near.flat)?;
+    delta_and_preflight_mode(package, base, near, request_bound, None)
+}
+fn delta_and_preflight_cumulative(
+    package: &PublicPackage,
+    base: &Case,
+    near: &Case,
+    count: u64,
+) -> Result<(Vec<(usize, [u8; 32])>, Value)> {
+    delta_and_preflight_mode(package, base, near, true, Some(count))
+}
+fn delta_and_preflight_mode(
+    package: &PublicPackage,
+    base: &Case,
+    near: &Case,
+    request_bound: bool,
+    campaign_count: Option<u64>,
+) -> Result<(Vec<(usize, [u8; 32])>, Value)> {
+    if let Some(count) = campaign_count {
+        required(count > 0, "nonzero refresh preflight")?;
+        admit_cumulative_request(&base.context, &near.context, count)?;
+        root_only_inputs_cumulative(&base.flat, &near.flat, count)?;
+    } else {
+        admit_pair(&base.context, &near.context, request_bound)?;
+        root_only_inputs(&base.flat, &near.flat)?;
+    }
     required(
         base.public[1..] == near.public[1..] && base.public[0] != near.public[0],
         "same-action six-field root-only pair",
@@ -321,8 +344,250 @@ fn validate_full_receipt(
         "accepted matching Full corpus receipt",
     )
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CampaignMode {
+    Full,
+    Anchor,
+}
+fn campaign_mode(mode: &str) -> Option<(CampaignMode, u64)> {
+    let (kind, suffix) = mode.strip_prefix("campaign-")?.split_once("-k")?;
+    let count = match suffix {
+        "0" => 0,
+        "1" => 1,
+        "2" => 2,
+        "5" => 5,
+        "10" => 10,
+        _ => return None,
+    };
+    let kind = match kind {
+        "full" => CampaignMode::Full,
+        "anchor" => CampaignMode::Anchor,
+        _ => return None,
+    };
+    Some((kind, count))
+}
+fn execute_campaign(
+    mode: &str,
+    kind: CampaignMode,
+    count: u64,
+    packet: &Value,
+    packet_sha: &str,
+    cases: &[Value],
+    map: &BTreeMap<String, usize>,
+    package: &PublicPackage,
+    out: &Path,
+    owner: u32,
+    all: Instant,
+) -> Result<()> {
+    required(
+        packet["update_count"].as_u64() == Some(count),
+        "mode and registered count",
+    )?;
+    let mut rng = OsRng;
+    let mut counts = Counts::default();
+    let mut preflights = Vec::new();
+    let mut rows = Vec::new();
+    let base = read_case(&cases[0]["base"], map, package, owner, true)?;
+    let mut targets = Vec::with_capacity(cases.len());
+    for (index, pair) in cases.iter().enumerate() {
+        let t = Instant::now();
+        let target = read_case(&pair["near"], map, package, owner, true)?;
+        let generation = if count == 0 { 0 } else { index as u64 + 1 };
+        admit_cumulative_request(&base.context, &target.context, generation)?;
+        root_only_inputs_cumulative(&base.flat, &target.flat, generation)?;
+        required(
+            base.public[1..] == target.public[1..]
+                && (base.public[0] != target.public[0]) == (generation > 0),
+            "same action and registered target root",
+        )?;
+        if generation > 0 {
+            required(
+                targets
+                    .iter()
+                    .all(|prior: &Case| prior.context.root != target.context.root),
+                "distinct sequential campaign roots",
+            )?;
+        }
+        preflights.push(
+            json!({"generation":generation,"complete_relation_checked":true,
+            "elapsed_ms":t.elapsed().as_secs_f64()*1000.0}),
+        );
+        targets.push(target);
+        event(out, "complete_campaign_case_checked", t)?;
+    }
+    match_request_stage(
+        packet,
+        &base.flat,
+        &targets.last().ok_or("target case")?.flat,
+    )?;
+    let base_t = Instant::now();
+    let old_full = dynark_bn254::prove(
+        package,
+        &base.validated,
+        base.context.root_version,
+        &mut rng,
+    )?;
+    ordinary_checks::verify_save(
+        package,
+        &old_full,
+        &base.public,
+        base.context.root_version,
+        out,
+        "request_bound_training_full_r0",
+        &mut counts,
+    )?;
+    rows.push(json!({"generation":0,"proof_kind":"full",
+        "paid_ms":base_t.elapsed().as_secs_f64()*1000.0}));
+    let mut material_ms = 0.0;
+    let mut anchor_prepare_ms = 0.0;
+    if kind == CampaignMode::Full {
+        for (index, target) in targets.iter().enumerate() {
+            let generation = if count == 0 { 0 } else { index as u64 + 1 };
+            if generation == 0 {
+                continue;
+            }
+            let t = Instant::now();
+            let proof = dynark_bn254::prove(
+                package,
+                &target.validated,
+                target.context.root_version,
+                &mut rng,
+            )?;
+            ordinary_checks::verify_save(
+                package,
+                &proof,
+                &target.public,
+                target.context.root_version,
+                out,
+                &format!("request_bound_training_full_r{generation}"),
+                &mut counts,
+            )?;
+            ordinary_checks::reject_cross_root(package, &old_full, &target.public, &mut counts)?;
+            ordinary_checks::reject_cross_root(package, &proof, &base.public, &mut counts)?;
+            rows.push(json!({"generation":generation,"proof_kind":"full",
+                "paid_ms":t.elapsed().as_secs_f64()*1000.0}));
+            case_event(
+                out,
+                &format!("r{generation}"),
+                "full_checkpoint_complete",
+                t,
+            )?;
+        }
+    } else {
+        let mut deltas = Vec::with_capacity(targets.len());
+        for (index, target) in targets.iter().enumerate() {
+            let generation = if count == 0 { 0 } else { index as u64 + 1 };
+            if generation == 0 {
+                deltas.push(Vec::new());
+                continue;
+            }
+            let (delta, support) =
+                delta_and_preflight_cumulative(package, &base, target, generation)?;
+            preflights[index]["support"] = support;
+            deltas.push(delta);
+        }
+        event(out, "public_updating_material_started", all)?;
+        let t = Instant::now();
+        let material = UpdatingMaterial::prepare(package, limits())?;
+        material_ms = t.elapsed().as_secs_f64() * 1000.0;
+        event(out, "public_updating_material_prepared", t)?;
+        let binding = AnchorBinding::new(
+            package,
+            base.context.credential,
+            base.context.action,
+            base.context.root_version,
+        );
+        let t = Instant::now();
+        let anchor = Anchor::create(
+            package,
+            &material,
+            base.validated,
+            binding,
+            limits(),
+            &mut rng,
+        )?;
+        anchor_prepare_ms = t.elapsed().as_secs_f64() * 1000.0;
+        event(out, "private_anchor_prepared", t)?;
+        let original = anchor.binding();
+        for (index, target) in targets.iter().enumerate() {
+            let generation = if count == 0 { 0 } else { index as u64 + 1 };
+            if generation == 0 {
+                continue;
+            }
+            let t = Instant::now();
+            let transition = Transition::new(
+                package,
+                original,
+                target.context.root_version,
+                &deltas[index],
+                &target.public,
+                limits(),
+            )?;
+            let refreshed = anchor.update(package, &material, &transition, limits(), &mut rng)?;
+            required(anchor.binding() == original, "immutable campaign Anchor")?;
+            ordinary_checks::verify_save(
+                package,
+                &refreshed,
+                &target.public,
+                target.context.root_version,
+                out,
+                &format!("request_bound_training_anchor_r{generation}"),
+                &mut counts,
+            )?;
+            ordinary_checks::reject_cross_root(package, &old_full, &target.public, &mut counts)?;
+            ordinary_checks::reject_cross_root(package, &refreshed, &base.public, &mut counts)?;
+            rows.push(json!({"generation":generation,"proof_kind":"anchor",
+                "paid_ms":t.elapsed().as_secs_f64()*1000.0}));
+            case_event(
+                out,
+                &format!("r{generation}"),
+                "anchor_checkpoint_complete",
+                t,
+            )?;
+        }
+    }
+    let expected = Counts {
+        proofs: count + 1,
+        positives: count + 1,
+        altered: 6 * (count + 1),
+        cross_root: 2 * count,
+    };
+    required(
+        counts.json() == expected.json(),
+        "registered campaign proof/check counts",
+    )?;
+    let report = json!({"schema":"credential-v3-cumulative-proof-v1","passed":true,
+        "mode":mode,"cohort":text(packet,"cohort")?,"update_count":count,
+        "packet_sha256":packet_sha,"package_digest":PACKAGE_SHA,
+        "identity":identity_json(package.identity()),
+        "setup_manifest_sha256":SETUP_MANIFEST_SHA,"setup_binary_sha256":SETUP_BINARY_SHA,
+        "setup_launcher_src_sha256":SETUP_SOURCE_SHA,
+        "proof_binary_sha256":binary_hash(owner)?,"proof_source_identity":proof_source_identity(),
+        "proof_package_lock_sha256":hex(&Sha256::digest(include_bytes!("../Cargo.lock"))),
+        "ordinary_vk_file_sha256":ORDINARY_VK_FILE_SHA,"public_inputs":PUBLIC_FIELDS,
+        "counts":counts.json(),"preflights":preflights,"checkpoints":rows,
+        "public_package_loads":1,"public_material_preparations":usize::from(kind == CampaignMode::Anchor),
+        "public_material_prepare_ms":material_ms,"private_anchor_prepare_ms":anchor_prepare_ms,
+        "total_paid_session_ms":all.elapsed().as_secs_f64()*1000.0,
+        "setup_executed":false,"private_cache_persisted":false,
+        "incremental_witness_enabled":false,"application_verified":false,"admitted":false,
+        "application_stage_pins":packet["application_stage"],
+        "application_stage_pins_authority":"caller-supplied; external finalized-state verification required",
+        "freeze_receipt_sha256":packet["freeze_receipt_sha256"],
+        "history_receipt_sha256":packet["history_receipt_sha256"],
+        "root_schedule_sha256":packet["root_schedule_sha256"]});
+    save_json(&out.join("proof-report.json"), &report)?;
+    File::open(out)?.sync_all()?;
+    println!(
+        "{{\"proof_qualification_passed\":true,\"proofs\":{},\"ordinary_checks\":{}}}",
+        counts.proofs,
+        counts.checks()
+    );
+    Ok(())
+}
 fn execute(args: &[String]) -> Result<()> {
     let mode = args.get(1).map(String::as_str).ok_or("proof mode")?;
+    let campaign = campaign_mode(mode);
     required(
         matches!(
             mode,
@@ -333,14 +598,15 @@ fn execute(args: &[String]) -> Result<()> {
                 | "anchor-request-bound"
                 | "matched-full-k1"
                 | "matched-anchor-k1"
-        ),
+        ) || campaign.is_some(),
         "proof-only explicit mode",
     )?;
     let matched_session = matches!(mode, "matched-full-k1" | "matched-anchor-k1");
     let full_request_bound = matches!(mode, "full-request-bound" | "matched-full-k1");
     let request_bound = mode == "anchor-request-bound"
         || mode == "matched-anchor-k1"
-        || full_request_bound;
+        || full_request_bound
+        || campaign.is_some();
     required(
         args.len()
             == if mode == "full-corpus" || request_bound {
@@ -353,8 +619,15 @@ fn execute(args: &[String]) -> Result<()> {
     let packet_path = Path::new(&args[2]);
     let owner = fs::symlink_metadata(packet_path)?.uid();
     let packet = json_file(packet_path, &args[3], owner)?;
+    let expected_schema = if campaign.is_some() {
+        "credential-v3-cumulative-request-v1"
+    } else if request_bound {
+        "credential-v3-request-bound-anchor-v1"
+    } else {
+        "credential-v3-bounded-proof-contexts-v1"
+    };
     required(
-        (packet["schema"] == "credential-v3-request-bound-anchor-v1") == request_bound,
+        packet["schema"] == expected_schema,
         "packet schema matches explicit runner mode",
     )?;
     let cases = packet_cases(&packet)?;
@@ -375,6 +648,11 @@ fn execute(args: &[String]) -> Result<()> {
     let all = Instant::now();
     let package = load_package(&packet, owner, out)?;
     let id = package.identity();
+    if let Some((kind, count)) = campaign {
+        return execute_campaign(
+            mode, kind, count, &packet, &args[3], cases, &map, &package, out, owner, all,
+        );
+    }
     let mut contexts = Vec::new();
     let mut preflights = Vec::new();
     // All complete pairs and local cache guards are checked before expensive
@@ -648,6 +926,29 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn campaign_modes_are_exact_and_registered() {
+        for count in [0, 1, 2, 5, 10] {
+            assert_eq!(
+                campaign_mode(&format!("campaign-full-k{count}")),
+                Some((CampaignMode::Full, count))
+            );
+            assert_eq!(
+                campaign_mode(&format!("campaign-anchor-k{count}")),
+                Some((CampaignMode::Anchor, count))
+            );
+        }
+        for mode in [
+            "campaign-full-k3",
+            "campaign-anchor-k01",
+            "campaign-full-k11",
+            "campaign-coalesced-k1",
+            "campaign-anchor-k-1",
+            "matched-full-k1",
+        ] {
+            assert_eq!(campaign_mode(mode), None);
+        }
+    }
     #[test]
     fn same_credential_action_root_only_refresh_is_admitted() {
         assert_eq!(SETUP_MANIFEST_SHA.len(), 64);
