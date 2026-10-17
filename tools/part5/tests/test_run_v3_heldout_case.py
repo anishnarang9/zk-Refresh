@@ -3,6 +3,9 @@ import hashlib
 import json
 from pathlib import Path
 import sys
+import time
+
+import pytest
 
 REPO = Path(__file__).resolve().parents[3]
 if str(REPO) not in sys.path:
@@ -151,6 +154,37 @@ def test_journal_preserves_reported_wall_time_on_artifact_recovery(tmp_path):
             category='stage')
     assert result['wall_seconds'] == 12.5
     assert journal._read()['costs']['shared_stage_seconds'] == 12.5
+
+
+def test_pair_view_preparation_is_inside_the_timed_journal_step(tmp_path, monkeypatch):
+    from tools.part5 import prepare_v3_heldout_context as context_builder
+
+    def prepare(_cohort, _sha, variant, output):
+        time.sleep(0.02)
+        case = json.dumps({'target': {'variant': variant}}).encode()
+        pair = json.dumps({'heldout_acceptance': False}).encode()
+        (output / 'case-context.json').write_bytes(case)
+        (output / 'cohort-receipt.json').write_bytes(pair)
+        return {'case_context_sha256': hashlib.sha256(case).hexdigest(),
+                'pair_receipt_sha256': hashlib.sha256(pair).hexdigest()}
+
+    monkeypatch.setattr(context_builder, 'prepare', prepare)
+    trial = runner.HeldoutCaseRunner.__new__(runner.HeldoutCaseRunner)
+    trial.output_root = tmp_path
+    trial.variant = 0
+    trial.manifest = {'cohort_root': str(tmp_path), 'cohort_sha256': 'a' * 64,
+                      'base_prepare_config_sha256': 'b' * 64}
+    trial.journal = runner.RunJournal(tmp_path / 'run-journal.json', 'c' * 64)
+    trial._prepare = lambda *_: (_ for _ in ()).throw(RuntimeError('stop after pair view'))
+
+    with pytest.raises(RuntimeError, match='stop after pair view'):
+        trial.run()
+
+    step = trial.journal._read()['steps']['pair-view']
+    assert step['status'] == 'passed'
+    assert step['wall_seconds'] >= 0.02
+    assert step['case_context_sha256'] == hashlib.sha256(
+        (tmp_path / 'pair-view/case-context.json').read_bytes()).hexdigest()
 
 
 def test_subprocess_status_path_stays_separate_from_journal_state(tmp_path):

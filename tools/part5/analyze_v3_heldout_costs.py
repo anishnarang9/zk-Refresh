@@ -611,6 +611,11 @@ def analyze(manifest_ref, acceptance_ref):
             'full_B_seconds': full,
             'anchor_B_seconds': anchor,
             'anchor_minus_full_B_seconds': anchor - full,
+            'full_B_plus_pair_view_seconds': full + pair_view,
+            'anchor_B_plus_pair_view_seconds': anchor + pair_view,
+            'B_total_wall_savings_fraction': (full - anchor) / full,
+            'B_plus_pair_view_wall_savings_fraction': (
+                full - anchor) / (full + pair_view),
             'B_sampled_resources': {
                 'full': _sampled_peak(full_samples),
                 'anchor': _sampled_peak(anchor_samples),
@@ -623,7 +628,10 @@ def analyze(manifest_ref, acceptance_ref):
     output_rows.sort(key=lambda row: row['variant'])
     summary = {field: _summary(output_rows, field) for field in
                ('shared_B_seconds', 'full_B_seconds', 'anchor_B_seconds',
-                'anchor_minus_full_B_seconds', 'pair_view_one_time_seconds')}
+                'anchor_minus_full_B_seconds', 'pair_view_one_time_seconds',
+                'full_B_plus_pair_view_seconds', 'anchor_B_plus_pair_view_seconds',
+                'B_total_wall_savings_fraction',
+                'B_plus_pair_view_wall_savings_fraction')}
     rss_values = [row[0] for row in sampled]
     storage_values = [row[1] for row in sampled]
     return {
@@ -634,7 +642,8 @@ def analyze(manifest_ref, acceptance_ref):
         'shared_B_formula': 'B:prepare+B:stage+B:transition+B:source-R0+B:source-R1',
         'full_B_formula': 'shared_B+B:proof-full+B:unrelated_full:clone+B:unrelated_full:effect',
         'anchor_B_formula': 'shared_B+B:proof-anchor+B:anchor:clone+B:anchor:effect',
-        'pair_view_accounting': 'reported separately once per case and excluded from both B totals',
+        'pair_view_accounting': ('timed credential preparation reported once per case; '
+                                 'the plus-pair-view totals charge it once to each B mode'),
         'fresh_replay_accounting': ('A:proof-full-fresh-replay is a test-only second '
                                     'Full proof bundle; reported per case and excluded from matched B totals'),
         'spread_definition': 'maximum minus minimum across the eight heldout variants',

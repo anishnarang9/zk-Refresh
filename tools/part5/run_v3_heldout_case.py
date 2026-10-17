@@ -1225,26 +1225,39 @@ class HeldoutCaseRunner:
     def run(self):
         from tools.part5 import prepare_v3_heldout_context as context_builder
         case_root = self.output_root / 'pair-view'
-        if not case_root.exists():
-            case_root.mkdir(mode=0o700)
-            pair = context_builder.prepare(Path(self.manifest['cohort_root']),
-                self.manifest['cohort_sha256'], self.variant, case_root)
-        else:
+        def pair_view_receipt():
             _private_dir(case_root)
             pair_doc = _json(case_root / 'cohort-receipt.json')
             case_doc = _json(case_root / 'case-context.json')
-            pair = {'pair_receipt_sha256': digest(_read(case_root / 'cohort-receipt.json')),
-                    'case_context_sha256': digest(_read(case_root / 'case-context.json'))}
             if (case_doc.get('target', {}).get('variant') != self.variant
                     or pair_doc.get('heldout_acceptance') is not False):
                 raise ValueError('existing pair view belongs to another heldout variant')
-        context_sha = digest(_read(case_root / 'case-context.json'))
+            return {'case_context_sha256': digest(_read(case_root / 'case-context.json')),
+                    'pair_receipt_sha256': digest(_read(case_root / 'cohort-receipt.json'))}
+
+        def prepare_pair_view():
+            if case_root.exists() or case_root.is_symlink():
+                raise ValueError('pair view without completed timed journal step requires review')
+            case_root.mkdir(mode=0o700)
+            pair = context_builder.prepare(Path(self.manifest['cohort_root']),
+                self.manifest['cohort_sha256'], self.variant, case_root)
+            receipt = pair_view_receipt()
+            if any(pair.get(name) != value for name, value in receipt.items()):
+                raise ValueError('prepared pair view differs from its written receipt')
+            return {'status': 'passed', **receipt}
+
+        def reuse_pair_view(saved):
+            try:
+                return all(saved.get(name) == value
+                           for name, value in pair_view_receipt().items())
+            except (OSError, ValueError, KeyError, TypeError):
+                return False
+
         with self.journal:
             pair_step = self.journal.run_step('pair-view',
                 inputs={'cohort': self.manifest['cohort_sha256'], 'variant': self.variant},
-                job=lambda: {'status': 'passed', 'case_context_sha256': context_sha,
-                             'pair_receipt_sha256': pair['pair_receipt_sha256']},
-                reuse=lambda old: old.get('case_context_sha256') == context_sha)
+                job=prepare_pair_view, reuse=reuse_pair_view)
+            context_sha = pair_step['case_context_sha256']
             results = {}
             branch_results = {}
             branch_order = ['unrelated_full', 'anchor'] if self.variant % 2 == 0 else ['anchor', 'unrelated_full']

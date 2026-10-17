@@ -369,8 +369,13 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         self.assertEqual(pair['full_B_seconds'], 38.0)
         self.assertEqual(pair['anchor_B_seconds'], 43.0)
         self.assertEqual(pair['pair_view_one_time_seconds'], 0.5)
+        self.assertEqual(pair['full_B_plus_pair_view_seconds'], 38.5)
+        self.assertEqual(pair['anchor_B_plus_pair_view_seconds'], 43.5)
+        self.assertAlmostEqual(pair['B_total_wall_savings_fraction'], -5 / 38)
+        self.assertAlmostEqual(pair['B_plus_pair_view_wall_savings_fraction'], -5 / 38.5)
         self.assertEqual(pair['full_A_fresh_replay_test_only_seconds'], 1.0)
         self.assertEqual(result['summary']['full_B_seconds']['median'], 38.0)
+        self.assertEqual(result['summary']['full_B_plus_pair_view_seconds']['median'], 38.5)
         self.assertEqual(result['summary']['anchor_B_seconds']['spread'], 0.0)
         self.assertEqual(pair['B_sampled_resources']['full'], {
             'monitor_report_count': 13,
