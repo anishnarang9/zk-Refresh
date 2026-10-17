@@ -12,9 +12,17 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from tools.part5 import generate_v3_heldout_keys as keygen
 from tools.part5 import freeze_v3_heldout_cohort as tool
 from tools.part5 import build_v3_heldout_cohort as builder
+from tools.part5 import build_v3_heldout_run_manifest as manifest_builder
+from tools.part5 import verify_v3_heldout_acceptance as verifier
 
 
 class HeldoutFreezePinClosureTests(unittest.TestCase):
+    def test_heldout_gates_pin_queue_runner_002_consistently(self):
+        expected = 'artifacts/dynark/part5/v3-heldout-queue-runner-002'
+        self.assertEqual(tool.RUNNER_BINARY, expected)
+        self.assertEqual(manifest_builder.freeze_tool.RUNNER_BINARY, expected)
+        self.assertEqual(verifier.QUEUE_RUNNER_REL, expected)
+
     def test_client_bundle_pins_current_r2_rejection_tools(self):
         required = {
             'tools/part5/check_v3_r2_counterfactual.py',

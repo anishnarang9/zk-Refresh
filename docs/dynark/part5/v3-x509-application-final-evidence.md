@@ -218,16 +218,16 @@ python3 -B -m tools.part5.run_v3_campaign_matrix \
   "$PWD/results/dynark/part5/v3-campaign-matrix-training-005.json" --plan
 ```
 
-The held-out commands below document reproducible inputs and a future run sequence; they do not indicate that the held-out run has occurred. The freeze input, prepare config, packet template and executable inputs listed below exist. The stable held-out Rust runner is built at `artifacts/dynark/part5/v3-heldout-queue-runner-001`, mode `700`, SHA-256 `2f289b4eb920593a06f86a2b806e12a62b7adad8920b79eaa4d8f6682c8bf2a1`. Its `--list` output contained the seven named tests below; no test bodies were run. The freeze, cohort, run manifests, case outputs, assembled manifest, verifier report and cost report do not exist. The output paths below are reserved names and each creation command requires its output path to be fresh. Run the blocks in order from the repository root; each block defines its own path variables. The freeze receipt and prior-key inventory go in the owner-only `results/dynark/part5/v3-heldout-freeze-001/` directory. Keep the cohort, case manifests, and case outputs under owner-only ignored paths in `artifacts/dynark/part5/`. Do not put raw credentials, keys, witnesses, proofs, signed envelopes or ledger clones in tracked prose or files.
+The held-out commands below document reproducible inputs and a future run sequence; they do not indicate that the held-out run has occurred. The freeze input, prepare config, packet template and executable inputs listed below exist. The previously built `artifacts/dynark/part5/v3-heldout-queue-runner-001` reflects the older queue source and is stale for the current source. The replacement stable runner at `artifacts/dynark/part5/v3-heldout-queue-runner-002` has not been built or listed yet, so it has no current SHA-256 or confirmed test listing. The freeze, cohort, run manifests, case outputs, assembled manifest, verifier report and cost report do not exist. The output paths below are reserved names and each creation command requires its output path to be fresh. Run the blocks in order from the repository root; each block defines its own path variables. The freeze receipt and prior-key inventory go in the owner-only `results/dynark/part5/v3-heldout-freeze-001/` directory. Keep the cohort, case manifests, and case outputs under owner-only ignored paths in `artifacts/dynark/part5/`. Do not put raw credentials, keys, witnesses, proofs, signed envelopes or ledger clones in tracked prose or files.
 
-The following records the held-out Rust runner build recipe. It was completed before the current snapshot: the stable copy is `artifacts/dynark/part5/v3-heldout-queue-runner-001`. A clean rebuild requires a fresh build target and an empty destination; do not overwrite the pinned stable copy. The Python campaign interpreter and raw Cargo output path are not valid `--runner` inputs.
+The following records the held-out Rust runner build recipe. It must create the replacement stable copy at `artifacts/dynark/part5/v3-heldout-queue-runner-002`. Use a fresh build target and an empty destination; preserve the older runner-001. The Python campaign interpreter and raw Cargo output path are not valid `--runner` inputs.
 
 ```sh
 set -euo pipefail
 ROOT="$PWD"
 PART5="$ROOT/artifacts/dynark/part5"
 BUILD_TARGET="$(mktemp -d "$PART5/v3-heldout-queue-runner-build-XXXXXX")"
-RUNNER="$PART5/v3-heldout-queue-runner-001"
+RUNNER="$PART5/v3-heldout-queue-runner-002"
 
 test ! -e "$RUNNER"
 CARGO_TARGET_DIR="$BUILD_TARGET" CARGO_BUILD_JOBS=1 /Users/anishnarang/.cargo/bin/cargo test \
@@ -290,7 +290,7 @@ python3 -B tools/part5/build_v3_heldout_cohort.py \
   --output "$COHORT_ROOT"
 ```
 
-Build the eight run manifests from the existing base prepare config `artifacts/dynark/part5/application-v3-campaign-prepare-config-002.json` (SHA-256 `b5bb168545a3dfef91fa2b0430bf19912ffbbe6080c6b94041315256934d2853`) and packet template `artifacts/dynark/part5/v3-full-r1-proof-training-001/packet-003.json` (SHA-256 `f74da66ef9a12c03a028ed52bee8cb4de2ddf0958abbecb0b7e528b22065512b`). These are pinned construction inputs, not held-out run evidence. The manifest builder requires `--runner` to resolve exactly to the stable Rust executable `artifacts/dynark/part5/v3-heldout-queue-runner-001` described above; the build step must run before freezing because this file is included in the frozen registry bundle. The builder verifies the file and embeds its path and SHA-256 in each manifest. Other pinned inputs are the bounded supervisor `results/dynark/part5/session_runner.py` (`77fc4107089d14039af8726051e174a9b6508e09c13b07e2ac1bcc083eec5429`), Node `/Users/anishnarang/.nvm/versions/node/v24.10.0/bin/node` (`9e759d34d97af8a71b75854d20af297794611155406997f06d796b5e0f6d573b`), exporter `program/target/debug/examples/export_v3_request_fixture` (`d5b10820153334b5cb5996ad2f26aad95a033741e0883f69019ebf79fb051700`), and the adapter above (`5e364d7ea4d2321a1135e697ed7cf3233abaa832d371bff2f4dfdf2ea5ff6521`). The builder verifies and embeds their hashes and emits `case-00.json` through `case-07.json`:
+Build the eight run manifests from the existing base prepare config `artifacts/dynark/part5/application-v3-campaign-prepare-config-002.json` (SHA-256 `b5bb168545a3dfef91fa2b0430bf19912ffbbe6080c6b94041315256934d2853`) and packet template `artifacts/dynark/part5/v3-full-r1-proof-training-001/packet-003.json` (SHA-256 `f74da66ef9a12c03a028ed52bee8cb4de2ddf0958abbecb0b7e528b22065512b`). These are pinned construction inputs, not held-out run evidence. The manifest builder requires `--runner` to resolve exactly to the replacement stable Rust executable `artifacts/dynark/part5/v3-heldout-queue-runner-002` described above; the build step must run before freezing because this file is included in the frozen registry bundle. The builder verifies the file and embeds its path and SHA-256 in each manifest. Other pinned inputs are the bounded supervisor `results/dynark/part5/session_runner.py` (`77fc4107089d14039af8726051e174a9b6508e09c13b07e2ac1bcc083eec5429`), Node `/Users/anishnarang/.nvm/versions/node/v24.10.0/bin/node` (`9e759d34d97af8a71b75854d20af297794611155406997f06d796b5e0f6d573b`), exporter `program/target/debug/examples/export_v3_request_fixture` (`d5b10820153334b5cb5996ad2f26aad95a033741e0883f69019ebf79fb051700`), and the adapter above (`5e364d7ea4d2321a1135e697ed7cf3233abaa832d371bff2f4dfdf2ea5ff6521`). The builder verifies and embeds their hashes and emits `case-00.json` through `case-07.json`:
 
 ```sh
 set -euo pipefail
@@ -302,7 +302,7 @@ COHORT_ROOT="$ROOT/artifacts/dynark/part5/v3-heldout-cohort-001"
 BASE_PREPARE_CONFIG="$ROOT/artifacts/dynark/part5/application-v3-campaign-prepare-config-002.json"
 PACKET_TEMPLATE="$ROOT/artifacts/dynark/part5/v3-full-r1-proof-training-001/packet-003.json"
 # Set after the held-out Rust queue_v3 runner has been built and pinned.
-RUNNER="$ROOT/artifacts/dynark/part5/v3-heldout-queue-runner-001"
+RUNNER="$ROOT/artifacts/dynark/part5/v3-heldout-queue-runner-002"
 SUPERVISOR="$ROOT/results/dynark/part5/session_runner.py"
 NODE="/Users/anishnarang/.nvm/versions/node/v24.10.0/bin/node"
 EXPORTER="$ROOT/program/target/debug/examples/export_v3_request_fixture"

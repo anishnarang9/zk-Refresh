@@ -256,10 +256,9 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         globals_ = {name: {'pinned': name} for name in (
             'frozen_files', 'frozen_bundles', 'source_files', 'proof_inputs',
             'application_source_manifest', 'application_source_files')}
-        runner_path = str(verifier.ROOT /
-            'artifacts/dynark/part5/v3-heldout-queue-runner-001')
+        runner_path = str(verifier.ROOT / verifier.QUEUE_RUNNER_REL)
         globals_['frozen_bundles'] = {'registry': [{
-            'path': 'artifacts/dynark/part5/v3-heldout-queue-runner-001',
+            'path': verifier.QUEUE_RUNNER_REL,
             'artifact': {'path': runner_path, 'sha256': 'd' * 64}}],
             'client': []}
         run = {'schema': 'credential-v3-heldout-case-run-v1', 'variant': 2,
