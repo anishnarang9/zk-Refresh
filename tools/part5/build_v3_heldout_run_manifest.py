@@ -83,7 +83,7 @@ def _write(path, raw):
 
 
 def _bundle(paths):
-    return [{'path': name, 'artifact': _ref(ROOT / name, 1024 * 1024)}
+    return [{'path': name, 'artifact': _ref(ROOT / name, 64 * 1024 * 1024)}
             for name in sorted(paths)]
 
 
@@ -130,9 +130,25 @@ def build(freeze_receipt, cohort_root, base_prepare_config, packet_template,
         'bounded_supervisor': _ref(bounded_supervisor, 1024 * 1024),
         'exporter': _ref(exporter, 1024 * 1024 * 1024),
     }
+    source_files = {
+        'heldout_source_tool': _ref(ROOT / 'tools/part5/prepare_v3_heldout_source.py', 131072),
+        'training_helper': _ref(ROOT / 'crates/dynark-native-client/tests/support/prepare_v3_request_bound_training.py', 131072),
+        'request_fixture_bridge': frozen_files['signer_interface'],
+        'exporter': proof_inputs['exporter'],
+    }
+    if source_files['exporter'] != _ref(ROOT / 'program/target/debug/examples/export_v3_request_fixture',
+                                        64 * 1024 * 1024):
+        raise ValueError('request exporter binary changed after freeze')
     current_source = build_prep.source_manifest(ROOT)
     if digest(json.dumps(current_source, sort_keys=True).encode()) != boundary['identities']['application_source']:
         raise ValueError('application sources changed after freeze')
+    application_source_files = {
+        name: _ref(ROOT / name, 1024 * 1024)
+        for name in current_source['source_pins']
+    }
+    if any(ref['sha256'] != current_source['source_pins'][name]
+           for name, ref in application_source_files.items()):
+        raise ValueError('application source file changed after inventory')
     template = _ref(base_prepare_config, 65536)
     python = _ref(runner, 128 * 1024 * 1024)
     output_dir.mkdir(mode=0o700)
@@ -152,6 +168,8 @@ def build(freeze_receipt, cohort_root, base_prepare_config, packet_template,
                 'runner': python['path'], 'runner_sha256': python['sha256'],
                 'frozen_files': frozen_files, 'frozen_bundles': bundles,
                 'application_source_manifest': source_ref,
+                'application_source_files': application_source_files,
+                'source_files': source_files,
                 'proof_inputs': proof_inputs, 'proof_caps': CAPS,
             }
             case_runner.validate_manifest(manifest)

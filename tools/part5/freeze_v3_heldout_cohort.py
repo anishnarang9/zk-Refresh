@@ -57,6 +57,7 @@ CLIENT_FILES = [
     'crates/dynark-native-client/tests/support/v3_relation_witness.cjs',
     'crates/dynark-native-client/tests/support/prepare_v3_relation.py',
     'program/examples/export_v3_request_fixture.rs',
+    'program/target/debug/examples/export_v3_request_fixture',
     'results/dynark/part5/session_runner.py',
     'tools/part5/credential_profile.py',
     'tools/part5/issue_v3_heldout_certificate.py',
