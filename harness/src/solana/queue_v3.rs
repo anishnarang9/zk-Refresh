@@ -1,6 +1,401 @@
 //! Independent v3 local transaction encodings for the bounded queue demo.
 //! Constructing an instruction or PDA does not authenticate current chain state.
+use super::queue_v2 as transport;
 use super::*;
+use zk_fresh_program::application_v3::{
+    Config, Issuer, PublisherHead, Queue, Request, RequestState, CONFIG_LEN, HEAD_LEN, ISSUER_LEN,
+    QUEUE_LEN, REQUEST_LEN,
+};
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TrainingContext {
+    schema: String,
+    training_only: bool,
+    root: String,
+    issuer_hash: String,
+    policy_id: String,
+    aki: String,
+    evidence_digest: String,
+    not_before: i64,
+    not_after: i64,
+}
+
+fn training_context() -> Result<(
+    TrainingContext,
+    [u8; 32],
+    [u8; 32],
+    [u8; 32],
+    [u8; 32],
+    [u8; 32],
+)> {
+    let raw = transport::pinned(
+        Path::new(&transport::env("P5_V3_CONTEXT")?),
+        &transport::env("P5_V3_CONTEXT_SHA256")?,
+        8192,
+    )?;
+    parse_training_context(&raw)
+}
+
+fn parse_training_context(
+    raw: &[u8],
+) -> Result<(
+    TrainingContext,
+    [u8; 32],
+    [u8; 32],
+    [u8; 32],
+    [u8; 32],
+    [u8; 32],
+)> {
+    let context: TrainingContext = serde_json::from_slice(&raw)?;
+    ensure!(
+        context.schema == "part5-v3-local-training-context-v1"
+            && context.training_only
+            && context.not_before >= 0
+            && context.not_before < context.not_after,
+        "bounded v3 training context required"
+    );
+    let root = transport::unhex(&context.root)?;
+    let issuer_hash = transport::unhex(&context.issuer_hash)?;
+    let policy_id = transport::unhex(&context.policy_id)?;
+    let aki = transport::unhex(&context.aki)?;
+    let evidence_digest = transport::unhex(&context.evidence_digest)?;
+    ensure!(
+        aki[20..] == [0; 12] && evidence_digest != [0; 32],
+        "signed AKI/evidence shape"
+    );
+    Ok((context, root, issuer_hash, policy_id, aki, evidence_digest))
+}
+
+fn finalized_accounts(
+    rpc: &Rpc,
+    p: &V3QueuePlan,
+    minimum_slot: u64,
+) -> Result<(u64, [Vec<u8>; 5])> {
+    let a = p.addresses();
+    let keys = [a.config, a.issuer, a.head, a.request, a.queue];
+    let sizes = [CONFIG_LEN, ISSUER_LEN, HEAD_LEN, REQUEST_LEN, QUEUE_LEN];
+    let genesis_before = rpc.call("getGenesisHash", json!([]))?;
+    ensure!(
+        genesis_before.as_str() == Some(transport::env("P5_QUEUE_GENESIS")?.as_str()),
+        "local genesis changed before account read"
+    );
+    let result = rpc.call(
+        "getMultipleAccounts",
+        json!([keys.iter().map(ToString::to_string).collect::<Vec<_>>(),
+            {"encoding":"base64","commitment":"finalized","minContextSlot":minimum_slot}]),
+    )?;
+    let slot = result["context"]["slot"]
+        .as_u64()
+        .context("finalized batch slot")?;
+    ensure!(
+        slot >= minimum_slot,
+        "finalized account batch predates staging"
+    );
+    let values = result["value"]
+        .as_array()
+        .context("finalized account batch")?;
+    ensure!(
+        values.len() == keys.len(),
+        "complete finalized account batch required"
+    );
+    let mut bytes = Vec::with_capacity(keys.len());
+    for (index, value) in values.iter().enumerate() {
+        ensure!(
+            value["owner"] == Pubkey::new_from_array(p.program).to_string()
+                && value["executable"] == false
+                && value["data"][1] == "base64",
+            "finalized account owner/encoding mismatch"
+        );
+        let encoded = value["data"][0]
+            .as_str()
+            .context("finalized account bytes missing")?;
+        ensure!(encoded.len() <= 4096, "finalized account byte cap");
+        let data = STANDARD.decode(encoded)?;
+        ensure!(
+            data.len() == sizes[index],
+            "finalized account length mismatch"
+        );
+        bytes.push(data);
+    }
+    ensure!(
+        rpc.call("getGenesisHash", json!([]))? == genesis_before,
+        "local genesis changed during account read"
+    );
+    Ok((
+        slot,
+        bytes
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("batch width"))?,
+    ))
+}
+
+/// Prepare one training request through the loaded SBF program. The external
+/// supervisor authenticates the live validator, bounds this child and owns it.
+/// This function does not create or verify a proof or authorize an Execute.
+pub fn stage_from_env() -> Result<()> {
+    ensure!(
+        transport::env("P5_V3_STAGE_SCOPE")? == "part5-v3-local-stage",
+        "explicit v3 local stage scope required"
+    );
+    let output = transport::output()?;
+    ensure!(
+        fs::read_dir(&output)?.next().is_none(),
+        "fresh private output required"
+    );
+    let rpc = transport::local_rpc()?;
+    let (program, genesis, loaded) = transport::domain(&rpc)?;
+    let (context, root, issuer_hash, policy_id, aki, evidence_digest) = training_context()?;
+    let now = transport::clock(&rpc)?;
+    ensure!(
+        now >= context.not_before && now < context.not_after,
+        "training certificate currently valid"
+    );
+    let admin = transport::keys(&output, "admin.json")?;
+    let publisher = transport::keys(&output, "publisher.json")?;
+    let source = transport::keys(&output, "source.json")?;
+    let creator = transport::keys(&output, "creator.json")?;
+    let p = V3QueuePlan {
+        program,
+        genesis,
+        admin: admin.pubkey().to_bytes(),
+        publisher: publisher.pubkey().to_bytes(),
+        source: source.pubkey().to_bytes(),
+        creator: creator.pubkey().to_bytes(),
+        seed: random_bytes(),
+        nonce: random_bytes(),
+        recipient: source.pubkey().to_bytes(),
+        issuer_hash,
+        aki,
+        root,
+        policy_id,
+        deadline: (now + 86_400).min(context.not_after),
+        payload: vec![0, 1, 2, 3],
+    };
+    ensure!(p.deadline > now, "positive request lifetime required");
+    let a = p.addresses();
+    let mut funding = Vec::new();
+    for key in [&admin, &publisher, &creator] {
+        let signature = rpc.call(
+            "requestAirdrop",
+            json!([key.pubkey().to_string(), 2_000_000_000u64]),
+        )?;
+        let signature = signature.as_str().context("airdrop signature missing")?;
+        let record = rpc.confirmed_transaction(signature)?;
+        ensure!(record["meta"]["err"].is_null(), "training funding failed");
+        funding.push(signature.to_owned());
+    }
+    let mut events = Vec::new();
+    transport::send(
+        &rpc,
+        &admin,
+        None,
+        p.initialize(),
+        "v3-initialize",
+        None,
+        &mut events,
+    )?;
+    transport::send(
+        &rpc,
+        &admin,
+        None,
+        p.enroll(1, evidence_digest),
+        "v3-enroll",
+        None,
+        &mut events,
+    )?;
+    transport::send(
+        &rpc,
+        &admin,
+        Some(&creator),
+        p.create()?,
+        "v3-create",
+        None,
+        &mut events,
+    )?;
+    for (index, chunk) in p.payload.chunks(512).enumerate() {
+        transport::send(
+            &rpc,
+            &admin,
+            Some(&creator),
+            p.upload_payload(index * 512, chunk)?,
+            "v3-upload-payload",
+            None,
+            &mut events,
+        )?;
+    }
+    transport::send(
+        &rpc,
+        &admin,
+        Some(&creator),
+        p.upload_metas(),
+        "v3-upload-metas",
+        None,
+        &mut events,
+    )?;
+    transport::send(
+        &rpc,
+        &admin,
+        Some(&creator),
+        p.finalize(),
+        "v3-finalize",
+        None,
+        &mut events,
+    )?;
+    let observed = transport::clock(&rpc)?;
+    let source_digest: [u8; 32] = Sha256::digest(
+        [
+            b"part5-v3-local-source-training-v1".as_slice(),
+            &root,
+            &issuer_hash,
+            &evidence_digest,
+            &observed.to_be_bytes(),
+        ]
+        .concat(),
+    )
+    .into();
+    transport::send(
+        &rpc,
+        &admin,
+        Some(&source),
+        p.observe(0, 0, 0, 1, source_digest, true, observed, observed + 240),
+        "v3-observe-active",
+        None,
+        &mut events,
+    )?;
+    let envelope_digest: [u8; 32] = Sha256::digest(
+        [
+            b"part5-v3-local-head-training-v1".as_slice(),
+            &root,
+            &source_digest,
+        ]
+        .concat(),
+    )
+    .into();
+    let binding = V3HeadBinding {
+        expected_config_epoch: 0,
+        expected_issuer_epoch: 0,
+        expected_root: root,
+        expected_root_version: 0,
+        expected_source_sequence: 1,
+        expected_source_digest: source_digest,
+        expected_publication_sequence: 0,
+        expected_publication_digest: [0; 32],
+        next_publication_sequence: 1,
+        envelope_digest,
+    };
+    transport::send(
+        &rpc,
+        &admin,
+        Some(&publisher),
+        p.bind_with_head(&binding),
+        "v3-bind-head",
+        None,
+        &mut events,
+    )?;
+    let rooted = transport::wait_finalized(&rpc, &events)?;
+    let (finalized_slot, bytes) = finalized_accounts(&rpc, &p, rooted)?;
+    let c = Config::decode(&bytes[0]).map_err(|e| anyhow::anyhow!("config codec {e:?}"))?;
+    let i = Issuer::decode(&bytes[1]).map_err(|e| anyhow::anyhow!("issuer codec {e:?}"))?;
+    let h = PublisherHead::decode(&bytes[2]).map_err(|e| anyhow::anyhow!("head codec {e:?}"))?;
+    let r = Request::decode(&bytes[3]).map_err(|e| anyhow::anyhow!("request codec {e:?}"))?;
+    let q = Queue::decode(&bytes[4]).map_err(|e| anyhow::anyhow!("queue codec {e:?}"))?;
+    let checked_at = transport::clock(&rpc)?;
+    i.fresh(&c, checked_at)
+        .map_err(|e| anyhow::anyhow!("issuer currentness {e:?}"))?;
+    i.binding_current(&c)
+        .map_err(|e| anyhow::anyhow!("issuer binding {e:?}"))?;
+    ensure!(
+        c.admin == admin.pubkey()
+            && c.publisher == publisher.pubkey()
+            && c.seed == p.seed
+            && c.genesis == genesis
+            && c.root == root
+            && c.policy_id == policy_id
+            && c.root_version == 0
+            && c.enabled
+            && i.config == a.config
+            && i.issuer_hash == issuer_hash
+            && i.aki == aki
+            && i.source == source.pubkey()
+            && i.sequence == 1
+            && i.digest == source_digest
+            && i.observed_at == observed
+            && i.expires_at == observed + 240
+            && i.status_valid
+            && i.enrollment_version == 1
+            && i.evidence_digest == evidence_digest
+            && i.observed_config_epoch == 0
+            && i.observed_issuer_epoch == 0
+            && i.eligibility_epoch == 0
+            && i.bound_root == root
+            && i.bound_root_version == 0
+            && i.bound_source_sequence == 1
+            && i.bound_source_digest == source_digest
+            && h.config == a.config
+            && h.issuer == a.issuer
+            && h.publisher == publisher.pubkey()
+            && h.publication_sequence == 1
+            && h.envelope_digest == envelope_digest
+            && h.previous_publication_digest == [0; 32]
+            && h.root == root
+            && h.root_version == 0
+            && h.source_sequence == 1
+            && h.source_digest == source_digest
+            && h.config_epoch == 0
+            && h.issuer_epoch == 0
+            && h.committed_at >= observed
+            && h.committed_at <= checked_at
+            && r.config == a.config
+            && r.creator == creator.pubkey()
+            && r.nonce == p.nonce
+            && r.issuer_hash == issuer_hash
+            && r.recipient == source.pubkey()
+            && r.deadline == p.deadline
+            && r.request_type == 1
+            && r.state == RequestState::Finalized
+            && r.payload == p.payload
+            && r.payload_len as usize == p.payload.len()
+            && r.uploaded == r.payload_len
+            && r.metas_uploaded == 2
+            && r.metas.len() == 2
+            && r.metas[0].key == a.request
+            && r.metas[1].key == a.queue
+            && r.metas
+                .iter()
+                .all(|m| m.flags == 2 && m.owner == Pubkey::new_from_array(program))
+            && q.config == a.config
+            && q.entries.is_empty(),
+        "finalized v3 account state differs from exact prepared request"
+    );
+    transport::new_json(&output.join("plan.json"), &p)?;
+    for (name, data) in [
+        ("config.bin", &bytes[0]),
+        ("issuer.bin", &bytes[1]),
+        ("head.bin", &bytes[2]),
+        ("request.bin", &bytes[3]),
+        ("queue.bin", &bytes[4]),
+    ] {
+        transport::new_file(&output.join(name), data)?;
+    }
+    transport::new_json(
+        &output.join("stage-report.json"),
+        &json!({
+            "schema":"part5-v3-local-stage-v1", "passed":true,
+            "training_only":true,"upstream_source_authentication":false,
+            "proof_created":false,"application_effect":false,"devnet":false,
+            "program":Pubkey::new_from_array(program).to_string(),
+            "genesis":Hash::new_from_array(genesis).to_string(),"loaded_program":loaded,
+            "finalized_slot":finalized_slot,"config":a.config.to_string(),
+            "issuer":a.issuer.to_string(),"head":a.head.to_string(),
+            "request":a.request.to_string(),"queue":a.queue.to_string(),
+            "plan_sha256":hex::encode(Sha256::digest(fs::read(output.join("plan.json"))?)),
+            "account_sha256":bytes.iter().map(|data| hex::encode(Sha256::digest(data))).collect::<Vec<_>>(),
+            "funding_signatures":funding,"transactions":events,
+        }),
+    )?;
+    Ok(())
+}
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -415,5 +810,26 @@ mod tests {
                 envelope_digest: binding.envelope_digest,
             }))
         );
+    }
+    #[test]
+    fn training_context_requires_exact_profile_fields_and_canonical_hex() {
+        let p = plan();
+        let mut context = json!({
+            "schema":"part5-v3-local-training-context-v1", "training_only":true,
+            "root":hex::encode(p.root), "issuer_hash":hex::encode(p.issuer_hash),
+            "policy_id":hex::encode(p.policy_id), "aki":hex::encode(p.aki),
+            "evidence_digest":hex::encode([9;32]),
+            "not_before":100, "not_after":1000,
+        });
+        let encoded = serde_json::to_vec(&context).unwrap();
+        assert!(parse_training_context(&encoded).is_ok());
+        context["root"] = hex::encode([0xab; 32]).to_uppercase().into();
+        assert!(parse_training_context(&serde_json::to_vec(&context).unwrap()).is_err());
+        context["root"] = hex::encode(p.root).into();
+        context["aki"] = hex::encode([8; 32]).into();
+        assert!(parse_training_context(&serde_json::to_vec(&context).unwrap()).is_err());
+        context["aki"] = hex::encode(p.aki).into();
+        context["unexpected"] = true.into();
+        assert!(parse_training_context(&serde_json::to_vec(&context).unwrap()).is_err());
     }
 }

@@ -1698,7 +1698,7 @@ pub mod queue_v2 {
     const PACKAGE: &str = "04d5ad5776bea03ee014790f54c2572adde796f4d8caeacb88f8a54b0e98b6eb";
     const SCHEMA: &str = "de111be59b7a21f5e9aa757506a9ec679d892d6342c88729b6b7997c8b472611";
     const PROFILE: &str = "eb77028b2bd1e324c6ee74c40b43739ec2ce519014f6d04aebe2ca7f82aa1f68";
-    fn unhex(s: &str) -> Result<[u8; 32]> {
+    pub(super) fn unhex(s: &str) -> Result<[u8; 32]> {
         ensure!(
             s.len() == 64
                 && s.bytes()
@@ -1709,7 +1709,7 @@ pub mod queue_v2 {
             .try_into()
             .map_err(|_| anyhow::anyhow!("digest width"))?)
     }
-    fn pk(b: [u8; 32]) -> Pubkey {
+    pub(super) fn pk(b: [u8; 32]) -> Pubkey {
         Pubkey::new_from_array(b)
     }
     fn field(s: &str) -> Result<[u8; 32]> {
@@ -1893,10 +1893,10 @@ pub mod queue_v2 {
         );
         Ok(())
     }
-    fn env(name: &str) -> Result<String> {
+    pub(super) fn env(name: &str) -> Result<String> {
         std::env::var(name).with_context(|| format!("ROOT pin {name} required"))
     }
-    fn pinned(path: &Path, digest: &str, cap: u64) -> Result<Vec<u8>> {
+    pub(super) fn pinned(path: &Path, digest: &str, cap: u64) -> Result<Vec<u8>> {
         use std::io::Read;
         use std::os::unix::fs::MetadataExt;
         unhex(digest)?;
@@ -1919,7 +1919,7 @@ pub mod queue_v2 {
         );
         Ok(b)
     }
-    fn output() -> Result<PathBuf> {
+    pub(super) fn output() -> Result<PathBuf> {
         let p = PathBuf::from(env("P5_QUEUE_OUTPUT")?);
         ensure!(p.is_absolute(), "absolute output required");
         let m = fs::symlink_metadata(&p)?;
@@ -1929,7 +1929,7 @@ pub mod queue_v2 {
         );
         Ok(p)
     }
-    fn new_file(path: &Path, b: &[u8]) -> Result<()> {
+    pub(super) fn new_file(path: &Path, b: &[u8]) -> Result<()> {
         use std::io::Write;
         let mut f = OpenOptions::new()
             .create_new(true)
@@ -1940,10 +1940,10 @@ pub mod queue_v2 {
         f.sync_all()?;
         Ok(())
     }
-    fn new_json(path: &Path, v: &impl serde::Serialize) -> Result<()> {
+    pub(super) fn new_json(path: &Path, v: &impl serde::Serialize) -> Result<()> {
         new_file(path, &serde_json::to_vec_pretty(v)?)
     }
-    fn keys(out: &Path, name: &str) -> Result<Keypair> {
+    pub(super) fn keys(out: &Path, name: &str) -> Result<Keypair> {
         let k = Keypair::new();
         new_json(&out.join(name), &k.to_bytes().to_vec())?;
         Ok(k)
@@ -1966,7 +1966,7 @@ pub mod queue_v2 {
         );
         Ok(k)
     }
-    fn local_rpc() -> Result<Rpc> {
+    pub(super) fn local_rpc() -> Result<Rpc> {
         let endpoint = env("P5_QUEUE_RPC")?;
         check_loopback(&endpoint)?;
         Ok(Rpc {
@@ -2020,7 +2020,7 @@ pub mod queue_v2 {
             json!({"elf_match":true,"elf_sha256":env("P5_QUEUE_ELF_SHA256")?,"local_bytes":local.len(),"remote_bytes":remote.len(),"loader":owner.to_string()}),
         )
     }
-    fn domain(rpc: &Rpc) -> Result<([u8; 32], [u8; 32], Value)> {
+    pub(super) fn domain(rpc: &Rpc) -> Result<([u8; 32], [u8; 32], Value)> {
         let program = Pubkey::from_str(&env("P5_QUEUE_PROGRAM")?)?;
         let genesis = rpc.call("getGenesisHash", json!([]))?;
         ensure!(
@@ -2030,7 +2030,7 @@ pub mod queue_v2 {
         let g = Hash::from_str(genesis.as_str().context("genesis")?)?.to_bytes();
         Ok((program.to_bytes(), g, loaded(rpc, program)?))
     }
-    fn clock(rpc: &Rpc) -> Result<i64> {
+    pub(super) fn clock(rpc: &Rpc) -> Result<i64> {
         let slot = rpc
             .call("getSlot", json!([{"commitment":"confirmed"}]))?
             .as_u64()
@@ -2039,7 +2039,7 @@ pub mod queue_v2 {
             .as_i64()
             .context("execution clock unavailable")
     }
-    fn state(rpc: &Rpc, key: [u8; 32], program: [u8; 32], len: usize) -> Result<Vec<u8>> {
+    pub(super) fn state(rpc: &Rpc, key: [u8; 32], program: [u8; 32], len: usize) -> Result<Vec<u8>> {
         let (a, b) = rpc.account(&pk(key))?.context("program state missing")?;
         ensure!(
             a["owner"] == pk(program).to_string() && a["executable"] == false && b.len() == len,
@@ -2082,7 +2082,7 @@ pub mod queue_v2 {
             thread::sleep(Duration::from_millis(250));
         }
     }
-    fn send(
+    pub(super) fn send(
         rpc: &Rpc,
         payer: &Keypair,
         extra: Option<&Keypair>,
@@ -2133,7 +2133,7 @@ pub mod queue_v2 {
     }
     // The persistent-ledger supervisor may stop the validator immediately after return.
     // Wait for the last observed transaction slot to become rooted before reporting success.
-    fn wait_finalized(rpc: &Rpc, events: &[Value]) -> Result<u64> {
+    pub(super) fn wait_finalized(rpc: &Rpc, events: &[Value]) -> Result<u64> {
         let slot = events
             .last()
             .and_then(|e| e["slot"].as_u64())
