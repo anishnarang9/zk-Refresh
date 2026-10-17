@@ -72,6 +72,7 @@ CLIENT_FILES = [
     'tools/part5/prepare_v3_heldout_context.py',
     'tools/part5/prepare_v3_heldout_source.py',
     'tools/part5/prepare_v3_heldout_proof.py',
+    'tools/part5/build_v3_heldout_run_manifest.py',
     'tools/part5/run_v3_heldout_case.py',
     'tools/part5/verify_v3_heldout_acceptance.py',
     'tools/part5/freeze_v3_heldout_cohort.py',
