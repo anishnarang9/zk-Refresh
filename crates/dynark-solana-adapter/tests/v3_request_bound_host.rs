@@ -677,3 +677,85 @@ fn private_request_bound_full_near_passes_adapter_and_program_host() {
     file.sync_all().unwrap();
     assert_eq!(private(&output, 448, Some(448)).unwrap(), wire);
 }
+
+#[test]
+#[ignore = "explicit matched request-bound proof and private fixtures required"]
+fn private_matched_k1_wires_pass_adapter_and_program_host() {
+    let mode = std::env::var("M2_V3_MATCHED_MODE").expect("matched mode");
+    assert!(matches!(mode.as_str(), "matched-full-k1" | "matched-anchor-k1"));
+    let base = PathBuf::from(std::env::var_os("M2_V3_MATCHED_BASE").expect("base fixture"));
+    let near = PathBuf::from(std::env::var_os("M2_V3_MATCHED_NEAR").expect("near fixture"));
+    let proofs = PathBuf::from(std::env::var_os("M2_V3_MATCHED_PROOFS").expect("proof directory"));
+    for path in [&base, &near, &proofs] {
+        directory(path).expect("owner-only fixture directory");
+    }
+    let report_bytes = private(&proofs.join("proof-report.json"), 65536, None).unwrap();
+    assert_eq!(
+        sha(&report_bytes),
+        std::env::var("M2_V3_MATCHED_REPORT_SHA256").expect("proof report SHA")
+    );
+    let report: Value = serde_json::from_slice(&report_bytes).unwrap();
+    assert!(
+        report["schema"] == "credential-v3-matched-k1-proof-v1"
+            && report["mode"] == mode
+            && report["passed"] == true
+            && report["application_verified"] == false
+            && report["qualification_extras_executed"] == false
+            && report["counts"]["proofs"] == 2
+            && report["counts"]["ordinary_checks"] == 16
+    );
+    let setup = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../artifacts/dynark/part5/v3-development-setup-001");
+    let vk = private(&setup.canonicalize().unwrap().join("ordinary.vk"), 456, Some(456)).unwrap();
+    for (fixture, suffix, proof_name, wire_name) in [
+        (&base, "base", "request_bound_training_full_base", "full-solana-wire.bin"),
+        (&near, "near", if mode == "matched-full-k1" {
+            "request_bound_training_full_near"
+        } else {
+            "request_bound_training_anchor_near"
+        }, if mode == "matched-full-k1" {
+            "full-near-solana-wire.bin"
+        } else {
+            "anchor-solana-wire.bin"
+        }),
+    ] {
+        let receipt_bytes = private(&fixture.join("training-receipt.json"), 16384, None).unwrap();
+        let receipt: Value = serde_json::from_slice(&receipt_bytes).unwrap();
+        assert_eq!(receipt["schema"], if suffix == "base" {
+            "v3-request-bound-training-input-v1"
+        } else {
+            "v3-request-bound-near-training-input-v1"
+        });
+        let q1 = private(&fixture.join("request.bin"), 1918, Some(1918)).unwrap();
+        let input = private(&fixture.join("input.json"), 65536, None).unwrap();
+        let public_json = private(&fixture.join("public.json"), 1024, None).unwrap();
+        for (name, bytes) in [
+            ("request.bin", &q1),
+            ("input.json", &input),
+            ("public.json", &public_json),
+        ] {
+            assert_eq!(receipt["artifact_sha256"][name].as_str(), Some(sha(bytes).as_str()));
+        }
+        let expected = expected_public(&public_json, &input, &q1).unwrap();
+        assert_eq!(report["application_stage_pins"][if suffix == "base" {
+            "base_root"
+        } else {
+            "near_root"
+        }], expected[0].to_string());
+        assert_eq!(report["application_stage_pins"]["action_hash"], expected[4].to_string());
+        let proof = private(&proofs.join(format!("{proof_name}.proof")), 128, Some(128)).unwrap();
+        let public = private(&proofs.join(format!("{proof_name}-public.bin")), 200, Some(200)).unwrap();
+        let wire = verify_join(&proof, &public, &expected, &vk).unwrap();
+        let output = fixture.join(wire_name);
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .custom_flags(libc::O_NOFOLLOW)
+            .open(&output)
+            .unwrap();
+        file.write_all(&wire).unwrap();
+        file.sync_all().unwrap();
+        assert_eq!(private(&output, 448, Some(448)).unwrap(), wire);
+    }
+}

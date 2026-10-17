@@ -331,11 +331,16 @@ fn execute(args: &[String]) -> Result<()> {
                 | "anchor-pilot"
                 | "anchor-corpus"
                 | "anchor-request-bound"
+                | "matched-full-k1"
+                | "matched-anchor-k1"
         ),
         "proof-only explicit mode",
     )?;
-    let full_request_bound = mode == "full-request-bound";
-    let request_bound = mode == "anchor-request-bound" || full_request_bound;
+    let matched_session = matches!(mode, "matched-full-k1" | "matched-anchor-k1");
+    let full_request_bound = matches!(mode, "full-request-bound" | "matched-full-k1");
+    let request_bound = mode == "anchor-request-bound"
+        || mode == "matched-anchor-k1"
+        || full_request_bound;
     required(
         args.len()
             == if mode == "full-corpus" || request_bound {
@@ -353,6 +358,9 @@ fn execute(args: &[String]) -> Result<()> {
         "packet schema matches explicit runner mode",
     )?;
     let cases = packet_cases(&packet)?;
+    if matched_session {
+        required(cases.len() == 1, "one matched request-bound pair")?;
+    }
     heldout_boundary(&packet, owner)?;
     let map = mapping(&json_file(
         Path::new(text(&packet, "input_map_path")?),
@@ -383,7 +391,9 @@ fn execute(args: &[String]) -> Result<()> {
         preflights.push(json!({"name":text(pair,"name")?,"support":stats}));
         event(out, "complete_pair_and_support_preflight", t)?;
     }
-    let local_negatives = if request_bound {
+    let local_negatives = if matched_session {
+        0
+    } else if request_bound {
         cross_context_negatives_mode(&contexts, true)?
     } else {
         cross_context_negatives(&contexts)?
@@ -432,26 +442,29 @@ fn execute(args: &[String]) -> Result<()> {
                 &format!("{name}_full_near"),
                 &mut counts,
             )?;
-            let randomized = dynark_bn254::prove(
-                &package,
-                &near.validated,
-                near.context.root_version,
-                &mut rng,
-            )?;
-            let b = ordinary_checks::verify_save(
-                &package,
-                &randomized,
-                &near.public,
-                near.context.root_version,
-                out,
-                &format!("{name}_full_near_randomized"),
-                &mut counts,
-            )?;
-            required(a != b, "fresh Full randomization")?;
+            if !matched_session {
+                let randomized = dynark_bn254::prove(
+                    &package,
+                    &near.validated,
+                    near.context.root_version,
+                    &mut rng,
+                )?;
+                let b = ordinary_checks::verify_save(
+                    &package,
+                    &randomized,
+                    &near.public,
+                    near.context.root_version,
+                    out,
+                    &format!("{name}_full_near_randomized"),
+                    &mut counts,
+                )?;
+                required(a != b, "fresh Full randomization")?;
+            }
             ordinary_checks::reject_cross_root(&package, &before, &near.public, &mut counts)?;
             ordinary_checks::reject_cross_root(&package, &after, &base.public, &mut counts)?;
             rows.push(
-                json!({"name":name,"full_proofs":3,"elapsed_ms":t.elapsed().as_secs_f64()*1000.0}),
+                json!({"name":name,"full_proofs":if matched_session { 2 } else { 3 },
+                    "elapsed_ms":t.elapsed().as_secs_f64()*1000.0}),
             );
             case_event(out, name, "one_credential_full_complete", t)?;
         }
@@ -523,8 +536,10 @@ fn execute(args: &[String]) -> Result<()> {
             )?;
             let prepare_ms = t.elapsed().as_secs_f64() * 1000.0;
             case_event(out, name, "private_anchor_prepared", t)?;
-            binding_negatives +=
-                engine_binding_negatives(&package, &material, &anchor, &near, &delta)?;
+            if !matched_session {
+                binding_negatives +=
+                    engine_binding_negatives(&package, &material, &anchor, &near, &delta)?;
+            }
             let before = anchor.binding();
             let transition = Transition::new(
                 &package,
@@ -555,7 +570,14 @@ fn execute(args: &[String]) -> Result<()> {
             case_event(out, name, "one_private_anchor_credential_complete", case_t)?;
         }
     }
-    let expected = if mode == "full-corpus" || full_request_bound {
+    let expected = if matched_session {
+        Counts {
+            proofs: 2,
+            positives: 2,
+            altered: 12,
+            cross_root: 2,
+        }
+    } else if mode == "full-corpus" || full_request_bound {
         Counts::full(cases.len() as u64)
     } else if request_bound {
         Counts {
@@ -586,7 +608,9 @@ fn execute(args: &[String]) -> Result<()> {
         "total_paid_session_ms":all.elapsed().as_secs_f64()*1000.0,"setup_executed":false,"private_cache_persisted":false,
         "incremental_witness_enabled":false,"application_verified":false,"admitted":false});
     if request_bound {
-        report["schema"] = json!(if full_request_bound {
+        report["schema"] = json!(if matched_session {
+            "credential-v3-matched-k1-proof-v1"
+        } else if full_request_bound {
             "credential-v3-request-bound-full-proof-v1"
         } else {
             "credential-v3-request-bound-anchor-proof-v1"
@@ -595,6 +619,9 @@ fn execute(args: &[String]) -> Result<()> {
         report["application_stage_pins_authority"] =
             json!("caller-supplied; external finalized-state verification required");
         report["old_base_full_rejected_at_near_publics"] = json!(true);
+        if matched_session {
+            report["qualification_extras_executed"] = json!(false);
+        }
     }
     save_json(&out.join("proof-report.json"), &report)?;
     File::open(out)?.sync_all()?;
