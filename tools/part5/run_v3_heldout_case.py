@@ -118,6 +118,7 @@ def reviewed_r1_branch(outer, status, report, mode):
         and report.get('passed') is True and report.get('mode') == mode
         and report.get('application_effect') is expected_effect
         and report.get('effect_count') == int(expected_effect)
+        and report.get('request_consumed') is expected_effect
         and status.get('status') == 'failed' and status.get('error_type') is None
         and status.get('branch_verified') is True and status.get('mode') == mode
         and status.get('application_effect') is expected_effect

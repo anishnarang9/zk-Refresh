@@ -437,8 +437,19 @@ def test_reviewed_r1_anchor_accepts_failed_status_with_verified_inner_report():
               'runner_cleanup': {'spawned': True, 'reaped': True,
                                  'graceful': False, 'exit_code': 0}}
     report = {'schema': 'part5-v3-r1-branch-v1', 'passed': True,
-              'mode': 'anchor', 'application_effect': True, 'effect_count': 1}
+              'mode': 'anchor', 'application_effect': True, 'effect_count': 1,
+              'request_consumed': True}
     assert runner.reviewed_r1_branch(outer, status, report, 'anchor')
     assert not runner.reviewed_r1_branch(outer, status, report, 'full')
+    report['request_consumed'] = False
+    assert not runner.reviewed_r1_branch(outer, status, report, 'anchor')
+    own_status = dict(status, mode='own-revocation', application_effect=False,
+                      effect_count=0)
+    own_report = {'schema': 'part5-v3-r1-branch-v1', 'passed': True,
+                  'mode': 'own-revocation', 'application_effect': False,
+                  'effect_count': 0, 'request_consumed': False}
+    assert runner.reviewed_r1_branch(outer, own_status, own_report, 'own-revocation')
+    own_report['request_consumed'] = True
+    assert not runner.reviewed_r1_branch(outer, own_status, own_report, 'own-revocation')
     status['branch_verified'] = False
     assert not runner.reviewed_r1_branch(outer, status, report, 'anchor')
