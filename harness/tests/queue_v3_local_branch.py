@@ -51,6 +51,30 @@ def signed_successor(output, plan, branch, prior_digest, own_digest):
     return hashlib.sha256(wire).hexdigest()
 
 
+def matched_proof_report(config, report, context, wires, staged, original):
+    pins = report.get('application_stage_pins', {})
+    expected_mode = 'matched-full-k1' if config['mode'] == 'full' else 'matched-anchor-k1'
+    if (report.get('schema') != 'credential-v3-matched-k1-proof-v1'
+            or report.get('mode') != expected_mode
+            or report.get('passed') is not True
+            or report.get('application_verified') is not False
+            or report.get('qualification_extras_executed') is not False
+            or report.get('counts') != {'proofs': 2, 'positive_checks': 2,
+                                        'altered_public_checks': 12,
+                                        'cross_root_checks': 2, 'ordinary_checks': 16}
+            or pins.get('base_root') != str(int(context['base_root'], 16))
+            or pins.get('near_root') != str(int(context['near_root'], 16))
+            or pins.get('action_hash') != str(int.from_bytes(wires['anchor'][128:160], 'big'))
+            or wires['full'][32:192] != wires['anchor'][32:192]
+            or pins.get('base_stage_report_sha256') != config['stage_report_sha256']
+            or pins.get('near_state_report_sha256') != config['transition_report_sha256']
+            or pins.get('program_id') != original['program']
+            or pins.get('genesis_hash') != config['expected_genesis']
+            or pins.get('request_address') != staged['request']
+            or pins.get('loaded_elf_sha256') != original['elf_sha256']):
+        raise ValueError('exact matched k1 proof report required')
+
+
 def admit(config):
     if (config.get('schema') != 1 or config.get('scope') != 'part5-v3-r1-branch'
             or config.get('mode') not in ('anchor', 'full', 'own-revocation')
@@ -128,15 +152,22 @@ def admit(config):
         path = Path(config[role + '_wire'])
         execute.private_directory(path.parent)
         wires[role] = base.checked(path, config[role + '_wire_sha256'], 448)
+    if 'matched_proof_report' in config:
+        matched = execute.pinned_json(config['matched_proof_report'],
+                                      config['matched_proof_report_sha256'])
+        matched_proof_report(config, matched, context, wires, staged, original)
     if config['mode'] == 'full':
         full_report = execute.pinned_json(config['full_near_proof_report'],
                                           config['full_near_proof_report_sha256'])
         pins = full_report.get('application_stage_pins', {})
-        if (full_report.get('schema') != 'credential-v3-request-bound-full-proof-v1'
+        matched_full = 'matched_proof_report' in config
+        if (full_report.get('schema') != ('credential-v3-matched-k1-proof-v1' if matched_full
+                                         else 'credential-v3-request-bound-full-proof-v1')
                 or full_report.get('passed') is not True
-                or full_report.get('mode') != 'full-request-bound'
+                or full_report.get('mode') != ('matched-full-k1' if matched_full
+                                               else 'full-request-bound')
                 or full_report.get('application_verified') is not False
-                or full_report.get('counts', {}).get('proofs') != 3
+                or full_report.get('counts', {}).get('proofs') != (2 if matched_full else 3)
                 or pins.get('base_root') != str(int(context['base_root'], 16))
                 or pins.get('near_root') != str(int(context['near_root'], 16))
                 or pins.get('action_hash') != str(int.from_bytes(wires['anchor'][128:160], 'big'))

@@ -7,7 +7,41 @@ import unittest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
-from harness.tests.queue_v3_local_branch import signed_successor
+from harness.tests.queue_v3_local_branch import matched_proof_report, signed_successor
+
+
+class MatchedProofReportTests(unittest.TestCase):
+    def test_exact_mode_counts_action_and_roots(self):
+        config = {'mode': 'anchor', 'stage_report_sha256': 'stage',
+                  'transition_report_sha256': 'transition', 'expected_genesis': 'genesis'}
+        context = {'base_root': '01', 'near_root': '02'}
+        full = bytearray(448)
+        near = bytearray(448)
+        full[0:32] = (1).to_bytes(32, 'big')
+        near[0:32] = (2).to_bytes(32, 'big')
+        full[159] = near[159] = 3
+        wires = {'full': bytes(full), 'anchor': bytes(near)}
+        report = {'schema': 'credential-v3-matched-k1-proof-v1',
+                  'mode': 'matched-anchor-k1', 'passed': True,
+                  'application_verified': False, 'qualification_extras_executed': False,
+                  'counts': {'proofs': 2, 'positive_checks': 2,
+                             'altered_public_checks': 12, 'cross_root_checks': 2,
+                             'ordinary_checks': 16},
+                  'application_stage_pins': {
+                      'base_root': '1', 'near_root': '2', 'action_hash': '3',
+                      'base_stage_report_sha256': 'stage',
+                      'near_state_report_sha256': 'transition',
+                      'program_id': 'program', 'genesis_hash': 'genesis',
+                      'request_address': 'request', 'loaded_elf_sha256': 'elf'}}
+        staged = {'request': 'request'}
+        original = {'program': 'program', 'elf_sha256': 'elf'}
+        matched_proof_report(config, report, context, wires, staged, original)
+        for altered in ({**report, 'mode': 'matched-full-k1'},
+                        {**report, 'counts': {**report['counts'], 'proofs': 3}},
+                        {**report, 'application_stage_pins': {
+                            **report['application_stage_pins'], 'near_root': '4'}}):
+            with self.assertRaises(ValueError):
+                matched_proof_report(config, altered, context, wires, staged, original)
 
 
 class SignedSuccessorTests(unittest.TestCase):

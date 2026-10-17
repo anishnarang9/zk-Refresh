@@ -67,6 +67,12 @@ def create(args):
                        'full_near_wire_sha256': sha(args.full_near_wire),
                        'full_near_proof_report': args.full_near_proof_report,
                        'full_near_proof_report_sha256': sha(args.full_near_proof_report)})
+    if args.matched_proof_report:
+        if args.mode == 'own-revocation' or (args.mode == 'full' and
+                args.matched_proof_report != args.full_near_proof_report):
+            raise ValueError('matched proof report role mismatch')
+        config.update({'matched_proof_report': args.matched_proof_report,
+                       'matched_proof_report_sha256': sha(args.matched_proof_report)})
     if (Path(config['transition_root']) / 'transition-report.json' != Path(args.transition_report)
             or Path(config['ledger']).name != 'ledger'
             or Path(config['ledger']).parent / 'clone-report.json' != Path(args.clone_report)
@@ -88,6 +94,7 @@ def main():
     parser.add_argument('--mode', choices=('anchor', 'full', 'own-revocation'), required=True)
     parser.add_argument('--full-near-wire')
     parser.add_argument('--full-near-proof-report')
+    parser.add_argument('--matched-proof-report')
     for name in ('transition_config', 'transition_report', 'transition_status',
                  'transition_monitor', 'clone_report', 'full_wire', 'anchor_wire',
                  'runner', 'branch_output', 'control_output', 'output'):
