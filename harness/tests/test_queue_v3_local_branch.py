@@ -40,6 +40,18 @@ class SignedSuccessorTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 signed_successor(root, {'source': source},
                                  'own-revocation', bytes(32).hex(), own.hex())
+            observation['changes'] = []
+            message = b'DYNARK-V3-SOURCE-STATUS-v1\0' + json.dumps(
+                observation, separators=(',', ':')).encode()
+            signed['signature'] = list(key.sign(message))
+            write('signed-source.json', signed)
+            self.assertEqual(len(signed_successor(root, {'source': source},
+                                                  'full', prior.hex(), own.hex())), 64)
+            self.assertEqual(len(signed_successor(root, {'source': source},
+                                                  'anchor', prior.hex(), own.hex())), 64)
+            with self.assertRaises(ValueError):
+                signed_successor(root, {'source': source},
+                                 'own-revocation', prior.hex(), own.hex())
             signed['signature'][0] ^= 1
             write('signed-source.json', signed)
             with self.assertRaises(Exception):

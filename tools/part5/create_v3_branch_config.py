@@ -60,6 +60,13 @@ def create(args):
         'full_wire': args.full_wire, 'full_wire_sha256': sha(args.full_wire),
         'anchor_wire': args.anchor_wire, 'anchor_wire_sha256': sha(args.anchor_wire),
         'branch_output': args.branch_output, 'control_output': args.control_output})
+    if args.mode == 'full':
+        if not args.full_near_wire or not args.full_near_proof_report:
+            raise ValueError('pinned R1 Full proof and wire required')
+        config.update({'full_near_wire': args.full_near_wire,
+                       'full_near_wire_sha256': sha(args.full_near_wire),
+                       'full_near_proof_report': args.full_near_proof_report,
+                       'full_near_proof_report_sha256': sha(args.full_near_proof_report)})
     if (Path(config['transition_root']) / 'transition-report.json' != Path(args.transition_report)
             or Path(config['ledger']).name != 'ledger'
             or Path(config['ledger']).parent / 'clone-report.json' != Path(args.clone_report)
@@ -78,7 +85,9 @@ def create(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--mode', choices=('anchor', 'own-revocation'), required=True)
+    parser.add_argument('--mode', choices=('anchor', 'full', 'own-revocation'), required=True)
+    parser.add_argument('--full-near-wire')
+    parser.add_argument('--full-near-proof-report')
     for name in ('transition_config', 'transition_report', 'transition_status',
                  'transition_monitor', 'clone_report', 'full_wire', 'anchor_wire',
                  'runner', 'branch_output', 'control_output', 'output'):

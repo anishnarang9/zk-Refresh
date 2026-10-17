@@ -258,7 +258,10 @@ fn sign_and_bind(
 /// loaded identity and saved account bytes independently after this test exits.
 pub fn branch_from_env() -> Result<()> {
     let mode = transport::env("P5_V3_BRANCH_MODE")?;
-    ensure!(mode == "anchor" || mode == "own-revocation", "branch mode");
+    ensure!(
+        mode == "anchor" || mode == "full" || mode == "own-revocation",
+        "branch mode"
+    );
     let output = transport::output()?;
     ensure!(
         fs::read_dir(&output)?.next().is_none(),
@@ -361,6 +364,15 @@ pub fn branch_from_env() -> Result<()> {
         &transport::env("P5_V3_ANCHOR_WIRE_SHA256")?,
         448,
     )?;
+    let full_near_wire = if mode == "full" {
+        Some(transport::pinned(
+            Path::new(&transport::env("P5_V3_FULL_NEAR_WIRE")?),
+            &transport::env("P5_V3_FULL_NEAR_WIRE_SHA256")?,
+            448,
+        )?)
+    } else {
+        None
+    };
     let base_config = Config::decode(&transport::pinned(
         &stage_root.join("config.bin"),
         stage_report["account_sha256"][0]
@@ -387,6 +399,20 @@ pub fn branch_from_env() -> Result<()> {
         certificate.not_after,
         &anchor_wire,
     )?;
+    if let Some(wire) = &full_near_wire {
+        validate_full_wire(
+            &near_plan,
+            &c,
+            &r,
+            certificate.not_before,
+            certificate.not_after,
+            wire,
+        )?;
+        ensure!(
+            base_wire[32..192] == wire[32..192],
+            "Full R1 retains the exact action and credential publics"
+        );
+    }
     ensure!(
         base_wire[32..192] == anchor_wire[32..192],
         "same issuer, validity, action, policy"
@@ -399,7 +425,7 @@ pub fn branch_from_env() -> Result<()> {
         near_root
     };
     ensure!(
-        target_root != base_root && (mode == "anchor" || target_root != near_root),
+        target_root != base_root && (mode != "own-revocation" || target_root != near_root),
         "distinct root for branch"
     );
     let (bound_slot, bound, mut events, source_digest) = sign_and_bind(
@@ -429,8 +455,24 @@ pub fn branch_from_env() -> Result<()> {
         &mut events,
     )?;
     let mut effect = false;
-    if mode == "anchor" {
-        let mut wrong_action = anchor_wire.clone();
+    if mode != "own-revocation" {
+        let current_wire = full_near_wire.as_deref().unwrap_or(anchor_wire.as_slice());
+        let (wrong_action_name, wrong_proof_name, valid_name, replay_name) = if mode == "full" {
+            (
+                "v3-full-R1-wrong-action",
+                "v3-full-R1-invalid-proof",
+                "v3-valid-full-R1",
+                "v3-full-R1-replay",
+            )
+        } else {
+            (
+                "v3-anchor-wrong-action",
+                "v3-anchor-invalid-proof",
+                "v3-valid-anchor-R1",
+                "v3-anchor-replay",
+            )
+        };
+        let mut wrong_action = current_wire.to_vec();
         wrong_action[128..160].fill(0);
         if wrong_action[128..160] == anchor_wire[128..160] {
             wrong_action[159] = 1;
@@ -440,31 +482,31 @@ pub fn branch_from_env() -> Result<()> {
             &admin,
             None,
             p.execute(&wrong_action)?,
-            "v3-anchor-wrong-action",
+            wrong_action_name,
             Some(zk_fresh_program::application_v3::AppError::Action as u64),
             &mut events,
         )?;
-        let mut wrong_proof = anchor_wire.clone();
+        let mut wrong_proof = current_wire.to_vec();
         wrong_proof[192..].fill(0);
         transport::send(
             &rpc,
             &admin,
             None,
             p.execute(&wrong_proof)?,
-            "v3-anchor-invalid-proof",
+            wrong_proof_name,
             Some(zk_fresh_program::application_v3::AppError::Proof as u64),
             &mut events,
         )?;
         let rooted = transport::wait_finalized(&rpc, &events)?;
         let (_, rejected) = finalized_accounts(&rpc, &p, rooted)?;
         ensure!(rejected == bound, "negative proof changed R1 branch");
-        let good = p.execute(&anchor_wire)?;
+        let good = p.execute(current_wire)?;
         transport::send(
             &rpc,
             &admin,
             None,
             good.clone(),
-            "v3-valid-anchor-R1",
+            valid_name,
             None,
             &mut events,
         )?;
@@ -473,7 +515,7 @@ pub fn branch_from_env() -> Result<()> {
             &admin,
             None,
             good,
-            "v3-anchor-replay",
+            replay_name,
             Some(zk_fresh_program::application_v3::AppError::Consumed as u64),
             &mut events,
         )?;
@@ -502,7 +544,7 @@ pub fn branch_from_env() -> Result<()> {
                 && after[2] == bound[2]
                 && after[3] == expected_request.encode()
                 && after[4] == expected_queue.encode(),
-            "refreshed Anchor must append and consume exactly once"
+            "current R1 proof must append and consume exactly once"
         );
     } else {
         ensure!(

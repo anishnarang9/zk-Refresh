@@ -28,7 +28,7 @@ def signed_successor(output, plan, branch, prior_digest, own_digest):
     signed, enrolled = base.decode_json(signed_raw), base.decode_json(enrolled_raw)
     obs = signed['observation']
     source_key = bytes(plan['source'])
-    changes = [] if branch == 'anchor' else [{'Revoke': {'tbs_digest': list(bytes.fromhex(own_digest))}}]
+    changes = [] if branch in ('anchor', 'full') else [{'Revoke': {'tbs_digest': list(bytes.fromhex(own_digest))}}]
     if (bytes(enrolled['issuer']['source_key']) != source_key
             or bytes(obs['issuer']['source_key']) != source_key
             or obs['scope'] != enrolled['scope']
@@ -53,7 +53,7 @@ def signed_successor(output, plan, branch, prior_digest, own_digest):
 
 def admit(config):
     if (config.get('schema') != 1 or config.get('scope') != 'part5-v3-r1-branch'
-            or config.get('mode') not in ('anchor', 'own-revocation')
+            or config.get('mode') not in ('anchor', 'full', 'own-revocation')
             or config.get('outer_limits_required') != execute.LIMITS):
         raise ValueError('explicit bounded R1 branch contract required')
     stage_config = execute.pinned_json(config['prior_stage_config'], config['prior_stage_config_sha256'])
@@ -123,10 +123,31 @@ def admit(config):
     if hashlib.sha256(copied).hexdigest() != clone['tree_sha256']:
         raise ValueError('R1 ledger clone changed before restart')
     base.checked(config['context'], config['context_sha256'], 8192)
-    for role in ('full', 'anchor'):
+    wires = {}
+    for role in ('full', 'anchor') + (('full_near',) if config['mode'] == 'full' else ()):
         path = Path(config[role + '_wire'])
         execute.private_directory(path.parent)
-        base.checked(path, config[role + '_wire_sha256'], 448)
+        wires[role] = base.checked(path, config[role + '_wire_sha256'], 448)
+    if config['mode'] == 'full':
+        full_report = execute.pinned_json(config['full_near_proof_report'],
+                                          config['full_near_proof_report_sha256'])
+        pins = full_report.get('application_stage_pins', {})
+        if (full_report.get('schema') != 'credential-v3-request-bound-full-proof-v1'
+                or full_report.get('passed') is not True
+                or full_report.get('mode') != 'full-request-bound'
+                or full_report.get('application_verified') is not False
+                or full_report.get('counts', {}).get('proofs') != 3
+                or pins.get('base_root') != str(int(context['base_root'], 16))
+                or pins.get('near_root') != str(int(context['near_root'], 16))
+                or pins.get('action_hash') != str(int.from_bytes(wires['anchor'][128:160], 'big'))
+                or wires['full_near'][:192] != wires['anchor'][:192]
+                or pins.get('base_stage_report_sha256') != config['stage_report_sha256']
+                or pins.get('program_id') != original['program']
+                or pins.get('genesis_hash') != config['expected_genesis']
+                or pins.get('request_address') != staged['request']
+                or pins.get('loaded_elf_sha256') != original['elf_sha256']
+                or pins.get('near_state_report_sha256') != config['transition_report_sha256']):
+            raise ValueError('exact R1 Full proof report required')
     sizes = []
     for name, digest in zip(execute.ACCOUNT_NAMES, changed['account_sha256']):
         data, actual = stage.snapshot_generated(transition_root / (name + '.bin'), 4096)
@@ -194,6 +215,9 @@ def run(config, config_sha256):
                     'P5_QUEUE_RPC': base.RPC.rstrip('/'), 'P5_QUEUE_PROGRAM': original['program'],
                     'P5_QUEUE_GENESIS': loaded['genesis'], 'P5_QUEUE_ELF': original['elf'],
                     'P5_QUEUE_ELF_SHA256': original['elf_sha256'], 'P5_QUEUE_OUTPUT': str(output)})
+        if config['mode'] == 'full':
+            env.update({'P5_V3_FULL_NEAR_WIRE': config['full_near_wire'],
+                        'P5_V3_FULL_NEAR_WIRE_SHA256': config['full_near_wire_sha256']})
         runner_argv = [config['runner'], 'root_pinned_queue_v3_branch',
                        '--exact', '--ignored', '--test-threads=1']
         runner = subprocess.Popen(runner_argv, cwd=REPO, env=env, stdin=subprocess.DEVNULL,
@@ -209,7 +233,7 @@ def run(config, config_sha256):
             raise RuntimeError('R1 branch runner rejected; ledger needs reconciliation')
         raw, report_sha = stage.snapshot_generated(output / 'branch-report.json', 65536)
         report = base.decode_json(raw)
-        effect = config['mode'] == 'anchor'
+        effect = config['mode'] != 'own-revocation'
         if (report.get('schema') != 'part5-v3-r1-branch-v1'
                 or report.get('passed') is not True or report.get('mode') != config['mode']
                 or report.get('application_effect') is not effect
@@ -227,14 +251,15 @@ def run(config, config_sha256):
                 or not isinstance(report.get('account_sha256'), list)
                 or len(report['account_sha256']) != 5):
             raise ValueError('exact R1 branch report required')
+        current = 'full-R1' if config['mode'] == 'full' else 'anchor'
         expected_transactions = ([
             ('v3-observe-signed-current-status', None),
             ('v3-bind-current-branch-head', None),
             ('v3-stale-R0-full', 713),
-            ('v3-anchor-wrong-action', 712),
-            ('v3-anchor-invalid-proof', 714),
-            ('v3-valid-anchor-R1', None),
-            ('v3-anchor-replay', 707),
+            (f'v3-{current}-wrong-action', 712),
+            (f'v3-{current}-invalid-proof', 714),
+            (f'v3-valid-{current}', None),
+            (f'v3-{current}-replay', 707),
         ] if effect else [
             ('v3-publish-own-revocation', None),
             ('v3-observe-signed-own-revocation', None),
