@@ -119,6 +119,37 @@ def _session_record(slot, entry, base_dir):
         return result
     supervisor_status = session.get('effect_supervisor_status')
     validator_cleanup = session.get('validator_cleanup')
+    monitor_path = session_path.parent / 'effect-monitor.json'
+    try:
+        effect_monitor, effect_monitor_sha = _read_json(monitor_path)
+    except FileNotFoundError:
+        result.update(status='invalid', reason='effect_monitor_report_missing')
+        return result
+    except (OSError, ValueError, json.JSONDecodeError, UnicodeDecodeError):
+        result.update(status='invalid', reason='effect_monitor_report_unreadable')
+        return result
+    if (not _is_sha256(session.get('effect_monitor_sha256'))
+            or session['effect_monitor_sha256'] != effect_monitor_sha):
+        result.update(status='invalid', reason='effect_monitor_identity_mismatch')
+        return result
+    expected_monitor_exit = {'passed': 0, 'failed': 1}.get(supervisor_status)
+    expected_monitor_owner = f"v3-campaign-{slot['mode']}-k{slot['target_count']}"
+    if (not isinstance(effect_monitor, dict)
+            or effect_monitor.get('schema') != 1
+            or effect_monitor.get('measurement') != OUTER_MEASUREMENT
+            or effect_monitor.get('owner') != expected_monitor_owner
+            or effect_monitor.get('censored') is not False
+            or effect_monitor.get('stop_reason') is not None
+            or effect_monitor.get('runner_error_type') is not None
+            or effect_monitor.get('cleanup_remaining_owned_processes') != 0
+            or effect_monitor.get('cleanup_status_unknown') is not False):
+        result.update(status='invalid', reason='effect_monitor_cleanup_evidence_invalid')
+        return result
+    if (expected_monitor_exit is None
+            or effect_monitor.get('exit_code') != expected_monitor_exit
+            or effect_monitor.get('passed') is not (expected_monitor_exit == 0)):
+        result.update(status='invalid', reason='effect_monitor_status_exit_mismatch')
+        return result
     reviewed_shutdown = (
         supervisor_status == 'failed'
         and session.get('ledger_reuse_requires_review') is True

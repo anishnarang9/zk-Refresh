@@ -1,4 +1,5 @@
 import json
+import hashlib
 import tempfile
 import unittest
 from pathlib import Path
@@ -80,6 +81,29 @@ class CampaignEconomicsTests(unittest.TestCase):
             'cpu': {'complete_tree_cpu_qualified': False},
         }
 
+    def effect_monitor(self, mode, count, exit_code):
+        return {
+            'schema': 1,
+            'measurement': 'bounded_complete_session',
+            'owner': f'v3-campaign-{mode}-k{count}',
+            'passed': exit_code == 0,
+            'censored': False,
+            'stop_reason': None,
+            'exit_code': exit_code,
+            'runner_error_type': None,
+            'cleanup_remaining_owned_processes': 0,
+            'cleanup_status_unknown': False,
+        }
+
+    def write_session(self, mode, count, repetition, report):
+        directory = f'{mode}-{count}-{repetition}'
+        monitor_path = self.root / directory / 'effect-monitor.json'
+        monitor_path.parent.mkdir(parents=True, exist_ok=True)
+        monitor_exit = 1 if report['effect_supervisor_status'] == 'failed' else 0
+        monitor_path.write_text(json.dumps(self.effect_monitor(mode, count, monitor_exit)))
+        report['effect_monitor_sha256'] = hashlib.sha256(monitor_path.read_bytes()).hexdigest()
+        return self.write(f'{directory}/session-report.json', report)
+
     def full_manifest(self, failed_anchor=None, missing_full=None, mismatch=None):
         sessions = []
         for repetition in range(1, 5):
@@ -100,10 +124,10 @@ class CampaignEconomicsTests(unittest.TestCase):
                         report['error_type'] = 'ValueError'
                     if key == mismatch:
                         report['freeze_sha256'] = 'd' * 64
+                    session_path = self.write_session(mode, count, repetition, report)
                     entry = {'mode': mode, 'target_count': count,
                              'repetition': repetition,
-                             'session_report': self.write(
-                                 f'{mode}-{count}-{repetition}.json', report)}
+                             'session_report': session_path}
                     if key != failed_anchor:
                         entry['outer_report'] = self.write(
                             f'{mode}-{count}-{repetition}-outer.json',
@@ -195,7 +219,7 @@ class CampaignEconomicsTests(unittest.TestCase):
         manifest = {'schema': 'part5-v3-campaign-economics-input-v1',
                     'sessions': [{
                         'mode': 'anchor', 'target_count': 1, 'repetition': 1,
-                        'session_report': self.write('reviewed-session.json', session),
+                        'session_report': self.write_session('anchor', 1, 1, session),
                         'outer_report': self.write('reviewed-outer.json',
                                                    self.outer('anchor', 1, 14.5)),
                     }]}
@@ -206,6 +230,77 @@ class CampaignEconomicsTests(unittest.TestCase):
                    and row['repetition'] == 1)
         self.assertEqual(row['status'], 'valid')
         self.assertTrue(row['ledger_reuse_requires_review'])
+
+    def test_reviewed_shutdown_requires_nested_monitor_exit_to_match_status(self):
+        session = self.session('anchor', 1, 1, 14.5)
+        session.update({
+            'effect_supervisor_status': 'failed',
+            'ledger_reuse_requires_review': True,
+            'validator_cleanup': {'exit_code': -2, 'reaped': True,
+                                  'graceful': False},
+        })
+        session['stages'][0]['exit_code'] = 1
+        session_path = Path(self.write_session('anchor', 1, 1, session))
+        monitor_path = session_path.parent / 'effect-monitor.json'
+        monitor = self.effect_monitor('anchor', 1, 0)
+        monitor_path.write_text(json.dumps(monitor))
+        session['effect_monitor_sha256'] = hashlib.sha256(
+            monitor_path.read_bytes()).hexdigest()
+        session_path.write_text(json.dumps(session))
+        manifest = {'schema': 'part5-v3-campaign-economics-input-v1',
+                    'sessions': [{
+                        'mode': 'anchor', 'target_count': 1, 'repetition': 1,
+                        'session_report': str(session_path),
+                        'outer_report': self.write('reviewed-mismatch-outer.json',
+                                                   self.outer('anchor', 1, 14.5)),
+                    }]}
+
+        report = aggregate(manifest, self.root)
+        row = next(row for row in report['sessions']
+                   if row['mode'] == 'anchor' and row['target_count'] == 1
+                   and row['repetition'] == 1)
+        self.assertEqual(row['status'], 'invalid')
+        self.assertEqual(row['reason'], 'effect_monitor_status_exit_mismatch')
+
+    def test_nested_monitor_must_match_session_hash_and_cleanup(self):
+        session = self.session('anchor', 1, 1, 14.5)
+        session.update({
+            'effect_supervisor_status': 'failed',
+            'ledger_reuse_requires_review': True,
+            'validator_cleanup': {'exit_code': -2, 'reaped': True,
+                                  'graceful': False},
+        })
+        session['stages'][0]['exit_code'] = 1
+        session_path = Path(self.write_session('anchor', 1, 1, session))
+        monitor_path = session_path.parent / 'effect-monitor.json'
+        manifest = {'schema': 'part5-v3-campaign-economics-input-v1',
+                    'sessions': [{
+                        'mode': 'anchor', 'target_count': 1, 'repetition': 1,
+                        'session_report': str(session_path),
+                        'outer_report': self.write('reviewed-hash-outer.json',
+                                                   self.outer('anchor', 1, 14.5)),
+                    }]}
+
+        monitor = self.effect_monitor('anchor', 1, 1)
+        monitor['sample_count'] = 1
+        monitor_path.write_text(json.dumps(monitor))
+        report = aggregate(manifest, self.root)
+        row = next(row for row in report['sessions']
+                   if row['mode'] == 'anchor' and row['target_count'] == 1
+                   and row['repetition'] == 1)
+        self.assertEqual(row['reason'], 'effect_monitor_identity_mismatch')
+
+        monitor = self.effect_monitor('anchor', 1, 1)
+        monitor['cleanup_status_unknown'] = True
+        monitor_path.write_text(json.dumps(monitor))
+        session['effect_monitor_sha256'] = hashlib.sha256(
+            monitor_path.read_bytes()).hexdigest()
+        session_path.write_text(json.dumps(session))
+        report = aggregate(manifest, self.root)
+        row = next(row for row in report['sessions']
+                   if row['mode'] == 'anchor' and row['target_count'] == 1
+                   and row['repetition'] == 1)
+        self.assertEqual(row['reason'], 'effect_monitor_cleanup_evidence_invalid')
 
     def test_missing_and_failed_sessions_are_reported_and_excluded(self):
         manifest = self.full_manifest(
