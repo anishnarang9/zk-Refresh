@@ -32,6 +32,7 @@ class HeldoutFreezePinClosureTests(unittest.TestCase):
             'harness/tests/queue_v3.rs',
             'harness/Cargo.toml',
             'harness/Cargo.lock',
+            'circuits/profile.json',
             'program/src/lib.rs',
             'program/Cargo.toml',
             'crates/credential-registry/src/lib.rs',
@@ -42,6 +43,20 @@ class HeldoutFreezePinClosureTests(unittest.TestCase):
         }
         self.assertTrue(required.issubset(set(tool.REGISTRY_FILES)))
         self.assertEqual(len(tool.REGISTRY_FILES), len(set(tool.REGISTRY_FILES)))
+
+    def test_registry_bundle_digest_tracks_compile_time_profile_contents(self):
+        profile_path = 'circuits/profile.json'
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            profile = root / profile_path
+            profile.parent.mkdir(parents=True)
+            profile.write_bytes(b'{"profile":"initial"}')
+            with mock.patch.object(tool.prior_freeze, 'ROOT', root):
+                before, members = tool.prior_freeze.bundle([profile_path])
+                self.assertEqual([member['path'] for member in members], [profile_path])
+                profile.write_bytes(b'{"profile":"changed"}')
+                after, _ = tool.prior_freeze.bundle([profile_path])
+        self.assertNotEqual(before, after)
 
     def test_declared_source_bundles_cover_local_python_import_closure(self):
         import ast

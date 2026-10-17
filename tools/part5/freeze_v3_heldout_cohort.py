@@ -43,6 +43,7 @@ REGISTRY_FILES = [
         (ROOT / 'harness/src').rglob('*.rs'))],
     'harness/Cargo.toml',
     'harness/Cargo.lock',
+    'circuits/profile.json',
     'program/Cargo.toml',
     'crates/credential-registry/Cargo.toml',
     'harness/tests/queue_v3.rs',
