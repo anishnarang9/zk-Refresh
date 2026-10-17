@@ -127,6 +127,7 @@ def _step_names():
         names.extend(f'{request}:{suffix}' for suffix in
                      ('prepare', 'stage', 'transition', 'source-R0', 'source-R1'))
         names.extend(f'{request}:proof-{mode}' for mode in modes)
+    names.append('positive_full:proof-full-fresh-replay')
     names.extend((
         'positive_full:r0-clone', 'positive_full:execute',
         'unrelated_compare:unrelated_full:clone',
@@ -468,10 +469,12 @@ def _proof_bundle_seconds(bundle):
     return total, sampled
 
 
-def _verify_proof_durations(case, durations):
+def _verify_proof_durations(case, journal, durations):
     branch_proofs = case['branches']
     mappings = (
         (branch_proofs['full'].get('proof'), 'positive_full:proof-full'),
+        (branch_proofs['full'].get('replay_proof'),
+         'positive_full:proof-full-fresh-replay'),
         (branch_proofs['unrelated_full'].get('proof', {}).get('full'),
          'unrelated_compare:proof-full'),
         (branch_proofs['unrelated_full'].get('proof', {}).get('anchor'),
@@ -482,6 +485,12 @@ def _verify_proof_durations(case, durations):
     for bundle, step in mappings:
         if bundle is None:
             raise ValueError('proof receipt required for bounded duration accounting')
+        step_row = journal.get('steps', {}).get(step)
+        receipt_ref = bundle.get('receipt') if type(bundle) is dict else None
+        if (type(step_row) is not dict or type(receipt_ref) is not dict
+                or step_row.get('receipt') != receipt_ref.get('path')
+                or step_row.get('receipt_sha256') != receipt_ref.get('sha256')):
+            raise ValueError(f'proof receipt journal identity mismatch for {step}')
         total, proof_samples = _proof_bundle_seconds(bundle)
         if total > durations[step] + 1e-6:
             raise ValueError('journal proof wall time is below bounded supervisor durations')
@@ -562,7 +571,7 @@ def analyze(manifest_ref, acceptance_ref):
         _check_summary(case, journal, durations)
         _verify_case_identity(report_case, case)
         _verify_b_request(report_case, case)
-        proof_samples = _verify_proof_durations(case, durations)
+        proof_samples = _verify_proof_durations(case, journal, durations)
         monitor_samples = _verify_monitor_durations(case, journal, durations)
         for observations in proof_samples.values():
             sampled.extend(observations)
@@ -594,6 +603,8 @@ def analyze(manifest_ref, acceptance_ref):
         output_rows.append({
             'variant': variant,
             'pair_view_one_time_seconds': pair_view,
+            'full_A_fresh_replay_test_only_seconds': durations[
+                'positive_full:proof-full-fresh-replay'],
             'shared_B_seconds': shared,
             'full_B_branch_only_seconds': full - shared,
             'anchor_B_branch_only_seconds': anchor - shared,
@@ -624,6 +635,8 @@ def analyze(manifest_ref, acceptance_ref):
         'full_B_formula': 'shared_B+B:proof-full+B:unrelated_full:clone+B:unrelated_full:effect',
         'anchor_B_formula': 'shared_B+B:proof-anchor+B:anchor:clone+B:anchor:effect',
         'pair_view_accounting': 'reported separately once per case and excluded from both B totals',
+        'fresh_replay_accounting': ('A:proof-full-fresh-replay is a test-only second '
+                                    'Full proof bundle; reported per case and excluded from matched B totals'),
         'spread_definition': 'maximum minus minimum across the eight heldout variants',
         'pairs': output_rows,
         'summary': summary,

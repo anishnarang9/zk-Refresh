@@ -37,6 +37,7 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
             names.extend(f'{req}:{suffix}' for suffix in
                          ('prepare', 'stage', 'transition', 'source-R0', 'source-R1'))
             names.extend(f'{req}:proof-{mode}' for mode in modes)
+        names.append('positive_full:proof-full-fresh-replay')
         names.extend(('positive_full:r0-clone', 'positive_full:execute',
                       'unrelated_compare:unrelated_full:clone',
                       'unrelated_compare:unrelated_full:effect',
@@ -51,6 +52,7 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
             'positive_full:prepare', 'positive_full:stage',
             'positive_full:transition', 'positive_full:source-R0',
             'positive_full:source-R1', 'positive_full:proof-full',
+            'positive_full:proof-full-fresh-replay',
             'positive_full:r0-clone', 'positive_full:execute',
             'unrelated_compare:prepare', 'unrelated_compare:stage',
             'unrelated_compare:transition', 'unrelated_compare:source-R0',
@@ -66,7 +68,7 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
             'own_revocation:r1-clone', 'own_revocation:effect',
         }
         self.assertEqual(analyzer._step_names(), expected)
-        self.assertEqual(len(expected), 28)
+        self.assertEqual(len(expected), 29)
 
     def make_inputs(self):
         manifest_cases, acceptance_cases = [], []
@@ -181,9 +183,20 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
                 })
                 return {'receipt': receipt, 'artifacts': {}}
             proof_a = proof_bundle('A-full')
+            proof_a_replay = proof_bundle('A-full-fresh-replay')
             proof_b_full = proof_bundle('B-full')
             proof_b_anchor = proof_bundle('B-anchor')
             proof_c = proof_bundle('C-anchor')
+            proof_steps = {
+                'positive_full:proof-full': proof_a,
+                'positive_full:proof-full-fresh-replay': proof_a_replay,
+                'unrelated_compare:proof-full': proof_b_full,
+                'unrelated_compare:proof-anchor': proof_b_anchor,
+                'own_revocation:proof-anchor': proof_c,
+            }
+            for step, bundle in proof_steps.items():
+                steps[step]['receipt'] = bundle['receipt']['path']
+                steps[step]['receipt_sha256'] = bundle['receipt']['sha256']
             sources, stages, accepted_branch_ids = {}, {}, {}
             for slot, offset in (('A', 1), ('B', 11), ('C', 21)):
                 action = f'{variant + offset:064x}'
@@ -268,7 +281,8 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
                                      'monitor': monitors['transition']},
                                'C': {'monitor': monitor_for_step['own_revocation:transition']}},
                 'branches': {
-                    'full': {'result': {'outer': monitors['full']}, 'proof': proof_a},
+                    'full': {'result': {'outer': monitors['full']}, 'proof': proof_a,
+                             'replay_proof': proof_a_replay},
                     'unrelated_full': {
                         'result': {'outer': monitors['unrelated_full']},
                         'proof': {'full': proof_b_full, 'anchor': proof_b_anchor},
@@ -355,6 +369,7 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         self.assertEqual(pair['full_B_seconds'], 38.0)
         self.assertEqual(pair['anchor_B_seconds'], 43.0)
         self.assertEqual(pair['pair_view_one_time_seconds'], 0.5)
+        self.assertEqual(pair['full_A_fresh_replay_test_only_seconds'], 1.0)
         self.assertEqual(result['summary']['full_B_seconds']['median'], 38.0)
         self.assertEqual(result['summary']['anchor_B_seconds']['spread'], 0.0)
         self.assertEqual(pair['B_sampled_resources']['full'], {
@@ -371,12 +386,35 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         self.assertFalse(result['claims']['cpu_savings'])
         self.assertFalse(result['claims']['whole_application_benefit'])
 
+    def test_each_proof_step_must_pin_the_receipt_used_for_timing(self):
+        manifest = json.loads(Path(self.manifest['path']).read_text())
+        case = manifest['cases'][0]
+        journal = json.loads(Path(case['run_journal']['path']).read_text())
+        durations = analyzer._duration_map(
+            journal, analyzer._verify_run_manifest(case)[0])
+        for step in (
+                'positive_full:proof-full',
+                'positive_full:proof-full-fresh-replay',
+                'unrelated_compare:proof-full',
+                'unrelated_compare:proof-anchor',
+                'own_revocation:proof-anchor'):
+            with self.subTest(step=step, field='receipt'):
+                altered_journal = json.loads(json.dumps(journal))
+                altered_journal['steps'][step]['receipt'] = '/different-proof-receipt.json'
+                with self.assertRaisesRegex(ValueError, 'proof receipt.*journal'):
+                    analyzer._verify_proof_durations(case, altered_journal, durations)
+            with self.subTest(step=step, field='receipt_sha256'):
+                altered_journal = json.loads(json.dumps(journal))
+                altered_journal['steps'][step]['receipt_sha256'] = 'f' * 64
+                with self.assertRaisesRegex(ValueError, 'proof receipt.*journal'):
+                    analyzer._verify_proof_durations(case, altered_journal, durations)
+
     def test_accepts_reference_shape_without_measurement_or_censored_fields(self):
         # Both application and proof monitor fixtures intentionally use the
         # accepted session_runner schema variant that omits these optional keys.
         result = analyzer.analyze(self.manifest, self.acceptance)
         self.assertEqual(result['resource_observations']['monitor_report_count'],
-                         8 * (23 + 4 * 6))
+                         8 * (23 + 5 * 6))
 
     def test_rejects_manifest_pin_mismatch(self):
         with self.assertRaisesRegex(ValueError, 'manifest pin'):

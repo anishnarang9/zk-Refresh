@@ -37,6 +37,9 @@ MANIFEST_SCHEMA = 'credential-v3-heldout-acceptance-manifest-v1'
 OUTPUT_SCHEMA = 'credential-v3-heldout-application-report-v1'
 SOURCE_SCHEMA = 'credential-v3-heldout-request-source-v1'
 PAIR_SCHEMA = 'v3-two-signed-training-credentials-v1'
+RUN_SCHEMA = 'credential-v3-heldout-case-run-v1'
+JOURNAL_SCHEMA = 'credential-v3-heldout-case-run-journal-v1'
+QUEUE_RUNNER_REL = 'artifacts/dynark/part5/v3-heldout-queue-runner-001'
 BRANCHES = ('full', 'unrelated_full', 'anchor', 'own_revocation')
 ACCOUNT_NAMES = ('config', 'issuer', 'head', 'request', 'queue')
 SOURCE_FILE_ROLES = ('heldout_source_tool', 'training_helper', 'exporter',
@@ -1444,8 +1447,54 @@ def _validate_proof_bundle(bundle, branch, case, globals_, slot_data, wires):
                                    'own_revocation': 'own_revocation'}[branch]))
 
 
+def _verify_fresh_replay_wires(original_ref, replay_ref):
+    _, _, original = _artifact(original_ref, cap=1024)
+    _, _, replay = _artifact(replay_ref, cap=1024)
+    _require(len(original) == len(replay) == 448
+             and original[:192] == replay[:192],
+             'fresh replay must retain identical six public inputs')
+    _require(original[192:] != replay[192:],
+             'fresh replay must use a distinct randomized proof')
+
+
+def _verify_case_run_provenance(case_bundle, variant, globals_, freeze_sha,
+                                cohort_sha):
+    run, _ = _json(case_bundle.get('run_manifest'), cap=1024 * 1024)
+    _require(type(run) is dict and run.get('schema') == RUN_SCHEMA
+             and run.get('variant') == variant
+             and run.get('freeze_sha256') == freeze_sha
+             and run.get('cohort_sha256') == cohort_sha,
+             'case run manifest must bind the exact heldout variant and cohort')
+    for name in ('frozen_files', 'frozen_bundles', 'source_files', 'proof_inputs',
+                 'application_source_manifest', 'application_source_files'):
+        _require(run.get(name) == globals_.get(name),
+                 f'case run manifest {name} differs from common frozen evidence')
+    registry = globals_['frozen_bundles']['registry']
+    expected_runner = {'path': str(ROOT / QUEUE_RUNNER_REL),
+                       'sha256': run.get('runner_sha256')}
+    _require(type(registry) is list
+             and run.get('runner') == expected_runner['path']
+             and _is_sha(expected_runner['sha256'])
+             and any(type(row) is dict and row.get('path') == QUEUE_RUNNER_REL
+                     and row.get('artifact') == expected_runner for row in registry),
+             'case Rust queue runner must match the frozen registry bundle')
+    journal, _ = _json(case_bundle.get('run_journal'), cap=MAX_JSON)
+    canonical = _sha((json.dumps(run, sort_keys=True, separators=(',', ':'),
+                                 allow_nan=False) + '\n').encode())
+    steps = journal.get('steps') if type(journal) is dict else None
+    _require(type(journal) is dict and journal.get('schema') == JOURNAL_SCHEMA
+             and journal.get('manifest_sha256') == canonical
+             and type(steps) is dict
+             and type(steps.get('positive_full:proof-full-fresh-replay')) is dict
+             and steps['positive_full:proof-full-fresh-replay'].get('status') == 'passed',
+             'case run journal must bind its canonical manifest and fresh replay proof')
+    return canonical
+
+
 def _verify_branch(branch, bundle, case, globals_, slot_data, clone_destinations):
     expected_branch_keys = {'result', 'proof'}
+    if branch == 'full':
+        expected_branch_keys.add('replay_proof')
     clone_role = 'r0_clone' if branch == 'full' else 'r1_clone'
     expected_branch_keys.add(clone_role)
     _require(type(bundle) is dict and set(bundle) == expected_branch_keys,
@@ -1494,13 +1543,21 @@ def _verify_branch(branch, bundle, case, globals_, slot_data, clone_destinations
                  and report.get('wire_sha256') == _pin_sha(result_bundle['wires'].get('full')),
                  'raw Full report must consume exactly one R0 request')
         _require(type(result_bundle['wires']) is dict
-                 and set(result_bundle['wires']) == {'full'},
-                 'R0 Full branch accepts exactly its Full proof wire')
+                 and set(result_bundle['wires']) == {'full', 'replay_full'},
+                 'R0 Full branch must pin original and fresh replay proof wires')
         _verify_wire(result_bundle['wires']['full'], case['roots']['R0'], r0['action_hash'])
+        _verify_wire(result_bundle['wires']['replay_full'], case['roots']['R0'],
+                     r0['action_hash'])
+        _verify_fresh_replay_wires(result_bundle['wires']['full'],
+                                   result_bundle['wires']['replay_full'])
         _require(config.get('stage_report_sha256') == stage['report_sha256']
                  and config.get('stage_plan_sha256') == stage['plan_sha256']
-                 and config.get('full_wire_sha256') == _pin_sha(result_bundle['wires']['full']),
-                 'Full config/wire differs from staged R0 request')
+                 and config.get('full_wire_sha256') == _pin_sha(result_bundle['wires']['full'])
+                 and config.get('replay_full_wire_sha256')
+                    == _pin_sha(result_bundle['wires']['replay_full'])
+                 and report.get('replay_wire_sha256')
+                    == _pin_sha(result_bundle['wires']['replay_full']),
+                 'Full config/report wires differ from staged R0 request')
         _verify_full_transactions(report.get('transactions'))
         clone = _verify_r0_clone(bundle['r0_clone'], config, stage_bundle, stage)
         clone_destinations.add(clone['destination'])
@@ -1641,6 +1698,13 @@ def _verify_branch(branch, bundle, case, globals_, slot_data, clone_destinations
                  'R1 outcome must retain R1 generation')
     proof_outputs = _validate_proof_bundle(bundle['proof'], branch, case,
                                            globals_, slot_data, result_bundle['wires'])
+    if branch == 'full':
+        replay = _validate_proof_one(
+            bundle['replay_proof'], 'full', 'fresh Full replay', case,
+            globals_, stage, transition, {'R0': r0, 'R1': r1},
+            {'r0_full_wire': result_bundle['wires']['replay_full'],
+             'r1_wire': None}, _proof_case_label(case, 'positive_full'))
+        proof_outputs = {'initial': proof_outputs, 'fresh_replay': replay}
     return {'branch': branch, 'request_slot': request_slot,
             'request_account_sha256': _sha(stage['accounts']['request']),
             'finalized_request_sha256': request_identity,
@@ -1835,6 +1899,8 @@ def verify_manifest(manifest_path):
                  'unique heldout variant required')
         variant = case_bundle['variant']
         seen_variants.add(variant)
+        _verify_case_run_provenance(case_bundle, variant, manifest,
+                                    freeze_sha, cohort_sha)
         target = by_variant[variant]
         context, case_sha = _json(case_bundle.get('case_context'), cap=16384)
         stage_context, stage_context_sha = _json(case_bundle.get('stage_context'), cap=16384)

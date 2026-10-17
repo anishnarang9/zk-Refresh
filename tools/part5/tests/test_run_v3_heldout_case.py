@@ -9,6 +9,7 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from tools.part5 import assemble_v3_heldout_acceptance as assembler
+from tools.part5 import build_v3_heldout_run_manifest as manifest_builder
 from tools.part5 import verify_v3_heldout_acceptance as verifier
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / 'run_v3_heldout_case.py'
@@ -69,6 +70,39 @@ def test_runner_role_requires_python_executable_not_supervisor_script(tmp_path):
         assert 'executable' in str(error)
     else:
         raise AssertionError('session_runner.py must not satisfy the Python executable role')
+
+
+def test_python_executable_is_not_accepted_without_frozen_queue_runner_identity(tmp_path):
+    python = tmp_path / 'python3'
+    python_raw = f'#!{sys.executable}\npass\n'.encode()
+    python.write_bytes(python_raw)
+    python.chmod(0o700)
+
+    try:
+        runner.validate_runner_bundle(
+            str(REPO / manifest_builder.freeze_tool.RUNNER_BINARY),
+            hashlib.sha256(python_raw).hexdigest(),
+            [{'path': manifest_builder.freeze_tool.RUNNER_BINARY,
+              'artifact': {'path': str(REPO / manifest_builder.freeze_tool.RUNNER_BINARY),
+                           'sha256': 'a' * 64}}],
+        )
+    except ValueError as error:
+        assert 'frozen registry bundle' in str(error)
+    else:
+        raise AssertionError('Python executable without the frozen queue runner identity was accepted')
+
+
+def test_manifest_builder_rejects_non_queue_runner_path(tmp_path):
+    python = tmp_path / 'python3'
+    python.write_text(f'#!{sys.executable}\npass\n')
+    python.chmod(0o700)
+    try:
+        manifest_builder.build(None, None, None, None, None, None, None, None,
+                               python, tmp_path / 'manifests')
+    except ValueError as error:
+        assert 'heldout queue runner binary' in str(error)
+    else:
+        raise AssertionError('manifest builder accepted Python as the queue test runner')
 
 
 def test_journal_records_one_running_step_and_resumes_only_matching_pins(tmp_path):
@@ -185,6 +219,7 @@ def test_acceptance_bundle_maps_each_request_to_one_shared_slot():
 def test_acceptance_branch_bundle_has_proof_separate_from_result():
     branches = runner.acceptance_branch_bundles({
         'full': {'effect': {'result': 'full-result', 'proof': 'proof-A',
+                            'replay_proof': 'fresh-proof-A',
                             'r0_clone': 'r0-clone'}},
         'unrelated_full': {'effect': {'result': 'full-B', 'proof': 'proof-B'},
                            'clone': 'clone-B-full'},
@@ -196,7 +231,8 @@ def test_acceptance_branch_bundle_has_proof_separate_from_result():
        proof_bundle=lambda proof: proof,
        clone_bundle=lambda clone: clone)
     assert branches == {
-        'full': {'result': 'full-result', 'proof': 'proof-A', 'r0_clone': 'r0-clone'},
+        'full': {'result': 'full-result', 'proof': 'proof-A',
+                 'replay_proof': 'fresh-proof-A', 'r0_clone': 'r0-clone'},
         'unrelated_full': {'result': 'full-B', 'proof': 'proof-B', 'r1_clone': 'clone-B-full'},
         'anchor': {'result': 'anchor-B', 'proof': 'anchor-proof-B', 'r1_clone': 'clone-B-anchor'},
         'own_revocation': {'result': 'own-C', 'proof': 'proof-C', 'r1_clone': 'clone-C'},
@@ -224,7 +260,8 @@ def test_case_fragment_shape_matches_assembler_and_verifier_contracts(tmp_path):
         if name != 'full':
             result_shapes[name]['signed_history'] = 'history'
         if name == 'full':
-            result_shapes[name]['wires'] = {'full': 'full-wire'}
+            result_shapes[name]['wires'] = {'full': 'full-wire',
+                                            'replay_full': 'fresh-full-wire'}
             proof_shapes[name] = {'receipt': 'full-proof', 'artifacts': {}}
         elif name == 'unrelated_full':
             result_shapes[name]['wires'] = {'full': 'full-wire',
@@ -242,6 +279,8 @@ def test_case_fragment_shape_matches_assembler_and_verifier_contracts(tmp_path):
                ('r0_clone' if name == 'full' else 'clone'): 'clone-ref'}
         for name in verifier.BRANCHES
     }
+    branch_inputs['full']['effect']['replay_proof'] = {
+        'receipt': 'fresh-full-proof', 'artifacts': {}}
     emitted_branches = runner.acceptance_branch_bundles(
         branch_inputs, result_bundle=lambda value: value['result'],
         proof_bundle=lambda value: value,
@@ -283,7 +322,10 @@ def test_case_fragment_shape_matches_assembler_and_verifier_contracts(tmp_path):
     assert set(normalized['branches']) == set(verifier.BRANCHES)
     for name, bundle in normalized['branches'].items():
         clone = 'r0_clone' if name == 'full' else 'r1_clone'
-        assert set(bundle) == {'result', 'proof', clone}
+        expected = {'result', 'proof', clone}
+        if name == 'full':
+            expected.add('replay_proof')
+        assert set(bundle) == expected
         expected_result = {'report', 'status', 'outer', 'config', 'monitor',
                            'monitor_owner', 'wires', 'accounts'}
         if name != 'full':

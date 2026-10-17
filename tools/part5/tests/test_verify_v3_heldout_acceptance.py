@@ -101,6 +101,68 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         return freeze, freeze_ref, cohort, cohort_ref, {
             variant: row for variant, row in enumerate(rows)}, key_receipt, inventory
 
+    def test_fresh_full_replay_requires_same_statement_and_distinct_proof(self):
+        first = self.root / 'first-wire.bin'
+        second = self.root / 'replay-wire.bin'
+        original = b'a' * 192 + b'b' * 256
+        replay = b'a' * 192 + b'c' * 256
+        first.write_bytes(original)
+        second.write_bytes(replay)
+        first.chmod(0o600)
+        second.chmod(0o600)
+        ref = lambda path: {'path': str(path),
+                            'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+        verifier._verify_fresh_replay_wires(ref(first), ref(second))
+        second.write_bytes(original)
+        with self.assertRaisesRegex(ValueError, 'distinct randomized proof'):
+            verifier._verify_fresh_replay_wires(ref(first), ref(second))
+        second.write_bytes(b'z' * 192 + b'c' * 256)
+        with self.assertRaisesRegex(ValueError, 'identical six public'):
+            verifier._verify_fresh_replay_wires(ref(first), ref(second))
+
+    def test_case_run_manifest_and_journal_must_join_frozen_evidence(self):
+        globals_ = {name: {'pinned': name} for name in (
+            'frozen_files', 'frozen_bundles', 'source_files', 'proof_inputs',
+            'application_source_manifest', 'application_source_files')}
+        runner_path = str(verifier.ROOT /
+            'artifacts/dynark/part5/v3-heldout-queue-runner-001')
+        globals_['frozen_bundles'] = {'registry': [{
+            'path': 'artifacts/dynark/part5/v3-heldout-queue-runner-001',
+            'artifact': {'path': runner_path, 'sha256': 'd' * 64}}],
+            'client': []}
+        run = {'schema': 'credential-v3-heldout-case-run-v1', 'variant': 2,
+               'freeze_sha256': 'a' * 64, 'cohort_sha256': 'b' * 64,
+               'runner': runner_path, 'runner_sha256': 'd' * 64, **globals_}
+        run_path = self.root / 'case-02.json'
+        run_raw = (json.dumps(run, sort_keys=True, indent=2) + '\n').encode()
+        run_path.write_bytes(run_raw)
+        run_path.chmod(0o600)
+        canonical = hashlib.sha256((json.dumps(run, sort_keys=True,
+            separators=(',', ':')) + '\n').encode()).hexdigest()
+        journal_path = self.root / 'run-journal.json'
+        journal = {'schema': 'credential-v3-heldout-case-run-journal-v1',
+                   'manifest_sha256': canonical, 'steps': {
+                       'positive_full:proof-full-fresh-replay': {'status': 'passed'}}}
+        journal_raw = (json.dumps(journal, sort_keys=True) + '\n').encode()
+        journal_path.write_bytes(journal_raw)
+        journal_path.chmod(0o600)
+        ref = lambda path: {'path': str(path),
+                            'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+        case = {'run_manifest': ref(run_path), 'run_journal': ref(journal_path)}
+        verifier._verify_case_run_provenance(case, 2, globals_, 'a' * 64, 'b' * 64)
+        altered = dict(run, runner_sha256='e' * 64)
+        run_path.write_bytes((json.dumps(altered, sort_keys=True, indent=2) + '\n').encode())
+        case['run_manifest'] = ref(run_path)
+        with self.assertRaisesRegex(ValueError, 'queue runner'):
+            verifier._verify_case_run_provenance(case, 2, globals_, 'a' * 64, 'b' * 64)
+        run_path.write_bytes(run_raw)
+        case['run_manifest'] = ref(run_path)
+        journal['manifest_sha256'] = 'c' * 64
+        journal_path.write_bytes((json.dumps(journal, sort_keys=True) + '\n').encode())
+        case['run_journal'] = ref(journal_path)
+        with self.assertRaisesRegex(ValueError, 'journal.*manifest'):
+            verifier._verify_case_run_provenance(case, 2, globals_, 'a' * 64, 'b' * 64)
+
     def test_manifest_reader_returns_exact_input_digest(self):
         raw = b'{"schema":"input"}\n'
         path = self.root / 'manifest.json'

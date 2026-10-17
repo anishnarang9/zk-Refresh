@@ -157,6 +157,24 @@ def _json(path, expected=None, cap=65536):
     return json.loads(_read(path, expected, cap))
 
 
+def validate_runner_bundle(runner_path, runner_sha256, registry_bundle):
+    """Require the executable role to be the queue test binary frozen in registry."""
+    from tools.part5 import freeze_v3_heldout_cohort as freeze_tools
+
+    expected_path = REPO / freeze_tools.RUNNER_BINARY
+    if Path(runner_path) != expected_path:
+        raise ValueError('runner must use the frozen heldout queue runner path')
+    for item in registry_bundle:
+        if type(item) is not dict or item.get('path') != freeze_tools.RUNNER_BINARY:
+            continue
+        artifact = item.get('artifact')
+        if (type(artifact) is dict and artifact.get('path') == str(expected_path)
+                and artifact.get('sha256') == runner_sha256):
+            return
+        break
+    raise ValueError('runner identity missing from frozen registry bundle')
+
+
 def _write_new(path, raw, mode=0o600):
     path = Path(path)
     if (not path.is_absolute() or path.parent.resolve(strict=True) != path.parent
@@ -253,6 +271,8 @@ def acceptance_branch_bundles(branches, *, result_bundle, proof_bundle,
         clone_role = 'r0_clone' if name == 'full' else 'r1_clone'
         out[name] = {'result': result_bundle(effect),
                      'proof': proof_bundle(effect['proof'])}
+        if name == 'full':
+            out[name]['replay_proof'] = proof_bundle(effect['replay_proof'])
         clone = effect.get(clone_role, row.get('clone'))
         out[name][clone_role] = clone_bundle(clone)
     return out
@@ -443,6 +463,7 @@ def validate_manifest(manifest):
             hashing.update(raw)
         if hashing.hexdigest() != identities[role]:
             raise ValueError('current registry/client bundle differs from freeze')
+    validate_runner_bundle(manifest['runner'], manifest['runner_sha256'], bundles['registry'])
     client_refs = {item['path']: item['artifact'] for item in bundles['client']}
     source_files = manifest.get('source_files')
     if type(source_files) is not dict or set(source_files) != set(SOURCE_FILE_ROLES):
@@ -837,9 +858,10 @@ class HeldoutCaseRunner:
                 'root': output, 'report': str(report_path), 'report_sha256': digest(_read(report_path)),
                 'control': control, 'wall_seconds': outer['duration_seconds']}
 
-    def _proof(self, req, mode, root, case_root, stage, transition, r0_source, r1_source):
+    def _proof(self, req, mode, root, case_root, stage, transition, r0_source, r1_source,
+               *, label=None):
         from tools.part5 import prepare_v3_heldout_proof as proof_tool
-        output = root / ('proof-' + mode)
+        output = root / ('proof-' + mode + (('-' + label) if label else ''))
         receipt_path = output / 'proof-receipt.json'
         if receipt_path.exists():
             receipt = _json(receipt_path)
@@ -1000,9 +1022,16 @@ class HeldoutCaseRunner:
                 'monitor': str(monitor_path), 'monitor_sha256': digest(_read(monitor_path)),
                 'monitor_owner': owner, 'wall_seconds': outer['duration_seconds']}
 
-    def _execute_full(self, request, root, stage, clone, proof):
+    def _execute_full(self, request, root, stage, clone, proof, replay_proof):
         output, control = self._art(request, 'execute'), self._art(request, 'execute-control')
         wire = proof['wires']['r0_full_wire']
+        replay_wire = replay_proof['wires']['r0_full_wire']
+        original_raw = _read(wire['path'], wire['sha256'], 1024)
+        replay_raw = _read(replay_wire['path'], replay_wire['sha256'], 1024)
+        if (len(original_raw) != 448 or len(replay_raw) != 448
+                or original_raw[:192] != replay_raw[:192]
+                or original_raw[192:] == replay_raw[192:]):
+            raise ValueError('fresh replay Full proof must differ under identical six publics')
         config_path = root / 'execute-config.json'
         config = {'schema': 1, 'scope': 'part5-v3-local-execute',
             'prior_stage_config': stage['config'], 'prior_stage_config_sha256': stage['config_sha256'],
@@ -1017,6 +1046,8 @@ class HeldoutCaseRunner:
             'context_sha256': digest(_read(self.output_root / 'pair-view' / 'stage-context.json')),
             'runner': self.manifest['runner'], 'runner_sha256': self.manifest['runner_sha256'],
             'full_wire': wire['path'], 'full_wire_sha256': wire['sha256'],
+            'replay_full_wire': replay_wire['path'],
+            'replay_full_wire_sha256': replay_wire['sha256'],
             'execute_output': output, 'control_output': control,
             'outer_limits_required': LIMITS}
         config_sha = self._write_config(config_path, config)
@@ -1037,7 +1068,9 @@ class HeldoutCaseRunner:
         if (not reviewed_application_outer(outer)
                 or report.get('schema') != 'part5-v3-local-execute-v1'
                 or report.get('passed') is not True or report.get('effect_count') != 1
-                or report.get('request_consumed') is not True or status.get('status') != 'failed'
+                or report.get('request_consumed') is not True
+                or report.get('replay_wire_sha256') != replay_wire['sha256']
+                or status.get('status') != 'failed'
                 or status.get('error_type') is not None
                 or status.get('effect_verified') is not True
                 or status.get('application_effect') is not True
@@ -1054,7 +1087,8 @@ class HeldoutCaseRunner:
             'monitor_sha256': digest(_read(monitor_path)), 'monitor_owner': owner,
             'accounts': {name: str(Path(output) / f'{name}.bin')
                          for name in ('config', 'issuer', 'head', 'request', 'queue')},
-            'wires': {'full': wire}, 'wall_seconds': outer['duration_seconds']}
+            'wires': {'full': wire, 'replay_full': replay_wire},
+            'wall_seconds': outer['duration_seconds']}
 
     def _run_branch(self, request, label, mode, root, stage, transition, clone,
                     proof_bundles, wires):
@@ -1121,15 +1155,17 @@ class HeldoutCaseRunner:
                 'artifacts': receipt['artifacts']}
 
     def _request_proof(self, req, mode, root, case_root, stage, transition,
-                       r0_source, r1_source):
-        name = f'{req}:proof-{mode}'
+                       r0_source, r1_source, *, label=None):
+        name = f'{req}:proof-{mode}' + (('-' + label) if label else '')
         inputs = {'mode': mode, 'r0_source_sha256': r0_source['receipt_sha256'],
             'r1_source_sha256': r1_source['receipt_sha256'],
             'transition_report_sha256': transition['report_sha256'],
             'proof_caps': self.manifest['proof_caps'][mode]}
+        if label:
+            inputs['test_only_label'] = label
         proof = self.journal.run_step(name, inputs=inputs,
             job=lambda: self._proof(req, mode, root, case_root, stage, transition,
-                                    r0_source, r1_source),
+                                    r0_source, r1_source, label=label),
             reuse=lambda saved: self._verify_record(saved, ('receipt',), ('receipt_sha256',)))
         # The proof helper records each witness/relation/proof/adapter bounded
         # report inside its receipt; this wall time includes complete refresh.
@@ -1172,7 +1208,8 @@ class HeldoutCaseRunner:
         return {'report': self._artifact(result['report']), 'status': self._artifact(result['status_path']),
             'outer': outer, 'monitor': outer, 'monitor_owner': result['monitor_owner'],
             'config': self._artifact(result['config']),
-            'wires': {'full': self._artifact(result['wires']['full']['path'])},
+            'wires': {name: self._artifact(result['wires'][name]['path'])
+                      for name in ('full', 'replay_full')},
             'accounts': {name: self._artifact(path) for name, path in result['accounts'].items()}}
 
     def _branch_result_bundle(self, result):
@@ -1304,6 +1341,8 @@ class HeldoutCaseRunner:
                 results[req]['proofs'] = proofs
 
                 if req == 'positive_full':
+                    replay_proof = self._request_proof(req, 'full', root, case_root,
+                        stage, transition, r0_source, r1_source, label='fresh-replay')
                     clone = self.journal.run_step('positive_full:r0-clone',
                         inputs={'stage_report_sha256': stage['report_sha256']},
                         job=lambda req=req, root=root, stage=stage: {
@@ -1314,12 +1353,15 @@ class HeldoutCaseRunner:
                         inputs={'stage_report_sha256': stage['report_sha256'],
                                 'source_receipt_sha256': r0_source['receipt_sha256'],
                                 'proof_receipt_sha256': full_proof['receipt_sha256'],
+                                'replay_proof_receipt_sha256': replay_proof['receipt_sha256'],
                                 'r0_clone_receipt_sha256': clone['receipt_sha256']},
-                        job=lambda req=req, root=root, stage=stage, clone=clone, proof=full_proof: {
-                            **self._execute_full(req, root, stage, clone, proof)},
+                        job=lambda req=req, root=root, stage=stage, clone=clone,
+                                   proof=full_proof, replay_proof=replay_proof: {
+                            **self._execute_full(req, root, stage, clone, proof, replay_proof)},
                         reuse=lambda saved: self._verify_record(saved,
                             ('report', 'status_path', 'config', 'outer'), ('report_sha256', 'status_sha256')))
                     effect['proof'] = self._proof_bundle(full_proof)
+                    effect['replay_proof'] = self._proof_bundle(replay_proof)
                     effect['r0_clone'] = clone
                     branch_results['full'] = {'stage': stage, 'transition': None,
                         'sources': {'R0': r0_source}, 'effect': effect, 'clone': clone}
