@@ -24,6 +24,15 @@ def pinned(path, expected):
     return json.loads(raw)
 
 
+def report_loaded(report, full):
+    execute.report_loaded(report, full)
+    compact = report.get('loaded_program', {})
+    if (compact.get('loader') != full.get('loader')
+            or compact.get('local_bytes') != full.get('elf_bytes')
+            or compact.get('remote_bytes') != full.get('elf_bytes')):
+        raise ValueError('report loaded program size or loader mismatch')
+
+
 def clone(transition_config, config_sha, transition_report, report_sha,
           transition_status, status_sha, transition_monitor, monitor_sha,
           monitor_owner, target_count, destination):
@@ -71,10 +80,22 @@ def clone(transition_config, config_sha, transition_report, report_sha,
             or report.get('application_effect') is not False
             or report.get('loaded_program', {}).get('elf_match') is not True):
         raise ValueError('reviewed stopped signed campaign Rk ledger required')
-    execute.same_loaded(status.get('loaded_program', {}), report['loaded_program'])
     context = pinned(config['context'], config['context_sha256'])
     staged = pinned(Path(config['stage_root']) / 'stage-report.json', config['stage_report_sha256'])
+    stage_status = pinned(config['stage_status'], config['stage_status_sha256'])
     plan = pinned(Path(config['stage_root']) / 'plan.json', config['stage_plan_sha256'])
+    loaded = status.get('loaded_program', {})
+    staged_loaded = stage_status.get('loaded_program', {})
+    if (stage_status.get('scope') != 'part5-v3-campaign-stage'
+            or stage_status.get('stage_verified') is not True
+            or stage_status.get('stage_report_sha256') != config['stage_report_sha256']):
+        raise ValueError('pinned successful stage status required')
+    execute.same_loaded(loaded, staged_loaded)
+    if (loaded.get('loader') != staged_loaded.get('loader')
+            or loaded.get('elf_bytes') != staged_loaded.get('elf_bytes')):
+        raise ValueError('stage and transition loaded program size or loader mismatch')
+    report_loaded(report, loaded)
+    report_loaded(staged, staged_loaded)
     if (any(report.get(key) != config[key] for key in
             ('context_sha256', 'stage_report_sha256', 'stage_plan_sha256'))
             or report.get('current_root') != context['root_sequence'][target_count]
