@@ -96,6 +96,38 @@ impl CampaignAllocations {
         })
     }
 
+    fn own_revocation(&self, update: usize) -> Result<([u8; 32], [[u8; 32]; 10])> {
+        ensure!(
+            (0..=10).contains(&update),
+            "registered campaign revocation count"
+        );
+        let checked = self.check()?;
+        let mut tree = Tree::new().map_err(|e| anyhow::anyhow!("empty tree {e:?}"))?;
+        for (index, digest) in checked.digests.iter().enumerate() {
+            tree.set(if index == 0 { 0 } else { 15 + index }, *digest, true)
+                .map_err(|e| anyhow::anyhow!("issue tree {e:?}"))?;
+        }
+        for unrelated in 1..=update {
+            tree.set(15 + unrelated, checked.digests[unrelated], false)
+                .map_err(|e| anyhow::anyhow!("unrelated revoke tree {e:?}"))?;
+        }
+        tree.set(0, checked.digests[0], false)
+            .map_err(|e| anyhow::anyhow!("holder revoke tree {e:?}"))?;
+        let root = tree.root();
+        let path: [[u8; 32]; 10] = tree
+            .path(0)
+            .map_err(|e| anyhow::anyhow!("revoked holder path {e:?}"))?
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("depth10 revoked holder path"))?;
+        Tree::verify(checked.digests[0], 0, false, &path, root)
+            .map_err(|e| anyhow::anyhow!("revoked holder inactive leaf {e:?}"))?;
+        ensure!(
+            Tree::verify(checked.digests[0], 0, true, &path, root).is_err(),
+            "revoked holder cannot have an active membership path"
+        );
+        Ok((root, path))
+    }
+
     pub(super) fn check(&self) -> Result<CheckedSchedule> {
         ensure!(
             self.holder_slot == 0
@@ -358,6 +390,19 @@ mod tests {
         let mut wrong_sequence = eleven_leaves();
         wrong_sequence.root_sequence_sha256 = "03".repeat(32);
         assert!(wrong_sequence.check().is_err());
+    }
+
+    #[test]
+    fn campaign_own_revocation_removes_the_holder_from_the_current_root() {
+        let allocations = eleven_leaves();
+        let checked = allocations.check().unwrap();
+        for update in [0, 1, 2, 5, 10] {
+            let (revoked_root, path) = allocations.own_revocation(update).unwrap();
+            assert_ne!(revoked_root, checked.roots[update], "R{update}");
+            assert!(Tree::verify(checked.digests[0], 0, false, &path, revoked_root).is_ok());
+            assert!(Tree::verify(checked.digests[0], 0, true, &path, revoked_root).is_err());
+        }
+        assert!(allocations.own_revocation(11).is_err());
     }
 }
 
@@ -793,7 +838,10 @@ pub(super) fn effect_from_env() -> Result<()> {
     );
     let mode = transport::env("P5_V3_CAMPAIGN_EFFECT_MODE")?;
     ensure!(
-        matches!(mode.as_str(), "full" | "anchor" | "coalesced-full"),
+        matches!(
+            mode.as_str(),
+            "full" | "anchor" | "coalesced-full" | "own-revocation"
+        ),
         "registered campaign proof mode"
     );
     let count: usize = transport::env("P5_V3_CAMPAIGN_COUNT")?.parse()?;
@@ -1001,6 +1049,10 @@ pub(super) fn effect_from_env() -> Result<()> {
         &current_sha,
         448,
     )?;
+    ensure!(
+        mode != "own-revocation" || base_wire.is_some(),
+        "own-revocation requires a pinned R0 proof"
+    );
     if let Some((_, wire)) = &base_wire {
         validate_full_wire(
             &p,
@@ -1030,6 +1082,31 @@ pub(super) fn effect_from_env() -> Result<()> {
     let admin = transport::load_key(&stage_root, "admin.json", p.admin)?;
     let publisher = transport::load_key(&stage_root, "publisher.json", p.publisher)?;
     let source = transport::load_key(&stage_root, "source.json", p.source)?;
+
+    let own_revocation_root = if mode == "own-revocation" {
+        let (root, _) = context.initial_allocations.own_revocation(count)?;
+        ensure!(
+            root != c.root,
+            "own revocation must advance the campaign root"
+        );
+        Some(root)
+    } else {
+        None
+    };
+    let mut expected_config = c.clone();
+    if let Some(root) = own_revocation_root {
+        expected_config
+            .publish(
+                Authority {
+                    key: publisher.pubkey(),
+                    is_signer: true,
+                },
+                c.root_version,
+                root,
+            )
+            .map_err(|e| anyhow::anyhow!("campaign own-root publish {e:?}"))?;
+    }
+
     let observation_deadline = Instant::now() + Duration::from_secs(20);
     let observed = loop {
         let candidate = transport::clock(&rpc)?;
@@ -1058,7 +1135,13 @@ pub(super) fn effect_from_env() -> Result<()> {
         observed_at: observed,
         valid_until: expires,
         issuer_status_active: true,
-        changes: vec![],
+        changes: own_revocation_root
+            .map(|_| {
+                vec![Change::Revoke {
+                    tbs_digest: schedule.digests[0],
+                }]
+            })
+            .unwrap_or_default(),
     };
     let mut message = SOURCE_SIGN_TAG.to_vec();
     message.extend(serde_json::to_vec(&observation)?);
@@ -1088,8 +1171,8 @@ pub(super) fn effect_from_env() -> Result<()> {
             sequence,
             digest: source_digest,
         },
-        c.root,
-        c.root_version,
+        expected_config.root,
+        expected_config.root_version,
         &publisher,
         next_publication,
         h.envelope_digest,
@@ -1104,6 +1187,17 @@ pub(super) fn effect_from_env() -> Result<()> {
     )?;
     transport::new_file(&output.join("effect-enrolled-source.json"), &enrolled_json)?;
     let mut events = Vec::new();
+    if let Some(root) = own_revocation_root {
+        transport::send(
+            &rpc,
+            &admin,
+            Some(&publisher),
+            p.publish(c.root_version, root),
+            "v3-campaign-publish-own-revocation",
+            None,
+            &mut events,
+        )?;
+    }
     transport::send(
         &rpc,
         &admin,
@@ -1118,15 +1212,19 @@ pub(super) fn effect_from_env() -> Result<()> {
             observed,
             expires,
         ),
-        "v3-campaign-refresh-active-source",
+        if own_revocation_root.is_some() {
+            "v3-campaign-observe-own-revocation"
+        } else {
+            "v3-campaign-refresh-active-source"
+        },
         None,
         &mut events,
     )?;
     let binding = V3HeadBinding {
         expected_config_epoch: c.eligibility_epoch,
         expected_issuer_epoch: i.eligibility_epoch,
-        expected_root: c.root,
-        expected_root_version: c.root_version,
+        expected_root: expected_config.root,
+        expected_root_version: expected_config.root_version,
         expected_source_sequence: sequence,
         expected_source_digest: source_digest,
         expected_publication_sequence: h.publication_sequence,
@@ -1139,47 +1237,53 @@ pub(super) fn effect_from_env() -> Result<()> {
         &admin,
         Some(&publisher),
         p.bind_with_head(&binding),
-        "v3-campaign-bind-current-head",
+        if own_revocation_root.is_some() {
+            "v3-campaign-bind-own-revocation-head"
+        } else {
+            "v3-campaign-bind-current-head"
+        },
         None,
         &mut events,
     )?;
     let rooted = transport::wait_finalized(&rpc, &events)?;
     let (bound_slot, bound) = finalized_accounts(&rpc, &p, rooted)?;
+    let next_config =
+        Config::decode(&bound[0]).map_err(|e| anyhow::anyhow!("bound config {e:?}"))?;
     let next_issuer =
         Issuer::decode(&bound[1]).map_err(|e| anyhow::anyhow!("bound issuer {e:?}"))?;
     let next_head =
         PublisherHead::decode(&bound[2]).map_err(|e| anyhow::anyhow!("bound head {e:?}"))?;
     let checked_at = transport::clock(&rpc)?;
     next_issuer
-        .fresh(&c, checked_at)
+        .fresh(&next_config, checked_at)
         .map_err(|e| anyhow::anyhow!("campaign effect issuer fresh {e:?}"))?;
     next_issuer
-        .binding_current(&c)
+        .binding_current(&next_config)
         .map_err(|e| anyhow::anyhow!("campaign effect issuer current {e:?}"))?;
     ensure!(
-        bound[0] == initial[0]
+        bound[0] == expected_config.encode()
             && bound[3] == initial[3]
             && bound[4] == initial[4]
             && next_issuer.sequence == sequence
             && next_issuer.digest == source_digest
             && next_issuer.observed_at == observed
             && next_issuer.expires_at == expires
-            && next_issuer.bound_root == c.root
-            && next_issuer.bound_root_version == c.root_version
-            && next_head.root == c.root
-            && next_head.root_version == c.root_version
+            && next_issuer.bound_root == expected_config.root
+            && next_issuer.bound_root_version == expected_config.root_version
+            && next_head.root == expected_config.root
+            && next_head.root_version == expected_config.root_version
             && next_head.publication_sequence == next_publication
             && next_head.previous_publication_digest == h.envelope_digest
             && next_head.envelope_digest == envelope_digest
             && next_head.source_sequence == sequence
             && next_head.source_digest == source_digest,
-        "signed no-change campaign successor differs from finalized accounts"
+        "signed campaign successor differs from finalized accounts"
     );
     check_finalized_envelopes(
         &enrolled,
         &signed,
         &signed_publisher,
-        &c,
+        &next_config,
         &next_issuer,
         &next_head,
         checked_at,
@@ -1188,14 +1292,97 @@ pub(super) fn effect_from_env() -> Result<()> {
         .apply(&signed, &signed_publisher, checked_at)
         .map_err(|e| anyhow::anyhow!("campaign effect successor replay {e:?}"))?;
     ensure!(
-        replay.root() == c.root
-            && replay.root_version() == Some(c.root_version)
+        replay.root() == expected_config.root
+            && replay.root_version() == Some(expected_config.root_version)
             && replay.source_head().sequence == next_issuer.sequence
             && replay.source_head().digest == next_issuer.digest
             && replay.publication_sequence() == next_head.publication_sequence
             && replay.publication_digest() == next_head.envelope_digest,
         "campaign effect replay differs from current finalized accounts"
     );
+    if let Some(own_revoked_root) = own_revocation_root {
+        ensure!(
+            replay.active_holder(schedule.digests[0], 0, 1).is_err(),
+            "authenticated current root has no active holder leaf"
+        );
+        transport::send(
+            &rpc,
+            &admin,
+            None,
+            p.execute(&base_wire.as_ref().context("R0 proof required")?.1)?,
+            "v3-campaign-own-revoked-old-root",
+            Some(zk_fresh_program::application_v3::AppError::Policy as u64),
+            &mut events,
+        )?;
+        transport::send(
+            &rpc,
+            &admin,
+            None,
+            p.execute(&current_wire)?,
+            "v3-campaign-own-revoked-pre-revoke-current-root",
+            Some(zk_fresh_program::application_v3::AppError::Policy as u64),
+            &mut events,
+        )?;
+        let rooted = transport::wait_finalized(&rpc, &events)?;
+        let (finalized_slot, after) = finalized_accounts(&rpc, &p, rooted)?;
+        ensure!(
+            after == bound,
+            "own-revoked authorization changed finalized request or queue"
+        );
+        let (program_after, genesis_after, loaded_after) = transport::domain(&rpc)?;
+        ensure!(
+            program_after == program && genesis_after == genesis && loaded_after == loaded,
+            "loaded program identity changed across own-revocation effect"
+        );
+        for (index, name) in ["config", "issuer", "head", "request", "queue"]
+            .iter()
+            .enumerate()
+        {
+            transport::new_file(&output.join(format!("{name}.bin")), &after[index])?;
+        }
+        let mut effect_report = json!({
+            "schema":"part5-v3-campaign-own-revocation-v1", "passed":true,
+            "training_only":true,"devnet":false,"mode":mode,"target_count":count,
+            "registry_history_authenticated":true,"allocation_history_authenticated":true,
+            "upstream_source_authentication":true,"upstream_publisher_authentication":true,
+            "application_effect":false,"effect_count":0,"request_consumed":false,
+            "own_revocation_applied":true,"active_leaf_absent":true,
+            "old_root_rejected":true,"pre_revocation_current_root_rejected":true,
+            "stage_report_sha256":stage_sha,"stage_plan_sha256":plan_sha,
+            "transition_report_sha256":transition_sha,"context_sha256":context_sha,
+            "signed_history_sha256":final_report["signed_history_sha256"],
+            "base_wire_sha256":base_wire.as_ref().map(|(digest, _)| digest),
+            "current_wire_sha256":current_sha,
+        });
+        effect_report
+            .as_object_mut()
+            .context("own-revocation report object")?
+            .extend(
+                json!({
+                "effect_signed_source_sha256":hex::encode(Sha256::digest(&source_json)),
+                "effect_signed_publisher_sha256":hex::encode(Sha256::digest(&publisher_json)),
+                "effect_enrolled_source_sha256":hex::encode(Sha256::digest(&enrolled_json)),
+                "program":Pubkey::new_from_array(program).to_string(),
+                "genesis":Hash::new_from_array(genesis).to_string(),
+                "loaded_program":loaded_after,"base_root":hex::encode(schedule.roots[0]),
+                "pre_revocation_root":hex::encode(schedule.roots[count]),
+                "own_revoked_root":hex::encode(own_revoked_root),
+                "source_sequence":sequence,"source_head_digest":hex::encode(source_digest),
+                "publication_sequence":next_publication,
+                "publisher_envelope_digest":hex::encode(envelope_digest),
+                "previous_finalized_slot":final_slot,"bound_finalized_slot":bound_slot,
+                "finalized_slot":finalized_slot,
+                "account_sha256":after.iter().map(|data|
+                    hex::encode(Sha256::digest(data))).collect::<Vec<_>>(),
+                "transactions":events,
+                })
+                .as_object()
+                .context("own-revocation report fields")?
+                .clone(),
+            );
+        transport::new_json(&output.join("effect-report.json"), &effect_report)?;
+        return Ok(());
+    }
     if count > 0 && mode != "coalesced-full" {
         transport::send(
             &rpc,
