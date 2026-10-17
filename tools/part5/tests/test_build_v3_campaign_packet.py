@@ -96,11 +96,13 @@ class CampaignPacketTests(unittest.TestCase):
         self.save(self.transition / 'transition-report.json', report)
         return report
 
-    def build(self, count, coalesced=False):
+    def build(self, count, coalesced=False, fixtures=None):
         with mock.patch.object(tool, 'derive', return_value=self.context), \
              mock.patch.object(tool, 'checked_history') as history:
+            selected = fixtures if fixtures is not None else (
+                self.fixtures[count:count + 1] if coalesced else self.fixtures[:count + 1])
             packet = tool.build(self.stage, self.transition if count else self.stage,
-                self.cohort, self.context_path, self.fixtures[:count + 1], self.old, count, coalesced)
+                self.cohort, self.context_path, selected, self.old, count, coalesced)
             self.assertEqual(history.call_count, 2 if count else 1)
             return packet
 
@@ -148,11 +150,24 @@ class CampaignPacketTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'public/input'):
             self.build(0)
 
-    def test_coalesced_requires_complete_private_prefix(self):
+    def test_coalesced_requires_final_private_fixture(self):
         self.transition_report(2)
-        (self.fixtures[1] / 'output.wtns').chmod(0o644)
+        (self.fixtures[2] / 'output.wtns').chmod(0o644)
         with self.assertRaisesRegex(ValueError, 'owner-only'):
             self.build(2, True)
+
+    def test_coalesced_k5_accepts_only_final_fixture(self):
+        self.transition_report(5)
+        packet = self.build(5, True, self.fixtures[5:6])
+        self.assertEqual(packet['final']['root_version'], 5)
+        self.assertEqual(packet['application_stage']['base_root'], str(1))
+        self.assertEqual(packet['application_stage']['near_root'], str(6))
+        self.assertNotIn('pairs', packet)
+
+    def test_coalesced_rejects_hidden_extra_fixture(self):
+        self.transition_report(5)
+        with self.assertRaisesRegex(ValueError, 'registered complete checkpoint prefix'):
+            self.build(5, True, self.fixtures[4:6])
 
     def test_zero_requires_exact_stage(self):
         with self.assertRaisesRegex(ValueError, 'zero-update'):

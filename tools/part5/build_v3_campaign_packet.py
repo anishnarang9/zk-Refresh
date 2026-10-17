@@ -74,7 +74,10 @@ def action(config, request, plan):
 
 def build(stage_root, transition_root, cohort_root, context_path, fixtures,
           old_packet, count, coalesced=False):
-    if type(count) is not int or count not in COUNTS or len(fixtures) != count + 1:
+    if type(count) is not int or count not in COUNTS:
+        raise ValueError('registered complete checkpoint prefix required')
+    expected_fixtures = 1 if coalesced else count + 1
+    if len(fixtures) != expected_fixtures:
         raise ValueError('registered complete checkpoint prefix required')
     for directory in (stage_root, cohort_root, old_packet.parent, context_path.parent):
         prior.private_directory(directory)
@@ -167,16 +170,17 @@ def build(stage_root, transition_root, cohort_root, context_path, fixtures,
             or final_config[332:364].hex() != context['root_sequence'][count]):
         raise ValueError('campaign account context/root bindings required')
     publics = [receipt(path / 'public.json', 1024) for path in fixtures]
-    base_public = publics[0]
+    base_public = [str(int(context['root_sequence'][0], 16)),
+                   str(int(context['issuer_hash'], 16)),
+                   str(context['not_before']), str(context['not_after']),
+                   action(base_accounts[0], base_accounts[3], plan),
+                   str(int(context['policy_id'], 16))]
     if (type(staged.get('finalized_slot')) is not int or staged['finalized_slot'] <= 0
-            or len(base_public) != 6
-            or base_public[1] != str(int(context['issuer_hash'], 16))
-            or base_public[2:4] != [str(context['not_before']), str(context['not_after'])]
-            or base_public[5] != str(int(context['policy_id'], 16))
-            or base_public[4] != action(base_accounts[0], base_accounts[3], plan)
             or any(len(row) != 6 or row[1:] != base_public[1:]
-                   or row[0] != str(int(context['root_sequence'][i], 16))
-                   for i, row in enumerate(publics))
+                   for row in publics)
+            or (coalesced and publics[0][0] != str(int(context['root_sequence'][count], 16)))
+            or (not coalesced and any(row[0] != str(int(context['root_sequence'][i], 16))
+                                      for i, row in enumerate(publics)))
             or bytes(plan['root']).hex() != context['root_sequence'][0]
             or prior.digest(stage_root / 'request.bin') != staged['account_sha256'][3]
             or prior.digest(stage_root / 'queue.bin') != staged['account_sha256'][4]):
@@ -212,7 +216,9 @@ def build(stage_root, transition_root, cohort_root, context_path, fixtures,
                   freeze_receipt_sha256=cohort['freeze_receipt_sha256'],
                   history_receipt_sha256=prior.digest(history),
                   root_schedule_sha256=context['initial_allocations']['root_sequence_sha256'])
-    cases = [case(directory, version) for version, directory in enumerate(fixtures)]
+    case_versions = [count] if coalesced else list(range(len(fixtures)))
+    cases = [case(directory, version)
+             for version, directory in zip(case_versions, fixtures)]
     if coalesced:
         packet['final'] = cases[-1]
     else:
