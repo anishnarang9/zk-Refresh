@@ -1,0 +1,20 @@
+{
+  "application_effect_attempted": false,
+  "campaign_id": "training-002",
+  "evidence_sha256": {
+    "effect_config": "0c5d4fca19dbe172aed3d0ce01275105ff6779e29fe7b127b5f90ea9ede40555",
+    "outer": "246ece6d57aff923af336e691f03c39b8d7c3327fd89a35f3dad94734e1e62f9",
+    "session": "9546a7aed6b5274c8bc97d99beb77c1098f7e0bacabc7af9b1fb6d34caa7541b"
+  },
+  "failure_reason": "matrix output names lacked required application-v3- prefix; inner supervisor rejected before creating control output",
+  "failure_stage": "application_admission",
+  "first_slot": "r1-k0-full",
+  "manifest_sha256": "a7ea95b920d638337d89a1a6dee9c18afd46fdac5d2d01a471be0f133f0a4f84",
+  "private_evidence_paths": {
+    "effect_config": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-matrix-training-002/slot-r1-k0-full/work/effect-config.json",
+    "outer": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-matrix-training-002/slot-r1-k0-full/outer-report.json",
+    "session": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-matrix-training-002/slot-r1-k0-full/work/session-report.json"
+  },
+  "registered_repetitions_counted": 0,
+  "schema": "part5-v3-campaign-matrix-failed-trial-v1"
+}

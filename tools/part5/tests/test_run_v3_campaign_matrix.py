@@ -44,6 +44,16 @@ class CampaignMatrixTests(unittest.TestCase):
         self.assertEqual(owner, 'v3-campaign-anchor-k1-r2-matrix')
         self.assertTrue(owner.startswith('v3-campaign-anchor-k1'))
 
+    def test_effect_outputs_satisfy_loaded_application_supervisor(self):
+        from harness.tests.queue_v3_local_stage import validate_stage_paths
+
+        plan = {'output_root': matrix.ARTIFACTS / 'v3-matrix-training-003',
+                'campaign_id': 'training-003'}
+        slot = {'repetition': 1, 'target_count': 0, 'mode': 'full'}
+        paths = matrix.output_paths(plan, slot)
+        validate_stage_paths(paths['effect_output'], paths['control_output'],
+                             matrix.ARTIFACTS)
+
     def test_economics_input_manifest_has_all_60_exact_report_paths(self):
         planned = []
         for slot in matrix.slot_specs():

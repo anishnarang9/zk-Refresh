@@ -282,8 +282,8 @@ def output_paths(validated, slot):
     root = validated['output_root']
     label = f"r{slot['repetition']}-k{slot['target_count']}-{slot['mode']}"
     slot_root = root / ('slot-' + label)
-    effect_name = f"v3-matrix-{validated['campaign_id']}-{label}-effect"
-    control_name = f"v3-matrix-{validated['campaign_id']}-{label}-control"
+    effect_name = f"application-v3-matrix-{validated['campaign_id']}-{label}-effect"
+    control_name = f"application-v3-matrix-{validated['campaign_id']}-{label}-control"
     return {'slot_root': slot_root,
             'clone_dir': slot_root / 'clone',
             'clone_ledger': slot_root / 'clone' / 'ledger',
