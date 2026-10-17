@@ -582,3 +582,98 @@ fn private_request_bound_anchor_passes_adapter_and_program_host() {
     file.sync_all().unwrap();
     assert_eq!(private(&output, 448, Some(448)).unwrap(), wire);
 }
+
+#[test]
+#[ignore = "explicit private request-bound R1 Full proof and finalized fixture required"]
+fn private_request_bound_full_near_passes_adapter_and_program_host() {
+    let fixture = PathBuf::from(
+        std::env::var_os("M2_V3_FULL_NEAR_FIXTURE").expect("private R1 fixture required"),
+    );
+    let proof_dir = PathBuf::from(
+        std::env::var_os("M2_V3_FULL_NEAR_PROOF_DIR").expect("private R1 proof directory required"),
+    );
+    directory(&fixture).unwrap();
+    directory(&proof_dir).unwrap();
+    let receipt_bytes = private(&fixture.join("training-receipt.json"), 16384, None).unwrap();
+    assert_eq!(
+        sha(&receipt_bytes),
+        std::env::var("M2_V3_FULL_NEAR_RECEIPT_SHA256").unwrap()
+    );
+    let receipt: Value = serde_json::from_slice(&receipt_bytes).unwrap();
+    assert!(
+        receipt["schema"] == "v3-request-bound-near-training-input-v1"
+            && receipt["training_only"] == true
+            && receipt["proof_created"] == false
+    );
+    let report_bytes = private(&proof_dir.join("proof-report.json"), 65536, None).unwrap();
+    assert_eq!(
+        sha(&report_bytes),
+        std::env::var("M2_V3_FULL_NEAR_PROOF_REPORT_SHA256").unwrap()
+    );
+    let report: Value = serde_json::from_slice(&report_bytes).unwrap();
+    assert!(
+        report["schema"] == "credential-v3-request-bound-full-proof-v1"
+            && report["mode"] == "full-request-bound"
+            && report["passed"] == true
+            && report["application_verified"] == false
+            && report["counts"]["proofs"] == 3
+            && report["counts"]["ordinary_checks"] == 23
+    );
+    let q1 = private(&fixture.join("request.bin"), 1918, Some(1918)).unwrap();
+    let input = private(&fixture.join("input.json"), 65536, None).unwrap();
+    let public_json = private(&fixture.join("public.json"), 1024, None).unwrap();
+    for (name, bytes) in [
+        ("request.bin", &q1),
+        ("input.json", &input),
+        ("public.json", &public_json),
+    ] {
+        assert_eq!(
+            receipt["artifact_sha256"][name].as_str(),
+            Some(sha(bytes).as_str())
+        );
+    }
+    let expected = expected_public(&public_json, &input, &q1).unwrap();
+    assert_eq!(
+        report["application_stage_pins"]["near_root"].as_str(),
+        Some(expected[0].to_string().as_str())
+    );
+    assert_eq!(
+        report["application_stage_pins"]["action_hash"].as_str(),
+        Some(expected[4].to_string().as_str())
+    );
+    let proof = private(
+        &proof_dir.join("request_bound_training_full_near.proof"),
+        128,
+        Some(128),
+    )
+    .unwrap();
+    let public = private(
+        &proof_dir.join("request_bound_training_full_near-public.bin"),
+        200,
+        Some(200),
+    )
+    .unwrap();
+    let setup = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../artifacts/dynark/part5/v3-development-setup-001");
+    let vk = private(
+        &setup.canonicalize().unwrap().join("ordinary.vk"),
+        456,
+        Some(456),
+    )
+    .unwrap();
+    let wire = verify_join(&proof, &public, &expected, &vk)
+        .expect("R1 Full adapter and program host verification");
+    let output = fixture.join("full-near-solana-wire.bin");
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(&output)
+        .expect("fresh private R1 Full wire output");
+    file.set_permissions(fs::Permissions::from_mode(0o600))
+        .unwrap();
+    file.write_all(&wire).unwrap();
+    file.sync_all().unwrap();
+    assert_eq!(private(&output, 448, Some(448)).unwrap(), wire);
+}
