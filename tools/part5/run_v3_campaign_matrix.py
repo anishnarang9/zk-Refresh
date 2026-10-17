@@ -18,7 +18,8 @@ The JSON manifest uses schema ``part5-v3-campaign-matrix-input-v1`` and has:
   pins and a monitor owner
 * ``tools`` pins for python, proof_binary, adapter_binary, exporter, node, old_packet,
   effect_runner, session_script, bounded_runner, effect_config,
-  effect_supervisor, clone_r0 and clone_final
+  effect_supervisor, clone_r0 and clone_final. Campaign training-006 also pins
+  ``effect_execute`` because the effect supervisor imports it directly.
 
 Every file pin is ``{"path": "/absolute/canonical/path", "sha256": "..."}``.
 The script only executes after all manifest pins and registered evidence roles
@@ -46,6 +47,7 @@ ECONOMICS_INPUT_SCHEMA = 'part5-v3-campaign-economics-input-v1'
 CAMPAIGN_SECONDS = 36 * 60 * 60
 MAX_RSS_BYTES = 4 * 1024 * 1024 * 1024
 MAX_STORAGE_BYTES = 512 * 1024 * 1024
+LEGACY_SESSION_SHA256 = 'c389c64314eb0f944f08d90bb71868940f3137e1aded0badf24891aedf7eec33'
 
 from tools.part5 import run_v3_campaign_session as session
 
@@ -188,7 +190,7 @@ def validate_caps(raw, campaign_seconds):
     return normalized
 
 
-def validate_manifest(manifest_path):
+def validate_manifest(manifest_path, *, allow_legacy_inspection=False):
     manifest_path = Path(manifest_path).absolute()
     if manifest_path.resolve(strict=True) != manifest_path:
         raise ValueError('canonical matrix manifest path required')
@@ -249,17 +251,32 @@ def validate_manifest(manifest_path):
     tool_names = ('python', 'proof_binary', 'adapter_binary', 'exporter', 'node', 'old_packet',
                   'effect_runner', 'session_script', 'bounded_runner', 'effect_config',
                   'effect_supervisor', 'clone_r0', 'clone_final')
+    require_effect_execute_pin = manifest.get('campaign_id') == 'training-006'
+    if require_effect_execute_pin:
+        tool_names += ('effect_execute',)
     tools_manifest = manifest.get('tools')
     if not isinstance(tools_manifest, dict):
         raise ValueError('pinned tools manifest required')
-    tool_paths = {name: verify_pin(tools_manifest.get(name), name)
-                  for name in tool_names}
+    tool_paths = {}
+    for name in tool_names:
+        pin = tools_manifest.get(name)
+        if (allow_legacy_inspection and manifest.get('campaign_id') in
+                ('training-004', 'training-005') and name == 'session_script'):
+            legacy_path = Path(session.__file__).resolve(strict=True)
+            if (not isinstance(pin, dict) or set(pin) != {'path', 'sha256'}
+                    or pin.get('path') != str(legacy_path)
+                    or pin.get('sha256') != LEGACY_SESSION_SHA256):
+                raise ValueError('registered legacy session pin required for historical inspection')
+            tool_paths[name] = legacy_path
+        else:
+            tool_paths[name] = verify_pin(pin, name)
     expected_tool_paths = {
         'python': sys.executable,
         'session_script': session.__file__,
         'bounded_runner': REPO / 'results/dynark/part5/session_runner.py',
         'effect_config': session.EFFECT_CONFIG,
         'effect_supervisor': session.EFFECT_SUPERVISOR,
+        **({'effect_execute': session.EFFECT_EXECUTE} if require_effect_execute_pin else {}),
         'clone_r0': REPO / 'harness/tests/queue_v3_clone_campaign_r0.py',
         'clone_final': REPO / 'harness/tests/queue_v3_clone_campaign_final.py',
     }
@@ -368,6 +385,10 @@ def session_argv(validated, slot, paths):
               '--effect-config-sha256', validated['tools_manifest']['effect_config']['sha256'],
               '--effect-supervisor-sha256', validated['tools_manifest']['effect_supervisor']['sha256'],
               '--bounded-runner-sha256', validated['tools_manifest']['bounded_runner']['sha256']]
+    if 'effect_execute' in tools:
+        values.extend(['--effect-execute', str(tools['effect_execute']),
+                       '--effect-execute-sha256',
+                       validated['tools_manifest']['effect_execute']['sha256']])
     if slot['target_count'] == 0:
         values.extend(['--stage-config', str(validated['evidence_paths']['stage_config']),
                        '--stage-status', str(validated['evidence_paths']['stage_status']),
@@ -771,7 +792,10 @@ def run_matrix(validated, *, resume=False):
         if limits['runtime_seconds'] > deadline - time.monotonic():
             raise TimeoutError('36-hour campaign envelope exhausted after clone')
         env = os.environ.copy()
-        verify_launch_pins(validated, ('python', 'session_script', 'bounded_runner'))
+        launch_pins = ['python', 'session_script', 'bounded_runner']
+        if 'effect_execute' in validated['tools']:
+            launch_pins.append('effect_execute')
+        verify_launch_pins(validated, launch_pins)
         env['P5_V3_CAMPAIGN_SESSION_SUPERVISOR'] = 'bounded-complete-session'
         command = [str(validated['tools']['python']), '-B', str(validated['tools']['bounded_runner']),
                    '--owner', row['owner'], '--cwd', str(REPO),
@@ -858,7 +882,7 @@ def main():
     args = parser.parse_args()
     if args.plan and args.resume:
         parser.error('--plan and --resume are separate operations')
-    validated = validate_manifest(args.manifest)
+    validated = validate_manifest(args.manifest, allow_legacy_inspection=args.plan)
     rows = plan_slots(validated)
     if args.plan:
         plan = {'schema': 'part5-v3-campaign-matrix-plan-v1',

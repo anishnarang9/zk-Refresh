@@ -157,6 +157,23 @@ class CampaignSessionTests(unittest.TestCase):
             ('full', 'coalesced-full', 'anchor'),
             ('coalesced-full', 'anchor', 'full')))
 
+    def test_effect_execute_pin_is_optional_for_historical_sessions_but_enforced_when_set(self):
+        args = argparse.Namespace()
+        tool.verify_effect_execute_pin(args)
+        args.effect_execute = tool.EFFECT_EXECUTE
+        args.effect_execute_sha256 = tool.digest(tool.EFFECT_EXECUTE)
+        tool.verify_effect_execute_pin(args)
+        args.effect_execute_sha256 = '0' * 64
+        with self.assertRaisesRegex(ValueError, 'differs from supplied pin'):
+            tool.verify_effect_execute_pin(args)
+        args.effect_execute = self.root / 'unrelated.py'
+        with self.assertRaisesRegex(ValueError, 'imported repository module'):
+            tool.verify_effect_execute_pin(args)
+        args.effect_execute = tool.EFFECT_EXECUTE
+        args.effect_execute_sha256 = None
+        with self.assertRaisesRegex(ValueError, 'pinned together'):
+            tool.verify_effect_execute_pin(args)
+
     def test_full_charges_every_input_witness_and_relation(self):
         result, calls, report = self.synthetic(self.args('full', 2))
         self.assertEqual(result, 0)

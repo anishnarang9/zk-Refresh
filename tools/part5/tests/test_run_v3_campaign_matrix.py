@@ -1,5 +1,7 @@
 import unittest
 from unittest import mock
+import tempfile
+from pathlib import Path
 import time
 
 from tools.part5 import run_v3_campaign_matrix as matrix
@@ -53,6 +55,20 @@ class CampaignMatrixTests(unittest.TestCase):
 
         self.assertEqual(owner, 'v3-campaign-anchor-k1-r2-matrix')
         self.assertTrue(owner.startswith('v3-campaign-anchor-k1'))
+
+    def test_effect_execute_pin_is_rechecked_at_launch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory, 'queue_v3_local_execute.py').resolve()
+            path.write_text('pinned source\n')
+            path.chmod(0o600)
+            pin = matrix.sha256(path)
+            validated = {'tools_manifest': {'effect_execute': {
+                            'path': str(path), 'sha256': pin}},
+                         'tools': {'effect_execute': path}}
+            matrix.verify_launch_pins(validated, ('effect_execute',))
+            path.write_text('changed source\n')
+            with self.assertRaisesRegex(ValueError, 'changed after manifest validation'):
+                matrix.verify_launch_pins(validated, ('effect_execute',))
 
     def test_effect_outputs_satisfy_loaded_application_supervisor(self):
         from harness.tests.queue_v3_local_stage import validate_stage_paths

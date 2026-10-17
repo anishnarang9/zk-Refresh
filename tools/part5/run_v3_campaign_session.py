@@ -43,6 +43,7 @@ WITNESS = CLIENT / 'v3_relation_witness.cjs'
 RELATION = CLIENT / 'prepare_v3_relation.py'
 EFFECT_CONFIG = REPO / 'tools/part5/create_v3_campaign_effect_config.py'
 EFFECT_SUPERVISOR = REPO / 'harness/tests/queue_v3_local_campaign_effect.py'
+EFFECT_EXECUTE = REPO / 'harness/tests/queue_v3_local_execute.py'
 BOUNDED = REPO / 'results/dynark/part5/session_runner.py'
 
 
@@ -93,6 +94,18 @@ def checked_digest(path, expected):
     if actual != expected:
         raise ValueError('file identity differs from supplied pin')
     return actual
+
+
+def verify_effect_execute_pin(args):
+    path = getattr(args, 'effect_execute', None)
+    expected = getattr(args, 'effect_execute_sha256', None)
+    if path is None and expected is None:
+        return
+    if path is None or expected is None:
+        raise ValueError('effect execute path and SHA-256 must be pinned together')
+    if Path(path) != EFFECT_EXECUTE.resolve(strict=True):
+        raise ValueError('effect execute must point to the imported repository module')
+    checked_digest(path, expected)
 
 
 def document(path, cap=1024 * 1024):
@@ -444,6 +457,7 @@ def run(args):
         monitor_output = work / 'effect-monitor-private'
         monitor_report = work / 'effect-monitor.json'
         monitor_owner = f'v3-campaign-{args.mode}-k{args.target_count}'
+        verify_effect_execute_pin(args)
         run_stage(stages, work, 'application', [sys.executable, '-B',
             BOUNDED,
             '--owner', monitor_owner, '--cwd', REPO,
@@ -455,6 +469,7 @@ def run(args):
             '--', sys.executable, '-B', EFFECT_SUPERVISOR,
             '--config', config_path, '--config-sha256', config_sha],
             application_env, accepted=(0, 1))
+        verify_effect_execute_pin(args)
         monitor = document(monitor_report, 4 * 1024 * 1024)
         if (monitor.get('owner') != monitor_owner
                 or monitor.get('stop_reason') is not None
@@ -504,6 +519,8 @@ def main():
                  'effect_config_sha256', 'effect_supervisor_sha256',
                  'bounded_runner_sha256'):
         parser.add_argument('--' + name.replace('_', '-'), required=True)
+    parser.add_argument('--effect-execute', type=Path)
+    parser.add_argument('--effect-execute-sha256')
     for name in ('transition_root', 'transition_config', 'transition_report',
                  'transition_status', 'transition_monitor', 'stage_config',
                  'stage_status', 'stage_monitor'):
