@@ -9,3 +9,9 @@ fn root_pinned_queue_v3_stage() {
 fn root_pinned_queue_v3_execute() {
     zk_fresh_benchmark::solana::queue_v3::execute_from_env().unwrap();
 }
+
+#[test]
+#[ignore = "requires pinned unconsumed v3 request and supervised loaded validator"]
+fn root_pinned_queue_v3_unrelated_transition() {
+    zk_fresh_benchmark::solana::queue_v3::transition_from_env().unwrap();
+}

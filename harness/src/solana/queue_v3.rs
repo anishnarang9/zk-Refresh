@@ -3,8 +3,8 @@
 use super::queue_v2 as transport;
 use super::*;
 use zk_fresh_program::application_v3::{
-    Config, Issuer, PublisherHead, Queue, Request, RequestState, CONFIG_LEN, HEAD_LEN, ISSUER_LEN,
-    QUEUE_LEN, REQUEST_LEN,
+    Authority, Config, Issuer, PublisherHead, Queue, Request, RequestState, CONFIG_LEN, HEAD_LEN,
+    ISSUER_LEN, QUEUE_LEN, REQUEST_LEN,
 };
 
 #[derive(serde::Deserialize)]
@@ -776,6 +776,340 @@ pub fn execute_from_env() -> Result<()> {
     Ok(())
 }
 
+/// Publish one issuer-signed, same-action unrelated revocation on a separately
+/// staged, still unconsumed training request. The external supervisor must
+/// independently reattest the loaded ledger and certificate-backed allocation.
+pub fn transition_from_env() -> Result<()> {
+    use credential_registry::v3::protocol::{
+        Change, EnrolledSource, IssuerScope, Observation, Scope, SignedSource, SourceHead,
+        SOURCE_SIGN_TAG,
+    };
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+    ensure!(
+        transport::env("P5_V3_TRANSITION_SCOPE")? == "part5-v3-unrelated-transition",
+        "explicit unrelated transition scope required"
+    );
+    let output = transport::output()?;
+    ensure!(
+        fs::read_dir(&output)?.next().is_none(),
+        "fresh transition output required"
+    );
+    let stage_root = PathBuf::from(transport::env("P5_V3_STAGE_ROOT")?);
+    let stage_meta = fs::symlink_metadata(&stage_root)?;
+    ensure!(
+        stage_root.is_absolute()
+            && fs::canonicalize(&stage_root)? == stage_root
+            && stage_meta.is_dir()
+            && stage_meta.permissions().mode() & 0o7777 == 0o700
+            && stage_meta.uid() == unsafe { libc::geteuid() },
+        "canonical private staged request required"
+    );
+    let report_sha = transport::env("P5_V3_STAGE_REPORT_SHA256")?;
+    let plan_sha = transport::env("P5_V3_STAGE_PLAN_SHA256")?;
+    let report_raw = transport::pinned(&stage_root.join("stage-report.json"), &report_sha, 65536)?;
+    let report: Value = serde_json::from_slice(&report_raw)?;
+    let plan_raw = transport::pinned(&stage_root.join("plan.json"), &plan_sha, 8192)?;
+    let p: V3QueuePlan = serde_json::from_slice(&plan_raw)?;
+    let (transition, near_root) = transition_context()?;
+    ensure!(
+        transition.stage_report_sha256 == report_sha,
+        "exact staged transition request"
+    );
+    let rpc = transport::local_rpc()?;
+    let (program, genesis, loaded) = transport::domain(&rpc)?;
+    let a = p.addresses();
+    ensure!(
+        p.program == program
+            && p.genesis == genesis
+            && report["schema"] == "part5-v3-local-stage-v1"
+            && report["passed"] == true
+            && report["training_only"] == true
+            && report["proof_created"] == false
+            && report["application_effect"] == false
+            && report["plan_sha256"] == plan_sha
+            && report["program"] == Pubkey::new_from_array(program).to_string()
+            && report["genesis"] == Hash::new_from_array(genesis).to_string()
+            && report["loaded_program"]["elf_sha256"] == transport::env("P5_QUEUE_ELF_SHA256")?
+            && report["loaded_program"]["elf_match"] == true
+            && report["config"] == a.config.to_string()
+            && report["issuer"] == a.issuer.to_string()
+            && report["head"] == a.head.to_string()
+            && report["request"] == a.request.to_string()
+            && report["queue"] == a.queue.to_string(),
+        "exact staged application identity required"
+    );
+    let minimum_slot = report["finalized_slot"]
+        .as_u64()
+        .context("staged finality")?;
+    ensure!(minimum_slot > 0, "nonzero staged finality required");
+    let hashes = report["account_sha256"]
+        .as_array()
+        .context("five staged hashes")?;
+    ensure!(hashes.len() == 5, "five staged account hashes required");
+    let mut saved = Vec::with_capacity(5);
+    for (index, name) in ["config", "issuer", "head", "request", "queue"]
+        .iter()
+        .enumerate()
+    {
+        saved.push(transport::pinned(
+            &stage_root.join(format!("{name}.bin")),
+            hashes[index].as_str().context("staged account hash")?,
+            4096,
+        )?);
+    }
+    let saved: [Vec<u8>; 5] = saved
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("staged width"))?;
+    let (_, initial) = finalized_accounts(&rpc, &p, minimum_slot)?;
+    ensure!(
+        initial == saved,
+        "restarted finalized state differs from staged bytes"
+    );
+    let c = Config::decode(&initial[0]).map_err(|e| anyhow::anyhow!("config {e:?}"))?;
+    let i = Issuer::decode(&initial[1]).map_err(|e| anyhow::anyhow!("issuer {e:?}"))?;
+    let h = PublisherHead::decode(&initial[2]).map_err(|e| anyhow::anyhow!("head {e:?}"))?;
+    let r = Request::decode(&initial[3]).map_err(|e| anyhow::anyhow!("request {e:?}"))?;
+    let q = Queue::decode(&initial[4]).map_err(|e| anyhow::anyhow!("queue {e:?}"))?;
+    ensure!(
+        c.root == p.root
+            && c.root == transport::unhex(&transition.base_root)?
+            && c.root_version == 0
+            && c.enabled
+            && i.config == a.config
+            && i.issuer_hash == p.issuer_hash
+            && i.source == Pubkey::new_from_array(p.source)
+            && i.enabled
+            && i.status_valid
+            && i.sequence == 1
+            && h.config == a.config
+            && h.issuer == a.issuer
+            && h.publisher == Pubkey::new_from_array(p.publisher)
+            && h.root == c.root
+            && h.root_version == 0
+            && r.state == RequestState::Finalized
+            && q.entries.is_empty(),
+        "staged unconsumed request and source required"
+    );
+    let admin = transport::load_key(&stage_root, "admin.json", p.admin)?;
+    let publisher = transport::load_key(&stage_root, "publisher.json", p.publisher)?;
+    let source = transport::load_key(&stage_root, "source.json", p.source)?;
+    let observation_deadline = Instant::now() + Duration::from_secs(20);
+    let observed = loop {
+        let candidate = transport::clock(&rpc)?;
+        if candidate > i.observed_at {
+            break candidate;
+        }
+        ensure!(
+            Instant::now() < observation_deadline,
+            "new observation deadline"
+        );
+        thread::sleep(Duration::from_millis(250));
+    };
+    let expires = observed
+        .checked_add(180)
+        .context("status expiry overflow")?;
+    let sequence = i
+        .sequence
+        .checked_add(1)
+        .context("source sequence overflow")?;
+    let scope = Scope {
+        network: genesis,
+        program,
+        config: a.config.to_bytes(),
+        registry: a.queue.to_bytes(),
+        profile: c.profile_id,
+        circuit: c.circuit_id,
+        schema: c.schema_id,
+        package: c.package_id,
+        ordinary_vk: c.ordinary_vk_digest,
+        policy_hash: c.policy_id,
+        policy_version: c.policy_version,
+        config_eligibility_epoch: c.eligibility_epoch,
+        leaf_domain: credential_registry::v3::LEAF_DOMAIN,
+        depth: credential_registry::v3::DEPTH as u8,
+    };
+    let issuer = IssuerScope {
+        issuer_account: a.issuer.to_bytes(),
+        issuer_hash: i.issuer_hash,
+        source_key: p.source,
+        issuer_eligibility_epoch: i.eligibility_epoch,
+        enrollment_evidence_version: i.enrollment_version,
+        evidence_digest: i.evidence_digest,
+    };
+    let enrolled = EnrolledSource {
+        scope: scope.clone(),
+        issuer: issuer.clone(),
+        config_enabled: c.enabled,
+        issuer_enabled: i.enabled,
+        max_age_seconds: 180,
+    };
+    let observation = Observation {
+        scope,
+        issuer,
+        sequence,
+        previous_digest: i.digest,
+        observed_at: observed,
+        valid_until: expires,
+        issuer_status_active: true,
+        changes: vec![Change::Revoke {
+            tbs_digest: transport::unhex(&transition.unrelated_tbs_digest)?,
+        }],
+    };
+    let mut message = SOURCE_SIGN_TAG.to_vec();
+    message.extend(serde_json::to_vec(&observation)?);
+    let signed = SignedSource {
+        observation,
+        signature: source.sign_message(&message).as_ref().to_vec(),
+    };
+    let previous = SourceHead {
+        sequence: i.sequence,
+        digest: i.digest,
+    };
+    let verified = signed
+        .verify(&enrolled, &previous, observed)
+        .map_err(|e| anyhow::anyhow!("signed source revocation {e:?}"))?;
+    let source_digest = verified.head().digest;
+    ensure!(
+        source_digest != i.digest,
+        "fresh signed source digest required"
+    );
+    transport::new_json(&output.join("signed-source.json"), &signed)?;
+    transport::new_json(&output.join("enrolled-source.json"), &enrolled)?;
+    let mut expected_config = c.clone();
+    expected_config
+        .publish(
+            Authority {
+                key: publisher.pubkey(),
+                is_signer: true,
+            },
+            c.root_version,
+            near_root,
+        )
+        .map_err(|e| anyhow::anyhow!("pure root transition {e:?}"))?;
+    let mut events = Vec::new();
+    transport::send(
+        &rpc,
+        &admin,
+        Some(&publisher),
+        p.publish(0, near_root),
+        "v3-publish-unrelated-root",
+        None,
+        &mut events,
+    )?;
+    transport::send(
+        &rpc,
+        &admin,
+        Some(&source),
+        p.observe(
+            c.eligibility_epoch,
+            i.eligibility_epoch,
+            i.sequence,
+            sequence,
+            source_digest,
+            true,
+            observed,
+            expires,
+        ),
+        "v3-observe-signed-unrelated-revocation",
+        None,
+        &mut events,
+    )?;
+    let next_publication = h
+        .publication_sequence
+        .checked_add(1)
+        .context("publication sequence overflow")?;
+    let envelope_digest: [u8; 32] = Sha256::digest(
+        [
+            b"part5-v3-unrelated-head-training-v1".as_slice(),
+            &near_root,
+            &source_digest,
+            &h.envelope_digest,
+            &observed.to_be_bytes(),
+        ]
+        .concat(),
+    )
+    .into();
+    let binding = V3HeadBinding {
+        expected_config_epoch: c.eligibility_epoch,
+        expected_issuer_epoch: i.eligibility_epoch,
+        expected_root: near_root,
+        expected_root_version: 1,
+        expected_source_sequence: sequence,
+        expected_source_digest: source_digest,
+        expected_publication_sequence: h.publication_sequence,
+        expected_publication_digest: h.envelope_digest,
+        next_publication_sequence: next_publication,
+        envelope_digest,
+    };
+    transport::send(
+        &rpc,
+        &admin,
+        Some(&publisher),
+        p.bind_with_head(&binding),
+        "v3-bind-unrelated-current-head",
+        None,
+        &mut events,
+    )?;
+    let rooted = transport::wait_finalized(&rpc, &events)?;
+    let (finalized_slot, after) = finalized_accounts(&rpc, &p, rooted)?;
+    let next_issuer = Issuer::decode(&after[1]).map_err(|e| anyhow::anyhow!("issuer {e:?}"))?;
+    let next_head = PublisherHead::decode(&after[2]).map_err(|e| anyhow::anyhow!("head {e:?}"))?;
+    let checked_at = transport::clock(&rpc)?;
+    next_issuer
+        .fresh(&expected_config, checked_at)
+        .map_err(|e| anyhow::anyhow!("issuer freshness {e:?}"))?;
+    next_issuer
+        .binding_current(&expected_config)
+        .map_err(|e| anyhow::anyhow!("issuer binding {e:?}"))?;
+    ensure!(
+        after[0] == expected_config.encode()
+            && after[3] == initial[3]
+            && after[4] == initial[4]
+            && next_issuer.sequence == sequence
+            && next_issuer.digest == source_digest
+            && next_issuer.observed_at == observed
+            && next_issuer.expires_at == expires
+            && next_issuer.bound_root == near_root
+            && next_issuer.bound_root_version == 1
+            && next_head.publication_sequence == next_publication
+            && next_head.previous_publication_digest == h.envelope_digest
+            && next_head.envelope_digest == envelope_digest
+            && next_head.root == near_root
+            && next_head.root_version == 1
+            && next_head.source_sequence == sequence
+            && next_head.source_digest == source_digest,
+        "finalized signed unrelated transition differs from exact expected state"
+    );
+    for (index, name) in ["config", "issuer", "head", "request", "queue"]
+        .iter()
+        .enumerate()
+    {
+        transport::new_file(&output.join(format!("{name}.bin")), &after[index])?;
+    }
+    transport::new_json(
+        &output.join("transition-report.json"),
+        &json!({
+            "schema":"part5-v3-unrelated-local-transition-v1", "passed":true,
+            "training_only":true, "upstream_source_authentication":true,
+            "registry_history_authenticated":false, "application_effect":false,
+            "request_unconsumed":true, "devnet":false,
+            "program":Pubkey::new_from_array(program).to_string(),
+            "genesis":Hash::new_from_array(genesis).to_string(),
+            "loaded_program":loaded, "stage_report_sha256":report_sha,
+            "stage_plan_sha256":plan_sha, "transition_context_sha256":transport::env("P5_V3_TRANSITION_CONTEXT_SHA256")?,
+            "cohort_receipt_sha256":transition.cohort_receipt_sha256,
+            "membership_sha256":transition.membership_sha256,
+            "source_head_digest":hex::encode(source_digest),
+            "base_root":hex::encode(c.root), "near_root":hex::encode(near_root),
+            "base_finalized_slot":minimum_slot, "finalized_slot":finalized_slot,
+            "account_sha256":after.iter().map(|data| hex::encode(Sha256::digest(data))).collect::<Vec<_>>(),
+            "transactions":events,
+        }),
+    )?;
+    Ok(())
+}
+
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct V3QueuePlan {
@@ -817,6 +1151,118 @@ pub struct V3HeadBinding {
     pub expected_publication_digest: [u8; 32],
     pub next_publication_sequence: u64,
     pub envelope_digest: [u8; 32],
+}
+
+fn unrelated_revocation_roots(
+    own_digest: [u8; 32],
+    unrelated_digest: [u8; 32],
+    slot: usize,
+) -> Result<([u8; 32], [u8; 32], Vec<[u8; 32]>, Vec<[u8; 32]>)> {
+    ensure!(
+        own_digest != [0; 32]
+            && unrelated_digest != [0; 32]
+            && own_digest != unrelated_digest
+            && slot < 1024,
+        "two distinct allocated credential digests required"
+    );
+    let registry = |error| anyhow::anyhow!("v3 tree {error:?}");
+    let mut tree = credential_registry::v3::Tree::new().map_err(registry)?;
+    tree.set(slot, own_digest, true).map_err(registry)?;
+    tree.set(slot ^ 1, unrelated_digest, true)
+        .map_err(registry)?;
+    let base_root = tree.root();
+    let base_path = tree.path(slot).map_err(registry)?;
+    tree.set(slot ^ 1, unrelated_digest, false)
+        .map_err(registry)?;
+    let near_root = tree.root();
+    let near_path = tree.path(slot).map_err(registry)?;
+    ensure!(
+        base_root != near_root
+            && base_path
+                .iter()
+                .zip(&near_path)
+                .filter(|(a, b)| a != b)
+                .count()
+                == 1,
+        "one unrelated sibling revocation required"
+    );
+    credential_registry::v3::Tree::verify(own_digest, slot, true, &base_path, base_root)
+        .map_err(registry)?;
+    credential_registry::v3::Tree::verify(own_digest, slot, true, &near_path, near_root)
+        .map_err(registry)?;
+    Ok((base_root, near_root, base_path, near_path))
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TransitionContext {
+    schema: String,
+    training_only: bool,
+    stage_report_sha256: String,
+    cohort_receipt_sha256: String,
+    membership_sha256: String,
+    own_tbs_digest: String,
+    unrelated_tbs_digest: String,
+    slot: usize,
+    unrelated_slot: usize,
+    base_root: String,
+    near_root: String,
+}
+
+fn transition_context() -> Result<(TransitionContext, [u8; 32])> {
+    let raw = transport::pinned(
+        Path::new(&transport::env("P5_V3_TRANSITION_CONTEXT")?),
+        &transport::env("P5_V3_TRANSITION_CONTEXT_SHA256")?,
+        8192,
+    )?;
+    let context: TransitionContext = serde_json::from_slice(&raw)?;
+    ensure!(
+        context.schema == "part5-v3-unrelated-training-transition-v1"
+            && context.training_only
+            && context.unrelated_slot == context.slot ^ 1
+            && context.slot < 1024,
+        "exact unrelated training transition context"
+    );
+    for digest in [
+        &context.stage_report_sha256,
+        &context.cohort_receipt_sha256,
+        &context.membership_sha256,
+    ] {
+        transport::unhex(digest)?;
+    }
+    let own = transport::unhex(&context.own_tbs_digest)?;
+    let other = transport::unhex(&context.unrelated_tbs_digest)?;
+    let (base, near, _, _) = unrelated_revocation_roots(own, other, context.slot)?;
+    ensure!(
+        base == transport::unhex(&context.base_root)?
+            && near == transport::unhex(&context.near_root)?,
+        "transition roots differ from recomputed signed-leaf allocation"
+    );
+    Ok((context, near))
+}
+
+#[cfg(test)]
+mod revocation_transition_tests {
+    use super::*;
+
+    #[test]
+    fn unrelated_revocation_changes_one_sibling_and_own_revocation_blocks_path() {
+        let (base, near, base_path, near_path) =
+            unrelated_revocation_roots([7; 32], [9; 32], 44).unwrap();
+        assert_ne!(base, near);
+        assert_eq!(
+            base_path
+                .iter()
+                .zip(&near_path)
+                .filter(|(a, b)| a != b)
+                .count(),
+            1
+        );
+        credential_registry::v3::Tree::verify([7; 32], 44, true, &near_path, near).unwrap();
+        assert!(
+            credential_registry::v3::Tree::verify([7; 32], 44, false, &near_path, near).is_err()
+        );
+    }
 }
 
 impl V3QueuePlan {
@@ -914,6 +1360,21 @@ impl V3QueuePlan {
                 AccountMeta::new_readonly(a.config, false),
                 AccountMeta::new(a.issuer, false),
                 AccountMeta::new_readonly(system_program::id(), false),
+            ],
+        )
+    }
+
+    pub fn publish(&self, expected: u64, root: [u8; 32]) -> Instruction {
+        let a = self.addresses();
+        let mut body = Vec::with_capacity(40);
+        body.extend(expected.to_be_bytes());
+        body.extend(root);
+        self.instruction(
+            2,
+            body,
+            vec![
+                AccountMeta::new_readonly(Pubkey::new_from_array(self.publisher), true),
+                AccountMeta::new(a.config, false),
             ],
         )
     }

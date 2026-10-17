@@ -23,6 +23,7 @@ bincode = "1.3"
 libc = "0.2"
 rand = "0.8"
 zk-fresh-program = { path = "../program", features = ["no-entrypoint"] }
+credential-registry = { path = "../crates/credential-registry" }
 
 [dev-dependencies]
 tempfile = "3"
