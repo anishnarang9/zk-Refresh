@@ -526,6 +526,24 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'preserve all five accounts'):
             verifier._verify_full_transactions(rows, snapshots)
 
+    def test_full_a_rejection_hashes_must_match_pinned_account_bytes(self):
+        finalized = {name: f'final-{name}'.encode()
+                     for name in ('config', 'issuer', 'head', 'request', 'queue')}
+        staged = {name: f'stage-{name}'.encode()
+                  for name in ('config', 'issuer', 'head', 'request', 'queue')}
+        expected = [hashlib.sha256(finalized[name]).hexdigest()
+                    for name in ('config', 'issuer', 'head')]
+        expected.extend(hashlib.sha256(staged[name]).hexdigest()
+                        for name in ('request', 'queue'))
+        report = {'before_sha256': expected[:], 'after_sha256': expected[:]}
+
+        verifier._verify_full_rejection_account_hashes(report, finalized, staged)
+
+        report['before_sha256'][0] = hashlib.sha256(b'tampered').hexdigest()
+        report['after_sha256'][0] = report['before_sha256'][0]
+        with self.assertRaisesRegex(ValueError, 'pinned finalized/staged account bytes'):
+            verifier._verify_full_rejection_account_hashes(report, finalized, staged)
+
     def test_stage_receipt_requires_pre_enrollment_create_rejection_before_enrollment(self):
         rows = [
             {'scenario': 'v3-initialize', 'customError': None, 'err': None},

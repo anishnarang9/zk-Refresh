@@ -1294,6 +1294,20 @@ def _verify_full_transactions(transactions, pre_execute_rejection_accounts):
                  'Full A transaction error mismatch')
 
 
+def _verify_full_rejection_account_hashes(pre_execute_rejection_accounts,
+                                          finalized_accounts, stage_accounts):
+    """Bind the pre-Execute snapshot to independently pinned finalized bytes."""
+    _require(type(finalized_accounts) is dict and set(finalized_accounts) == set(ACCOUNT_NAMES)
+             and type(stage_accounts) is dict and set(stage_accounts) == set(ACCOUNT_NAMES),
+             'Full A finalized and stage account bytes required')
+    expected = [_sha(finalized_accounts[name]) for name in ('config', 'issuer', 'head')]
+    expected.extend(_sha(stage_accounts[name]) for name in ('request', 'queue'))
+    _require(type(pre_execute_rejection_accounts) is dict
+             and pre_execute_rejection_accounts.get('before_sha256') == expected
+             and pre_execute_rejection_accounts.get('after_sha256') == expected,
+             'Full A rejection hashes must match pinned finalized/staged account bytes')
+
+
 def _validate_proof_one(bundle, mode, slot_name, case, globals_, stage,
                         transition, sources, expected_wires, case_name):
     _require(type(bundle) is dict and set(bundle) == {'receipt', 'artifacts'},
@@ -1600,8 +1614,11 @@ def _verify_branch(branch, bundle, case, globals_, slot_data, clone_destinations
                  and report.get('replay_wire_sha256')
                     == _pin_sha(result_bundle['wires']['replay_full']),
                  'Full config/report wires differ from staged R0 request')
+        accounts = _accounts(result_bundle, report, f'{branch} result')
         _verify_full_transactions(report.get('transactions'),
                                   report.get('pre_execute_rejection_accounts'))
+        _verify_full_rejection_account_hashes(
+            report.get('pre_execute_rejection_accounts'), accounts, stage['accounts'])
         clone = _verify_r0_clone(bundle['r0_clone'], config, stage_bundle, stage)
         clone_destinations.add(clone['destination'])
         current_root = case['roots']['R0']
@@ -1714,7 +1731,8 @@ def _verify_branch(branch, bundle, case, globals_, slot_data, clone_destinations
         clone_destinations.add(clone['destination'])
         request_identity = r1['finalized_request_sha256']
 
-    accounts = _accounts(result_bundle, report, f'{branch} result')
+    if branch != 'full':
+        accounts = _accounts(result_bundle, report, f'{branch} result')
     runtime_identity = _verify_report_runtime_identity(
         report, status, config, globals_['freeze']['identities']['loaded_elf'],
         expected_program=stage['report']['program'],
