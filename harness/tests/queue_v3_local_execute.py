@@ -223,6 +223,13 @@ def admit(config):
     wire, wire_hash = stage.snapshot_generated(config['full_wire'], 448)
     if len(wire) != 448 or wire_hash != config['full_wire_sha256']:
         raise ValueError('pinned private six-public proof wire required')
+    private_directory(Path(config['replay_full_wire']).parent)
+    if Path(config['replay_full_wire']).lstat().st_nlink != 1:
+        raise ValueError('private replay proof wire must have one link')
+    replay_wire, replay_wire_hash = stage.snapshot_generated(config['replay_full_wire'], 448)
+    if replay_wire_hash != config['replay_full_wire_sha256']:
+        raise ValueError('pinned private replay proof wire required')
+    check_replay_wire(wire, replay_wire)
     root = private_directory(config['stage_root'])
     if str(root) != prior_config['stage_output']:
         raise ValueError('original stage output required')
@@ -249,6 +256,15 @@ def admit(config):
     return original, prior, report, elf, sizes, output, control
 
 
+def check_replay_wire(wire, replay_wire):
+    if len(wire) != 448 or len(replay_wire) != 448:
+        raise ValueError('replay wire must be 448-byte Full wires')
+    if wire[:192] != replay_wire[:192]:
+        raise ValueError('replay wire must have the same Full statement')
+    if wire[192:] == replay_wire[192:]:
+        raise ValueError('replay wire must contain a distinct Full proof')
+
+
 def check_effect_report(report, config, original):
     if (report.get('schema') != 'part5-v3-local-execute-v1' or report.get('passed') is not True
             or report.get('application_effect') is not True or report.get('effect_count') != 1
@@ -256,6 +272,7 @@ def check_effect_report(report, config, original):
             or report.get('stage_report_sha256') != config['stage_report_sha256']
             or report.get('stage_plan_sha256') != config['stage_plan_sha256']
             or report.get('wire_sha256') != config['full_wire_sha256']
+            or report.get('replay_wire_sha256') != config['replay_full_wire_sha256']
             or report.get('program') != original['program']
             or report.get('genesis') != config['expected_genesis']
             or type(report.get('finalized_slot')) is not int or report['finalized_slot'] <= 0
@@ -327,6 +344,8 @@ def run(config, config_sha256):
                     'P5_V3_STAGE_REPORT_SHA256': config['stage_report_sha256'],
                     'P5_V3_STAGE_PLAN_SHA256': config['stage_plan_sha256'],
                     'P5_V3_FULL_WIRE': config['full_wire'], 'P5_V3_FULL_WIRE_SHA256': config['full_wire_sha256'],
+                    'P5_V3_REPLAY_FULL_WIRE': config['replay_full_wire'],
+                    'P5_V3_REPLAY_FULL_WIRE_SHA256': config['replay_full_wire_sha256'],
                     'P5_V3_CONTEXT': config['context'], 'P5_V3_CONTEXT_SHA256': config['context_sha256'],
                     'P5_QUEUE_RPC': base.RPC.rstrip('/'), 'P5_QUEUE_PROGRAM': original['program'],
                     'P5_QUEUE_GENESIS': loaded['genesis'], 'P5_QUEUE_ELF': original['elf'],

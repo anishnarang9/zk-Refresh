@@ -1155,7 +1155,28 @@ pub fn execute_from_env() -> Result<()> {
         &wire_sha,
         448,
     )?;
+    let replay_wire_sha = transport::env("P5_V3_REPLAY_FULL_WIRE_SHA256")?;
+    let replay_wire = transport::pinned(
+        Path::new(&transport::env("P5_V3_REPLAY_FULL_WIRE")?),
+        &replay_wire_sha,
+        448,
+    )?;
+    ensure!(
+        wire.len() == 448
+            && replay_wire.len() == 448
+            && wire[..192] == replay_wire[..192]
+            && wire[192..] != replay_wire[192..],
+        "fresh replay Full proof must match the exact six-public statement"
+    );
     validate_full_wire(&p, &c, &r, context.not_before, context.not_after, &wire)?;
+    validate_full_wire(
+        &p,
+        &c,
+        &r,
+        context.not_before,
+        context.not_after,
+        &replay_wire,
+    )?;
     let admin = transport::load_key(&stage_root, "admin.json", p.admin)?;
     let publisher = transport::load_key(&stage_root, "publisher.json", p.publisher)?;
     let source = transport::load_key(&stage_root, "source.json", p.source)?;
@@ -1323,7 +1344,7 @@ pub fn execute_from_env() -> Result<()> {
         &rpc,
         &admin,
         None,
-        good,
+        p.execute(&replay_wire)?,
         "v3-replay-new-transaction",
         Some(zk_fresh_program::application_v3::AppError::Consumed as u64),
         &mut events,
@@ -1359,7 +1380,8 @@ pub fn execute_from_env() -> Result<()> {
             "genesis":Hash::new_from_array(genesis).to_string(),
             "loaded_program":loaded, "finalized_slot":finalized_slot,
             "stage_report_sha256":report_sha, "stage_plan_sha256":plan_sha,
-            "wire_sha256":wire_sha, "source_sequence":next_sequence,
+            "wire_sha256":wire_sha, "replay_wire_sha256":replay_wire_sha,
+            "source_sequence":next_sequence,
             "publication_sequence":next_publication,
             "account_sha256":after.iter().map(|data| hex::encode(Sha256::digest(data))).collect::<Vec<_>>(),
             "transactions":events,

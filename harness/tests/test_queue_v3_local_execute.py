@@ -172,17 +172,34 @@ class ExecuteTests(unittest.TestCase):
 
     def test_effect_report_requires_full_mode_exact_inputs_and_one_consumption(self):
         config = {'stage_report_sha256': 'a' * 64, 'stage_plan_sha256': 'b' * 64,
-                  'full_wire_sha256': 'c' * 64, 'expected_genesis': 'genesis'}
+                  'full_wire_sha256': 'c' * 64, 'replay_full_wire_sha256': 'd' * 64,
+                  'expected_genesis': 'genesis'}
         report = {'schema': 'part5-v3-local-execute-v1', 'passed': True, 'application_effect': True,
                   'effect_count': 1, 'request_consumed': True, 'proof_mode': 'Full',
                   'stage_report_sha256': 'a' * 64, 'stage_plan_sha256': 'b' * 64,
-                  'wire_sha256': 'c' * 64, 'genesis': 'genesis', 'program': 'program',
+                  'wire_sha256': 'c' * 64, 'replay_wire_sha256': 'd' * 64,
+                  'genesis': 'genesis', 'program': 'program',
                   'finalized_slot': 10, 'account_sha256': ['d' * 64] * 5}
         m.check_effect_report(report, config, {'program': 'program'})
         for field, value in [('effect_count', 2), ('request_consumed', False), ('proof_mode', 'Anchor'),
-                             ('wire_sha256', 'e' * 64), ('finalized_slot', 0), ('account_sha256', [])]:
+                             ('wire_sha256', 'e' * 64), ('replay_wire_sha256', 'e' * 64),
+                             ('finalized_slot', 0), ('account_sha256', [])]:
             with self.subTest(field=field), self.assertRaises(ValueError):
                 m.check_effect_report(dict(report, **{field: value}), config, {'program': 'program'})
+
+    def test_replay_wire_must_be_distinct_proof_for_the_same_statement(self):
+        self.assertTrue(hasattr(m, 'check_replay_wire'), 'fresh replay wire validation missing')
+        primary = bytes(range(256)) + bytes(range(192))
+        replay = bytearray(primary)
+        replay[192] ^= 1
+        m.check_replay_wire(primary, bytes(replay))
+        with self.assertRaisesRegex(ValueError, 'same Full statement'):
+            changed_statement = bytearray(replay); changed_statement[191] ^= 1
+            m.check_replay_wire(primary, bytes(changed_statement))
+        with self.assertRaisesRegex(ValueError, 'distinct Full proof'):
+            m.check_replay_wire(primary, primary)
+        with self.assertRaisesRegex(ValueError, '448-byte'):
+            m.check_replay_wire(primary, b'short')
 
     def test_run_rechecks_finalized_bytes_and_retains_effect_on_sigint_shutdown(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -206,6 +223,7 @@ class ExecuteTests(unittest.TestCase):
                       'prior_stage_status_sha256': 'a' * 64, 'stage_root': str(stage_root),
                       'stage_report_sha256': 'b' * 64, 'stage_plan_sha256': 'c' * 64,
                       'full_wire': '/wire', 'full_wire_sha256': 'd' * 64,
+                      'replay_full_wire': '/replay-wire', 'replay_full_wire_sha256': 'f' * 64,
                       'context': '/context', 'context_sha256': 'e' * 64, 'expected_genesis': 'genesis'}
             staged = {name: name for name in m.ACCOUNT_NAMES}
             staged.update(config=m.base.b58(bytes([4]) * 32), request=m.base.b58(bytes([9]) * 32))
@@ -213,7 +231,8 @@ class ExecuteTests(unittest.TestCase):
             report = {'schema': 'part5-v3-local-execute-v1', 'passed': True, 'application_effect': True,
                       'effect_count': 1, 'request_consumed': True, 'proof_mode': 'Full',
                       'stage_report_sha256': 'b' * 64, 'stage_plan_sha256': 'c' * 64,
-                      'wire_sha256': 'd' * 64, 'genesis': 'genesis', 'program': 'program',
+                      'wire_sha256': 'd' * 64, 'replay_wire_sha256': 'f' * 64,
+                      'genesis': 'genesis', 'program': 'program',
                       'finalized_slot': 6, 'account_sha256': [m.base.sha(raw) for raw in post],
                       'loaded_program': {'elf_match': True, 'elf_sha256': 'elf_sha256'}}
             class Proc:
@@ -225,6 +244,9 @@ class ExecuteTests(unittest.TestCase):
             def spawn(argv, **kwargs):
                 spawns.append(argv)
                 self.assertFalse(kwargs['start_new_session'])
+                if len(spawns) == 2:
+                    self.assertEqual(kwargs['env']['P5_V3_REPLAY_FULL_WIRE'], '/replay-wire')
+                    self.assertEqual(kwargs['env']['P5_V3_REPLAY_FULL_WIRE_SHA256'], 'f' * 64)
                 if len(spawns) == 1: return Proc(None)
                 m.base.write_new(output / 'execute-report.json', report)
                 for name, raw in zip(m.ACCOUNT_NAMES, post):
