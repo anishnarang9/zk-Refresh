@@ -49,7 +49,7 @@ def check_invocation(mode, invocation, monitor, work, clone_root, branch_output,
             and control_output.parent == REPO / 'artifacts/dynark/part5'
             and sha(control_output / 'status.json') == session['branch_status_sha256']
             and invocation.get('storage_roots') == list(map(str, (
-                monitor, work, clone_root, branch_output, control_output)))
+                monitor, work, branch_output, control_output, clone_root / 'ledger')))
             and outer['duration_seconds'] >= session['total_command_wall_seconds'],
             mode + ' outer invocation/session mismatch')
 

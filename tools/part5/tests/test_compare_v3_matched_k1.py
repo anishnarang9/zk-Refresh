@@ -72,7 +72,7 @@ class MatchedPairTests(unittest.TestCase):
                     '--control-output', str(status.parent)]
             invocation = {'owner': 'part5-v3-matched-k1-full-002', 'argv': args,
                           'cwd': str(REPO), 'storage_roots': list(map(str, (
-                              monitor, work, clone, branch, status.parent)))}
+                              monitor, work, branch, status.parent, clone / 'ledger')))}
             outer = {'owner': invocation['owner'], 'duration_seconds': 10.0}
             session = {'freeze_sha256': 'freeze-hash',
                        'branch_status_sha256': 'status-hash',

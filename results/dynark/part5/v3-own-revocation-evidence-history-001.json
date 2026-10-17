@@ -1,0 +1,30 @@
+{
+  "application_effect": false,
+  "base_root": "1d0e3cf7726a2f412557c764da26c8dd1a34638e09963b2a63f23e15d6fe4a9c",
+  "branch_report_sha256": "c9752ccf48e17310e54e2828e934cd5ec889ae8ac033c076c7c843de1911799a",
+  "clone_inventory_sha256": "1d5bb177b6510c2b93d1fad86ac11596d44bc831792fe082fb252693364b58d8",
+  "complete_tree_cpu_qualified": false,
+  "finalized_slot": 150,
+  "loaded_elf_sha256": "298c8c84c504038bafea858370a42872f03b016a09adbadd396dd4322991b99c",
+  "near_root": "12ce7aee2c5c3f0dfd4864b2e07fdfc462debf8907cc30a0950c3fe8295c7a22",
+  "outer_exit_note": "branch supervisor returns one after expected validator SIGINT; finalized branch verified",
+  "outer_passed": false,
+  "outer_report_sha256": "0d3ed3978c6053c115794766cb3ffa1868846e4100dd61503f1cc8b7182820cb",
+  "outer_wall_seconds": 36.75350095902104,
+  "policy_error_code": 713,
+  "queue_sha256": "921e51a03b03c8d312d2c8d41c251dafe53f7382f2b5518df937cce9f161b748",
+  "registry_history_authenticated": true,
+  "rejected_wires": [
+    "R0 Full",
+    "R1 Anchor"
+  ],
+  "request_sha256": "c223b632e27f5c85a0897be338bf58340745bd03d32f97d293fdc01a8a996246",
+  "request_unconsumed": true,
+  "revoked_root": "2818645476874374308c5d515882e2e9952832f3cd13c4b4ed09b1a41b9db934",
+  "schema": "part5-v3-own-revocation-evidence-v1",
+  "signed_history_sha256": "af114a03291bd67f0951af74f3722d80d3b3f641787aefda6fa767ea3a42c5e2",
+  "stage_report_sha256": "fed826d009b22e1e31a2008b135547c163cc93cb78f804c2a2c2f019772c4a06",
+  "training_only": true,
+  "transition_report_sha256": "7f192075e4e33f9c7746577e9a4bf8623bcd331d7e07271cb8ce0c36003cd904",
+  "verified": true
+}
