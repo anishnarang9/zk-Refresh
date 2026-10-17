@@ -39,13 +39,21 @@ fn actor(key: Pubkey) -> Authority {
     }
 }
 fn account(key: Pubkey, program: Pubkey, writable: bool, data: Vec<u8>) -> AccountInfo<'static> {
+    account_with_owner(key, program, writable, data)
+}
+fn account_with_owner(
+    key: Pubkey,
+    owner: Pubkey,
+    writable: bool,
+    data: Vec<u8>,
+) -> AccountInfo<'static> {
     AccountInfo::new(
         Box::leak(Box::new(key)),
         false,
         writable,
         Box::leak(Box::new(1)),
         Box::leak(data.into_boxed_slice()),
-        Box::leak(Box::new(program)),
+        Box::leak(Box::new(owner)),
         false,
         0,
     )
@@ -65,14 +73,34 @@ fn snapshot(accounts: &[AccountInfo]) -> Vec<(Pubkey, u64, Vec<u8>)> {
         })
         .collect()
 }
-struct FixedClock;
+fn full_snapshot(
+    accounts: &[AccountInfo],
+) -> Vec<(Pubkey, Pubkey, bool, bool, bool, u64, Vec<u8>)> {
+    accounts
+        .iter()
+        .map(|a| {
+            (
+                *a.key,
+                *a.owner,
+                a.is_signer,
+                a.is_writable,
+                a.executable,
+                a.lamports(),
+                a.try_borrow_data().unwrap().to_vec(),
+            )
+        })
+        .collect()
+}
+struct FixedClock {
+    now: i64,
+}
 impl SyscallStubs for FixedClock {
     fn sol_get_clock_sysvar(&self, destination: *mut u8) -> u64 {
         unsafe {
             std::ptr::write_unaligned(
                 destination.cast::<Clock>(),
                 Clock {
-                    unix_timestamp: NOW,
+                    unix_timestamp: self.now,
                     ..Clock::default()
                 },
             );
@@ -226,7 +254,7 @@ impl Fixture {
 
 #[test]
 fn execute_v3_integrates_current_state_rejections_without_appending_or_consuming() {
-    let _clock = ClockGuard(Some(set_syscall_stubs(Box::new(FixedClock))));
+    let _clock = ClockGuard(Some(set_syscall_stubs(Box::new(FixedClock { now: NOW }))));
     let mut mismatches = Vec::new();
     for (case, expected) in [
         ("invalid-proof", AppError::Proof),
@@ -328,6 +356,66 @@ fn execute_v3_integrates_current_state_rejections_without_appending_or_consuming
         mismatches.is_empty(),
         "Execute must integrate preflight then proof verification; mismatches: {mismatches:?}"
     );
+}
+
+#[test]
+fn execute_v3_rejects_missing_disabled_and_stale_issuer_and_bad_account_views() {
+    let _clock = ClockGuard(Some(set_syscall_stubs(Box::new(FixedClock { now: NOW }))));
+    for (case, expected) in [
+        ("missing-issuer", AppError::Accounts),
+        ("disabled-issuer", AppError::Policy),
+        ("stale-observation", AppError::Status),
+        ("wrong-order", AppError::State),
+        ("wrong-privilege", AppError::Privileges),
+        ("wrong-owner", AppError::Owner),
+    ] {
+        let mut x = Fixture::new();
+        match case {
+            "missing-issuer" => {
+                x.accounts.remove(1);
+            }
+            "disabled-issuer" => {
+                let mut issuer = x.issuer();
+                issuer
+                    .set_enabled(&x.config(), actor(x.config().admin), false)
+                    .unwrap();
+                replace(&x.accounts[1], issuer.encode());
+            }
+            "stale-observation" => {
+                let mut issuer = x.issuer();
+                // Keep the issuer codec/admission state valid, then execute
+                // after its signed status has expired.
+                issuer.observed_at = 0;
+                issuer.expires_at = 300;
+                replace(&x.accounts[1], issuer.encode());
+            }
+            "wrong-order" => x.accounts.swap(1, 2),
+            "wrong-privilege" => x.accounts[3].is_writable = false,
+            "wrong-owner" => {
+                let issuer_key = *x.accounts[1].key;
+                let issuer_data = x.accounts[1].try_borrow_data().unwrap().to_vec();
+                x.accounts[1] = account_with_owner(issuer_key, key(99), false, issuer_data);
+            }
+            _ => unreachable!(),
+        }
+        let clock_now = if case == "stale-observation" {
+            301
+        } else {
+            NOW
+        };
+        set_syscall_stubs(Box::new(FixedClock { now: clock_now }));
+        let before = full_snapshot(&x.accounts);
+        assert_eq!(
+            process_instruction(&x.program, &x.accounts, &x.wire()),
+            Err(ProgramError::from(expected)),
+            "{case}: Execute accepted invalid current account state"
+        );
+        assert_eq!(
+            full_snapshot(&x.accounts),
+            before,
+            "{case}: rejected Execute changed account keys, metadata, or state"
+        );
+    }
 }
 
 #[test]
