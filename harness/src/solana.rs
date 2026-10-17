@@ -1948,7 +1948,7 @@ pub mod queue_v2 {
         new_json(&out.join(name), &k.to_bytes().to_vec())?;
         Ok(k)
     }
-    fn load_key(out: &Path, name: &str, expected: [u8; 32]) -> Result<Keypair> {
+    pub(super) fn load_key(out: &Path, name: &str, expected: [u8; 32]) -> Result<Keypair> {
         let p = out.join(name);
         let m = fs::symlink_metadata(&p)?;
         ensure!(
@@ -2039,7 +2039,12 @@ pub mod queue_v2 {
             .as_i64()
             .context("execution clock unavailable")
     }
-    pub(super) fn state(rpc: &Rpc, key: [u8; 32], program: [u8; 32], len: usize) -> Result<Vec<u8>> {
+    pub(super) fn state(
+        rpc: &Rpc,
+        key: [u8; 32],
+        program: [u8; 32],
+        len: usize,
+    ) -> Result<Vec<u8>> {
         let (a, b) = rpc.account(&pk(key))?.context("program state missing")?;
         ensure!(
             a["owner"] == pk(program).to_string() && a["executable"] == false && b.len() == len,

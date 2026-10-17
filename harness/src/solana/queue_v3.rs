@@ -130,6 +130,63 @@ fn finalized_accounts(
     ))
 }
 
+fn validate_full_wire(
+    plan: &V3QueuePlan,
+    config: &Config,
+    request: &Request,
+    not_before: i64,
+    not_after: i64,
+    wire: &[u8],
+) -> Result<()> {
+    ensure!(
+        not_before >= 0 && not_before < not_after,
+        "signed validity interval"
+    );
+    ensure!(
+        config.root == plan.root
+            && config.policy_id == plan.policy_id
+            && config.genesis == plan.genesis
+            && config.seed == plan.seed
+            && request.config == plan.addresses().config
+            && request.creator == Pubkey::new_from_array(plan.creator)
+            && request.nonce == plan.nonce
+            && request.issuer_hash == plan.issuer_hash
+            && request.recipient == Pubkey::new_from_array(plan.recipient)
+            && request.deadline == plan.deadline
+            && request.payload == plan.payload
+            && request.state == RequestState::Finalized,
+        "exact staged request context required"
+    );
+    let epoch_word = |seconds: i64| -> Result<[u8; 32]> {
+        let mut result = [0; 32];
+        result[24..].copy_from_slice(&u64::try_from(seconds)?.to_be_bytes());
+        Ok(result)
+    };
+    let expected = [
+        plan.root,
+        plan.issuer_hash,
+        epoch_word(not_before)?,
+        epoch_word(not_after)?,
+        zk_fresh_program::application_v3::action_hash(
+            &Pubkey::new_from_array(plan.program),
+            config,
+            request,
+        )
+        .map_err(|e| anyhow::anyhow!("action derivation {e:?}"))?,
+        plan.policy_id,
+    ];
+    let instruction = plan.execute(wire)?;
+    ensure!(
+        instruction.data[2..194]
+            == expected
+                .iter()
+                .flat_map(|word| word.iter().copied())
+                .collect::<Vec<_>>(),
+        "Full proof statement differs from staged request"
+    );
+    Ok(())
+}
+
 /// Prepare one training request through the loaded SBF program. The external
 /// supervisor authenticates the live validator, bounds this child and owns it.
 /// This function does not create or verify a proof or authorize an Execute.
@@ -392,6 +449,328 @@ pub fn stage_from_env() -> Result<()> {
             "plan_sha256":hex::encode(Sha256::digest(fs::read(output.join("plan.json"))?)),
             "account_sha256":bytes.iter().map(|data| hex::encode(Sha256::digest(data))).collect::<Vec<_>>(),
             "funding_signatures":funding,"transactions":events,
+        }),
+    )?;
+    Ok(())
+}
+
+/// Consume one exact staged request with a genuine request-bound Full proof.
+/// The supervisor must independently reattest the persistent local ledger and
+/// finalized account bytes before starting this child and after it returns.
+pub fn execute_from_env() -> Result<()> {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    ensure!(
+        transport::env("P5_V3_EXEC_SCOPE")? == "part5-v3-local-execute",
+        "explicit local Full Execute scope required"
+    );
+    let output = transport::output()?;
+    ensure!(
+        fs::read_dir(&output)?.next().is_none(),
+        "fresh Execute output required"
+    );
+    let stage_root = PathBuf::from(transport::env("P5_V3_STAGE_ROOT")?);
+    let stage_meta = fs::symlink_metadata(&stage_root)?;
+    ensure!(
+        stage_root.is_absolute()
+            && fs::canonicalize(&stage_root)? == stage_root
+            && stage_meta.is_dir()
+            && stage_meta.permissions().mode() & 0o7777 == 0o700
+            && stage_meta.uid() == unsafe { libc::geteuid() },
+        "canonical private staged request required"
+    );
+    let report_sha = transport::env("P5_V3_STAGE_REPORT_SHA256")?;
+    let plan_sha = transport::env("P5_V3_STAGE_PLAN_SHA256")?;
+    let report_raw = transport::pinned(&stage_root.join("stage-report.json"), &report_sha, 65536)?;
+    let report: Value = serde_json::from_slice(&report_raw)?;
+    let plan_raw = transport::pinned(&stage_root.join("plan.json"), &plan_sha, 8192)?;
+    let p: V3QueuePlan = serde_json::from_slice(&plan_raw)?;
+    let rpc = transport::local_rpc()?;
+    let (program, genesis, loaded) = transport::domain(&rpc)?;
+    let a = p.addresses();
+    ensure!(
+        p.program == program
+            && p.genesis == genesis
+            && report["schema"] == "part5-v3-local-stage-v1"
+            && report["passed"] == true
+            && report["training_only"] == true
+            && report["proof_created"] == false
+            && report["application_effect"] == false
+            && report["plan_sha256"] == plan_sha
+            && report["program"] == Pubkey::new_from_array(program).to_string()
+            && report["genesis"] == Hash::new_from_array(genesis).to_string()
+            && report["loaded_program"]["elf_sha256"] == transport::env("P5_QUEUE_ELF_SHA256")?
+            && report["loaded_program"]["elf_match"] == true
+            && report["config"] == a.config.to_string()
+            && report["issuer"] == a.issuer.to_string()
+            && report["head"] == a.head.to_string()
+            && report["request"] == a.request.to_string()
+            && report["queue"] == a.queue.to_string(),
+        "exact staged application identity required"
+    );
+    let minimum_slot = report["finalized_slot"]
+        .as_u64()
+        .context("staged finalized slot")?;
+    ensure!(minimum_slot > 0, "nonzero staged finality required");
+    let hashes = report["account_sha256"]
+        .as_array()
+        .context("five staged account hashes")?;
+    ensure!(hashes.len() == 5, "five staged account hashes required");
+    let mut saved = Vec::with_capacity(5);
+    for (index, name) in ["config", "issuer", "head", "request", "queue"]
+        .iter()
+        .enumerate()
+    {
+        let digest = hashes[index].as_str().context("staged account hash")?;
+        saved.push(transport::pinned(
+            &stage_root.join(format!("{name}.bin")),
+            digest,
+            4096,
+        )?);
+    }
+    let saved: [Vec<u8>; 5] = saved
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("staged width"))?;
+    let (_, initial) = finalized_accounts(&rpc, &p, minimum_slot)?;
+    ensure!(
+        initial == saved,
+        "restarted finalized state differs from staged bytes"
+    );
+    let c = Config::decode(&initial[0]).map_err(|e| anyhow::anyhow!("config codec {e:?}"))?;
+    let i = Issuer::decode(&initial[1]).map_err(|e| anyhow::anyhow!("issuer codec {e:?}"))?;
+    let h = PublisherHead::decode(&initial[2]).map_err(|e| anyhow::anyhow!("head codec {e:?}"))?;
+    let r = Request::decode(&initial[3]).map_err(|e| anyhow::anyhow!("request codec {e:?}"))?;
+    let q = Queue::decode(&initial[4]).map_err(|e| anyhow::anyhow!("queue codec {e:?}"))?;
+    let (context, root, issuer_hash, policy_id, aki, evidence_digest) = training_context()?;
+    ensure!(
+        c.root == root
+            && c.policy_id == policy_id
+            && c.enabled
+            && i.config == a.config
+            && i.issuer_hash == issuer_hash
+            && i.aki == aki
+            && i.evidence_digest == evidence_digest
+            && i.status_valid
+            && i.enabled
+            && h.config == a.config
+            && h.issuer == a.issuer
+            && r.state == RequestState::Finalized
+            && q.entries.is_empty(),
+        "staged credential and request context required"
+    );
+    let wire_sha = transport::env("P5_V3_FULL_WIRE_SHA256")?;
+    let wire = transport::pinned(
+        Path::new(&transport::env("P5_V3_FULL_WIRE")?),
+        &wire_sha,
+        448,
+    )?;
+    validate_full_wire(&p, &c, &r, context.not_before, context.not_after, &wire)?;
+    let admin = transport::load_key(&stage_root, "admin.json", p.admin)?;
+    let publisher = transport::load_key(&stage_root, "publisher.json", p.publisher)?;
+    let source = transport::load_key(&stage_root, "source.json", p.source)?;
+    let observation_deadline = Instant::now() + Duration::from_secs(20);
+    let observed = loop {
+        let candidate = transport::clock(&rpc)?;
+        if candidate > i.observed_at {
+            break candidate;
+        }
+        ensure!(
+            Instant::now() < observation_deadline,
+            "newer source observation deadline"
+        );
+        thread::sleep(Duration::from_millis(250));
+    };
+    let expires = observed
+        .checked_add(240)
+        .context("status expiry overflow")?;
+    let next_sequence = i
+        .sequence
+        .checked_add(1)
+        .context("status sequence overflow")?;
+    let source_digest: [u8; 32] = Sha256::digest(
+        [
+            b"part5-v3-local-execute-source-training-v1".as_slice(),
+            &root,
+            &issuer_hash,
+            &evidence_digest,
+            &i.digest,
+            &next_sequence.to_be_bytes(),
+            &observed.to_be_bytes(),
+        ]
+        .concat(),
+    )
+    .into();
+    ensure!(
+        source_digest != i.digest,
+        "new signed source digest required"
+    );
+    let mut events = Vec::new();
+    transport::send(
+        &rpc,
+        &admin,
+        Some(&source),
+        p.observe(
+            c.eligibility_epoch,
+            i.eligibility_epoch,
+            i.sequence,
+            next_sequence,
+            source_digest,
+            true,
+            observed,
+            expires,
+        ),
+        "v3-refresh-active-source",
+        None,
+        &mut events,
+    )?;
+    let next_publication = h
+        .publication_sequence
+        .checked_add(1)
+        .context("head sequence overflow")?;
+    let envelope_digest: [u8; 32] = Sha256::digest(
+        [
+            b"part5-v3-local-execute-head-training-v1".as_slice(),
+            &root,
+            &h.envelope_digest,
+            &source_digest,
+            &observed.to_be_bytes(),
+        ]
+        .concat(),
+    )
+    .into();
+    let binding = V3HeadBinding {
+        expected_config_epoch: c.eligibility_epoch,
+        expected_issuer_epoch: i.eligibility_epoch,
+        expected_root: c.root,
+        expected_root_version: c.root_version,
+        expected_source_sequence: next_sequence,
+        expected_source_digest: source_digest,
+        expected_publication_sequence: h.publication_sequence,
+        expected_publication_digest: h.envelope_digest,
+        next_publication_sequence: next_publication,
+        envelope_digest,
+    };
+    transport::send(
+        &rpc,
+        &admin,
+        Some(&publisher),
+        p.bind_with_head(&binding),
+        "v3-bind-refreshed-head",
+        None,
+        &mut events,
+    )?;
+    let rooted = transport::wait_finalized(&rpc, &events)?;
+    let (_, bound) = finalized_accounts(&rpc, &p, rooted)?;
+    let current_issuer =
+        Issuer::decode(&bound[1]).map_err(|e| anyhow::anyhow!("issuer codec {e:?}"))?;
+    let current_head =
+        PublisherHead::decode(&bound[2]).map_err(|e| anyhow::anyhow!("head codec {e:?}"))?;
+    let current_time = transport::clock(&rpc)?;
+    current_issuer
+        .fresh(&c, current_time)
+        .map_err(|e| anyhow::anyhow!("issuer freshness {e:?}"))?;
+    current_issuer
+        .binding_current(&c)
+        .map_err(|e| anyhow::anyhow!("issuer binding {e:?}"))?;
+    ensure!(
+        bound[0] == initial[0]
+            && bound[3] == initial[3]
+            && bound[4] == initial[4]
+            && current_issuer.sequence == next_sequence
+            && current_issuer.digest == source_digest
+            && current_issuer.expires_at == expires
+            && current_head.publication_sequence == next_publication
+            && current_head.previous_publication_digest == h.envelope_digest
+            && current_head.envelope_digest == envelope_digest
+            && current_head.root == c.root
+            && current_head.root_version == c.root_version
+            && current_head.source_sequence == next_sequence
+            && current_head.source_digest == source_digest,
+        "finalized refreshed source/head differs from exact signed update"
+    );
+    let mut wrong_action = wire.clone();
+    let mut changed_action = [0; 32];
+    changed_action[31] = u8::from(wire[128..160] == [0; 32]);
+    wrong_action[128..160].copy_from_slice(&changed_action);
+    transport::send(
+        &rpc,
+        &admin,
+        None,
+        p.execute(&wrong_action)?,
+        "v3-wrong-action",
+        Some(zk_fresh_program::application_v3::AppError::Action as u64),
+        &mut events,
+    )?;
+    let mut wrong_proof = wire.clone();
+    wrong_proof[192..].fill(0);
+    transport::send(
+        &rpc,
+        &admin,
+        None,
+        p.execute(&wrong_proof)?,
+        "v3-invalid-proof",
+        Some(zk_fresh_program::application_v3::AppError::Proof as u64),
+        &mut events,
+    )?;
+    let rooted = transport::wait_finalized(&rpc, &events)?;
+    let (_, rejected) = finalized_accounts(&rpc, &p, rooted)?;
+    ensure!(
+        rejected == bound,
+        "rejected Execute changed any finalized account"
+    );
+    let good = p.execute(&wire)?;
+    transport::send(
+        &rpc,
+        &admin,
+        None,
+        good.clone(),
+        "v3-valid-full-execute",
+        None,
+        &mut events,
+    )?;
+    transport::send(
+        &rpc,
+        &admin,
+        None,
+        good,
+        "v3-replay-new-transaction",
+        Some(zk_fresh_program::application_v3::AppError::Consumed as u64),
+        &mut events,
+    )?;
+    let rooted = transport::wait_finalized(&rpc, &events)?;
+    let (finalized_slot, after) = finalized_accounts(&rpc, &p, rooted)?;
+    let mut expected_request = r.clone();
+    expected_request.state = RequestState::Consumed;
+    let mut expected_queue = q.clone();
+    expected_queue.entries.push(a.request);
+    ensure!(
+        after[0] == bound[0]
+            && after[1] == bound[1]
+            && after[2] == bound[2]
+            && after[3] == expected_request.encode()
+            && after[4] == expected_queue.encode(),
+        "finalized protected queue effect differs from one append/consumption"
+    );
+    for (index, name) in ["config", "issuer", "head", "request", "queue"]
+        .iter()
+        .enumerate()
+    {
+        transport::new_file(&output.join(format!("{name}.bin")), &after[index])?;
+    }
+    transport::new_json(
+        &output.join("execute-report.json"),
+        &json!({
+            "schema":"part5-v3-local-execute-v1", "passed":true,
+            "training_only":true, "upstream_source_authentication":false,
+            "application_effect":true, "effect_count":1, "request_consumed":true,
+            "proof_mode":"Full", "devnet":false,
+            "program":Pubkey::new_from_array(program).to_string(),
+            "genesis":Hash::new_from_array(genesis).to_string(),
+            "loaded_program":loaded, "finalized_slot":finalized_slot,
+            "stage_report_sha256":report_sha, "stage_plan_sha256":plan_sha,
+            "wire_sha256":wire_sha, "source_sequence":next_sequence,
+            "publication_sequence":next_publication,
+            "account_sha256":after.iter().map(|data| hex::encode(Sha256::digest(data))).collect::<Vec<_>>(),
+            "transactions":events,
         }),
     )?;
     Ok(())
@@ -662,6 +1041,29 @@ impl V3QueuePlan {
     pub fn finalize(&self) -> Instruction {
         self.instruction(5, Vec::new(), self.edit_accounts())
     }
+
+    pub fn execute(&self, wire: &[u8]) -> Result<Instruction> {
+        ensure!(wire.len() == 448, "six publics and v3 proof required");
+        for public in wire[..192].chunks_exact(32) {
+            let word: [u8; 32] = public.try_into()?;
+            ensure!(
+                zk_fresh_program::canonical(&word).is_ok(),
+                "canonical public field required"
+            );
+        }
+        let a = self.addresses();
+        Ok(self.instruction(
+            7,
+            wire.to_vec(),
+            vec![
+                AccountMeta::new_readonly(a.config, false),
+                AccountMeta::new_readonly(a.issuer, false),
+                AccountMeta::new_readonly(a.head, false),
+                AccountMeta::new(a.request, false),
+                AccountMeta::new(a.queue, false),
+            ],
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -831,5 +1233,120 @@ mod tests {
         context["aki"] = hex::encode(p.aki).into();
         context["unexpected"] = true.into();
         assert!(parse_training_context(&serde_json::to_vec(&context).unwrap()).is_err());
+    }
+
+    #[test]
+    fn execute_wire_binds_exact_ordered_v3_accounts_and_packet() {
+        use solana_sdk::transaction::Transaction;
+        let mut p = plan();
+        let payer = Keypair::new();
+        p.admin = payer.pubkey().to_bytes();
+        let mut wire = vec![0; 448];
+        wire[192] = 1;
+        let ix = p.execute(&wire).unwrap();
+        let a = p.addresses();
+        assert_eq!(ix.data.len(), 450);
+        assert_eq!(&ix.data[..2], &[0x51, 7]);
+        assert_eq!(&ix.data[2..], wire);
+        assert_eq!(
+            ix.accounts.iter().map(|m| m.pubkey).collect::<Vec<_>>(),
+            vec![a.config, a.issuer, a.head, a.request, a.queue]
+        );
+        assert!(ix
+            .accounts
+            .iter()
+            .enumerate()
+            .all(|(index, m)| !m.is_signer && m.is_writable == (index >= 3)));
+        assert!(matches!(
+            AppInstruction::parse(&ix.data),
+            Ok(AppInstruction::Execute { .. })
+        ));
+        let tx = Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&payer.pubkey()),
+            &[&payer],
+            Hash::new_unique(),
+        );
+        assert!(bincode::serialize(&tx).unwrap().len() <= 1232);
+        assert!(p.execute(&wire[..447]).is_err());
+        wire[..32].fill(0xff);
+        assert!(p.execute(&wire).is_err());
+    }
+
+    #[test]
+    fn full_wire_requires_staged_action_and_signed_validity_fields() {
+        use zk_fresh_program::{
+            application_v3::{action_hash, RelevantMeta},
+            generated_vk_v3 as identity,
+        };
+        let p = plan();
+        let a = p.addresses();
+        let c = Config {
+            admin: Pubkey::new_from_array(p.admin),
+            seed: p.seed,
+            publisher: Pubkey::new_from_array(p.publisher),
+            genesis: p.genesis,
+            policy_id: p.policy_id,
+            policy_version: 1,
+            circuit_id: identity::CIRCUIT_ID,
+            package_id: identity::PACKAGE_ID,
+            schema_id: identity::SEMANTIC_SCHEMA_ID,
+            profile_id: identity::PROFILE_ID,
+            ordinary_vk_digest: identity::ORDINARY_VK_DIGEST,
+            root: p.root,
+            root_version: 0,
+            eligibility_epoch: 0,
+            enabled: true,
+        };
+        let r = Request {
+            config: a.config,
+            creator: Pubkey::new_from_array(p.creator),
+            nonce: p.nonce,
+            issuer_hash: p.issuer_hash,
+            recipient: Pubkey::new_from_array(p.recipient),
+            request_type: 1,
+            deadline: p.deadline,
+            payload_len: p.payload.len() as u16,
+            uploaded: p.payload.len() as u16,
+            metas_uploaded: 2,
+            state: RequestState::Finalized,
+            metas: [a.request, a.queue]
+                .into_iter()
+                .map(|key| RelevantMeta {
+                    key,
+                    flags: 2,
+                    owner: Pubkey::new_from_array(p.program),
+                })
+                .collect(),
+            payload: p.payload.clone(),
+        };
+        let mut wire = vec![0; 448];
+        for (index, word) in [
+            p.root,
+            p.issuer_hash,
+            {
+                let mut x = [0; 32];
+                x[24..].copy_from_slice(&100u64.to_be_bytes());
+                x
+            },
+            {
+                let mut x = [0; 32];
+                x[24..].copy_from_slice(&1000u64.to_be_bytes());
+                x
+            },
+            action_hash(&Pubkey::new_from_array(p.program), &c, &r).unwrap(),
+            p.policy_id,
+        ]
+        .iter()
+        .enumerate()
+        {
+            wire[index * 32..(index + 1) * 32].copy_from_slice(word);
+        }
+        wire[192] = 1;
+        assert!(validate_full_wire(&p, &c, &r, 100, 1000, &wire).is_ok());
+        wire[159] ^= 1;
+        assert!(validate_full_wire(&p, &c, &r, 100, 1000, &wire).is_err());
+        wire[159] ^= 1;
+        assert!(validate_full_wire(&p, &c, &r, 101, 1000, &wire).is_err());
     }
 }
