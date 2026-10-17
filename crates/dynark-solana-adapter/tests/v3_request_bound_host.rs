@@ -953,5 +953,80 @@ fn private_campaign_final_wire_passes_adapter_and_program_host() {
     file.write_all(&wire).unwrap();
     file.sync_all().unwrap();
     assert_eq!(private(&output, 448, Some(448)).unwrap(), wire);
+
+    // The cumulative R0 proof is available for Full and Anchor campaigns and
+    // is needed by the protected-effect host to reject stale-base execution.
+    // Coalesced campaigns intentionally produce only their final proof.
+    if kind != "coalesced-full" && count > 0 {
+        let base_fixture = PathBuf::from(
+            std::env::var_os("M2_V3_CAMPAIGN_BASE_FIXTURE")
+                .expect("private cumulative base fixture"),
+        );
+        directory(&base_fixture).expect("canonical owner0700 base fixture directory");
+        let base_receipt_bytes =
+            private(&base_fixture.join("training-receipt.json"), 16384, None).unwrap();
+        assert_eq!(
+            sha(&base_receipt_bytes),
+            std::env::var("M2_V3_CAMPAIGN_BASE_RECEIPT_SHA256").expect("base receipt SHA")
+        );
+        let base_receipt: Value =
+            serde_json::from_slice(&base_receipt_bytes).expect("base receipt JSON");
+        assert!(
+            base_receipt["schema"] == "v3-request-bound-training-input-v1"
+                && base_receipt["training_only"] == true
+                && base_receipt["proof_created"] == false
+        );
+        let base_request = private(&base_fixture.join("request.bin"), 1918, Some(1918)).unwrap();
+        let base_input = private(&base_fixture.join("input.json"), 65536, None).unwrap();
+        let base_public_json = private(&base_fixture.join("public.json"), 1024, None).unwrap();
+        for (name, bytes) in [
+            ("request.bin", &base_request),
+            ("input.json", &base_input),
+            ("public.json", &base_public_json),
+        ] {
+            assert_eq!(
+                base_receipt["artifact_sha256"][name].as_str(),
+                Some(sha(bytes).as_str())
+            );
+        }
+        let base_expected = expected_public(&base_public_json, &base_input, &base_request)
+            .expect("base request/public/input equality");
+        assert_eq!(
+            report["application_stage_pins"]["base_root"],
+            base_expected[0].to_string(),
+            "proof report base root"
+        );
+        assert_ne!(base_expected[0], expected[0], "stale R0 root differs from final");
+        assert_eq!(&base_expected[1..], &expected[1..], "same cumulative action");
+
+        let base_proof = private(
+            &proofs.join("request_bound_training_full_r0.proof"),
+            128,
+            Some(128),
+        )
+        .unwrap();
+        let base_public = private(
+            &proofs.join("request_bound_training_full_r0-public.bin"),
+            200,
+            Some(200),
+        )
+        .unwrap();
+        let base_wire = verify_join(&base_proof, &base_public, &base_expected, &vk)
+            .expect("base R0 Full ordinary proof/adapter/program host join");
+        let base_output = base_fixture.join("campaign-full-k0-solana-wire.bin");
+        let mut base_file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .custom_flags(libc::O_NOFOLLOW)
+            .open(&base_output)
+            .expect("fresh private campaign base wire output");
+        base_file
+            .set_permissions(fs::Permissions::from_mode(0o600))
+            .unwrap();
+        base_file.write_all(&base_wire).unwrap();
+        base_file.sync_all().unwrap();
+        assert_eq!(private(&base_output, 448, Some(448)).unwrap(), base_wire);
+    }
     // Caller-supplied stage pins do not establish a finalized application effect.
 }
