@@ -17,6 +17,8 @@ mod v3_setup;
 mod v3_input_worker;
 mod v3_input_map;
 mod v3_relation;
+mod v3_action;
+mod v3_local_accounts;
 
 pub use client::*;
 pub use control::*;
@@ -32,6 +34,8 @@ pub use v3_setup::*;
 pub use v3_input_worker::*;
 pub use v3_input_map::*;
 pub use v3_relation::*;
+pub use v3_action::*;
+pub use v3_local_accounts::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum InvalidationReason {
