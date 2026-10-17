@@ -89,6 +89,8 @@ def _bundle(paths):
 
 def build(freeze_receipt, cohort_root, base_prepare_config, packet_template,
           adapter_binary, bounded_supervisor, node, exporter, runner, output_dir):
+    if Path(runner) != ROOT / freeze_tool.RUNNER_BINARY:
+        raise ValueError('frozen heldout queue runner binary path required')
     output_dir = Path(output_dir)
     if (not output_dir.is_absolute() or output_dir.parent != PART5
             or output_dir.exists() or output_dir.is_symlink()
@@ -150,7 +152,7 @@ def build(freeze_receipt, cohort_root, base_prepare_config, packet_template,
            for name, ref in application_source_files.items()):
         raise ValueError('application source file changed after inventory')
     template = _ref(base_prepare_config, 65536)
-    python = _ref(runner, 128 * 1024 * 1024)
+    runner_binary = _ref(runner, 128 * 1024 * 1024)
     output_dir.mkdir(mode=0o700)
     try:
         source_raw = (json.dumps(current_source, sort_keys=True, indent=2) + '\n').encode()
@@ -165,7 +167,7 @@ def build(freeze_receipt, cohort_root, base_prepare_config, packet_template,
                 'cohort_root': str(cohort_root), 'cohort_sha256': cohort['sha256'],
                 'base_prepare_config': template['path'],
                 'base_prepare_config_sha256': template['sha256'],
-                'runner': python['path'], 'runner_sha256': python['sha256'],
+                'runner': runner_binary['path'], 'runner_sha256': runner_binary['sha256'],
                 'frozen_files': frozen_files, 'frozen_bundles': bundles,
                 'application_source_manifest': source_ref,
                 'application_source_files': application_source_files,

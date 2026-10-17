@@ -15,6 +15,34 @@ from tools.part5 import build_v3_heldout_cohort as builder
 
 
 class HeldoutFreezePinClosureTests(unittest.TestCase):
+    def test_registry_bundle_pins_queue_runner_local_build_inputs(self):
+        required = {
+            'harness/src/solana/queue_v3.rs',
+            'harness/src/solana/queue_v3/branch.rs',
+            'harness/src/solana/queue_v3/campaign.rs',
+            'harness/src/lib.rs',
+            'harness/src/main.rs',
+            'harness/src/solana.rs',
+            'harness/src/benchmark.rs',
+            'harness/src/fixtures.rs',
+            'harness/src/policy.rs',
+            'harness/src/prover.rs',
+            'harness/src/registry.rs',
+            'harness/src/setup.rs',
+            'harness/tests/queue_v3.rs',
+            'harness/Cargo.toml',
+            'harness/Cargo.lock',
+            'program/src/lib.rs',
+            'program/Cargo.toml',
+            'crates/credential-registry/src/lib.rs',
+            'crates/credential-registry/src/protocol.rs',
+            'crates/credential-registry/src/storage.rs',
+            'crates/credential-registry/Cargo.toml',
+            tool.RUNNER_BINARY,
+        }
+        self.assertTrue(required.issubset(set(tool.REGISTRY_FILES)))
+        self.assertEqual(len(tool.REGISTRY_FILES), len(set(tool.REGISTRY_FILES)))
+
     def test_declared_source_bundles_cover_local_python_import_closure(self):
         import ast
 

@@ -30,14 +30,23 @@ RESULTS = ROOT / 'results/dynark/part5'
 SETUP = PART5 / 'v3-development-setup-001'
 COMPILE = PART5 / 'v3-compile-001'
 PROOF = ROOT / 'circuits/credential-v3-bounded/qualification/proof-runner-v1'
+RUNNER_BINARY = 'artifacts/dynark/part5/v3-heldout-queue-runner-001'
 LOADED_ELF = PART5 / 'application-v3-sbf-build-002/elf/zk_fresh_program.so'
 INVENTORY_SCHEMA = 'credential-v3-prior-public-key-inventory-v1'
 
 REGISTRY_FILES = [
-    'crates/credential-registry/src/lib.rs',
     *[str(path.relative_to(ROOT)) for path in sorted(
-        (ROOT / 'crates/credential-registry/src/v3').glob('*.rs'))],
-    'harness/src/solana/queue_v3/campaign.rs',
+        (ROOT / 'crates/credential-registry/src').rglob('*.rs'))],
+    *[str(path.relative_to(ROOT)) for path in sorted(
+        (ROOT / 'program/src').rglob('*.rs'))],
+    *[str(path.relative_to(ROOT)) for path in sorted(
+        (ROOT / 'harness/src').rglob('*.rs'))],
+    'harness/Cargo.toml',
+    'harness/Cargo.lock',
+    'program/Cargo.toml',
+    'crates/credential-registry/Cargo.toml',
+    'harness/tests/queue_v3.rs',
+    RUNNER_BINARY,
     'harness/tests/queue_v3_build_prep.py',
     'harness/tests/queue_v3_local_prepare.py',
     'harness/tests/queue_v3_local_stage.py',
