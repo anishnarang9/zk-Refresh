@@ -25,3 +25,4 @@ rand = "0.8"
 
 [dev-dependencies]
 tempfile = "3"
+zk-fresh-program = { path = "../program", features = ["no-entrypoint"] }

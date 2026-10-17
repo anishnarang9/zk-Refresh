@@ -1,5 +1,7 @@
 #![allow(deprecated)]
 
+pub mod queue_v3;
+
 fn deployment_bytes_match(local: &[u8], remote: &[u8]) -> bool {
     !local.is_empty()
         && remote.starts_with(local)
