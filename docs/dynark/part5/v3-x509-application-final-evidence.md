@@ -52,7 +52,7 @@ artifacts/dynark/part5/v3-campaign-python-002 \
   results/dynark/part5/v3-campaign-matrix-training-006.json
 ```
 
-The campaign state records start `2026-10-17T23:28:34.166072Z` and deadline `2026-10-19T11:28:34.166072Z`; the driver process was still running at this snapshot. Slot `r1-k0-full` has `proof-report.json` with `passed: true`, a passing session and outer report (exit code 0, no stop reason), and its `slot-receipt.json` (sequence 1) exists. The matrix had advanced to the second slot, `r1-k0-anchor`; its ledger clone report and proof-stage work files existed, but no slot receipt had been written. Exactly 1 of 60 receipts existed at this snapshot. This is progress evidence only: no complete matrix, paired economics, held-out result, or economic benefit is established.
+The campaign state records start `2026-10-17T23:28:34.166072Z` and deadline `2026-10-19T11:28:34.166072Z`; the driver process was still running at this snapshot. Slot `r1-k0-full` has a passing proof, a finalized and verified application effect, and a passing session and outer report (outer exit code 0, no stop reason); its `slot-receipt.json` (sequence 1) exists. The nested effect supervisor exited 1 after validator cleanup ended on SIGINT (`-2`), with `ledger_reuse_requires_review: true`. The session gate explicitly accepts this reviewed shutdown because the effect is verified; this does not establish clean ledger reuse. The matrix had advanced to the second slot, `r1-k0-anchor`; its ledger clone report and proof-stage work files existed, but no slot receipt had been written. Exactly 1 of 60 receipts existed at this snapshot. This is progress evidence only: no complete matrix, paired economics, held-out result, or economic benefit is established.
 
 A prior single-pair engineering run measured Full at 115.326 seconds and Anchor at 1,244.766 seconds of bounded whole-session wall time. Anchor's public and private preparation cost 447.573 and 682.496 seconds; refresh plus ordinary verification was 0.982 seconds. Both modes produced the protected effect. This is one training pair, excluded from the amended matrix: Full paid an Anchor-only preflight, and the run did not establish pooled economics or complete-tree CPU savings. The warm refresh time is not a session-level benefit. See [the matched-session method amendment](v3-matched-session-protocol-amendment-2026-10-17.md) and [the signed-history training check](v3-signed-history-k1-training-effect-2026-10-17.md).
 
@@ -117,7 +117,7 @@ For every credential, verify issuer/AKI and exact-policy enrollment (including p
 | Current-root and own-revocation safety | Passed for the two controlled training credentials in the signed-history report. | Repeat for all eight post-freeze credentials, with separate unconsumed requests and no effect/consumption on rejection. |
 | Training-004 | Nine of 60 slots completed; slot 10 was censored at the 256 MiB storage-growth cap. | Do not use as a completed matrix. Training-006 is the current registered replacement; training-005 failed before completion. |
 | Training-005 | Four ordered receipts exist: `r1-k0-full`, `r1-k0-anchor`, `r1-k0-coalesced-full`, `r1-k1-full`. The fifth slot `r1-k1-anchor` generated a passing proof report, then failed before submission with `ValueError: finalized exact account bytes mismatch`; outer exit is 2, `passed` is false, and no fifth receipt exists. A read-only fresh-clone diagnostic matched all five account hashes but did not observe the original failure role, leaving cause unknown. | Preserve the failed slot artifacts. `--resume` refuses the partial slot. No full matrix, pooled distribution, CPU result, measured break-even, or 20% target result is available. |
-| Training-006 | At the 23:31 UTC snapshot, `r1-k0-full` had a passing proof and completed slot receipt. The second slot `r1-k0-anchor` had started but had no receipt. One of 60 receipts existed and the matrix driver remained active. | Continue to record ordered receipts and failures. No full matrix, paired distribution, CPU result, measured break-even, or 20% target result is available. |
+| Training-006 | At the 23:31 UTC snapshot, `r1-k0-full` had a passing proof, finalized and verified effect, and completed slot receipt. Its nested effect supervisor exited 1 during SIGINT validator cleanup (`-2`); `ledger_reuse_requires_review: true`, which the session gate explicitly accepts as a reviewed shutdown, not clean ledger reuse. The second slot `r1-k0-anchor` had started but had no receipt. One of 60 receipts existed and the matrix driver remained active. | Continue to record ordered receipts and failures. No full matrix, paired distribution, CPU result, measured break-even, or 20% target result is available. |
 | Training-005 reproducibility inputs | Input, materialized manifest and plan hashes are recorded below; the freeze identities are in the registered input. | Check the exact digests and inspect the generated plan before interpreting results. A plan-only invocation does not execute or validate a campaign. |
 | Held-out freeze and cohort | No held-out freeze, cohort, or held-out run exists. The R2 own-revocation receipt and total-cost verifier implementation is pushed in `14c7bbc`; the stable Rust runner has been built and pinned, and its seven-test list inspected, but no test bodies were run. | Complete the required training matrix gate before freezing source/artifacts and creating the fresh cohort. |
 | Held-out cases and analysis | No manifests, fragments, assembled manifest, verifier report or cost report exist. | Run all eight frozen cases serially; assemble with fragment hashes; independently verify; then compute the matched cost report. |
@@ -130,6 +130,19 @@ The scrubbed evidence is under `results/dynark/part5/`; raw credentials, keys, w
 ```sh
 python3 -B -m tools.part5.run_v3_campaign_matrix --help
 python3 -B tools/part5/run_v3_campaign_session.py --help
+```
+
+### Conditional held-out break-even method (not run at this snapshot)
+
+The post-snapshot analyzer `tools/part5/model_v3_heldout_break_even.py` (introduced in commit `5ed86a7`) requires eight directly measured held-out request-B cost pairs at `k = 1` and a complete sampled training summary with 20 matched pairs across four repetitions and `k = 0, 1, 2, 5, 10`. For held-out variant `v` and training repetition `r`, it computes `D_vrk = D_v1 + (D_rk - D_r1)`, where `D_v1` is the measured held-out Anchor-minus-Full delta at `k = 1` and `D_rk` is the sampled training delta. Only `k = 1` is a direct held-out comparison; other counts are labeled conditional model/inference, using a transfer assumption from the training cohort without interpolation or extrapolation across the sampled `k` values. Pair-view one-time cost is reported separately and excluded from the deltas. This method does not use observed issuer-churn weights and makes no CPU-savings claim. At the 23:31 UTC snapshot, its required held-out and complete-training inputs did not exist, so no model output or held-out result is established.
+
+When both source reports exist, reproduce the conditional analysis with their SHA-256 pins and a fresh absolute output path:
+
+```sh
+python3 -B tools/part5/model_v3_heldout_break_even.py \
+  --heldout-cost-report /ABS/PATH/HELDOUT-COST.json:SHA256 \
+  --training-total-summary /ABS/PATH/TRAINING-TOTAL-SUMMARY.json:SHA256 \
+  --output /ABS/PATH/NEW-CONDITIONAL-BREAK-EVEN.json
 ```
 
 To reproduce the **historical 22:31 UTC snapshot inspection** from the
