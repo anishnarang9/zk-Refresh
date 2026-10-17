@@ -332,6 +332,147 @@ def _case_cohort(freeze, freeze_sha, cohort, cohort_sha):
     return by_variant
 
 
+def _verify_cohort_generation_provenance(freeze, freeze_sha, cohort, by_variant,
+                                        freeze_ref, cohort_ref):
+    freeze_path = Path(freeze_ref['path'])
+    cohort_path = Path(cohort_ref['path'])
+    _require(freeze_path.name == 'freeze.json'
+             and cohort_path.name == 'cohort-receipt.json',
+             'deterministic freeze and cohort receipt paths required')
+
+    inventory_path = freeze_path.parent / 'prior-key-inventory.json'
+    inventory, inventory_sha = _json(
+        {'path': str(inventory_path),
+         'sha256': cohort.get('prior_key_inventory_sha256')}, cap=MAX_JSON)
+    forbidden = freeze.get('forbidden_public_key_sha256')
+    _require(_is_sha(cohort.get('prior_key_inventory_sha256'))
+             and type(forbidden) is list and forbidden
+             and all(_is_sha(item) for item in forbidden)
+             and len(set(forbidden)) == len(forbidden)
+             and type(inventory) is dict
+             and set(inventory) == {'schema', 'observed_at_unix_ns',
+                                    'freeze_sha256', 'public_key_sha256'}
+             and inventory.get('schema') == 'credential-v3-prior-public-key-inventory-v1'
+             and type(inventory.get('observed_at_unix_ns')) is int
+             and 0 < inventory['observed_at_unix_ns'] < freeze['frozen_at_unix_ns']
+             and inventory.get('freeze_sha256') == freeze_sha
+             and type(inventory.get('public_key_sha256')) is list
+             and inventory['public_key_sha256']
+             and all(_is_sha(item) for item in inventory['public_key_sha256'])
+             and len(set(inventory['public_key_sha256']))
+                == len(inventory['public_key_sha256'])
+             and set(inventory['public_key_sha256'])
+                == set(forbidden),
+             'pinned prior-key inventory must match the frozen earlier-key census')
+    prior_keys = set(inventory['public_key_sha256'])
+
+    key_receipt_path = cohort_path.parent / 'keys' / 'key-generation-receipt.json'
+    key_receipt, key_receipt_sha = _json(
+        {'path': str(key_receipt_path),
+         'sha256': cohort.get('key_generation_receipt_sha256')}, cap=65536)
+    provenance = key_receipt.get('provenance') if type(key_receipt) is dict else None
+    _require(_is_sha(cohort.get('key_generation_receipt_sha256'))
+             and type(key_receipt) is dict
+             and key_receipt.get('schema') == 'credential-v3-heldout-key-generation-v1'
+             and key_receipt.get('freeze_receipt_sha256') == freeze_sha
+             and key_receipt.get('frozen_at_unix_ns') == freeze['frozen_at_unix_ns']
+             and key_receipt.get('identities') == freeze['identities']
+             and key_receipt.get('issuance_tool_sha256') == freeze.get('issuance_tool_sha256')
+             and key_receipt.get('key_generation_tool_sha256')
+                == freeze.get('key_generation_tool_sha256')
+             and key_receipt.get('counts') == {'issuers': 4, 'holders': 8}
+             and type(key_receipt.get('generation_started_unix_ns')) is int
+             and type(key_receipt.get('generation_completed_unix_ns')) is int
+             and cohort['generation_started_unix_ns']
+                <= key_receipt['generation_started_unix_ns']
+             and freeze['frozen_at_unix_ns']
+                < key_receipt['generation_started_unix_ns']
+             and key_receipt['generation_started_unix_ns']
+                <= key_receipt['generation_completed_unix_ns']
+             and key_receipt['generation_completed_unix_ns']
+                <= cohort['generation_completed_unix_ns']
+             and key_receipt.get('prior_public_key_count') == len(prior_keys)
+             and cohort.get('prior_public_key_count') == len(prior_keys)
+             and type(provenance) is dict
+             and provenance.get('implementation')
+                == 'cryptography.rsa.generate_private_key'
+             and type(provenance.get('cryptography_version')) is str
+             and provenance['cryptography_version']
+             and type(provenance.get('backend')) is str and provenance['backend']
+             and provenance.get('key_size') == 2048
+             and provenance.get('public_exponent') == 65537
+             and provenance.get('imported_keys') is False
+             and provenance.get('certificates_issued') is False
+             and provenance.get('reuse_scope')
+                == 'supplied earlier-key inventory and complete new cohort',
+             'pinned post-freeze heldout key-generation receipt required')
+
+    keys = key_receipt.get('keys')
+    _require(type(keys) is list and len(keys) == 12,
+             'exact four issuer and eight holder key-generation rows required')
+    keys_by_role_index = {}
+    generated_fingerprints = set()
+    previous_key_time = key_receipt['generation_started_unix_ns']
+    for row in keys:
+        _require(type(row) is dict, 'key-generation row required')
+        role, index = row.get('role'), row.get('index')
+        expected_count = {'issuer': 4, 'holder': 8}.get(role)
+        _require(expected_count is not None and type(index) is int
+                 and 0 <= index < expected_count
+                 and (role, index) not in keys_by_role_index
+                 and _is_sha(row.get('public_key_sha256'))
+                 and type(row.get('generation_started_unix_ns')) is int
+                 and type(row.get('generation_completed_unix_ns')) is int
+                 and previous_key_time <= row['generation_started_unix_ns']
+                 and row['generation_started_unix_ns']
+                    <= row['generation_completed_unix_ns']
+                 and row['generation_completed_unix_ns']
+                    <= key_receipt['generation_completed_unix_ns'],
+                 'ordered bounded key-generation row required')
+        fingerprint = row['public_key_sha256']
+        _require(fingerprint not in generated_fingerprints and fingerprint not in prior_keys,
+                 'heldout public keys must be unique and absent from prior inventory')
+        generated_fingerprints.add(fingerprint)
+        keys_by_role_index[(role, index)] = row
+        previous_key_time = row['generation_completed_unix_ns']
+    _require(set(keys_by_role_index) == {
+        *(("issuer", index) for index in range(4)),
+        *(("holder", index) for index in range(8)),
+    } and key_receipt['generation_completed_unix_ns'] >= previous_key_time,
+             'complete issuer/holder key-generation map required')
+
+    serials = set()
+    previous_issuance_time = key_receipt['generation_completed_unix_ns']
+    for variant in range(8):
+        row = by_variant[variant]
+        serial_hex = row.get('serial_hex')
+        expected_serial = (1 << 120) + variant + 1
+        _require(type(serial_hex) is str
+                 and re.fullmatch(r'[0-9a-f]{32}', serial_hex) is not None
+                 and int(serial_hex, 16) == expected_serial
+                 and 0 < expected_serial < 1 << 128
+                 and 1 <= bytes.fromhex(serial_hex)[0] <= 0x7f
+                 and serial_hex not in serials,
+                 'canonical distinct positive 16-byte heldout serial sequence required')
+        serials.add(serial_hex)
+        issuer_key = keys_by_role_index[('issuer', row['issuer_index'])]
+        holder_key = keys_by_role_index[('holder', row['holder_index'])]
+        _require(row['issuer_public_key_sha256'] == issuer_key['public_key_sha256']
+                 and row['holder_public_key_sha256'] == holder_key['public_key_sha256'],
+                 'certificate row keys must match the pinned key-generation receipt')
+        started, completed = (row.get('issuance_started_unix_ns'),
+                              row.get('issuance_completed_unix_ns'))
+        _require(type(started) is int and type(completed) is int
+                 and previous_issuance_time <= started <= completed
+                 and completed <= cohort['generation_completed_unix_ns'],
+                 'ordered certificate issuance must follow key generation within cohort window')
+        previous_issuance_time = completed
+    _require(len(serials) == 8,
+             'all heldout certificate serials must be distinct')
+    return {'prior_key_inventory_sha256': inventory_sha,
+            'key_generation_receipt_sha256': key_receipt_sha}
+
+
 def _source(source_ref, expected, globals_, case, stage, transition_sha=None,
             prior_r0_sha=None, prior_r0=None):
     _require(type(source_ref) is dict and set(source_ref) == {'receipt', 'artifacts'},
@@ -1086,6 +1227,28 @@ def _txs(transactions, expected, label):
                  f'{label} transaction outcome mismatch')
 
 
+def _verify_full_transactions(transactions):
+    """Verify the complete R0 Full execution sequence emitted by the harness."""
+    expected = [
+        ('v3-refresh-active-source', None),
+        ('v3-bind-refreshed-head', None),
+        ('v3-wrong-action', 712),
+        ('v3-invalid-proof', 714),
+        ('v3-valid-full-execute', None),
+        ('v3-replay-new-transaction', 707),
+    ]
+    _txs(transactions, expected, 'Full A')
+    for row, (_, code) in zip(transactions, expected):
+        if code is None:
+            _require(row.get('err') is None,
+                     'Full A successful transaction must have no error')
+            continue
+        err = row.get('err')
+        _require(type(err) is dict
+                 and err.get('InstructionError') == [1, {'Custom': code}],
+                 'Full A transaction error mismatch')
+
+
 def _validate_proof_one(bundle, mode, slot_name, case, globals_, stage,
                         transition, sources, expected_wires, case_name):
     _require(type(bundle) is dict and set(bundle) == {'receipt', 'artifacts'},
@@ -1338,6 +1501,7 @@ def _verify_branch(branch, bundle, case, globals_, slot_data, clone_destinations
                  and config.get('stage_plan_sha256') == stage['plan_sha256']
                  and config.get('full_wire_sha256') == _pin_sha(result_bundle['wires']['full']),
                  'Full config/wire differs from staged R0 request')
+        _verify_full_transactions(report.get('transactions'))
         clone = _verify_r0_clone(bundle['r0_clone'], config, stage_bundle, stage)
         clone_destinations.add(clone['destination'])
         current_root = case['roots']['R0']
@@ -1575,6 +1739,9 @@ def verify_manifest(manifest_path):
     freeze, freeze_sha = _json(manifest.get('freeze_receipt'), cap=65536)
     cohort, cohort_sha = _json(manifest.get('cohort_receipt'), cap=MAX_JSON)
     by_variant = _case_cohort(freeze, freeze_sha, cohort, cohort_sha)
+    _verify_cohort_generation_provenance(
+        freeze, freeze_sha, cohort, by_variant,
+        manifest['freeze_receipt'], manifest['cohort_receipt'])
     frozen_hashes = _verify_frozen_identity(freeze, manifest)
     source_files = manifest.get('source_files')
     _require(type(source_files) is dict and set(source_files) == set(SOURCE_FILE_ROLES),

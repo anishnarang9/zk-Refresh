@@ -18,6 +18,89 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name).resolve()
 
+    def _cohort_provenance_artifacts(self):
+        def write(path, value):
+            raw = json.dumps(value, sort_keys=True, separators=(',', ':')).encode()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(raw)
+            path.chmod(0o600)
+            return {'path': str(path), 'sha256': hashlib.sha256(raw).hexdigest()}
+
+        freeze_path = self.root / 'freeze' / 'freeze.json'
+        cohort_path = self.root / 'cohort' / 'cohort-receipt.json'
+        identities = {role: f'{index + 1:064x}' for index, role in
+                      enumerate(sorted(IDENTITY_ROLES))}
+        freeze = {
+            'schema': FREEZE_SCHEMA, 'frozen_at_unix_ns': 1000,
+            'issuance_tool_sha256': 'a' * 64,
+            'key_generation_tool_sha256': 'b' * 64,
+            'identities': identities,
+            'forbidden_public_key_sha256': ['c' * 64, 'd' * 64],
+        }
+        freeze_ref = write(freeze_path, freeze)
+        inventory = {
+            'schema': 'credential-v3-prior-public-key-inventory-v1',
+            'observed_at_unix_ns': 900, 'freeze_sha256': freeze_ref['sha256'],
+            'public_key_sha256': list(freeze['forbidden_public_key_sha256']),
+        }
+        inventory_ref = write(freeze_path.parent / 'prior-key-inventory.json', inventory)
+
+        key_rows = []
+        key_by_role_index = {}
+        for role, count in (('issuer', 4), ('holder', 8)):
+            for index in range(count):
+                key_row = {
+                    'role': role, 'index': index,
+                    'public_key_sha256': f'{100 + len(key_rows):064x}',
+                    'generation_started_unix_ns': 2011 + 2 * len(key_rows),
+                    'generation_completed_unix_ns': 2012 + 2 * len(key_rows),
+                }
+                key_rows.append(key_row)
+                key_by_role_index[(role, index)] = key_row
+        key_receipt = {
+            'schema': 'credential-v3-heldout-key-generation-v1',
+            'freeze_receipt_sha256': freeze_ref['sha256'],
+            'frozen_at_unix_ns': freeze['frozen_at_unix_ns'],
+            'identities': identities,
+            'issuance_tool_sha256': freeze['issuance_tool_sha256'],
+            'key_generation_tool_sha256': freeze['key_generation_tool_sha256'],
+            'generation_started_unix_ns': 2010,
+            'generation_completed_unix_ns': 2040,
+            'counts': {'issuers': 4, 'holders': 8}, 'keys': key_rows,
+            'prior_public_key_count': 2,
+            'provenance': {'implementation': 'cryptography.rsa.generate_private_key',
+                           'cryptography_version': 'test-version', 'backend': 'test-backend',
+                           'key_size': 2048, 'public_exponent': 65537,
+                           'imported_keys': False, 'certificates_issued': False,
+                           'reuse_scope': 'supplied earlier-key inventory and complete new cohort'},
+        }
+        key_receipt_ref = write(
+            cohort_path.parent / 'keys' / 'key-generation-receipt.json', key_receipt)
+        rows = []
+        for variant in range(8):
+            issuer_index, holder_index = variant % 4, variant
+            rows.append({
+                'variant': variant, 'issuer_index': issuer_index,
+                'holder_index': holder_index,
+                'issuer_public_key_sha256': key_by_role_index[
+                    ('issuer', issuer_index)]['public_key_sha256'],
+                'holder_public_key_sha256': key_by_role_index[
+                    ('holder', holder_index)]['public_key_sha256'],
+                'serial_hex': ((1 << 120) + variant + 1).to_bytes(16, 'big').hex(),
+                'issuance_started_unix_ns': 2050 + 20 * variant,
+                'issuance_completed_unix_ns': 2060 + 20 * variant,
+            })
+        cohort = {
+            'generation_started_unix_ns': 2000,
+            'generation_completed_unix_ns': 2300,
+            'prior_key_inventory_sha256': inventory_ref['sha256'],
+            'key_generation_receipt_sha256': key_receipt_ref['sha256'],
+            'prior_public_key_count': 2, 'certificates': rows,
+        }
+        cohort_ref = write(cohort_path, cohort)
+        return freeze, freeze_ref, cohort, cohort_ref, {
+            variant: row for variant, row in enumerate(rows)}, key_receipt, inventory
+
     def test_manifest_reader_returns_exact_input_digest(self):
         raw = b'{"schema":"input"}\n'
         path = self.root / 'manifest.json'
@@ -279,6 +362,54 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'OpenSSL'):
             verifier._case_cohort(freeze, 'a' * 64, cohort, 'b' * 64)
 
+    def test_cohort_generation_provenance_joins_inventory_keys_times_and_serials(self):
+        (freeze, freeze_ref, cohort, cohort_ref, by_variant,
+         key_receipt, inventory) = self._cohort_provenance_artifacts()
+        result = verifier._verify_cohort_generation_provenance(
+            freeze, freeze_ref['sha256'], cohort, by_variant,
+            freeze_ref, cohort_ref)
+        self.assertEqual(result['prior_key_inventory_sha256'],
+                         cohort['prior_key_inventory_sha256'])
+        self.assertEqual(result['key_generation_receipt_sha256'],
+                         cohort['key_generation_receipt_sha256'])
+
+        by_variant[3]['serial_hex'] = (1 << 120).to_bytes(16, 'big').hex()
+        with self.assertRaisesRegex(ValueError, 'serial sequence'):
+            verifier._verify_cohort_generation_provenance(
+                freeze, freeze_ref['sha256'], cohort, by_variant,
+                freeze_ref, cohort_ref)
+        by_variant[3]['serial_hex'] = ((1 << 120) + 4).to_bytes(16, 'big').hex()
+        by_variant[2]['issuance_started_unix_ns'] = 2039
+        with self.assertRaisesRegex(ValueError, 'issuance must follow key generation'):
+            verifier._verify_cohort_generation_provenance(
+                freeze, freeze_ref['sha256'], cohort, by_variant,
+                freeze_ref, cohort_ref)
+
+        by_variant[2]['issuance_started_unix_ns'] = 2090
+        original_issuer_key = by_variant[0]['issuer_public_key_sha256']
+        by_variant[0]['issuer_public_key_sha256'] = 'e' * 64
+        with self.assertRaisesRegex(ValueError, 'match the pinned key-generation receipt'):
+            verifier._verify_cohort_generation_provenance(
+                freeze, freeze_ref['sha256'], cohort, by_variant,
+                freeze_ref, cohort_ref)
+        by_variant[0]['issuer_public_key_sha256'] = original_issuer_key
+
+        key_receipt['keys'][0]['public_key_sha256'] = inventory['public_key_sha256'][0]
+        key_path = Path(cohort_ref['path']).parent / 'keys' / 'key-generation-receipt.json'
+        key_raw = json.dumps(key_receipt, sort_keys=True, separators=(',', ':')).encode()
+        key_path.write_bytes(key_raw)
+        key_path.chmod(0o600)
+        cohort['key_generation_receipt_sha256'] = hashlib.sha256(key_raw).hexdigest()
+        cohort_path = Path(cohort_ref['path'])
+        cohort_raw = json.dumps(cohort, sort_keys=True, separators=(',', ':')).encode()
+        cohort_path.write_bytes(cohort_raw)
+        cohort_path.chmod(0o600)
+        cohort_ref['sha256'] = hashlib.sha256(cohort_raw).hexdigest()
+        with self.assertRaisesRegex(ValueError, 'absent from prior inventory'):
+            verifier._verify_cohort_generation_provenance(
+                freeze, freeze_ref['sha256'], cohort, by_variant,
+                freeze_ref, cohort_ref)
+
     def test_anchor_transaction_receipt_must_show_stale_r0_rejection(self):
         rows = [
             {'scenario': 'v3-observe-signed-current-status', 'customError': None,
@@ -300,6 +431,28 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         rows[2] = dict(rows[2], customError=None, err=None)
         with self.assertRaisesRegex(ValueError, 'transaction outcome mismatch'):
             verifier._txs(rows, expected, 'Anchor')
+
+    def test_full_a_transaction_receipt_matches_execute_report_order_and_codes(self):
+        rows = [
+            {'scenario': 'v3-refresh-active-source', 'customError': None,
+             'err': None},
+            {'scenario': 'v3-bind-refreshed-head', 'customError': None,
+             'err': None},
+            {'scenario': 'v3-wrong-action', 'customError': 712,
+             'err': {'InstructionError': [1, {'Custom': 712}]}},
+            {'scenario': 'v3-invalid-proof', 'customError': 714,
+             'err': {'InstructionError': [1, {'Custom': 714}]}},
+            {'scenario': 'v3-valid-full-execute', 'customError': None,
+             'err': None},
+            {'scenario': 'v3-replay-new-transaction', 'customError': 707,
+             'err': {'InstructionError': [1, {'Custom': 707}]}},
+        ]
+        verifier._verify_full_transactions(rows)
+        with self.assertRaisesRegex(ValueError, 'transaction outcome mismatch'):
+            verifier._verify_full_transactions(rows[1:] + rows[:1])
+        rows[2]['err'] = {'InstructionError': [1, {'Custom': 714}]}
+        with self.assertRaisesRegex(ValueError, 'Full A transaction error mismatch'):
+            verifier._verify_full_transactions(rows)
 
     def test_own_leaf_absence_is_rebuilt_from_pair_membership(self):
         own, unrelated = b't' * 32, b'u' * 32
