@@ -7,7 +7,25 @@ import unittest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
+from harness.tests import queue_v3_local_branch as branch
 from harness.tests.queue_v3_local_branch import matched_proof_report, signed_successor
+
+
+class BranchTransactionOutcomeTests(unittest.TestCase):
+    def test_anchor_r1_valid_effect_name_matches_runner(self):
+        self.assertTrue(hasattr(branch, 'check_transaction_outcomes'))
+        names = ['v3-observe-signed-current-status', 'v3-bind-current-branch-head',
+                 'v3-stale-R0-full', 'v3-anchor-wrong-action',
+                 'v3-anchor-invalid-proof', 'v3-valid-anchor-R1',
+                 'v3-anchor-replay']
+        codes = [None, None, 713, 712, 714, None, 707]
+        transactions = [{'scenario': name, 'customError': code,
+                         'err': None if code is None else {'Custom': code}}
+                        for name, code in zip(names, codes)]
+        branch.check_transaction_outcomes(transactions, 'anchor', True)
+        transactions[5]['scenario'] = 'v3-valid-anchor'
+        with self.assertRaises(ValueError):
+            branch.check_transaction_outcomes(transactions, 'anchor', True)
 
 
 class MatchedProofReportTests(unittest.TestCase):

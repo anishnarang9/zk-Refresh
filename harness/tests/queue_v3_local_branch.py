@@ -191,6 +191,31 @@ def admit(config):
     return original, staged, plan, changed, status, context, elf, sizes, ledger, output, control
 
 
+def check_transaction_outcomes(transactions, mode, effect):
+    current = 'full-R1' if mode == 'full' else 'anchor'
+    expected_transactions = ([
+        ('v3-observe-signed-current-status', None),
+        ('v3-bind-current-branch-head', None),
+        ('v3-stale-R0-full', 713),
+        (f'v3-{current}-wrong-action', 712),
+        (f'v3-{current}-invalid-proof', 714),
+        ('v3-valid-full-R1' if mode == 'full' else 'v3-valid-anchor-R1', None),
+        (f'v3-{current}-replay', 707),
+    ] if effect else [
+        ('v3-publish-own-revocation', None),
+        ('v3-observe-signed-own-revocation', None),
+        ('v3-bind-current-branch-head', None),
+        ('v3-stale-R0-full', 713),
+        ('v3-own-revoked-R1-anchor', 713),
+    ])
+    if (not isinstance(transactions, list)
+            or len(transactions) != len(expected_transactions)
+            or any(tx.get('scenario') != name or tx.get('customError') != code
+                   or (tx.get('err') is None) != (code is None)
+                   for tx, (name, code) in zip(transactions, expected_transactions))):
+        raise ValueError('exact branch transaction outcomes required')
+
+
 def run(config, config_sha256):
     if os.environ.get('P5_V3_BRANCH_SUPERVISOR') != 'reviewed-r1-clone':
         raise ValueError('explicit external bounded R1 branch scope required')
@@ -282,29 +307,7 @@ def run(config, config_sha256):
                 or not isinstance(report.get('account_sha256'), list)
                 or len(report['account_sha256']) != 5):
             raise ValueError('exact R1 branch report required')
-        current = 'full-R1' if config['mode'] == 'full' else 'anchor'
-        expected_transactions = ([
-            ('v3-observe-signed-current-status', None),
-            ('v3-bind-current-branch-head', None),
-            ('v3-stale-R0-full', 713),
-            (f'v3-{current}-wrong-action', 712),
-            (f'v3-{current}-invalid-proof', 714),
-            (f'v3-valid-{current}', None),
-            (f'v3-{current}-replay', 707),
-        ] if effect else [
-            ('v3-publish-own-revocation', None),
-            ('v3-observe-signed-own-revocation', None),
-            ('v3-bind-current-branch-head', None),
-            ('v3-stale-R0-full', 713),
-            ('v3-own-revoked-R1-anchor', 713),
-        ])
-        transactions = report.get('transactions')
-        if (not isinstance(transactions, list)
-                or len(transactions) != len(expected_transactions)
-                or any(tx.get('scenario') != name or tx.get('customError') != code
-                       or (tx.get('err') is None) != (code is None)
-                       for tx, (name, code) in zip(transactions, expected_transactions))):
-            raise ValueError('exact branch transaction outcomes required')
+        check_transaction_outcomes(report.get('transactions'), config['mode'], effect)
         execute.report_loaded(report, original)
         source_digest = signed_successor(output, plan, config['mode'],
                                          changed['source_head_digest'], context['own_tbs_digest'])
