@@ -348,6 +348,7 @@ fn validate_full_receipt(
 enum CampaignMode {
     Full,
     Anchor,
+    CoalescedFull,
 }
 fn campaign_mode(mode: &str) -> Option<(CampaignMode, u64)> {
     let (kind, suffix) = mode.strip_prefix("campaign-")?.split_once("-k")?;
@@ -362,6 +363,7 @@ fn campaign_mode(mode: &str) -> Option<(CampaignMode, u64)> {
     let kind = match kind {
         "full" => CampaignMode::Full,
         "anchor" => CampaignMode::Anchor,
+        "coalesced-full" => CampaignMode::CoalescedFull,
         _ => return None,
     };
     Some((kind, count))
@@ -379,6 +381,7 @@ fn execute_campaign(
     owner: u32,
     all: Instant,
 ) -> Result<()> {
+    required(kind != CampaignMode::CoalescedFull, "primary campaign mode")?;
     required(
         packet["update_count"].as_u64() == Some(count),
         "mode and registered count",
@@ -585,6 +588,97 @@ fn execute_campaign(
     );
     Ok(())
 }
+
+fn execute_campaign_coalesced(
+    mode: &str,
+    count: u64,
+    packet: &Value,
+    packet_sha: &str,
+    map: &BTreeMap<String, usize>,
+    package: &PublicPackage,
+    out: &Path,
+    owner: u32,
+    all: Instant,
+) -> Result<()> {
+    let final_spec = coalesced_final(packet)?;
+    required(
+        packet["update_count"].as_u64() == Some(count),
+        "registered coalesced count",
+    )?;
+    let t = Instant::now();
+    let final_case = read_case(final_spec, map, package, owner, true)?;
+    let stage = &packet["application_stage"];
+    required(
+        final_case.context.root_version == count
+            && final_case.flat.get("main.root") == Some(&scalar(&stage["near_root"])?)
+            && final_case.flat.get("main.actionHash") == Some(&scalar(&stage["action_hash"])?)
+            && final_case.context.root == fr_be(&scalar(&stage["near_root"])?)?,
+        "coalesced complete final witness matches staged root/action",
+    )?;
+    let relation_ms = t.elapsed().as_secs_f64() * 1000.0;
+    event(out, "coalesced_final_relation_checked", t)?;
+    let mut rng = OsRng;
+    let mut counts = Counts::default();
+    let proving = Instant::now();
+    let proof = dynark_bn254::prove(
+        package,
+        &final_case.validated,
+        final_case.context.root_version,
+        &mut rng,
+    )?;
+    ordinary_checks::verify_save(
+        package,
+        &proof,
+        &final_case.public,
+        final_case.context.root_version,
+        out,
+        &format!("request_bound_training_coalesced_full_r{count}"),
+        &mut counts,
+    )?;
+    let proof_ms = proving.elapsed().as_secs_f64() * 1000.0;
+    required(
+        counts.json()
+            == Counts {
+                proofs: 1,
+                positives: 1,
+                altered: 6,
+                cross_root: 0,
+            }
+            .json(),
+        "one coalesced Full proof and ordinary checks",
+    )?;
+    let report = json!({"schema":"credential-v3-cumulative-proof-v1","passed":true,
+        "mode":mode,"cohort":text(packet,"cohort")?,"update_count":count,
+        "packet_sha256":packet_sha,"package_digest":PACKAGE_SHA,
+        "identity":identity_json(package.identity()),
+        "setup_manifest_sha256":SETUP_MANIFEST_SHA,"setup_binary_sha256":SETUP_BINARY_SHA,
+        "setup_launcher_src_sha256":SETUP_SOURCE_SHA,
+        "proof_binary_sha256":binary_hash(owner)?,"proof_source_identity":proof_source_identity(),
+        "proof_package_lock_sha256":hex(&Sha256::digest(include_bytes!("../Cargo.lock"))),
+        "ordinary_vk_file_sha256":ORDINARY_VK_FILE_SHA,"public_inputs":PUBLIC_FIELDS,
+        "counts":counts.json(),
+        "preflights":[{"generation":count,"complete_relation_checked":true,
+            "elapsed_ms":relation_ms}],
+        "checkpoints":[{"generation":count,"proof_kind":"coalesced-full",
+            "paid_ms":proof_ms}],
+        "public_package_loads":1,"public_material_preparations":0,
+        "public_material_prepare_ms":0.0,"private_anchor_prepare_ms":0.0,
+        "total_paid_session_ms":all.elapsed().as_secs_f64()*1000.0,
+        "setup_executed":false,"private_cache_persisted":false,
+        "incremental_witness_enabled":false,"application_verified":false,"admitted":false,
+        "application_stage_pins":packet["application_stage"],
+        "application_stage_pins_authority":"caller-supplied; external finalized-state verification required",
+        "freeze_receipt_sha256":packet["freeze_receipt_sha256"],
+        "history_receipt_sha256":packet["history_receipt_sha256"],
+        "root_schedule_sha256":packet["root_schedule_sha256"]});
+    save_json(&out.join("proof-report.json"), &report)?;
+    File::open(out)?.sync_all()?;
+    println!(
+        "{{\"proof_qualification_passed\":true,\"proofs\":1,\"ordinary_checks\":{}}}",
+        counts.checks()
+    );
+    Ok(())
+}
 fn execute(args: &[String]) -> Result<()> {
     let mode = args.get(1).map(String::as_str).ok_or("proof mode")?;
     let campaign = campaign_mode(mode);
@@ -619,7 +713,10 @@ fn execute(args: &[String]) -> Result<()> {
     let packet_path = Path::new(&args[2]);
     let owner = fs::symlink_metadata(packet_path)?.uid();
     let packet = json_file(packet_path, &args[3], owner)?;
-    let expected_schema = if campaign.is_some() {
+    let coalesced = campaign.is_some_and(|(kind, _)| kind == CampaignMode::CoalescedFull);
+    let expected_schema = if coalesced {
+        "credential-v3-cumulative-coalesced-request-v1"
+    } else if campaign.is_some() {
         "credential-v3-cumulative-request-v1"
     } else if request_bound {
         "credential-v3-request-bound-anchor-v1"
@@ -630,7 +727,13 @@ fn execute(args: &[String]) -> Result<()> {
         packet["schema"] == expected_schema,
         "packet schema matches explicit runner mode",
     )?;
-    let cases = packet_cases(&packet)?;
+    let empty = Vec::new();
+    let cases = if coalesced {
+        coalesced_final(&packet)?;
+        &empty
+    } else {
+        packet_cases(&packet)?
+    };
     if matched_session {
         required(cases.len() == 1, "one matched request-bound pair")?;
     }
@@ -649,6 +752,11 @@ fn execute(args: &[String]) -> Result<()> {
     let package = load_package(&packet, owner, out)?;
     let id = package.identity();
     if let Some((kind, count)) = campaign {
+        if kind == CampaignMode::CoalescedFull {
+            return execute_campaign_coalesced(
+                mode, count, &packet, &args[3], &map, &package, out, owner, all,
+            );
+        }
         return execute_campaign(
             mode, kind, count, &packet, &args[3], cases, &map, &package, out, owner, all,
         );
@@ -936,6 +1044,10 @@ mod tests {
             assert_eq!(
                 campaign_mode(&format!("campaign-anchor-k{count}")),
                 Some((CampaignMode::Anchor, count))
+            );
+            assert_eq!(
+                campaign_mode(&format!("campaign-coalesced-full-k{count}")),
+                Some((CampaignMode::CoalescedFull, count))
             );
         }
         for mode in [

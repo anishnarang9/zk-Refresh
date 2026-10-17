@@ -447,7 +447,7 @@ fn base58_32(value: &str) -> Result<()> {
         "canonical 32-byte base58",
     )
 }
-fn request_bound_cases(packet: &Value, campaign: bool) -> Result<&Vec<Value>> {
+fn request_bound_header(packet: &Value, campaign: bool, coalesced: bool) -> Result<u64> {
     let mut fields = vec![
         "schema",
         "synthetic_only",
@@ -465,8 +465,8 @@ fn request_bound_cases(packet: &Value, campaign: bool) -> Result<&Vec<Value>> {
         "input_map_path",
         "input_map_sha256",
         "application_stage",
-        "pairs",
     ];
+    fields.push(if coalesced { "final" } else { "pairs" });
     if campaign {
         fields.extend([
             "update_count",
@@ -476,6 +476,17 @@ fn request_bound_cases(packet: &Value, campaign: bool) -> Result<&Vec<Value>> {
         ]);
     }
     exact_fields(packet, &fields)?;
+    required(
+        packet["schema"]
+            == if coalesced {
+                "credential-v3-cumulative-coalesced-request-v1"
+            } else if campaign {
+                "credential-v3-cumulative-request-v1"
+            } else {
+                "credential-v3-request-bound-anchor-v1"
+            },
+        "exact request-bound packet schema",
+    )?;
     let count = if campaign {
         let count = packet["update_count"]
             .as_u64()
@@ -581,6 +592,11 @@ fn request_bound_cases(packet: &Value, campaign: bool) -> Result<&Vec<Value>> {
         )?;
     }
     scalar(&stage["action_hash"])?;
+    Ok(count)
+}
+
+fn request_bound_cases(packet: &Value, campaign: bool) -> Result<&Vec<Value>> {
+    let count = request_bound_header(packet, campaign, false)?;
     let pairs = packet["pairs"].as_array().ok_or("request pair array")?;
     required(
         pairs.len()
@@ -643,6 +659,40 @@ fn request_bound_cases(packet: &Value, campaign: bool) -> Result<&Vec<Value>> {
         }
     }
     Ok(pairs)
+}
+
+pub(crate) fn coalesced_final(packet: &Value) -> Result<&Value> {
+    let count = request_bound_header(packet, true, true)?;
+    let final_case = &packet["final"];
+    exact_fields(
+        final_case,
+        &[
+            "wtns_path",
+            "wtns_sha256",
+            "public_path",
+            "public_sha256",
+            "input_path",
+            "input_sha256",
+            "issuer_version",
+            "policy_version",
+            "allocation_epoch",
+            "root_version",
+        ],
+    )?;
+    required(
+        final_case["root_version"].as_u64() == Some(count),
+        "coalesced final root version",
+    )?;
+    for key in ["wtns_sha256", "public_sha256", "input_sha256"] {
+        unhex(text(final_case, key)?)?;
+    }
+    for key in ["wtns_path", "public_path", "input_path"] {
+        required(!text(final_case, key)?.is_empty(), "coalesced final path")?;
+    }
+    u32::try_from(version(final_case, "issuer_version")?)?;
+    u32::try_from(version(final_case, "policy_version")?)?;
+    version(final_case, "allocation_epoch")?;
+    Ok(final_case)
 }
 pub(crate) fn match_request_stage(
     packet: &Value,
@@ -882,6 +932,26 @@ mod binding_tests {
         packet_cases(&packet).unwrap();
         packet["application_stage"]["near_config_sha256"] = json!("66".repeat(32));
         assert!(packet_cases(&packet).is_err());
+    }
+    #[test]
+    fn coalesced_packet_uses_only_a_complete_final_witness() {
+        let mut packet = request_packet();
+        packet["schema"] = json!("credential-v3-cumulative-coalesced-request-v1");
+        packet["cohort"] = json!("cumulative-training-v1");
+        packet["update_count"] = json!(2);
+        packet["freeze_receipt_sha256"] = json!("77".repeat(32));
+        packet["history_receipt_sha256"] = json!("88".repeat(32));
+        packet["root_schedule_sha256"] = json!("99".repeat(32));
+        let mut final_case = packet["pairs"][0]["near"].clone();
+        final_case["root_version"] = json!(2);
+        packet.as_object_mut().unwrap().remove("pairs");
+        packet["final"] = final_case;
+        coalesced_final(&packet).unwrap();
+        packet["final"]["root_version"] = json!(1);
+        assert!(coalesced_final(&packet).is_err());
+        packet["final"]["root_version"] = json!(2);
+        packet["final"]["base_wtns_path"] = json!("unpaid-base");
+        assert!(coalesced_final(&packet).is_err());
     }
     #[test]
     fn separate_request_packet_admits_exactly_one_zero_to_one_training_pair() {
