@@ -89,7 +89,8 @@ def snapshot_generated(path, cap):
 
 
 def admit(config):
-    if (config.get('schema') != 1 or config.get('scope') != 'part5-v3-local-stage'
+    if (config.get('schema') != 1
+            or config.get('scope') not in ('part5-v3-local-stage', 'part5-v3-campaign-stage')
             or config.get('outer_limits_required') != LIMITS):
         raise ValueError('explicit bounded v3 stage contract required')
     original = base.decode_json(base.checked(config['prior_config'], config['prior_config_sha256'], 65536))
@@ -106,7 +107,22 @@ def admit(config):
     validator = original['validator']
     base.checked(validator, original['validator_sha256'], 128 * 1024 * 1024)
     base.checked(config['runner'], config['runner_sha256'], 128 * 1024 * 1024)
-    base.checked(config['context'], config['context_sha256'], 8192)
+    context_raw = base.checked(config['context'], config['context_sha256'], 8192)
+    context = base.decode_json(context_raw)
+    expected_context = ('part5-v3-campaign-context-v1' if config['scope'] == 'part5-v3-campaign-stage'
+                        else 'part5-v3-local-training-context-v1')
+    if context.get('schema') != expected_context or context.get('training_only') is not True:
+        raise ValueError('stage context/scope mismatch')
+    if config['scope'] == 'part5-v3-campaign-stage':
+        if str(REPO) not in sys.path:
+            sys.path.insert(0, str(REPO))
+        from tools.part5.prepare_v3_campaign_context import derive, encoded
+        allocations = context.get('initial_allocations')
+        if (not isinstance(allocations, dict)
+                or encoded(derive(Path(config['campaign_cohort']),
+                                  allocations.get('cohort_receipt_sha256'),
+                                  allocations.get('membership_sha256'))) != context_raw):
+            raise ValueError('campaign context differs from admitted signed certificates')
     ledger = Path(config['ledger'])
     if ledger != Path(original['runtime_output']) / 'ledger':
         raise ValueError('original protected ledger path required')
@@ -129,7 +145,7 @@ def run(config, config_sha256):
     original, prior, elf, output, control, argv = admit(config)
     started = time.monotonic(); validator = runner = None; logs = []; handlers = {}
     previous_umask = os.umask(0o077)
-    status = {'schema': 1, 'scope': 'part5-v3-local-stage', 'status': 'failed',
+    status = {'schema': 1, 'scope': config['scope'], 'status': 'failed',
               'stage_verified': False, 'ledger_reuse_requires_review': True,
               'application_effect': False, 'devnet': False,
               'config_sha256': config_sha256, 'outer_limits_required': LIMITS,
@@ -159,7 +175,7 @@ def run(config, config_sha256):
                     'programdata_account_sha256', 'genesis'):
             if loaded[key] != prior['loaded_program'][key]:
                 raise ValueError('persistent local program or genesis changed on restart')
-        env.update({'P5_V3_STAGE_SCOPE': 'part5-v3-local-stage',
+        env.update({'P5_V3_STAGE_SCOPE': config['scope'],
                     'P5_QUEUE_RPC': base.RPC.rstrip('/'),
                     'P5_QUEUE_PROGRAM': original['program'],
                     'P5_QUEUE_GENESIS': loaded['genesis'],
@@ -168,7 +184,10 @@ def run(config, config_sha256):
                     'P5_QUEUE_OUTPUT': str(output),
                     'P5_V3_CONTEXT': config['context'],
                     'P5_V3_CONTEXT_SHA256': config['context_sha256']})
-        runner_argv = [config['runner'], 'root_pinned_queue_v3_stage', '--exact', '--ignored', '--test-threads=1']
+        runner_test = ('root_pinned_queue_v3_campaign_stage'
+                       if config['scope'] == 'part5-v3-campaign-stage'
+                       else 'root_pinned_queue_v3_stage')
+        runner_argv = [config['runner'], runner_test, '--exact', '--ignored', '--test-threads=1']
         runner = subprocess.Popen(runner_argv, cwd=REPO, env=env, stdin=subprocess.DEVNULL,
                                   stdout=logs[2], stderr=logs[3], start_new_session=False)
         deadline = time.monotonic() + 125
@@ -182,9 +201,14 @@ def run(config, config_sha256):
             raise RuntimeError('v3 staging runner rejected')
         report_bytes, report_sha256 = snapshot_generated(output / 'stage-report.json', 65536)
         report = base.decode_json(report_bytes)
-        if (report.get('schema') != 'part5-v3-local-stage-v1' or report.get('passed') is not True
+        expected_report = ('part5-v3-campaign-stage-v1'
+                           if config['scope'] == 'part5-v3-campaign-stage'
+                           else 'part5-v3-local-stage-v1')
+        if (report.get('schema') != expected_report or report.get('passed') is not True
                 or report.get('proof_created') is not False
                 or report.get('application_effect') is not False
+                or report.get('registry_history_authenticated') is not True
+                or report.get('allocation_history_authenticated') is not True
                 or report.get('genesis') != loaded['genesis']
                 or report.get('program') != original['program']
                 or report.get('loaded_program', {}).get('elf_match') is not True):

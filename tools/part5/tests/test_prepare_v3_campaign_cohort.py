@@ -8,6 +8,7 @@ from unittest import mock
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 from tools.part5 import prepare_v3_campaign_cohort as tool
+from tools.part5 import prepare_v3_campaign_context as context_tool
 
 
 class CampaignCohortTests(unittest.TestCase):
@@ -84,6 +85,23 @@ class CampaignCohortTests(unittest.TestCase):
         self.assertEqual(membership['holder_policy_hash'], '222')
         self.assertEqual(receipt['membership_sha256'], tool.keys.file_sha(self.output / 'membership.json'))
         self.assertEqual(json.loads((self.output / 'cohort-receipt.json').read_text()), receipt)
+
+    def test_context_derivation_rechecks_all_signed_leaf_receipts(self):
+        receipt, _, _, _ = self.prepare()
+        with mock.patch.object(context_tool, 'admit_certificate', side_effect=self.parsed), \
+             mock.patch.object(context_tool, 'public_bindings', return_value=(111, 222)), \
+             mock.patch.object(context_tool.schedule, 'membership_for_sequence', side_effect=self.sequence):
+            derived = context_tool.derive(self.output,
+                tool.keys.file_sha(self.output / 'cohort-receipt.json'),
+                receipt['membership_sha256'])
+            self.assertEqual(derived['initial_allocations']['unrelated_slots'], list(range(16, 26)))
+            self.assertEqual(len(derived['root_sequence']), 11)
+            der = self.output / 'credential-1.der'
+            der.write_bytes(b'\x04' * 952)
+            with self.assertRaises(ValueError):
+                context_tool.derive(self.output,
+                    tool.keys.file_sha(self.output / 'cohort-receipt.json'),
+                    receipt['membership_sha256'])
 
     def test_malformed_future_mismatched_freeze_rejects_before_keys(self):
         for field, value in [('schema', 'wrong'), ('frozen_at_unix_ns', 5000),

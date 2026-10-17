@@ -12,6 +12,7 @@ use zk_fresh_program::application_v3::{
     ISSUER_LEN, QUEUE_LEN, REQUEST_LEN,
 };
 mod branch;
+mod campaign;
 pub use branch::branch_from_env;
 
 #[derive(serde::Deserialize)]
@@ -110,6 +111,12 @@ impl TrainingHistory {
     fn empty() -> Self {
         Self {
             schema: "part5-v3-two-leaf-signed-history-v1".into(),
+            checkpoints: Vec::new(),
+        }
+    }
+    fn campaign() -> Self {
+        Self {
+            schema: "part5-v3-eleven-leaf-signed-history-v1".into(),
             checkpoints: Vec::new(),
         }
     }
@@ -325,6 +332,112 @@ fn parse_training_context(
     Ok((context, root, issuer_hash, policy_id, aki, evidence_digest))
 }
 
+enum StageAllocation {
+    Pair(TrainingAllocations),
+    Campaign(campaign::CampaignContext),
+}
+impl StageAllocation {
+    fn changes(&self) -> Result<Vec<Change>> {
+        match self {
+            Self::Pair(value) => value.changes(),
+            Self::Campaign(value) => value.initial_allocations.changes(),
+        }
+    }
+    fn bytes(&self) -> Result<Vec<u8>> {
+        Ok(match self {
+            Self::Pair(value) => serde_json::to_vec_pretty(value)?,
+            Self::Campaign(value) => serde_json::to_vec_pretty(&value.initial_allocations)?,
+        })
+    }
+    fn history(&self) -> TrainingHistory {
+        match self {
+            Self::Pair(_) => TrainingHistory::empty(),
+            Self::Campaign(_) => TrainingHistory::campaign(),
+        }
+    }
+    fn replay(
+        &self,
+        history: &TrainingHistory,
+        plan: &V3QueuePlan,
+        config: &Config,
+        issuer: &Issuer,
+        head: &PublisherHead,
+    ) -> Result<()> {
+        match self {
+            Self::Pair(value) => {
+                replay_training_history(history, plan, value, config, issuer, head)?;
+            }
+            Self::Campaign(value) => {
+                campaign::replay_history(history, plan, value, config, issuer, head)?;
+            }
+        }
+        Ok(())
+    }
+    fn stage_schema(&self) -> &'static str {
+        match self {
+            Self::Pair(_) => "part5-v3-local-stage-v1",
+            Self::Campaign(_) => "part5-v3-campaign-stage-v1",
+        }
+    }
+}
+
+struct StageValues {
+    root: [u8; 32],
+    issuer_hash: [u8; 32],
+    policy_id: [u8; 32],
+    aki: [u8; 32],
+    evidence_digest: [u8; 32],
+    not_before: i64,
+    not_after: i64,
+    allocation: StageAllocation,
+}
+fn stage_values(campaign: bool) -> Result<StageValues> {
+    if campaign {
+        let raw = transport::pinned(
+            Path::new(&transport::env("P5_V3_CONTEXT")?),
+            &transport::env("P5_V3_CONTEXT_SHA256")?,
+            8192,
+        )?;
+        let context: campaign::CampaignContext = serde_json::from_slice(&raw)?;
+        context.check()?;
+        let aki = transport::unhex(&context.aki)?;
+        let evidence_digest = transport::unhex(&context.evidence_digest)?;
+        ensure!(
+            aki[20..] == [0; 12] && evidence_digest != [0; 32],
+            "signed campaign AKI/evidence shape"
+        );
+        Ok(StageValues {
+            root: transport::unhex(&context.root)?,
+            issuer_hash: transport::unhex(&context.issuer_hash)?,
+            policy_id: transport::unhex(&context.policy_id)?,
+            aki,
+            evidence_digest,
+            not_before: context.not_before,
+            not_after: context.not_after,
+            allocation: StageAllocation::Campaign(context),
+        })
+    } else {
+        let (context, root, issuer_hash, policy_id, aki, evidence_digest) = training_context()?;
+        let allocation = context
+            .initial_allocations
+            .context("two-leaf initial allocations required")?;
+        ensure!(
+            allocation.roots()?.0 == root,
+            "staged cohort allocation root"
+        );
+        Ok(StageValues {
+            root,
+            issuer_hash,
+            policy_id,
+            aki,
+            evidence_digest,
+            not_before: context.not_before,
+            not_after: context.not_after,
+            allocation: StageAllocation::Pair(allocation),
+        })
+    }
+}
+
 fn finalized_accounts(
     rpc: &Rpc,
     p: &V3QueuePlan,
@@ -451,7 +564,8 @@ fn signed_initial_source(
     evidence_digest: [u8; 32],
     observed: i64,
     source: &Keypair,
-    allocations: &TrainingAllocations,
+    initial_root: [u8; 32],
+    changes: Vec<Change>,
 ) -> Result<(EnrolledSource, SignedSource, [u8; 32])> {
     use zk_fresh_program::generated_vk_v3 as identity;
     ensure!(
@@ -459,7 +573,7 @@ fn signed_initial_source(
         "initial enrolled source key"
     );
     ensure!(
-        p.root == allocations.roots()?.0,
+        p.root == initial_root && !changes.is_empty() && changes.len() <= 11,
         "initial signed allocation root"
     );
     let a = p.addresses();
@@ -502,7 +616,7 @@ fn signed_initial_source(
             .checked_add(240)
             .context("initial source expiry overflow")?,
         issuer_status_active: true,
-        changes: allocations.changes()?,
+        changes,
     };
     let mut message = SOURCE_SIGN_TAG.to_vec();
     message.extend(serde_json::to_vec(&observation)?);
@@ -615,8 +729,21 @@ fn check_finalized_envelopes(
 /// supervisor authenticates the live validator, bounds this child and owns it.
 /// This function does not create or verify a proof or authorize an Execute.
 pub fn stage_from_env() -> Result<()> {
+    stage_with_context(false)
+}
+
+pub fn campaign_stage_from_env() -> Result<()> {
+    stage_with_context(true)
+}
+
+fn stage_with_context(campaign: bool) -> Result<()> {
     ensure!(
-        transport::env("P5_V3_STAGE_SCOPE")? == "part5-v3-local-stage",
+        transport::env("P5_V3_STAGE_SCOPE")?
+            == if campaign {
+                "part5-v3-campaign-stage"
+            } else {
+                "part5-v3-local-stage"
+            },
         "explicit v3 local stage scope required"
     );
     let output = transport::output()?;
@@ -626,18 +753,19 @@ pub fn stage_from_env() -> Result<()> {
     );
     let rpc = transport::local_rpc()?;
     let (program, genesis, loaded) = transport::domain(&rpc)?;
-    let (context, root, issuer_hash, policy_id, aki, evidence_digest) = training_context()?;
-    let allocations = context
-        .initial_allocations
-        .as_ref()
-        .context("two-leaf initial allocations required")?;
-    ensure!(
-        allocations.roots()?.0 == root,
-        "staged cohort allocation root"
-    );
+    let StageValues {
+        root,
+        issuer_hash,
+        policy_id,
+        aki,
+        evidence_digest,
+        not_before,
+        not_after,
+        allocation,
+    } = stage_values(campaign)?;
     let now = transport::clock(&rpc)?;
     ensure!(
-        now >= context.not_before && now < context.not_after,
+        now >= not_before && now < not_after,
         "training certificate currently valid"
     );
     let admin = transport::keys(&output, "admin.json")?;
@@ -658,7 +786,7 @@ pub fn stage_from_env() -> Result<()> {
         aki,
         root,
         policy_id,
-        deadline: (now + 86_400).min(context.not_after),
+        deadline: (now + 86_400).min(not_after),
         payload: vec![0, 1, 2, 3],
     };
     ensure!(p.deadline > now, "positive request lifetime required");
@@ -732,8 +860,14 @@ pub fn stage_from_env() -> Result<()> {
         &mut events,
     )?;
     let observed = transport::clock(&rpc)?;
-    let (enrolled, signed_source, source_digest) =
-        signed_initial_source(&p, evidence_digest, observed, &source, allocations)?;
+    let (enrolled, signed_source, source_digest) = signed_initial_source(
+        &p,
+        evidence_digest,
+        observed,
+        &source,
+        root,
+        allocation.changes()?,
+    )?;
     transport::new_json(&output.join("signed-source.json"), &signed_source)?;
     transport::new_json(&output.join("enrolled-source.json"), &enrolled)?;
     transport::send(
@@ -863,11 +997,11 @@ pub fn stage_from_env() -> Result<()> {
         &h,
         checked_at,
     )?;
-    let mut history = TrainingHistory::empty();
+    let mut history = allocation.history();
     history.push(signed_source, signed_publisher, checked_at);
-    replay_training_history(&history, &p, allocations, &c, &i, &h)?;
+    allocation.replay(&history, &p, &c, &i, &h)?;
     let history_sha256 = write_training_history(&output, &history)?;
-    let allocation_bytes = serde_json::to_vec_pretty(allocations)?;
+    let allocation_bytes = allocation.bytes()?;
     transport::new_file(&output.join("initial-allocations.json"), &allocation_bytes)?;
     let allocations_sha256 = hex::encode(Sha256::digest(allocation_bytes));
     transport::new_json(&output.join("plan.json"), &p)?;
@@ -883,7 +1017,7 @@ pub fn stage_from_env() -> Result<()> {
     transport::new_json(
         &output.join("stage-report.json"),
         &json!({
-            "schema":"part5-v3-local-stage-v1", "passed":true,
+            "schema":allocation.stage_schema(), "passed":true,
             "training_only":true,"upstream_source_authentication":true,
             "upstream_publisher_authentication":true,"registry_history_authenticated":true,
             "allocation_history_authenticated":true,"signed_history_sha256":history_sha256,
@@ -2117,8 +2251,15 @@ mod tests {
             eligibility_epoch: 0,
             enabled: true,
         };
-        let (enrolled, initial, _) =
-            signed_initial_source(&p, [31; 32], 100, &source, &allocations).unwrap();
+        let (enrolled, initial, _) = signed_initial_source(
+            &p,
+            [31; 32],
+            100,
+            &source,
+            base,
+            allocations.changes().unwrap(),
+        )
+        .unwrap();
         let mut issuer = Issuer::enroll(
             a.config,
             &c,
@@ -2300,8 +2441,15 @@ mod tests {
             eligibility_epoch: 0,
             enabled: true,
         };
-        let (enrolled, signed, digest) =
-            signed_initial_source(&p, [31; 32], 100, &source, &allocations).unwrap();
+        let (enrolled, signed, digest) = signed_initial_source(
+            &p,
+            [31; 32],
+            100,
+            &source,
+            p.root,
+            allocations.changes().unwrap(),
+        )
+        .unwrap();
         assert_eq!(signed.observation.sequence, 1);
         assert_eq!(signed.observation.previous_digest, [0; 32]);
         assert_eq!(signed.observation.changes.len(), 2);
@@ -2418,7 +2566,15 @@ mod tests {
             check_finalized_envelopes(&enrolled, &signed, &binding, &c, &issuer, &head, 340)
                 .is_err()
         );
-        assert!(signed_initial_source(&p, [31; 32], 100, &publisher, &allocations).is_err());
+        assert!(signed_initial_source(
+            &p,
+            [31; 32],
+            100,
+            &publisher,
+            p.root,
+            allocations.changes().unwrap(),
+        )
+        .is_err());
     }
 
     #[test]

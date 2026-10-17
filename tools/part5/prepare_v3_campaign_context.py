@@ -26,14 +26,10 @@ def encoded(value):
     return (json.dumps(value, sort_keys=True, separators=(',', ':')) + '\n').encode()
 
 
-def prepare(cohort, cohort_sha256, membership_sha256, output):
+def derive(cohort, cohort_sha256, membership_sha256):
     issuance._directory(cohort)
-    issuance._directory(output.parent)
-    if (not output.is_absolute() or output.exists() or output.is_symlink()
-            or output.parent.resolve(strict=True) / output.name != output
-            or not keys._ignored(output)
-            or not keys._hash(cohort_sha256) or not keys._hash(membership_sha256)):
-        raise ValueError('fresh ignored private campaign context required')
+    if not keys._hash(cohort_sha256) or not keys._hash(membership_sha256):
+        raise ValueError('campaign receipt hashes required')
     receipt_raw = issuance._read(cohort / 'cohort-receipt.json', 65536)
     membership_raw = issuance._read(cohort / 'membership.json', 65536)
     receipt = issuance.decode_parameters(receipt_raw)
@@ -109,6 +105,16 @@ def prepare(cohort, cohort_sha256, membership_sha256, output):
                    'membership_sha256': membership_sha256,
                    'root_sequence_sha256': receipt['root_sequence_sha256']},
                'root_sequence': [f'{root:064x}' for root in roots['roots']]}
+    return context
+
+
+def prepare(cohort, cohort_sha256, membership_sha256, output):
+    issuance._directory(output.parent)
+    if (not output.is_absolute() or output.exists() or output.is_symlink()
+            or output.parent.resolve(strict=True) / output.name != output
+            or not keys._ignored(output)):
+        raise ValueError('fresh ignored private campaign context required')
+    context = derive(cohort, cohort_sha256, membership_sha256)
     raw = encoded(context)
     issuance._write(output, raw)
     return {'schema': 'part5-v3-campaign-context-preparation-v1',
@@ -116,7 +122,7 @@ def prepare(cohort, cohort_sha256, membership_sha256, output):
             'registry_history_authenticated': False,
             'context_sha256': hashlib.sha256(raw).hexdigest(),
             'cohort_receipt_sha256': cohort_sha256,
-            'root_sequence_sha256': receipt['root_sequence_sha256']}
+            'root_sequence_sha256': context['initial_allocations']['root_sequence_sha256']}
 
 
 def main():

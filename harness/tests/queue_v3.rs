@@ -5,6 +5,12 @@ fn root_pinned_queue_v3_stage() {
 }
 
 #[test]
+#[ignore = "requires frozen eleven-leaf context and supervised loaded v3 validator"]
+fn root_pinned_queue_v3_campaign_stage() {
+    zk_fresh_benchmark::solana::queue_v3::campaign_stage_from_env().unwrap();
+}
+
+#[test]
 #[ignore = "requires pinned staged ledger, exact Full proof, and supervised loopback validator"]
 fn root_pinned_queue_v3_execute() {
     zk_fresh_benchmark::solana::queue_v3::execute_from_env().unwrap();
