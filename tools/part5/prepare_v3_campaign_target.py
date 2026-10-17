@@ -142,7 +142,9 @@ def prepare(source, base, stage_root, transition_root, cohort_root, context_path
             or report.get('base_root') != context['root_sequence'][0]
             or report.get('current_root') != context['root_sequence'][count]
             or report.get('root_sequence_sha256') != src['root_sequence_sha256']
-            or any(report.get(k) != staged.get(k) for k in ('program', 'genesis', 'request', 'queue', 'config', 'issuer', 'head'))
+            or any(report.get(k) != staged.get(k) for k in ('program', 'genesis'))
+            or any(k in report and report[k] != staged.get(k)
+                   for k in ('request', 'queue', 'config', 'issuer', 'head'))
             or len(report.get('checkpoints', [])) != count
             or len(report.get('transactions', [])) != 3 * count
             or any(row.get('err') is not None for row in report['transactions'])):

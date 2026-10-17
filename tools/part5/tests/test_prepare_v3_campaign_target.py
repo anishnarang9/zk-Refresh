@@ -134,6 +134,9 @@ class CampaignTargetTests(unittest.TestCase):
         staged.update(schema='part5-v3-campaign-stage-v1', passed=True, training_only=True,
             registry_history_authenticated=True, allocation_history_authenticated=True,
             upstream_source_authentication=True, upstream_publisher_authentication=True,
+            program='program', genesis='genesis', request='request-address',
+            queue='queue-address', config='config-address', issuer='issuer-address',
+            head='head-address',
             application_effect=False, proof_created=False, transactions=[dict(scenario='v3-bind-head', blockTime=100)],
             plan_sha256=tool.digest(tool.encoded(plan)), signed_history_sha256=tool.digest(history_tests.compact(stage_history)),
             initial_allocations_sha256=tool.digest(tool.encoded(context['initial_allocations'])))
@@ -176,6 +179,7 @@ class CampaignTargetTests(unittest.TestCase):
         report.update(schema='part5-v3-campaign-transition-v1', passed=True,
             registry_history_authenticated=True, allocation_history_authenticated=True,
             request_unconsumed=True, application_effect=False,
+            program='program', genesis='genesis',
             stage_report_sha256=tool.digest(tool.encoded(staged)), stage_plan_sha256=tool.digest(tool.encoded(plan)),
             context_sha256=tool.digest(tool.encoded(context)), base_root=context['root_sequence'][0],
             current_root=context['root_sequence'][2], root_sequence_sha256='e' * 64,
@@ -249,6 +253,18 @@ class CampaignTargetTests(unittest.TestCase):
                          set(tool.ARTIFACT_BOUNDS) | {'training-receipt.json'})
         for p in self.paths['output'].iterdir():
             self.assertEqual(p.stat().st_mode & 0o777, 0o600)
+
+    def test_supplied_transition_address_must_match_stage(self):
+        inputs = self.synthetic_fixture()
+        transition = self.paths['transition_root']
+        helper = tool.load_preparer()
+        report = helper._json((transition / 'transition-report.json').read_bytes())
+        report['request'] = 'wrong-request-address'
+        self.save(transition / 'transition-report.json', tool.encoded(report))
+        self.args['transition_report_sha256'] = tool.digest(tool.encoded(report))
+        with self.assertRaisesRegex(ValueError, 'transition'):
+            self.run_synthetic(*inputs)
+        self.assertEqual(list(self.paths['output'].iterdir()), [])
 
     def test_mutated_queue_rejected_even_with_updated_report_hash(self):
         inputs = self.synthetic_fixture()
