@@ -15,6 +15,16 @@ from tools.part5 import build_v3_heldout_cohort as builder
 
 
 class HeldoutFreezePinClosureTests(unittest.TestCase):
+    def test_client_bundle_pins_current_r2_rejection_tools(self):
+        required = {
+            'tools/part5/check_v3_r2_counterfactual.py',
+            'tools/part5/witness_check.py',
+            'tools/part5/prepare_v3_heldout_proof.py',
+            'crates/dynark-native-client/tests/support/v3_relation_witness.cjs',
+        }
+        self.assertTrue(required.issubset(set(tool.CLIENT_FILES)))
+        self.assertEqual(len(tool.CLIENT_FILES), len(set(tool.CLIENT_FILES)))
+
     def test_registry_bundle_pins_queue_runner_local_build_inputs(self):
         required = {
             'harness/src/solana/queue_v3.rs',

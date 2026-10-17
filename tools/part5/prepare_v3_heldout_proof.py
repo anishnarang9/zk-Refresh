@@ -7,6 +7,7 @@ mode under an external sampled process-tree supervisor, and derives the 448-byte
 adapter wires. It has no validator or application-side effects.
 """
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -58,6 +59,7 @@ RELATION_LIMITS = {'runtime_seconds': 600, 'rss_bytes': 4 * 1024**3,
                    'storage_bytes': 512 * 1024**2}
 ADAPTER_LIMITS = {'runtime_seconds': 600, 'rss_bytes': 4 * 1024**3,
                   'storage_bytes': 512 * 1024**2}
+FR = 21888242871839275222246405745257275088548364400416034343698204186575808495617
 
 
 def digest(raw):
@@ -267,6 +269,210 @@ def validate_wire(raw, root_hex, action_hex):
             or raw[:32].hex() != root_hex or raw[128:160].hex() != action_hex):
         raise ValueError('adapter wire does not pin expected root and action')
     return True
+
+
+def build_r2_active_witness_input(active_input, r2_root, own_revoked_siblings):
+    """Build an active-leaf witness candidate against the self-revoked R2 path."""
+    if type(active_input) is not dict or not _hash(r2_root):
+        raise ValueError('canonical active input and R2 root required')
+    root = int(r2_root, 16)
+    if root >= FR:
+        raise ValueError('R2 root must be a canonical field element')
+    if (type(own_revoked_siblings) is not list or len(own_revoked_siblings) != 10
+            or any(type(value) is not int or not 0 <= value < FR
+                   for value in own_revoked_siblings)):
+        raise ValueError('ten canonical own-revoked sibling field elements required')
+    if ('root' not in active_input or 'siblings' not in active_input
+            or type(active_input['root']) is not str
+            or not active_input['root'].isdecimal()
+            or str(int(active_input['root'])) != active_input['root']
+            or type(active_input['siblings']) is not list
+            or len(active_input['siblings']) != 10):
+        raise ValueError('canonical active v3 witness input required')
+    candidate = copy.deepcopy(active_input)
+    candidate['root'] = str(root)
+    candidate['siblings'] = [str(value) for value in own_revoked_siblings]
+    return candidate
+
+
+def patch_r1_wtns_for_r2_counterfactual(witness_bytes, input_coordinates,
+                                        r2_root, own_revoked_siblings):
+    """Patch an R1 WTNS public root and sibling wires for a labeled R2 check."""
+    if (type(witness_bytes) is not bytes or len(witness_bytes) != 25113548
+            or not _hash(r2_root) or int(r2_root, 16) >= FR
+            or type(own_revoked_siblings) is not list or len(own_revoked_siblings) != 10
+            or any(type(value) is not int or not 0 <= value < FR
+                   for value in own_revoked_siblings)
+            or type(input_coordinates) is not bytes or len(input_coordinates) != 751 * 4):
+        raise ValueError('bounded canonical WTNS and coordinate map required')
+    if witness_bytes[:8] != b'wtns\x02\x00\x00\x00':
+        raise ValueError('canonical WTNS header required')
+    section_count = int.from_bytes(witness_bytes[8:12], 'little')
+    if section_count != 2:
+        raise ValueError('two-section WTNS required')
+    offset, sections = 12, {}
+    for _ in range(section_count):
+        if offset + 12 > len(witness_bytes):
+            raise ValueError('truncated WTNS section table')
+        section = int.from_bytes(witness_bytes[offset:offset + 4], 'little')
+        size = int.from_bytes(witness_bytes[offset + 4:offset + 12], 'little')
+        start = offset + 12
+        if section in sections or start + size > len(witness_bytes):
+            raise ValueError('invalid WTNS section bounds')
+        sections[section] = (start, size)
+        offset = start + size
+    if offset != len(witness_bytes) or set(sections) != {1, 2}:
+        raise ValueError('complete WTNS sections required')
+    header_start, header_size = sections[1]
+    if header_size != 40 or int.from_bytes(witness_bytes[header_start:header_start + 4], 'little') != 32:
+        raise ValueError('canonical WTNS field header required')
+    if int.from_bytes(witness_bytes[header_start + 4:header_start + 36], 'little') != FR:
+        raise ValueError('canonical BN254 witness field required')
+    count = int.from_bytes(witness_bytes[header_start + 36:header_start + 40], 'little')
+    assignment_start, assignment_size = sections[2]
+    if count != 784796 or assignment_size != count * 32:
+        raise ValueError('complete v3 WTNS assignment required')
+    if int.from_bytes(witness_bytes[assignment_start:assignment_start + 32], 'little') != 1:
+        raise ValueError('canonical WTNS constant wire required')
+    if any(int.from_bytes(witness_bytes[offset:offset + 32], 'little') >= FR
+           for offset in range(assignment_start, assignment_start + assignment_size, 32)):
+        raise ValueError('canonical WTNS field assignments required')
+    coordinates = [int.from_bytes(input_coordinates[i:i + 4], 'little')
+                   for i in range(0, len(input_coordinates), 4)]
+    if (len(set(coordinates)) != len(coordinates)
+            or any(not 0 < index < count for index in coordinates)
+            or coordinates[:6] != [1, 2, 3, 4, 5, 6]):
+        raise ValueError('frozen v3 input coordinate map required')
+    # INPUT_FIELDS places root first, then issuer/profile/signature fields,
+    # followed by slot and ten siblings at scalar offsets 731 through 740.
+    sibling_offset = 731
+    sibling_wires = coordinates[sibling_offset:sibling_offset + 10]
+    if len(sibling_wires) != 10 or len(set([coordinates[0], *sibling_wires])) != 11:
+        raise ValueError('unique root and sibling wire coordinates required')
+    result = bytearray(witness_bytes)
+    assignments = [ (coordinates[0], int(r2_root, 16)),
+                    *zip(sibling_wires, own_revoked_siblings) ]
+    for wire, value in assignments:
+        start = assignment_start + wire * 32
+        result[start:start + 32] = value.to_bytes(32, 'little')
+    return bytes(result)
+
+
+def r2_active_witness_rejection_receipt(*, base_input, candidate_input, r2_root,
+                                        own_revoked_siblings, action_hash,
+                                        target_credential_sha256, target_tbs_sha256,
+                                        witness_generator_sha256,
+                                        relation_checker_sha256, r1cs_sha256,
+                                        bounded_supervisor_sha256,
+                                        generator_supervisor_ref,
+                                        generator_supervisor_limits,
+                                        generator_invocation_ref,
+                                        generator_exit_code, generated_wtns_present,
+                                        base_input_ref, candidate_input_ref,
+                                        input_coordinates_ref, r1_witness_ref,
+                                        counterfactual_witness_ref,
+                                        relation_result, relation_result_ref,
+                                        relation_supervisor_ref,
+                                        relation_supervisor_limits,
+                                        relation_invocation_ref,
+                                        relation_exit_code):
+    """Validate the opaque generator rejection and separate counterfactual row."""
+    expected = build_r2_active_witness_input(base_input, r2_root,
+                                             own_revoked_siblings)
+    if candidate_input != expected:
+        raise ValueError('R2 candidate must preserve the R1 input except root and revoked path')
+    pins = (action_hash, target_credential_sha256, target_tbs_sha256,
+            witness_generator_sha256, relation_checker_sha256, r1cs_sha256)
+    if not all(_hash(value) for value in (*pins, bounded_supervisor_sha256)):
+        raise ValueError('complete R2 witness rejection identity pins required')
+
+    def artifact_ref(ref):
+        return (type(ref) is dict and set(ref) == {'path', 'sha256'}
+                and type(ref['path']) is str and ref['path'].startswith('/')
+                and _hash(ref['sha256']))
+    refs = (base_input_ref, candidate_input_ref, input_coordinates_ref,
+            r1_witness_ref, counterfactual_witness_ref,
+            relation_result_ref, generator_supervisor_ref, relation_supervisor_ref,
+            generator_invocation_ref, relation_invocation_ref)
+    if any(not artifact_ref(ref) for ref in refs):
+        raise ValueError('pinned input, WTNS and supervisor references required')
+    if (base_input_ref['sha256'] != digest(encoded(base_input))
+            or candidate_input_ref['sha256'] != digest(encoded(candidate_input))):
+        raise ValueError('R1 and R2 candidate input references differ from canonical input')
+
+    candidate_sha = digest(encoded(candidate_input))
+    base_sha = digest(encoded(base_input))
+    public = [str(int(r2_root, 16) if name == 'root' else int(value))
+              for name, value in zip(('root', 'issuerHash', 'notBefore', 'notAfter',
+                                      'actionHash', 'policyHash'),
+                                     [candidate_input['root'], *[
+                                         base_input[key] for key in ('issuerHash', 'notBefore',
+                                                                     'notAfter', 'actionHash',
+                                                                     'policyHash')]])]
+    if public[4] != str(int(action_hash, 16)):
+        raise ValueError('R2 candidate action must match its pinned request action')
+
+    if (generator_exit_code != 2 or generated_wtns_present is not False
+            or generator_supervisor_limits != WITNESS_LIMITS
+            or relation_supervisor_limits != RELATION_LIMITS
+            or relation_exit_code != 0):
+        raise ValueError('expected bounded generator rejection and relation report required')
+    if (not _hash(input_coordinates_ref['sha256'])
+            or not _hash(r1_witness_ref['sha256'])
+            or not _hash(counterfactual_witness_ref['sha256'])
+            or candidate_input_ref['sha256'] != candidate_sha
+            or not _hash(relation_result.get('witness_sha256') if type(relation_result) is dict else None)
+            or relation_result.get('witness_sha256') != counterfactual_witness_ref['sha256']
+            or not _hash(relation_result.get('base_r1_witness_sha256') if type(relation_result) is dict else None)
+            or relation_result.get('base_r1_witness_sha256') != r1_witness_ref['sha256']
+            or relation_result_ref['sha256'] != digest(encoded(relation_result))):
+        raise ValueError('counterfactual WTNS and coordinate pins required')
+    if (type(relation_result) is not dict
+            or relation_result.get('schema') != 'part5-v3-r2-active-witness-r1cs-result-v1'
+            or relation_result.get('status') != 'unsatisfied'
+            or type(relation_result.get('constraint_row')) is not int
+            or not 0 <= relation_result['constraint_row'] < 793681
+            or relation_result.get('scan') != 'first_unsatisfied_row'
+            or relation_result.get('expected_public') != public
+            or relation_result.get('candidate_input_sha256') != candidate_sha
+            or relation_result.get('witness_sha256') != counterfactual_witness_ref['sha256']
+            or relation_result.get('r1cs_sha256') != r1cs_sha256
+            or relation_result.get('relation_checker_sha256') != relation_checker_sha256):
+        raise ValueError('counterfactual unsatisfied R1CS row required')
+    return {
+        'schema': 'part5-v3-r2-active-witness-rejection-v1',
+        'outcome': 'generator_rejected_plus_counterfactual_r1cs_unsatisfied',
+        'base_r1_root': f'{int(base_input["root"]):064x}',
+        'r2_root': f'{int(r2_root, 16):064x}',
+        'own_revoked_siblings_sha256': digest(encoded(own_revoked_siblings)),
+        'base_r1_input_sha256': base_sha, 'candidate_input_sha256': candidate_sha,
+        'base_r1_input_ref': base_input_ref, 'candidate_input_ref': candidate_input_ref,
+        'input_coordinates_ref': input_coordinates_ref,
+        'input_coordinates_sha256': input_coordinates_ref['sha256'],
+        'target_credential_sha256': target_credential_sha256,
+        'target_tbs_sha256': target_tbs_sha256, 'action_hash': action_hash,
+        'witness_generator_sha256': witness_generator_sha256,
+        'relation_checker_sha256': relation_checker_sha256,
+        'r1cs_sha256': r1cs_sha256, 'bounded_supervisor_sha256': bounded_supervisor_sha256,
+        'generator_invocation_ref': generator_invocation_ref,
+        'relation_invocation_ref': relation_invocation_ref,
+        'generator_attempt': {'exit_code': generator_exit_code,
+                              'output_wtns_present': generated_wtns_present,
+                              'input_sha256': candidate_sha,
+                              'supervisor_ref': generator_supervisor_ref,
+                              'supervisor_limits': generator_supervisor_limits},
+        'counterfactual_assignment': {
+            'label': 'counterfactual_r1_wtns_with_r2_public_root_and_revoked_siblings',
+            'base_r1_witness_ref': r1_witness_ref,
+            'base_r1_witness_sha256': r1_witness_ref['sha256'],
+            'patched_witness_ref': counterfactual_witness_ref,
+            'patched_witness_sha256': counterfactual_witness_ref['sha256']},
+        'r1cs_result': relation_result,
+        'r1cs_result_ref': relation_result_ref,
+        'relation_supervisor': {'ref': relation_supervisor_ref,
+                                'limits': relation_supervisor_limits,
+                                'exit_code': relation_exit_code},
+    }
 
 
 def _pinned_file(path, expected, *, executable=False, cap=1024 * 1024 * 1024):
