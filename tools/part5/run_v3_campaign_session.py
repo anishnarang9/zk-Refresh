@@ -259,7 +259,8 @@ def verified_effect(status_path, report_path, mode, count):
                          and status.get('ledger_reuse_requires_review') is True
                          and cleanup.get('exit_code') == -2)
     identity_fields = ('program', 'programdata', 'elf_sha256',
-                       'program_account_sha256', 'programdata_account_sha256', 'genesis')
+                       'program_account_sha256', 'programdata_account_sha256', 'genesis',
+                       'loader', 'elf_bytes')
     status_loaded = status.get('loaded_program', {})
     effect_loaded = effect.get('loaded_program', {})
     if (status.get('scope') != 'part5-v3-campaign-effect'
@@ -286,8 +287,17 @@ def verified_effect(status_path, report_path, mode, count):
             or effect.get('stale_r0_rejected') is not (count > 0 and mode != 'coalesced-full')
             or status_loaded.get('elf_match') is not True
             or effect_loaded.get('elf_match') is not True
-            or any(key not in status_loaded or status_loaded[key] != effect_loaded.get(key)
-                   for key in identity_fields)
+            or any(key not in status_loaded for key in identity_fields)
+            or effect_loaded.get('elf_sha256') != status_loaded.get('elf_sha256')
+            or not isinstance(status_loaded.get('loader'), str)
+            or not status_loaded['loader']
+            or effect_loaded.get('loader') != status_loaded.get('loader')
+            or type(status_loaded.get('elf_bytes')) is not int
+            or status_loaded['elf_bytes'] <= 0
+            or type(effect_loaded.get('local_bytes')) is not int
+            or type(effect_loaded.get('remote_bytes')) is not int
+            or effect_loaded.get('local_bytes') != status_loaded.get('elf_bytes')
+            or effect_loaded.get('remote_bytes') != status_loaded.get('elf_bytes')
             or type(status.get('finalized_slot')) is not int
             or type(effect.get('finalized_slot')) is not int
             or status['finalized_slot'] < effect['finalized_slot']):

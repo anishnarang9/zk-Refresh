@@ -106,14 +106,18 @@ class CampaignSessionTests(unittest.TestCase):
                                'storage_growth_bytes': 268435456}})
                 loaded = {key: key for key in ('program', 'programdata', 'elf_sha256',
                     'program_account_sha256', 'programdata_account_sha256', 'genesis')}
-                loaded['elf_match'] = True
+                loaded.update({'elf_match': True, 'elf_bytes': 4096,
+                    'loader': 'BPFLoaderUpgradeab1e11111111111111111111111'})
                 self.write(args.effect_output / 'effect-report.json', {
                     'schema': 'part5-v3-campaign-effect-v1', 'passed': True,
                     'mode': args.mode, 'target_count': args.target_count,
                     'application_effect': True, 'effect_count': 1,
                     'request_consumed': True,
                     'stale_r0_rejected': args.target_count > 0 and args.mode != 'coalesced-full',
-                    'finalized_slot': 5, 'loaded_program': loaded})
+                    'finalized_slot': 5, 'loaded_program': {
+                        'elf_match': True, 'elf_sha256': loaded['elf_sha256'],
+                        'loader': loaded['loader'], 'local_bytes': loaded['elf_bytes'],
+                        'remote_bytes': loaded['elf_bytes']}})
                 self.write(args.control_output / 'status.json', {
                     'scope': 'part5-v3-campaign-effect',
                     'status': 'passed' if clean_shutdown else 'failed',
@@ -205,6 +209,26 @@ class CampaignSessionTests(unittest.TestCase):
         self.assertFalse(report['effect_verified'])
         self.assertEqual(report['error_type'], 'ValueError')
         self.assertEqual(calls[-1][0], 'application')
+
+    def test_effect_loaded_summary_must_match_full_status(self):
+        args = self.args('anchor', 0)
+        result, _, _ = self.synthetic(args)
+        self.assertEqual(result, 0)
+        status_path = args.control_output / 'status.json'
+        report_path = args.effect_output / 'effect-report.json'
+        status = json.loads(status_path.read_text())
+        report = json.loads(report_path.read_text())
+        for key, value in (('elf_sha256', 'f' * 64), ('loader', 'other-loader'),
+                           ('local_bytes', 4095), ('remote_bytes', 4095)):
+            with self.subTest(key=key):
+                changed = dict(report)
+                changed['loaded_program'] = dict(report['loaded_program'], **{key: value})
+                self.write(report_path, changed)
+                changed_status = dict(status)
+                changed_status['effect_report_sha256'] = tool.digest(report_path)
+                self.write(status_path, changed_status)
+                with self.assertRaisesRegex(ValueError, 'finalized campaign effect'):
+                    tool.verified_effect(status_path, report_path, 'anchor', 0)
 
     def test_bounded_effect_timeout_cannot_be_reported_as_success(self):
         result, calls, report = self.synthetic(self.args('anchor', 1), bad_monitor=True)
