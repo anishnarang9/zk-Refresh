@@ -43,7 +43,7 @@ def review_prior(prior, monitor, original, config):
     # identity. It did not prove graceful ledger closure; restart is mandatory.
     if prior['cleanup'].get('exit_code') != -signal.SIGINT:
         raise ValueError('unexpected prior validator shutdown')
-    if (monitor.get('owner') != 'part5-v3-local-prepare-001'
+    if (monitor.get('owner') != config.get('prior_monitor_owner', 'part5-v3-local-prepare-001')
             or monitor.get('stop_reason') is not None
             or monitor.get('runner_error_type') is not None
             or monitor.get('cleanup_remaining_owned_processes') != 0

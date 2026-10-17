@@ -53,6 +53,10 @@ class StageTests(unittest.TestCase):
         config = {'prior_config_sha256': 'a' * 64, 'expected_genesis': genesis,
                   'ledger': '/ledger'}
         stage.review_prior(prior, monitor, original, config)
+        second = dict(config, prior_monitor_owner='part5-v3-local-prepare-002')
+        with self.assertRaises(ValueError):
+            stage.review_prior(prior, monitor, original, second)
+        stage.review_prior(prior, dict(monitor, owner='part5-v3-local-prepare-002'), original, second)
         prior['loaded_program']['genesis'] = 'changed'
         with self.assertRaises(ValueError):
             stage.review_prior(prior, monitor, original, config)
