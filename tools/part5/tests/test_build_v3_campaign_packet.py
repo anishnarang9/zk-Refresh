@@ -46,7 +46,9 @@ class CampaignPacketTests(unittest.TestCase):
             training_only=True, registry_history_authenticated=True,
             allocation_history_authenticated=True, upstream_source_authentication=True,
             upstream_publisher_authentication=True, application_effect=False, proof_created=False,
-            program='1' * 32, genesis='1' * 32, loaded_program=dict(elf_sha256='e' * 64),
+            program='1' * 32, genesis='1' * 32, loaded_program=dict(
+                elf_match=True, elf_sha256='e' * 64, loader='upgradeable',
+                local_bytes=4096, remote_bytes=4096),
             request='1' * 32, finalized_slot=10,
             plan_sha256=self.sha(self.stage / 'plan.json'),
             signed_history_sha256=self.sha(self.stage / 'signed-history.json'),
@@ -93,6 +95,7 @@ class CampaignPacketTests(unittest.TestCase):
             base_finalized_slot=10, finalized_slot=10 + count,
             base_root=self.context['root_sequence'][0], current_root=self.context['root_sequence'][count],
             checkpoints=[dict(account_sha256=pins, finalized_slot=11 + i) for i in range(count)])
+        report['loaded_program'] = self.staged['loaded_program'].copy()
         self.save(self.transition / 'transition-report.json', report)
         return report
 
@@ -130,6 +133,15 @@ class CampaignPacketTests(unittest.TestCase):
             report[key] = None
             self.save(self.transition / 'transition-report.json', report)
             with self.subTest(key=key), self.assertRaises(ValueError):
+                self.build(1)
+
+    def test_transition_loaded_elf_and_size_must_match_stage(self):
+        for key, value in (('elf_sha256', '0' * 64), ('remote_bytes', 4095)):
+            report = self.transition_report(1)
+            report['loaded_program'][key] = value
+            self.save(self.transition / 'transition-report.json', report)
+            with self.subTest(key=key), self.assertRaisesRegex(
+                    ValueError, 'signed current campaign transition'):
                 self.build(1)
 
     def test_public_action_cannot_drift_together(self):
