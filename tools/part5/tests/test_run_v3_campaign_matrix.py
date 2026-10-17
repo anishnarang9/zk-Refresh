@@ -24,6 +24,14 @@ class CampaignMatrixTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Anchor k=1'):
             matrix.validate_caps(limits, matrix.CAMPAIGN_SECONDS)
 
+        limits['1']['anchor']['runtime_seconds'] = 2400
+        limits['10']['full']['storage_bytes'] = 512 * 1024 * 1024
+        self.assertEqual(matrix.validate_caps(limits, matrix.CAMPAIGN_SECONDS)['10']['full']
+                         ['storage_bytes'], 512 * 1024 * 1024)
+        limits['10']['full']['storage_bytes'] += 1
+        with self.assertRaisesRegex(ValueError, 'bounded positive limits'):
+            matrix.validate_caps(limits, matrix.CAMPAIGN_SECONDS)
+
     def test_schedule_uses_registered_order_for_each_count_and_repetition(self):
         slots = matrix.slot_specs()
 

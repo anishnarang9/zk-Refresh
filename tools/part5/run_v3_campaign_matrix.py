@@ -45,7 +45,7 @@ SEQUENCE_SCHEMA = 'part5-v3-campaign-matrix-sequence-v1'
 ECONOMICS_INPUT_SCHEMA = 'part5-v3-campaign-economics-input-v1'
 CAMPAIGN_SECONDS = 36 * 60 * 60
 MAX_RSS_BYTES = 4 * 1024 * 1024 * 1024
-MAX_STORAGE_BYTES = 256 * 1024 * 1024
+MAX_STORAGE_BYTES = 512 * 1024 * 1024
 
 from tools.part5 import run_v3_campaign_session as session
 
