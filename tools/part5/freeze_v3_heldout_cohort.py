@@ -90,6 +90,7 @@ CLIENT_FILES = [
     'tools/part5/assemble_v3_heldout_acceptance.py',
     'tools/part5/verify_v3_heldout_acceptance.py',
     'tools/part5/analyze_v3_heldout_costs.py',
+    'tools/part5/model_v3_heldout_break_even.py',
     'tools/part5/freeze_v3_heldout_cohort.py',
     # Pin the exact heldout issuer that consumes this freeze.
     'tools/part5/build_v3_heldout_cohort.py',
