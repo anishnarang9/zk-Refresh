@@ -224,6 +224,8 @@ def wait_loaded(rpc, proc, program, elf, elf_sha256, timeout=30):
                 raise RuntimeError('validator exited during finalized identity')
             report.update({'genesis': genesis, 'attempts': attempts, 'commitment': 'finalized'})
             return report
+        except InterruptedError:
+            raise
         except (OSError, NotReady):
             remaining = deadline - time.monotonic()
             if remaining > 0:

@@ -132,6 +132,19 @@ class PrepareTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             m.wait_loaded(lambda *_: self.fail('RPC after child exit'), Proc(), program, elf, m.sha(elf), 1)
 
+    def test_rpc_interruption_is_not_retried_as_readiness(self):
+        program, _, _, elf, _ = self.fixture()
+        class Proc:
+            def poll(self): return None
+        calls = []
+        def rpc(method, params):
+            calls.append(method)
+            raise InterruptedError('cancelled')
+        with patch.object(m.time, 'sleep') as sleeper, self.assertRaises(InterruptedError):
+            m.wait_loaded(rpc, Proc(), program, elf, m.sha(elf), 0.01)
+        self.assertEqual(calls, ['getGenesisHash'])
+        sleeper.assert_not_called()
+
     def test_cleanup_reaps_and_marks_escalation_not_graceful(self):
         self.api()
         import subprocess
