@@ -8,10 +8,16 @@ import tempfile
 import unittest
 from unittest import mock
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+
 from tools.part5 import verify_v3_heldout_acceptance as verifier
+from tools.part5 import build_v3_heldout_cohort as cohort_builder
+from tools.part5.issue_v3_heldout_certificate import issue_certificate
 from tools.part5.generate_v3_heldout_keys import FREEZE_SCHEMA, IDENTITY_ROLES
 from tools.part5.prepare_v3_heldout_context import COHORT_SCHEMA
 from tools.part5.prepare_v3_revocation_cohort import membership_for_pair
+from tools.part5.credential_profile import admit_certificate, public_bindings
 
 
 class HeldoutAcceptanceVerifierTests(unittest.TestCase):
@@ -47,13 +53,15 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         }
         inventory_ref = write(freeze_path.parent / 'prior-key-inventory.json', inventory)
 
+        cohort_root, imported_rows, imported_key_rows, _, _ = self._real_import_fixture('cohort')
+        self.assertEqual(cohort_path.parent, cohort_root)
         key_rows = []
         key_by_role_index = {}
         for role, count in (('issuer', 4), ('holder', 8)):
             for index in range(count):
                 key_row = {
                     'role': role, 'index': index,
-                    'public_key_sha256': f'{100 + len(key_rows):064x}',
+                    'public_key_sha256': imported_key_rows[(role, index)]['public_key_sha256'],
                     'generation_started_unix_ns': 2011 + 2 * len(key_rows),
                     'generation_completed_unix_ns': 2012 + 2 * len(key_rows),
                 }
@@ -80,18 +88,10 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
             cohort_path.parent / 'keys' / 'key-generation-receipt.json', key_receipt)
         rows = []
         for variant in range(8):
-            issuer_index, holder_index = variant % 4, variant
-            rows.append({
-                'variant': variant, 'issuer_index': issuer_index,
-                'holder_index': holder_index,
-                'issuer_public_key_sha256': key_by_role_index[
-                    ('issuer', issuer_index)]['public_key_sha256'],
-                'holder_public_key_sha256': key_by_role_index[
-                    ('holder', holder_index)]['public_key_sha256'],
-                'serial_hex': ((1 << 120) + variant + 1).to_bytes(16, 'big').hex(),
-                'issuance_started_unix_ns': 2050 + 20 * variant,
-                'issuance_completed_unix_ns': 2060 + 20 * variant,
-            })
+            row = dict(imported_rows[variant])
+            row.update(issuance_started_unix_ns=2050 + 20 * variant,
+                       issuance_completed_unix_ns=2060 + 20 * variant)
+            rows.append(row)
         cohort = {
             'generation_started_unix_ns': 2000,
             'generation_completed_unix_ns': 2300,
@@ -102,6 +102,110 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         cohort_ref = write(cohort_path, cohort)
         return freeze, freeze_ref, cohort, cohort_ref, {
             variant: row for variant, row in enumerate(rows)}, key_receipt, inventory
+
+    def _real_import_fixture(self, name='import-cohort'):
+        cohort_root = self.root / name
+        keys_root = cohort_root / 'keys'
+        keys_root.mkdir(parents=True, mode=0o700)
+        issuer_keys = [rsa.generate_private_key(public_exponent=65537, key_size=2048)
+                       for _ in range(4)]
+        holder_keys = [rsa.generate_private_key(public_exponent=65537, key_size=2048)
+                       for _ in range(8)]
+        key_map, rows = {}, {}
+        for role, keys in (('issuer', issuer_keys), ('holder', holder_keys)):
+            for index, key in enumerate(keys):
+                key_map[(role, index)] = key
+                path = keys_root / f'{role}-{index}.pem'
+                path.write_bytes(key.private_bytes(
+                    serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+                    serialization.NoEncryption()))
+                path.chmod(0o600)
+        for variant in range(8):
+            issuer_index, holder_index = variant % 4, variant
+            issuer, holder = issuer_keys[issuer_index], holder_keys[holder_index]
+            issuer_digest = self._spki_digest(issuer.public_key())
+            params = cohort_builder._certificate_parameters(variant, issuer_digest)
+            der = issue_certificate(issuer, holder, params, 'cryptography')
+            cert_dir = cohort_root / f'certificate-{variant:02d}'
+            cert_dir.mkdir(mode=0o700)
+            cert_path = cert_dir / 'credential.der'
+            cert_path.write_bytes(der)
+            cert_path.chmod(0o600)
+            parsed = admit_certificate(der, issuer.public_key().public_numbers().n)
+            issuer_hash, policy_hash = public_bindings(
+                parsed, issuer.public_key().public_numbers().n)
+            rows[variant] = {
+                'variant': variant, 'issuer_index': issuer_index,
+                'holder_index': holder_index,
+                'encoder': 'openssl' if variant < 4 else 'cryptography',
+                'credential_sha256': hashlib.sha256(der).hexdigest(),
+                'tbs_sha256': hashlib.sha256(parsed['tbs']).hexdigest(),
+                'issuer_public_key_sha256': self._spki_digest(issuer.public_key()),
+                'holder_public_key_sha256': self._spki_digest(holder.public_key()),
+                'issuer_hash': str(issuer_hash), 'policy_hash': str(policy_hash),
+                'aki_sha256': hashlib.sha256(parsed['aki']).hexdigest(),
+                'organization_sha256': hashlib.sha256(parsed['organization']).hexdigest(),
+                'group_sha256': hashlib.sha256(parsed['group']).hexdigest(),
+                'serial_hex': parsed['serial'].hex(),
+                'not_before_unix': parsed['not_before'],
+                'not_after_unix': parsed['not_after'],
+            }
+        key_rows = {key: {
+            'public_key_sha256': self._spki_digest(value.public_key())}
+            for key, value in key_map.items()}
+        return cohort_root, rows, key_rows, issuer_keys, holder_keys
+
+    @staticmethod
+    def _spki_digest(public_key):
+        return hashlib.sha256(public_key.public_bytes(
+            serialization.Encoding.DER,
+            serialization.PublicFormat.SubjectPublicKeyInfo)).hexdigest()
+
+    def test_independent_cohort_import_parses_all_der_and_imports_all_keys(self):
+        cohort_root, rows, key_rows, _, _ = self._real_import_fixture()
+        evidence = verifier._verify_cohort_import(
+            cohort_root, rows, key_rows, set(), 'a' * 64, 'b' * 64,
+            frozen_at_unix_ns=100)
+        self.assertEqual(evidence['counts'], {
+            'issuer_keys': 4, 'holder_keys': 8, 'certificates': 8})
+        self.assertEqual([row['variant'] for row in evidence['certificates']], list(range(8)))
+        self.assertTrue(all(row['issuer_signature_verified'] for row in evidence['certificates']))
+        self.assertEqual(evidence['creation_time_basis'], 'cohort and key-generation receipt claims only')
+        self.assertEqual(evidence['openssl_route_basis'],
+                         'freeze-pinned source and receipt encoder labels; invocation not independently observed')
+        serialized = json.dumps(evidence)
+        for path in cohort_root.rglob('*'):
+            if path.is_file() and path.suffix == '.pem':
+                self.assertNotIn(path.read_text(), serialized)
+            if path.is_file() and path.suffix == '.der':
+                self.assertNotIn(path.read_bytes().hex(), serialized)
+
+    def test_independent_cohort_import_rejects_der_and_key_receipt_mismatch(self):
+        cohort_root, rows, key_rows, issuer_keys, _ = self._real_import_fixture('key-mismatch')
+        cert_path = cohort_root / 'certificate-03' / 'credential.der'
+        cert_path.write_bytes(cert_path.read_bytes()[:-1] + b'\x00')
+        with self.assertRaisesRegex(ValueError, 'artifact SHA-256 pin mismatch'):
+            verifier._verify_cohort_import(
+                cohort_root, rows, key_rows, set(), 'a' * 64, 'b' * 64,
+                frozen_at_unix_ns=100)
+
+        cohort_root, rows, key_rows, issuer_keys, _ = self._real_import_fixture('prior-key')
+        with self.assertRaisesRegex(ValueError, 'absent from prior inventory'):
+            verifier._verify_cohort_import(
+                cohort_root, rows, key_rows,
+                {key_rows[('issuer', 0)]['public_key_sha256']},
+                'a' * 64, 'b' * 64, frozen_at_unix_ns=100)
+
+        cohort_root, rows, key_rows, issuer_keys, _ = self._real_import_fixture('key-mismatch-2')
+        pem_path = cohort_root / 'keys' / 'issuer-0.pem'
+        pem_path.write_bytes(issuer_keys[1].private_bytes(
+            serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption()))
+        pem_path.chmod(0o600)
+        with self.assertRaisesRegex(ValueError, 'imported key differs from pinned generation receipt'):
+            verifier._verify_cohort_import(
+                cohort_root, rows, key_rows, set(), 'a' * 64, 'b' * 64,
+                frozen_at_unix_ns=100)
 
     def test_fresh_full_replay_requires_same_statement_and_distinct_proof(self):
         first = self.root / 'first-wire.bin'
@@ -436,6 +540,11 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
                          cohort['prior_key_inventory_sha256'])
         self.assertEqual(result['key_generation_receipt_sha256'],
                          cohort['key_generation_receipt_sha256'])
+        evidence = result['cohort_import_evidence']
+        self.assertEqual(evidence['cohort_receipt_sha256'], cohort_ref['sha256'])
+        self.assertEqual(evidence['counts']['certificates'], 8)
+        self.assertEqual(evidence['creation_time_basis'],
+                         'cohort and key-generation receipt claims only')
 
         by_variant[3]['serial_hex'] = (1 << 120).to_bytes(16, 'big').hex()
         with self.assertRaisesRegex(ValueError, 'serial sequence'):

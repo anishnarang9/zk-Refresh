@@ -21,6 +21,10 @@ import re
 import signal
 import stat
 import sys
+import time
+
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -29,6 +33,7 @@ if str(ROOT) not in sys.path:
 from tools.part5.generate_v3_heldout_keys import FREEZE_SCHEMA, IDENTITY_ROLES
 from tools.part5.prepare_v3_heldout_context import COHORT_SCHEMA, CASE_SCHEMA, _base58
 from tools.part5.prepare_v3_revocation_cohort import membership_for_pair
+from tools.part5.credential_profile import admit_certificate, public_bindings
 from tools.part5.registry_v3_vectors import h as poseidon_parent, leaf as poseidon_leaf
 from harness.tests.queue_v3_clone_ledger import inventory as ledger_inventory
 from harness.tests.queue_v3_clone_ledger import stale_admin_socket
@@ -129,6 +134,123 @@ def _artifact(ref, *, cap=MAX_ARTIFACT):
 def _identity(info):
     return (info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_nlink,
             info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+
+def _read_private_key_artifact(path, *, cap=4096):
+    path = Path(path)
+    _require(path.is_absolute() and path.resolve(strict=True) == path,
+             'canonical heldout private-key path required')
+    before = path.lstat()
+    _require(stat.S_ISREG(before.st_mode) and before.st_uid == os.getuid()
+             and before.st_nlink == 1 and stat.S_IMODE(before.st_mode) == 0o600
+             and 0 < before.st_size <= cap,
+             'owner-only heldout private-key file required')
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
+    with os.fdopen(fd, 'rb') as stream:
+        opened = os.fstat(stream.fileno())
+        _require(_identity(opened) == _identity(before),
+                 'heldout private key changed at open')
+        raw = stream.read(cap + 1)
+        _require(_identity(os.fstat(stream.fileno())) == _identity(before)
+                 and len(raw) == before.st_size
+                 and _identity(path.lstat()) == _identity(before),
+                 'heldout private key changed during import')
+    return raw
+
+
+def _spki_sha256(public_key):
+    return _sha(public_key.public_bytes(
+        serialization.Encoding.DER,
+        serialization.PublicFormat.SubjectPublicKeyInfo))
+
+
+def _verify_cohort_import(cohort_root, by_variant, key_rows_by_identity,
+                          prior_keys, freeze_sha, cohort_sha, *, frozen_at_unix_ns):
+    """Independently import every generated key and issued certificate."""
+    cohort_root = Path(cohort_root)
+    _require(cohort_root.is_absolute() and cohort_root.resolve(strict=True) == cohort_root,
+             'canonical heldout cohort directory required')
+    expected_key_ids = ({('issuer', index) for index in range(4)}
+                        | {('holder', index) for index in range(8)})
+    _require(set(key_rows_by_identity) == expected_key_ids
+             and set(by_variant) == set(range(8)),
+             'complete imported key and certificate maps required')
+
+    observed_started = time.time_ns()
+    _require(observed_started > frozen_at_unix_ns,
+             'independent key and certificate import must occur after freeze')
+    imported_keys, fingerprints = {}, set()
+    for role, index in sorted(expected_key_ids):
+        path = cohort_root / 'keys' / f'{role}-{index}.pem'
+        raw = _read_private_key_artifact(path)
+        try:
+            key = serialization.load_pem_private_key(raw, password=None)
+        except (TypeError, ValueError) as error:
+            raise ValueError('heldout private key import failed') from error
+        _require(isinstance(key, rsa.RSAPrivateKey) and key.key_size == 2048
+                 and key.public_key().public_numbers().e == 65537,
+                 'imported heldout RSA-2048/e65537 key required')
+        fingerprint = _spki_sha256(key.public_key())
+        _require(fingerprint == key_rows_by_identity[(role, index)].get('public_key_sha256'),
+                 'imported key differs from pinned generation receipt')
+        _require(fingerprint not in fingerprints and fingerprint not in prior_keys,
+                 'imported heldout keys must be unique and absent from prior inventory')
+        fingerprints.add(fingerprint)
+        imported_keys[(role, index)] = key
+
+    certificate_evidence = []
+    for variant in range(8):
+        row = by_variant[variant]
+        issuer = imported_keys[('issuer', row['issuer_index'])]
+        holder = imported_keys[('holder', row['holder_index'])]
+        cert_path = cohort_root / f'certificate-{variant:02d}' / 'credential.der'
+        _, cert_sha, raw = _artifact(
+            {'path': str(cert_path), 'sha256': row['credential_sha256']}, cap=952)
+        _require(len(raw) == 952,
+                 'imported heldout certificate must match the bounded DER length')
+        parsed = admit_certificate(raw, issuer.public_key().public_numbers().n)
+        issuer_hash, policy_hash = public_bindings(
+            parsed, issuer.public_key().public_numbers().n)
+        _require(parsed['variant'] == variant
+                 and _sha(parsed['tbs']) == row['tbs_sha256']
+                 and _sha(parsed['aki']) == row['aki_sha256']
+                 and _sha(parsed['organization']) == row['organization_sha256']
+                 and _sha(parsed['group']) == row['group_sha256']
+                 and parsed['serial'].hex() == row['serial_hex']
+                 and parsed['not_before'] == row['not_before_unix']
+                 and parsed['not_after'] == row['not_after_unix']
+                 and parsed['holder_modulus'] == holder.public_key().public_numbers().n
+                 and _spki_sha256(issuer.public_key()) == row['issuer_public_key_sha256']
+                 and _spki_sha256(holder.public_key()) == row['holder_public_key_sha256']
+                 and str(issuer_hash) == row['issuer_hash']
+                 and str(policy_hash) == row['policy_hash'],
+                 'imported certificate fields or issuer/holder key bindings differ from receipt')
+        certificate_evidence.append({
+            'variant': variant,
+            'credential_sha256': cert_sha,
+            'tbs_sha256': _sha(parsed['tbs']),
+            'issuer_public_key_sha256': row['issuer_public_key_sha256'],
+            'holder_public_key_sha256': row['holder_public_key_sha256'],
+            'issuer_signature_verified': True,
+            'encoder_claim': row['encoder'],
+        })
+
+    observed_completed = time.time_ns()
+    _require(observed_completed >= observed_started,
+             'independent import observation clock moved backward')
+    return {
+        'schema': 'credential-v3-heldout-independent-import-evidence-v1',
+        'status': 'all_heldout_keys_and_certificates_imported_and_verified',
+        'freeze_sha256': freeze_sha,
+        'cohort_receipt_sha256': cohort_sha,
+        'observation_started_unix_ns': observed_started,
+        'observation_completed_unix_ns': observed_completed,
+        'creation_time_basis': 'cohort and key-generation receipt claims only',
+        'openssl_route_basis': (
+            'freeze-pinned source and receipt encoder labels; invocation not independently observed'),
+        'counts': {'issuer_keys': 4, 'holder_keys': 8, 'certificates': 8},
+        'certificates': certificate_evidence,
+    }
 
 
 def _json(ref, *, cap=MAX_JSON):
@@ -472,8 +594,13 @@ def _verify_cohort_generation_provenance(freeze, freeze_sha, cohort, by_variant,
         previous_issuance_time = completed
     _require(len(serials) == 8,
              'all heldout certificate serials must be distinct')
+    import_evidence = _verify_cohort_import(
+        cohort_path.parent, by_variant, keys_by_role_index, prior_keys,
+        freeze_sha, cohort_ref['sha256'],
+        frozen_at_unix_ns=freeze['frozen_at_unix_ns'])
     return {'prior_key_inventory_sha256': inventory_sha,
-            'key_generation_receipt_sha256': key_receipt_sha}
+            'key_generation_receipt_sha256': key_receipt_sha,
+            'cohort_import_evidence': import_evidence}
 
 
 def _source(source_ref, expected, globals_, case, stage, transition_sha=None,
@@ -2183,10 +2310,12 @@ def verify_manifest(manifest_path):
     freeze, freeze_sha = _json(manifest.get('freeze_receipt'), cap=65536)
     cohort, cohort_sha = _json(manifest.get('cohort_receipt'), cap=MAX_JSON)
     by_variant = _case_cohort(freeze, freeze_sha, cohort, cohort_sha)
-    _verify_cohort_generation_provenance(
+    cohort_provenance = _verify_cohort_generation_provenance(
         freeze, freeze_sha, cohort, by_variant,
         manifest['freeze_receipt'], manifest['cohort_receipt'])
     frozen_hashes = _verify_frozen_identity(freeze, manifest)
+    cohort_import_evidence = cohort_provenance['cohort_import_evidence']
+    cohort_import_evidence['frozen_client_source_bundle_sha256'] = frozen_hashes['client']
     source_files = manifest.get('source_files')
     _require(type(source_files) is dict and set(source_files) == set(SOURCE_FILE_ROLES),
              'heldout source tool/helper/exporter/bridge pins required')
@@ -2420,6 +2549,7 @@ def verify_manifest(manifest_path):
         'source_drift_detected': False,
         'freeze_sha256': freeze_sha,
         'cohort_receipt_sha256': cohort_sha,
+        'cohort_import_evidence': cohort_import_evidence,
         'frozen_identities': {
             'setup_manifest_sha256': frozen_hashes['setup_manifest'],
             'vk_sha256': frozen_hashes['ordinary_vk'],
