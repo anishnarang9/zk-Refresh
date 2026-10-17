@@ -45,9 +45,13 @@ class HeldoutAcceptanceAssemblerTests(unittest.TestCase):
                 'sources': {slot: {'R0': {'receipt': self.ref, 'artifacts': {}},
                                    'R1': {'receipt': self.ref, 'artifacts': {}}}
                             for slot in 'ABC'},
-                'branches': {name: {'result': {'report': self.ref}}
-                             for name in ('full', 'unrelated_full', 'anchor',
-                                          'own_revocation')},
+                'branches': {
+                    name: ({'result': {'report': self.ref},
+                            'current_r2_witness_rejection': self.ref}
+                           if name == 'own_revocation'
+                           else {'result': {'report': self.ref}})
+                    for name in ('full', 'unrelated_full', 'anchor',
+                                 'own_revocation')},
                 'run_manifest': self.ref,
                 'run_journal': self.ref,
                 'all_step_wall_seconds': {'step': 1.0},
@@ -90,6 +94,37 @@ class HeldoutAcceptanceAssemblerTests(unittest.TestCase):
                          {'unrelated_compare': ['anchor', 'full']})
         self.assertIn('all_step_wall_seconds', manifest['cases'][0])
         self.assertEqual(manifest['cases'][0]['run_manifest'], self.ref)
+
+    def test_own_revocation_requires_pinned_current_r2_witness_rejection(self):
+        changed = json.loads(self.fragments[0].read_text())
+        changed['branches']['own_revocation']['current_r2_witness_rejection'] = self.ref
+        self.fragments[0].write_text(json.dumps(changed))
+        manifest = self.assemble()
+        self.assertEqual(
+            manifest['cases'][0]['branches']['own_revocation'][
+                'current_r2_witness_rejection'], self.ref)
+
+        changed = json.loads(self.fragments[0].read_text())
+        del changed['branches']['own_revocation']['current_r2_witness_rejection']
+        self.fragments[0].write_text(json.dumps(changed))
+        with self.assertRaisesRegex(ValueError, 'current-R2 witness rejection'):
+            self.assemble()
+
+    def test_own_revocation_rejection_receipt_must_have_exact_ref_shape(self):
+        changed = json.loads(self.fragments[0].read_text())
+        changed['branches']['own_revocation']['current_r2_witness_rejection'] = {
+            **self.ref, 'unexpected': True}
+        self.fragments[0].write_text(json.dumps(changed))
+        with self.assertRaisesRegex(ValueError, 'absolute pinned artifact reference'):
+            self.assemble()
+
+    def test_own_revocation_rejection_receipt_must_be_a_valid_pin(self):
+        changed = json.loads(self.fragments[0].read_text())
+        changed['branches']['own_revocation']['current_r2_witness_rejection'] = {
+            'path': str(self.artifact), 'sha256': '0' * 64}
+        self.fragments[0].write_text(json.dumps(changed))
+        with self.assertRaisesRegex(ValueError, 'artifact reference pin mismatch'):
+            self.assemble()
 
     def test_rejects_missing_pinned_run_manifest(self):
         changed = json.loads(self.fragments[0].read_text())

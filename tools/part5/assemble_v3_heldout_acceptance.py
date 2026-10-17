@@ -206,6 +206,11 @@ def _case_from_fragment(fragment):
     if type(case['branches']) is not dict or set(case['branches']) != {
             'full', 'unrelated_full', 'anchor', 'own_revocation'}:
         raise ValueError('all four heldout branch references required')
+    own_revocation = case['branches']['own_revocation']
+    if (type(own_revocation) is not dict
+            or 'current_r2_witness_rejection' not in own_revocation):
+        raise ValueError('pinned current-R2 witness rejection receipt required')
+    _verify_ref(own_revocation['current_r2_witness_rejection'], cap=1024 * 1024)
     _validate_cost_fields(case)
     return case
 
