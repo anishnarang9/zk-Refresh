@@ -10,12 +10,33 @@ import json
 import os
 from pathlib import Path
 import shutil
+import socket
 import stat
 import sys
 
 REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
+
+
+def stale_admin_socket(root):
+    path = Path(root) / 'admin.rpc'
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        return False
+    if not stat.S_ISSOCK(info.st_mode):
+        return False
+    if (info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o600
+            or info.st_nlink != 1):
+        raise ValueError('unexpected administrative socket shape')
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+        client.settimeout(0.2)
+        try:
+            client.connect(str(path))
+        except ConnectionRefusedError:
+            return True
+    raise ValueError('active administrative socket; ledger is not stopped')
 
 
 def inventory(root):
@@ -28,6 +49,8 @@ def inventory(root):
         for name in sorted(dirs + files):
             path = Path(parent) / name
             relative = path.relative_to(root).as_posix()
+            if relative == 'admin.rpc' and stale_admin_socket(root):
+                continue
             info = path.lstat()
             if info.st_uid != os.getuid():
                 raise ValueError('foreign ledger entry')
@@ -91,8 +114,11 @@ def clone(source, destination, transition_report, transition_sha, transition_sta
         raise ValueError('fresh separate canonical clone target required')
     if source.name != 'ledger' or destination.name != 'ledger':
         raise ValueError('ledger path required')
+    excluded_socket = stale_admin_socket(source)
     before = inventory(source)
-    shutil.copytree(source, destination, symlinks=True, copy_function=shutil.copy2)
+    shutil.copytree(source, destination, symlinks=True, copy_function=shutil.copy2,
+                    ignore=lambda directory, names: {'admin.rpc'}
+                    if excluded_socket and Path(directory) == source else set())
     after_source = inventory(source)
     after_target = inventory(destination)
     if before != after_source or before != after_target:
@@ -105,6 +131,7 @@ def clone(source, destination, transition_report, transition_sha, transition_sta
               'source': str(source), 'destination': str(destination),
               'entry_count': len(before), 'tree_sha256': hashlib.sha256(encoded).hexdigest(),
               'source_stable': True, 'copy_identical': True,
+              'excluded_stale_admin_socket': excluded_socket,
               'loaded_identity_rechecked_after_restart': False,
               'application_effect': False}
     path = destination.parent / 'clone-report.json'
