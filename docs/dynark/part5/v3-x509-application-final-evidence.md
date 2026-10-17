@@ -1,8 +1,8 @@
 # v3 bounded X.509 application evidence (draft)
 
-**Evidence snapshot:** 2026-10-17 22:31 UTC
-**Source revision:** `65636e9` (`codex/engine-focus-oct14`)
-**Status:** training correctness demonstrated; training-004 was censored during slot 10 at its storage cap; training-005 is running. No final economics or held-out acceptance result is established. This is a draft, not a campaign-completion report.
+**Evidence snapshot:** 2026-10-17 22:50 UTC
+**Source revision for the 22:31 snapshot:** `65636e9` (`codex/engine-focus-oct14`)
+**Status:** training correctness demonstrated; training-004 was censored during slot 10 at its storage cap; training-005 failed in slot 5 (`r1-k1-anchor`) after its Anchor proof passed but before application submission. Four prior slot receipts remain; the partial slot has no receipt and is not resumable. No full matrix, final economics, or held-out acceptance result is established. This is a draft, not a campaign-completion report.
 
 ## What the application demonstrates
 
@@ -23,9 +23,9 @@ one completed training pair cannot stand in for the registered matrix.
 | --- | --- | --- |
 | Request-bound Full path (plan Gate 1) | A newly issued training credential signs the Rust-finalized canonical action; authenticated `open_full` checks the exact package, profile, setup, current state and request; the complete witness matches all 751 inputs and six public fields, passes every R1CS row, and yields a randomized proof accepted by the ordinary verifier. | Training application sessions are recorded below, but this report does not independently claim each native-client predicate from the matrix receipts. Reuse the source gate evidence; do not infer it from the effect alone. |
 | Protected effect and revocation behavior (plan Gate 2) | On separate pre-execution ledger clones: one exact queue append and request consumption; replay fails; an old R0 proof fails after unrelated R1 revocation; same-action Anchor refresh succeeds for a distinct unconsumed request; own-leaf revocation rejects old/current attempts without effect. | **Training correctness passed** for the two controlled demo-issued credentials cited below. Held-out behavior remains pending. |
-| Matched whole-session economics (plan Gate 3) | Four matched repetitions at each `k = 0, 1, 2, 5, 10` for Full, Anchor, and coalesced Full; complete cost accounting and valid sequence/order receipts; report per-pair spread, measured break-even, the registered ≥20% target, and resource costs. | **In progress.** Training-004 was storage-censored. Training-005 has four completed slots in the snapshot below, not a complete matched campaign. No break-even or savings conclusion is established. |
+| Matched whole-session economics (plan Gate 3) | Four matched repetitions at each `k = 0, 1, 2, 5, 10` for Full, Anchor, and coalesced Full; complete cost accounting and valid sequence/order receipts; report per-pair spread, measured break-even, the registered ≥20% target, and resource costs. | **Incomplete.** Training-004 was storage-censored. Training-005 has four completed receipts, then its fifth slot failed after proof generation and before application submission. No break-even or savings conclusion is established. |
 | Bounded repair cycle (plan Gate 4) | Only if the valid comparison shows no benefit: quantify the bottleneck, make one evidence-ranked change, and repeat the same comparison with correctness preserved. | **Not triggered or evaluated.** The training-005 comparison is incomplete, so no optimization result is claimed. |
-| Frozen held-out acceptance and cost analysis (plan Gate 5) | After identity freeze, admit eight unseen profile credentials without per-certificate code/setup; pass each Full, unrelated-revocation Anchor, own-revocation and replay case plus negatives; run the frozen cost method and independently verify assembled receipts. | **Pending.** No held-out freeze, cohort, runner, manifests, case fragments, assembled manifest, verifier report or cost report exists in this snapshot. |
+| Frozen held-out acceptance and cost analysis (plan Gate 5) | After identity freeze, admit eight unseen profile credentials without per-certificate code/setup; pass each Full, unrelated-revocation Anchor, own-revocation and replay case plus negatives; run the frozen cost method and independently verify assembled receipts. | **Pending.** The stable Rust runner is built and pinned, but no held-out freeze, cohort, manifests, case fragments, assembled manifest, verifier report or cost report exists. |
 
 ## Whole-session economics: in progress
 
@@ -40,7 +40,7 @@ The partial six-slot training-004 snapshot derives these matched total-session e
 
 These preliminary pairs show no total-work benefit at `k = 0` or `k = 1` in that partial sample. They do not establish a campaign-wide conclusion. Training-004's storage-censored outcome prevents final matrix economics; no pooled break-even, distribution, or 20% savings result is reported.
 
-Training-005 is the replacement 60-slot training run, registered with a uniform 512 MiB storage-growth cap. At the 22:31 UTC snapshot, four ordered receipts had completed: repetition 1, `k = 0` Full (106.21 s), Anchor (1,280.37 s), and coalesced Full (104.21 s), followed by `k = 1` Full (117.56 s). All four bounded outer sessions passed and each session report records an application effect. Each session report also has `cross_session_order_verified: false`, so CPU accounting remains unqualified. The fifth slot, repetition 1, `k = 1` Anchor, was running under its 2,400-second cap. This partial progress does not establish paired economics or a final result.
+Training-005 is the replacement 60-slot training run, registered with a uniform 512 MiB storage-growth cap. The historical 22:31 UTC snapshot below captured four completed receipts and slot 5 running. The run later failed in slot 5, repetition 1, `k = 1` Anchor: the proof report passed, but the application stage stopped before submission with `ValueError: finalized exact account bytes mismatch`. The outer bounded run ended with exit code 2 and `passed: false`; there is no application effect receipt and no `slot-receipt.json` for this slot. The failed slot's proof, work, clone, outer and monitor artifacts remain preserved under `artifacts/dynark/part5/v3-matrix-training-005/slot-r1-k1-anchor/`. A read-only fresh-clone diagnostic matched all five account hashes, but did not observe the original failure role, so the cause remains unknown. The matrix driver's `--resume` refuses this partial slot; preserve it and do not treat it as completed or resumable. The first four receipts remain valid prior slot records, but the ordered campaign is incomplete. Their `cross_session_order_verified: false` fields also leave CPU accounting unqualified. No paired economics, full matrix, or final result is established.
 
 A prior single-pair engineering run measured Full at 115.326 seconds and Anchor at 1,244.766 seconds of bounded whole-session wall time. Anchor's public and private preparation cost 447.573 and 682.496 seconds; refresh plus ordinary verification was 0.982 seconds. Both modes produced the protected effect. This is one training pair, excluded from the amended matrix: Full paid an Anchor-only preflight, and the run did not establish pooled economics or complete-tree CPU savings. The warm refresh time is not a session-level benefit. See [the matched-session method amendment](v3-matched-session-protocol-amendment-2026-10-17.md) and [the signed-history training check](v3-signed-history-k1-training-effect-2026-10-17.md).
 
@@ -101,12 +101,12 @@ For every credential, verify issuer/AKI and exact-policy enrollment (including p
 
 | Evidence item | Observed state at this snapshot | Evidence required to close it |
 | --- | --- | --- |
-| Request-bound Full plus protected effect | The cited signed-history run passed its training fixture; every reported training-005 session has an effect receipt. | Preserve the exact Full/native-client and loaded-ELF identity evidence; held-out cases must independently exercise the complete predicate. |
+| Request-bound Full plus protected effect | The cited signed-history run passed its training fixture; the four receipt-bearing training-005 sessions each have an effect receipt. The fifth slot failed before application submission. | Preserve the exact Full/native-client and loaded-ELF identity evidence; held-out cases must independently exercise the complete predicate. |
 | Current-root and own-revocation safety | Passed for the two controlled training credentials in the signed-history report. | Repeat for all eight post-freeze credentials, with separate unconsumed requests and no effect/consumption on rejection. |
 | Training-004 | Nine of 60 slots completed; slot 10 was censored at the 256 MiB storage-growth cap. | Do not use as a completed matrix. Training-005 is the registered replacement. |
-| Training-005 | Four ordered receipts exist at the cited snapshot: `r1-k0-full`, `r1-k0-anchor`, `r1-k0-coalesced-full`, `r1-k1-full`. `r1-k1-anchor` is next. All four outer sessions passed and report an effect; all four mark `cross_session_order_verified: false`. | Finish the registered 60-slot run; validate the sequence receipt and all slot reports. Until then, no pooled distribution, CPU result, measured break-even, or 20% target result. |
+| Training-005 | Four ordered receipts exist: `r1-k0-full`, `r1-k0-anchor`, `r1-k0-coalesced-full`, `r1-k1-full`. The fifth slot `r1-k1-anchor` generated a passing proof report, then failed before submission with `ValueError: finalized exact account bytes mismatch`; outer exit is 2, `passed` is false, and no fifth receipt exists. A read-only fresh-clone diagnostic matched all five account hashes but did not observe the original failure role, leaving cause unknown. | Preserve the failed slot artifacts. `--resume` refuses the partial slot. No full matrix, pooled distribution, CPU result, measured break-even, or 20% target result is available. |
 | Training-005 reproducibility inputs | Input, materialized manifest and plan hashes are recorded below; the freeze identities are in the registered input. | Check the exact digests and inspect the generated plan before interpreting results. A plan-only invocation does not execute or validate a campaign. |
-| Held-out freeze and cohort | Not present; stable Rust runner has not been built/pinned. | Complete training-005, build and pin the Rust runner, freeze the source/artifacts, then create the fresh cohort. |
+| Held-out freeze and cohort | No held-out freeze or cohort exists. The stable Rust runner has been built, pinned, and its seven-test list inspected; no test bodies were run. | Resolve the failed training campaign and complete its required matrix gate before freezing the source/artifacts and creating the fresh cohort. |
 | Held-out cases and analysis | No manifests, fragments, assembled manifest, verifier report or cost report exist. | Run all eight frozen cases serially; assemble with fragment hashes; independently verify; then compute the matched cost report. |
 | Final conclusion | **Not established.** | Valid training matrix, held-out acceptance, and a bounded application-level cost report with explicit assumptions and limitations. |
 
@@ -119,10 +119,12 @@ python3 -B -m tools.part5.run_v3_campaign_matrix --help
 python3 -B tools/part5/run_v3_campaign_session.py --help
 ```
 
-To reproduce the **snapshot inspection** from the repository root, verify the
-registered training-005 input, materialized input manifest, plan, and four
-receipts present at this snapshot, then list the available receipts and ask the
-matrix driver to render (not execute) its plan:
+To reproduce the **historical 22:31 UTC snapshot inspection** from the
+repository root, verify the registered training-005 input, materialized input
+manifest, plan, and four receipts present at that time, then list currently
+available receipts and ask the matrix driver to render (not execute) its plan.
+The four receipt hashes remain the same, while the current tree also contains
+the preserved failed fifth-slot artifacts described below:
 
 ```sh
 set -euo pipefail
@@ -140,12 +142,24 @@ python3 -B -m tools.part5.run_v3_campaign_matrix \
   "$PWD/results/dynark/part5/v3-campaign-matrix-training-005.json" --plan
 ```
 
-Compare the digest output with the pins below before interpreting this
-snapshot. The plan command is intentionally non-executing; it does not wait
-for, resume, or certify the campaign. To report a later state, inspect the
-campaign state and every ordered slot receipt/report again, including each
-slot's censoring and cross-session CPU-order fields. Do not carry this snapshot's
-receipt count forward as current status.
+Compare the digest output with the pins below before interpreting the
+historical snapshot. The plan command is intentionally non-executing; it does
+not wait for, resume, or certify the campaign. For the 22:50 UTC state, inspect
+all four ordered receipts and the failed fifth slot's proof, outer, session,
+effect-monitor and clone reports. The failed slot directory has no slot receipt.
+The matrix driver's `--resume` refuses this partial slot; retain the failure
+artifacts and do not carry the old “slot 5 active” status forward.
+
+The failure is not attributed to a root cause. The read-only fresh-clone check
+matched all five account hashes, but did not observe the role that produced the
+original failure. Do not infer that matching clone hashes explain or repair the
+original submission path. Inspect
+`artifacts/dynark/part5/application-v3-matrix-training-005-r1-k1-anchor-control/status.json`
+for the `ValueError`, and the preserved `outer-report.json`,
+`work/session-report.json`, `work/proof/proof-report.json`,
+`clone/clone-report.json`, and `work/effect-monitor-private/report.json` under
+`artifacts/dynark/part5/v3-matrix-training-005/slot-r1-k1-anchor/` for the outer
+run, proof, session, clone, and monitor evidence.
 
 Training-004's checked-in campaign input SHA-256 is `244e4f73bc898a1c36bc671314da3dc4e0ed147e0d35318b172228dd64f5fd57`. Its materialized input manifest is `artifacts/dynark/part5/v3-matrix-training-004/input-manifest.json` (SHA-256 `e0bd25765037702ee442b1243c95440c7a19e8698ed4b531f701fbfcdcf86816`) and its 60-slot plan is `artifacts/dynark/part5/v3-matrix-training-004/matrix-plan.json` (SHA-256 `ec694f1c6777667e538f423a055fd40613e86231ba755f49e5254c06ceba3fe3`). The run produced nine complete slot receipts and a censored slot-10 report at the storage-growth limit.
 
@@ -170,9 +184,9 @@ python3 -B -m tools.part5.run_v3_campaign_matrix \
   "$PWD/results/dynark/part5/v3-campaign-matrix-training-005.json" --plan
 ```
 
-The held-out commands below document reproducible inputs and the future run sequence; they do not indicate that the held-out run has occurred. At this snapshot, the freeze input, prepare config, packet template and executable inputs listed below exist. The stable held-out Rust runner has not been built or copied yet; the freeze, cohort, run manifests, case outputs, assembled manifest, verifier report and cost report do not exist. The output paths below are reserved names and each creation command requires its output path to be fresh. Run the blocks in order from the repository root; each block defines its own path variables. The freeze receipt and prior-key inventory go in the owner-only `results/dynark/part5/v3-heldout-freeze-001/` directory. Keep the cohort, case manifests, and case outputs under owner-only ignored paths in `artifacts/dynark/part5/`. Do not put raw credentials, keys, witnesses, proofs, signed envelopes or ledger clones in tracked prose or files.
+The held-out commands below document reproducible inputs and a future run sequence; they do not indicate that the held-out run has occurred. The freeze input, prepare config, packet template and executable inputs listed below exist. The stable held-out Rust runner is built at `artifacts/dynark/part5/v3-heldout-queue-runner-001`, mode `700`, SHA-256 `2f289b4eb920593a06f86a2b806e12a62b7adad8920b79eaa4d8f6682c8bf2a1`. Its `--list` output contained the seven named tests below; no test bodies were run. The freeze, cohort, run manifests, case outputs, assembled manifest, verifier report and cost report do not exist. The output paths below are reserved names and each creation command requires its output path to be fresh. Run the blocks in order from the repository root; each block defines its own path variables. The freeze receipt and prior-key inventory go in the owner-only `results/dynark/part5/v3-heldout-freeze-001/` directory. Keep the cohort, case manifests, and case outputs under owner-only ignored paths in `artifacts/dynark/part5/`. Do not put raw credentials, keys, witnesses, proofs, signed envelopes or ledger clones in tracked prose or files.
 
-After training-005 finishes, build the held-out Rust test executable in a fresh Cargo target directory, inspect its test list, and copy the single executable to the stable path included in the frozen registry bundle. This is pending and must happen before the held-out freeze; the Python campaign interpreter and raw Cargo output path are not valid `--runner` inputs. The stable copy is `artifacts/dynark/part5/v3-heldout-queue-runner-001`. This block is a recipe, not a completed build:
+The following records the held-out Rust runner build recipe. It was completed before the current snapshot: the stable copy is `artifacts/dynark/part5/v3-heldout-queue-runner-001`. A clean rebuild requires a fresh build target and an empty destination; do not overwrite the pinned stable copy. The Python campaign interpreter and raw Cargo output path are not valid `--runner` inputs.
 
 ```sh
 set -euo pipefail
@@ -186,7 +200,7 @@ CARGO_TARGET_DIR="$BUILD_TARGET" CARGO_BUILD_JOBS=1 /Users/anishnarang/.cargo/bi
   --offline --locked --manifest-path "$ROOT/harness/Cargo.toml" \
   --test queue_v3 --no-run
 
-RUNNER_CANDIDATES="$(find "$BUILD_TARGET/debug/deps" -maxdepth 1 -type f \
+RUNNER_CANDIDATES="$(find "$BUILD_TARGET/debug" -maxdepth 4 -type f \
   -perm -111 -name 'queue_v3-*' -print)"
 test -n "$RUNNER_CANDIDATES"
 test "$(printf '%s\n' "$RUNNER_CANDIDATES" | wc -l | tr -d ' ')" -eq 1
@@ -320,6 +334,6 @@ python3 -B tools/part5/analyze_v3_heldout_costs.py \
   --output "$COST_REPORT"
 ```
 
-The verifier report and cost analysis are not present yet. No static input path is left as a placeholder; the remaining dependencies are outputs to be generated in order: the freeze/inventory pair, cohort receipt, eight run manifests, eight case fragments, assembled manifest, and verifier report. The digest commands compute pins from those output bytes. The cost analyzer reports request-B wall costs both without and with the one-time shared credential preparation charged to each mode, with a corresponding wall-savings fraction for each basis. It does not infer CPU savings or classify an economic winner. Training-005 is a separate active training run and does not constitute held-out issuance or acceptance. No held-out acceptance or final economics result is claimed here.
+The verifier report and cost analysis are not present yet. No static input path is left as a placeholder; the remaining dependencies are outputs to be generated in order: the freeze/inventory pair, cohort receipt, eight run manifests, eight case fragments, assembled manifest, and verifier report. The digest commands compute pins from those output bytes. The cost analyzer reports request-B wall costs both without and with the one-time shared credential preparation charged to each mode, with a corresponding wall-savings fraction for each basis. It does not infer CPU savings or classify an economic winner. Training-005 has a preserved failed partial slot and is not a completed matrix; it does not constitute held-out issuance or acceptance. No held-out acceptance or final economics result is claimed here.
 
 The current campaign freeze records the development circuit, profile, setup, ordinary VK, proof runner, client, adapter, application source, and loaded ELF identities in `results/dynark/part5/v3-campaign-freeze-002/`. This training freeze is not a held-out freeze. Completion still requires a validated full matrix, independent held-out acceptance, and a report that answers whether total application work improves for a justified update pattern. Until then, the economic conclusion is **not established**.
