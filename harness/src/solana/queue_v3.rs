@@ -6,6 +6,8 @@ use zk_fresh_program::application_v3::{
     Authority, Config, Issuer, PublisherHead, Queue, Request, RequestState, CONFIG_LEN, HEAD_LEN,
     ISSUER_LEN, QUEUE_LEN, REQUEST_LEN,
 };
+mod branch;
+pub use branch::branch_from_env;
 
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1193,6 +1195,34 @@ fn unrelated_revocation_roots(
     Ok((base_root, near_root, base_path, near_path))
 }
 
+fn own_revocation_root(
+    own_digest: [u8; 32],
+    unrelated_digest: [u8; 32],
+    slot: usize,
+) -> Result<[u8; 32]> {
+    ensure!(
+        slot < 1024 && own_digest != unrelated_digest,
+        "distinct allocated leaves"
+    );
+    let registry = |error| anyhow::anyhow!("v3 tree {error:?}");
+    let mut tree = credential_registry::v3::Tree::new().map_err(registry)?;
+    tree.set(slot, own_digest, true).map_err(registry)?;
+    tree.set(slot ^ 1, unrelated_digest, true)
+        .map_err(registry)?;
+    tree.set(slot, own_digest, false).map_err(registry)?;
+    tree.set(slot ^ 1, unrelated_digest, false)
+        .map_err(registry)?;
+    let root = tree.root();
+    let path = tree.path(slot).map_err(registry)?;
+    credential_registry::v3::Tree::verify(own_digest, slot, false, &path, root)
+        .map_err(registry)?;
+    ensure!(
+        credential_registry::v3::Tree::verify(own_digest, slot, true, &path, root).is_err(),
+        "revoked holder must have no active membership"
+    );
+    Ok(root)
+}
+
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct TransitionContext {
@@ -1259,6 +1289,11 @@ mod revocation_transition_tests {
             1
         );
         credential_registry::v3::Tree::verify([7; 32], 44, true, &near_path, near).unwrap();
+        let revoked = own_revocation_root([7; 32], [9; 32], 44).unwrap();
+        assert_ne!(near, revoked);
+        assert!(
+            credential_registry::v3::Tree::verify([7; 32], 44, true, &near_path, revoked).is_err()
+        );
         assert!(
             credential_registry::v3::Tree::verify([7; 32], 44, false, &near_path, near).is_err()
         );
@@ -1809,5 +1844,13 @@ mod tests {
         assert!(validate_full_wire(&p, &c, &r, 100, 1000, &wire).is_err());
         wire[159] ^= 1;
         assert!(validate_full_wire(&p, &c, &r, 101, 1000, &wire).is_err());
+        let mut near_plan = p.clone();
+        let mut near_config = c.clone();
+        near_plan.root = [2; 32];
+        near_config.root = near_plan.root;
+        near_config.root_version = 1;
+        wire[..32].copy_from_slice(&near_plan.root);
+        assert!(validate_full_wire(&near_plan, &near_config, &r, 100, 1000, &wire).is_ok());
+        assert!(validate_full_wire(&p, &near_config, &r, 100, 1000, &wire).is_err());
     }
 }

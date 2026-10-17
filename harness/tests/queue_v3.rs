@@ -15,3 +15,9 @@ fn root_pinned_queue_v3_execute() {
 fn root_pinned_queue_v3_unrelated_transition() {
     zk_fresh_benchmark::solana::queue_v3::transition_from_env().unwrap();
 }
+
+#[test]
+#[ignore = "requires reviewed R1 ledger branch, pinned proof wires and supervised loaded validator"]
+fn root_pinned_queue_v3_branch() {
+    zk_fresh_benchmark::solana::queue_v3::branch_from_env().unwrap();
+}
