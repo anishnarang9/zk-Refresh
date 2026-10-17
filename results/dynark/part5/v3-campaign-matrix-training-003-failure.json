@@ -1,0 +1,21 @@
+{
+  "campaign_id": "training-003",
+  "evidence_sha256": {
+    "full_outer": "044d2ae4cc855535e98c94d6cb6236464de017a04773ffeb6904f1804dd85f16",
+    "full_session": "9de08bbbaa980a53135238d970f721cc2e31ed2154d7913d8d11f3a9bbcbdfd5",
+    "full_slot_receipt": "a72d39935ef503be581a5f786ea90ca0f6f10fd56a745b3d6a7dfe4075ca2892"
+  },
+  "failure_reason": "RPC port 18999 remained unbindable after preceding local validator; clone helper rejected before completing the next slot",
+  "first_slot": "r1-k0-full",
+  "manifest_sha256": "e726c445ffed1aa996551d1e4e796cc4ea781f30555097693f32052cb960417a",
+  "next_slot": "r1-k0-anchor",
+  "next_slot_failure_stage": "clone_port_admission",
+  "passed_first_slot": true,
+  "private_evidence_paths": {
+    "full_outer": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-matrix-training-003/slot-r1-k0-full/outer-report.json",
+    "full_session": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-matrix-training-003/slot-r1-k0-full/work/session-report.json",
+    "full_slot_receipt": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-matrix-training-003/slot-r1-k0-full/slot-receipt.json"
+  },
+  "registered_repetitions_counted": 0,
+  "schema": "part5-v3-campaign-matrix-failed-trial-v1"
+}

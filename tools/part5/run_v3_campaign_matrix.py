@@ -520,6 +520,7 @@ def verify_clone_receipt(validated, slot, paths):
 
 
 def execute_clone(validated, slot, paths, deadline):
+    wait_ports_ready(deadline)
     clone_tool = 'clone_r0' if slot['target_count'] == 0 else 'clone_final'
     verify_launch_pins(validated, ('python', clone_tool))
     paths['slot_root'].mkdir(mode=0o700)
@@ -534,6 +535,27 @@ def execute_clone(validated, slot, paths, deadline):
     if completed.returncode != 0:
         raise RuntimeError(f"clone helper exited {completed.returncode}")
     return verify_clone_receipt(validated, slot, paths)
+
+
+def port_bindable():
+    from harness.tests.queue_v3_local_prepare import ports_free
+    ports_free()
+
+
+def wait_ports_ready(deadline):
+    """Wait for the previous validator's local ports before creating a slot."""
+    started = time.monotonic()
+    while True:
+        if time.monotonic() >= deadline:
+            raise TimeoutError('campaign envelope exhausted waiting for local ports')
+        try:
+            port_bindable()
+            return time.monotonic() - started
+        except OSError:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError('campaign envelope exhausted waiting for local ports')
+            time.sleep(min(0.5, remaining))
 
 
 def verify_launch_pins(validated, names):

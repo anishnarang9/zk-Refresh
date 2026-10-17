@@ -1,4 +1,6 @@
 import unittest
+from unittest import mock
+import time
 
 from tools.part5 import run_v3_campaign_matrix as matrix
 
@@ -53,6 +55,14 @@ class CampaignMatrixTests(unittest.TestCase):
         paths = matrix.output_paths(plan, slot)
         validate_stage_paths(paths['effect_output'], paths['control_output'],
                              matrix.ARTIFACTS)
+
+    def test_port_readiness_waits_before_creating_next_slot(self):
+        with mock.patch.object(matrix, 'port_bindable', side_effect=[OSError(48, 'busy'), None]) as bind, \
+                mock.patch.object(matrix.time, 'sleep') as sleep:
+            elapsed = matrix.wait_ports_ready(time.monotonic() + 1)
+        self.assertEqual(bind.call_count, 2)
+        sleep.assert_called_once()
+        self.assertGreaterEqual(elapsed, 0)
 
     def test_economics_input_manifest_has_all_60_exact_report_paths(self):
         planned = []
