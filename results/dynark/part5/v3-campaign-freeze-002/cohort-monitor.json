@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "measurement": "bounded_complete_session",
+  "censored": false,
+  "cpu": {
+    "leader_wait4_user_seconds": 0.987111,
+    "leader_wait4_system_seconds": 0.039075,
+    "sampled_tree_self_seconds_lower_bound": 0.86,
+    "complete_tree_cpu_qualified": false,
+    "unavailable_reason": "complete descendant accounting not established"
+  },
+  "owner": "part5-v3-campaign-cohort-002",
+  "started_at_utc": "2026-10-17T19:51:42.237673+00:00",
+  "ended_at_utc": "2026-10-17T19:51:43.401195+00:00",
+  "timezone": [
+    "EST",
+    "EDT"
+  ],
+  "duration_seconds": 1.16354712494649,
+  "limits": {
+    "runtime_seconds": 240.0,
+    "owned_tree_rss_bytes": 4294967296,
+    "storage_growth_bytes": 268435456,
+    "poll_seconds": 0.2
+  },
+  "stop_reason": null,
+  "exit_code": 0,
+  "runner_error_type": null,
+  "cleanup_remaining_owned_processes": 0,
+  "cleanup_status_unknown": false,
+  "sample_count": 6,
+  "samples": [
+    {
+      "elapsed_seconds": 0.022099292022176087,
+      "owned_process_count": 1,
+      "sampled_tree_self_cpu_seconds_lower_bound": 0.01,
+      "owned_tree_rss_bytes": 688128,
+      "storage_growth_bytes": 818
+    },
+    {
+      "elapsed_seconds": 0.2615118749672547,
+      "owned_process_count": 1,
+      "sampled_tree_self_cpu_seconds_lower_bound": 0.19,
+      "owned_tree_rss_bytes": 35995648,
+      "storage_growth_bytes": 818
+    },
+    {
+      "elapsed_seconds": 0.4856632089940831,
+      "owned_process_count": 1,
+      "sampled_tree_self_cpu_seconds_lower_bound": 0.41,
+      "owned_tree_rss_bytes": 36339712,
+      "storage_growth_bytes": 818
+    },
+    {
+      "elapsed_seconds": 0.7059643749380484,
+      "owned_process_count": 1,
+      "sampled_tree_self_cpu_seconds_lower_bound": 0.64,
+      "owned_tree_rss_bytes": 36356096,
+      "storage_growth_bytes": 818
+    },
+    {
+      "elapsed_seconds": 0.9270647499943152,
+      "owned_process_count": 1,
+      "sampled_tree_self_cpu_seconds_lower_bound": 0.86,
+      "owned_tree_rss_bytes": 36405248,
+      "storage_growth_bytes": 818
+    },
+    {
+      "elapsed_seconds": 1.1475751249818131,
+      "owned_process_count": 0,
+      "sampled_tree_self_cpu_seconds_lower_bound": 0.86,
+      "owned_tree_rss_bytes": 0,
+      "storage_growth_bytes": 64787
+    }
+  ],
+  "sampled_peak_owned_tree_rss_bytes": 36405248,
+  "sampled_peak_storage_growth_bytes": 64787,
+  "environment": {
+    "RAYON_NUM_THREADS": null,
+    "OMP_NUM_THREADS": null,
+    "TZ": null
+  },
+  "measurement_notes": [
+    "wait4 user/system is leader-attributed usage; may include descendants it waited for",
+    "sampled tree CPU sums maximum observed ps self CPU per PID/birth; lower bound only",
+    "wait4 and sampled tree CPU overlap and are not additive; no complete-tree CPU savings claim",
+    "ps CPU resolution and lstart second resolution can miss work or rapid PID reuse",
+    "short-lived children, escaped descendants, and CPU during cleanup may be missed by sampling",
+    "outer wall includes launch, monitoring and cleanup; excludes initial metadata and final report writes",
+    "stage attribution, ledger checks and sampler/runner CPU are not provided by this wrapper",
+    "RSS from ps KiB converted to bytes; sum of live owned tree; not heap allocation",
+    "storage is positive logical file-size growth per supplied root; excludes deleted-file peak between samples",
+    "limits sampled; short spikes and daemonized ancestry escape between samples may be missed",
+    "samples exclude runner/ps RSS; storage report written after the measured command",
+    "child stdout/stderr/argv retained only in protected output"
+  ],
+  "passed": true
+}
