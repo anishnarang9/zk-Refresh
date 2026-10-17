@@ -43,6 +43,9 @@ pub struct V3ActionRequest {
 pub struct V3PreparedAction {
     action_be: Digest,
 }
+impl V3PreparedAction {
+    pub(crate) fn action_be(&self) -> Digest { self.action_be }
+}
 
 pub fn v3_action_preimage(
     config: &V3ActionConfig,

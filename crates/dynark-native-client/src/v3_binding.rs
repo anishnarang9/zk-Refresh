@@ -1,11 +1,12 @@
-//! Full-only v3 orchestration scaffold. Concrete imported/setup tokens are
-//! required; neither caller labels nor six matching publics admit a credential.
-//! The private envelope check below is not full relation or source authentication.
+//! Request-bound v3 Full proving from a concrete local verifier, signed history
+//! and the independently admitted complete relation. Deployment-pin provenance
+//! remains trusted application configuration; a proof is not execution authority.
 use crate::{
-    AuthenticatedV3State, ClientError, Digest, FieldBytes, ImportedV3Credential, OperationControl,
-    V3PreparedAction, V3SharedSetup, WitnessMode,
+    ClientError, Digest, FieldBytes, ImportedV3Credential, OperationControl, V3CompilerInputMap,
+    V3InputWorker, V3PreparedAction, V3RequestStateSource, V3SharedSetup, V3CheckedRelation, WitnessMode,
 };
 use dynark_bn254::{PublicPackage, ValidatedAssignment};
+use sha2::{Digest as _, Sha256};
 
 /// Untrusted complete generator output. No offsets, setup or credential labels
 /// are accepted from the generator. Input-to-WTNS binding is mandatory at import.
@@ -18,7 +19,9 @@ pub struct V3FullWitnessCandidate<'a> {
 pub struct V3FullProofInput<'a> {
     pub credential: &'a ImportedV3Credential,
     pub setup: &'a V3SharedSetup,
-    pub state: &'a dyn AuthenticatedV3State,
+    pub state: &'a V3RequestStateSource<'a>,
+    pub worker: &'a V3InputWorker,
+    pub input_map: &'a V3CompilerInputMap,
     pub prepared_action: &'a V3PreparedAction,
     /// Untrusted until verified under the imported holder modulus and action.
     pub holder_signature: &'a [u8; 256],
@@ -29,6 +32,7 @@ pub struct V3FullProofInput<'a> {
 #[derive(Clone, PartialEq, Eq)]
 struct V3PrivateBinding {
     package: Digest,
+    live_context: Digest,
     profile: Digest,
     semantic_schema: Digest,
     credential: Digest,
@@ -52,23 +56,117 @@ pub struct V3BoundWitness {
     package: PublicPackage,
     assignment: ValidatedAssignment,
     binding: V3PrivateBinding,
+    statement: dynark_bn254::ProofStatement,
 }
 impl V3BoundWitness {
-    /// Must authenticate/recheck live state, match imported DER/signature/action
-    /// to all 751 declared input coordinates, and validate the full relation.
-    /// Until the pinned input-builder/map dependencies exist, remain closed.
+    /// Every gate must succeed before returning a bound randomized ordinary
+    /// proof. Candidate JSON/WTNS remain untrusted; neither a caller state trait
+    /// nor matching six public values can bypass full input/relation checks.
+    /// `now` must agree with the trusted local wall clock at operation start.
     pub fn open_full(
-        _: V3FullProofInput<'_>,
-        _: u64,
-        _: &OperationControl,
+        input: V3FullProofInput<'_>,
+        now: u64,
+        control: &OperationControl,
     ) -> Result<Self, ClientError> {
-        Err(ClientError::Unsupported)
+        control.check()?;
+        if input.candidate.mode != WitnessMode::Full { return Err(ClientError::Unsupported); }
+        check_operation_clock(now, crate::v3_live_state::wall_clock()?)?;
+        input.setup.manifest().check_identity(input.setup.package().identity(), input.setup.package().shape())?;
+        let action = input.prepared_action.action_be();
+        let before = input.state.authenticate(input.credential, input.setup, action, input.holder_signature, control)?;
+        let candidate = input.worker.build(&before.request, control)?;
+        let checked = V3CheckedRelation::check(input.setup, input.input_map, &candidate,
+            input.candidate.canonical_input, input.candidate.complete_wtns, WitnessMode::Full, control)?;
+        let after = input.state.authenticate(input.credential, input.setup, action, input.holder_signature, control)?;
+        recheck_frames(&before, &after, input.credential, input.setup, control)?;
+        let binding = V3PrivateBinding {
+            package: input.setup.package().identity().package_digest,
+            live_context: before.context,
+            profile: input.setup.manifest().admission.profile,
+            semantic_schema: input.setup.manifest().admission.semantic_schema,
+            credential: Sha256::digest(input.credential.certificate_der()).into(),
+            holder_key: Sha256::digest(input.credential.summary().holder_modulus_be).into(),
+            issuer: input.credential.summary().issuer_hash,
+            issuer_version: before.snapshot.enrollment.issuer_version,
+            policy_version: before.snapshot.enrollment.policy_version,
+            action_be: action,
+            holder_signature: Sha256::digest(input.holder_signature).into(),
+            root_version: before.snapshot.publication.root_version,
+            source_sequence: before.snapshot.source.sequence,
+            source_digest: before.snapshot.source.digest,
+            slot: before.snapshot.slot,
+            allocation_epoch: before.snapshot.publication.allocation_epoch,
+            generation: before.snapshot.generation,
+            publics: before.publics,
+        };
+        let assignment = checked.into_assignment();
+        control.check()?;
+        let statement = dynark_bn254::prove(input.setup.package(), &assignment, binding.generation, &mut rand::rngs::OsRng)
+            .map_err(|error| match error {
+                dynark_bn254::Error::Entropy { .. } | dynark_bn254::Error::RejectionLimit { .. } => ClientError::Entropy,
+                _ => ClientError::Proof,
+            });
+        control.check()?;
+        let statement = statement?;
+        let verification = verify_bound_statement(input.setup.package(), &statement, binding.generation, &binding.publics);
+        control.check()?;
+        verification?;
+        let final_state = input.state.authenticate(input.credential, input.setup, action, input.holder_signature, control)?;
+        recheck_frames(&after, &final_state, input.credential, input.setup, control)?;
+        control.check()?;
+        Ok(Self { package: input.setup.package().clone(), assignment, binding, statement })
+    }
+
+    /// Ordinary proof and exact statement only; no assignment or execution right.
+    /// Submission must reauthenticate current state and enforce current-root and
+    /// request-consumption policy at the application boundary.
+    pub fn ordinary_full_proof(&self) -> &dynark_bn254::ProofStatement {
+        &self.statement
+    }
+}
+
+fn check_operation_clock(requested: u64, actual: u64) -> Result<(), ClientError> {
+    if requested.abs_diff(actual) > 1 { return Err(ClientError::Deadline); }
+    Ok(())
+}
+fn recheck_frames(
+    before: &crate::v3_live_state::AuthenticatedFrame,
+    after: &crate::v3_live_state::AuthenticatedFrame,
+    credential: &ImportedV3Credential,
+    setup: &V3SharedSetup,
+    control: &OperationControl,
+) -> Result<(), ClientError> {
+    if before.context != after.context || before.publics != after.publics || after.checked_at < before.checked_at {
+        return Err(ClientError::Superseded);
+    }
+    crate::v3::check_full_state_recheck(&before.snapshot, &after.snapshot, credential.summary(), setup.manifest(), after.checked_at, control)
+}
+fn verify_bound_statement(
+    package: &PublicPackage,
+    statement: &dynark_bn254::ProofStatement,
+    generation: u64,
+    expected: &[FieldBytes; 6],
+) -> Result<(), ClientError> {
+    use ark_bn254::Fr;
+    use ark_serialize::CanonicalDeserialize;
+    if statement.package != package.identity() || statement.generation != generation || statement.public_values.len() != 6 {
+        return Err(ClientError::Identity);
+    }
+    let public: Vec<_> = expected.iter().map(|word| Fr::deserialize_compressed(&word[..])
+        .map_err(|_| ClientError::Encoding)).collect::<Result<_, _>>()?;
+    if statement.public_values != public { return Err(ClientError::Identity); }
+    let vk = package.ordinary_verifying_key();
+    if vk.gamma_abc_g1.len() != 7 { return Err(ClientError::Identity); }
+    match ordinary::Groth16::<ark_bn254::Bn254>::verify_proof(&ordinary::prepare_verifying_key(&vk), &statement.proof, &public) {
+        Ok(true) => Ok(()),
+        _ => Err(ClientError::Proof),
     }
 }
 
 /// Only an internal envelope/coherence check, never a credential/proof gate.
 /// Product admission additionally requires mapping all actual private inputs and
 /// PublicPackage::validate_assignment against the authenticated six fields.
+#[cfg(test)]
 fn check_full_envelope(
     expected: &V3PrivateBinding,
     installed: &V3PrivateBinding,
@@ -141,6 +239,7 @@ mod tests {
         action.reverse();
         V3PrivateBinding {
             package: manifest.package.package_digest,
+            live_context: [29; 32],
             profile: manifest.admission.profile,
             semantic_schema: manifest.admission.semantic_schema,
             credential: [21; 32],
@@ -180,6 +279,14 @@ mod tests {
         }
         bytes
     }
+    #[test]
+    fn operation_clock_rejects_caller_backdating_and_future_time() {
+        assert_eq!(check_operation_clock(100, 100), Ok(()));
+        assert_eq!(check_operation_clock(100, 101), Ok(()));
+        assert_eq!(check_operation_clock(98, 100), Err(ClientError::Deadline));
+        assert_eq!(check_operation_clock(102, 100), Err(ClientError::Deadline));
+    }
+
     #[test]
     fn complete_full_envelope_binds_six_publics_and_private_credential_context() {
         let expected = binding();

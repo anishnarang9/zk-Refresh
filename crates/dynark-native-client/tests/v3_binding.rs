@@ -1,10 +1,4 @@
-//! Independent source-only orchestration RED; no library/setup/worker changes.
-pub use dynark_native_client::{
-    AuthenticatedV3State, ClientError, Digest, FieldBytes, ImportedV3Credential, OperationControl,
-    V3SharedSetup, WitnessMode,
-};
-#[path = "../src/v3_action.rs"]
-mod action;
-pub use action::V3PreparedAction;
-#[path = "../src/v3_binding.rs"]
-mod binding;
+//! The bound entry is compiled as the actual native library module. Its focused
+//! unit coverage lives in src/v3_binding.rs; private source inclusion cannot
+//! exercise the concrete admitted setup/state methods across a crate boundary.
+pub use dynark_native_client::{V3BoundWitness, V3FullProofInput};

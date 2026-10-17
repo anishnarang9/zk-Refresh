@@ -144,6 +144,10 @@ impl V3SharedSetup {
         &self.manifest
     }
 
+    pub(crate) fn adapter_identity(&self) -> V3OrdinaryVkIdentity {
+        self.adapter_identity
+    }
+
     /// Borrow the already admitted shared package; no replacement or mutation.
     pub(crate) fn package(&self) -> &PublicPackage {
         &self.package

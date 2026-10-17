@@ -27,6 +27,9 @@ pub struct V3CheckedRelation {
     assignment: ValidatedAssignment,
 }
 impl V3CheckedRelation {
+    /// Consumed only after the concrete bound entry reauthenticates context.
+    pub(crate) fn into_assignment(self) -> ValidatedAssignment { self.assignment }
+
     /// Test-only mathematical qualification; establishes no current authority.
     #[cfg(test)]
     fn prove_qualification_full(

@@ -23,8 +23,6 @@ class ImportedLocalInputSourceTests(unittest.TestCase):
         self.assertNotRegex(source, r'impl\s+AuthenticatedV3State\s+for')
         self.assertNotIn('ValidatedAssignment', source)
         self.assertNotIn('dynark_bn254::prove(', source)
-        binding = (ROOT / 'src/v3_binding.rs').read_text()
-        self.assertTrue(re.search(r'pub fn open_full\([\s\S]*?Err\(ClientError::Unsupported\)', binding), 'open_full must remain closed')
         admission = (ROOT / 'src/v3_admission.rs').read_text()
         self.assertTrue(re.search(r'pub\(crate\) fn certificate_der\(&self\) -> &\[u8\]', admission), 'DER accessor must be crate-private')
 
