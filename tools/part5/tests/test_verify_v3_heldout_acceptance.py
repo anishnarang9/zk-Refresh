@@ -1,4 +1,5 @@
 import ast
+import hashlib
 import inspect
 import json
 from pathlib import Path
@@ -16,6 +17,14 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name).resolve()
+
+    def test_manifest_reader_returns_exact_input_digest(self):
+        raw = b'{"schema":"input"}\n'
+        path = self.root / 'manifest.json'
+        path.write_bytes(raw)
+        manifest, digest = verifier._read_json_path(path)
+        self.assertEqual(manifest, {'schema': 'input'})
+        self.assertEqual(digest, hashlib.sha256(raw).hexdigest())
 
     def test_missing_case_evidence_fails_closed(self):
         manifest = {

@@ -164,7 +164,7 @@ def _read_json_path(path, *, cap=MAX_JSON):
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise ValueError('valid pinned manifest JSON required') from error
     _require(type(value) is dict, 'manifest object required')
-    return value
+    return value, _sha(raw)
 
 
 def _bytes32(value, label):
@@ -1566,7 +1566,7 @@ def _validate_request_triads(branch_results, seen_finalized_requests,
 def verify_manifest(manifest_path):
     manifest_path = Path(manifest_path)
     _require(manifest_path.is_absolute(), 'absolute manifest path required')
-    manifest = _read_json_path(manifest_path, cap=MAX_JSON)
+    manifest, manifest_sha256 = _read_json_path(manifest_path, cap=MAX_JSON)
     _require(type(manifest) is dict and manifest.get('schema') == MANIFEST_SCHEMA,
              'heldout acceptance manifest schema required')
     cases_raw = manifest.get('cases')
@@ -1788,6 +1788,7 @@ def verify_manifest(manifest_path):
         'schema': OUTPUT_SCHEMA,
         'verified': True,
         'heldout_acceptance': True,
+        'manifest_sha256': manifest_sha256,
         'internal_training_mode_reused': True,
         'source_drift_detected': False,
         'freeze_sha256': freeze_sha,
