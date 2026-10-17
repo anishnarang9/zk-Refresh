@@ -3,7 +3,7 @@
 use super::queue_v2 as transport;
 use super::*;
 use credential_registry::v3::protocol::{
-    CurrentHead, EnrolledSource, IssuerScope, Observation, PublisherBinding,
+    Change, CurrentHead, EnrolledSource, IssuerScope, Observation, PublisherBinding,
     PublisherEnvelopeCommitment, Scope, SignedSource, SourceEnvelopeCommitment, SourceHead,
     SOURCE_SIGN_TAG,
 };
@@ -26,6 +26,257 @@ struct TrainingContext {
     evidence_digest: String,
     not_before: i64,
     not_after: i64,
+    initial_allocations: Option<TrainingAllocations>,
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TrainingAllocations {
+    own_tbs_digest: String,
+    unrelated_tbs_digest: String,
+    slot: usize,
+    allocation_epoch: u64,
+    cohort_receipt_sha256: String,
+    membership_sha256: String,
+}
+impl TrainingAllocations {
+    fn roots(&self) -> Result<([u8; 32], [u8; 32], [u8; 32])> {
+        ensure!(
+            self.allocation_epoch == 1,
+            "initial per-slot allocation epoch one"
+        );
+        transport::unhex(&self.cohort_receipt_sha256)?;
+        transport::unhex(&self.membership_sha256)?;
+        let own = transport::unhex(&self.own_tbs_digest)?;
+        let other = transport::unhex(&self.unrelated_tbs_digest)?;
+        ensure!(
+            own != [0; 32] && other != [0; 32],
+            "nonzero allocated TBS digests"
+        );
+        let (base, near, _, _) = unrelated_revocation_roots(own, other, self.slot)?;
+        Ok((base, near, own_revocation_root(own, other, self.slot)?))
+    }
+    fn changes(&self) -> Result<Vec<Change>> {
+        self.roots()?;
+        Ok(vec![
+            Change::Issue {
+                tbs_digest: transport::unhex(&self.own_tbs_digest)?,
+                slot: self.slot as u16,
+                allocation_epoch: self.allocation_epoch,
+            },
+            Change::Issue {
+                tbs_digest: transport::unhex(&self.unrelated_tbs_digest)?,
+                slot: (self.slot ^ 1) as u16,
+                allocation_epoch: self.allocation_epoch,
+            },
+        ])
+    }
+    fn check_issues(&self, changes: &[Change]) -> Result<()> {
+        let expected = self.changes()?;
+        ensure!(
+            serde_json::to_vec(changes)? == serde_json::to_vec(&expected)?,
+            "exact two signed initial Issues required"
+        );
+        Ok(())
+    }
+    fn check_transition(&self, context: &TransitionContext) -> Result<()> {
+        ensure!(
+            self.own_tbs_digest == context.own_tbs_digest
+                && self.unrelated_tbs_digest == context.unrelated_tbs_digest
+                && self.slot == context.slot
+                && self.slot ^ 1 == context.unrelated_slot
+                && self.cohort_receipt_sha256 == context.cohort_receipt_sha256
+                && self.membership_sha256 == context.membership_sha256,
+            "staged signed allocations differ from checked transition cohort"
+        );
+        Ok(())
+    }
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TrainingCheckpoint {
+    source: SignedSource,
+    publisher: PublisherBinding,
+    checked_at: i64,
+}
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TrainingHistory {
+    schema: String,
+    checkpoints: Vec<TrainingCheckpoint>,
+}
+impl TrainingHistory {
+    fn empty() -> Self {
+        Self {
+            schema: "part5-v3-two-leaf-signed-history-v1".into(),
+            checkpoints: Vec::new(),
+        }
+    }
+    fn push(&mut self, source: SignedSource, publisher: PublisherBinding, checked_at: i64) {
+        self.checkpoints.push(TrainingCheckpoint {
+            source,
+            publisher,
+            checked_at,
+        });
+    }
+}
+fn write_training_history(output: &Path, history: &TrainingHistory) -> Result<String> {
+    let bytes = serde_json::to_vec_pretty(history)?;
+    ensure!(bytes.len() <= 1024 * 1024, "bounded signed history output");
+    transport::new_file(&output.join("signed-history.json"), &bytes)?;
+    Ok(hex::encode(Sha256::digest(bytes)))
+}
+fn load_training_allocations(root: &Path, report: &Value) -> Result<TrainingAllocations> {
+    let digest = report["initial_allocations_sha256"]
+        .as_str()
+        .context("initial allocations digest")?;
+    let value: TrainingAllocations = serde_json::from_slice(&transport::pinned(
+        &root.join("initial-allocations.json"),
+        digest,
+        8192,
+    )?)?;
+    value.roots()?;
+    Ok(value)
+}
+fn load_training_history(root: &Path, report: &Value) -> Result<TrainingHistory> {
+    ensure!(
+        report["registry_history_authenticated"] == true
+            && report["allocation_history_authenticated"] == true,
+        "checked signed allocation history report required"
+    );
+    let digest = report["signed_history_sha256"]
+        .as_str()
+        .context("signed history digest")?;
+    Ok(serde_json::from_slice(&transport::pinned(
+        &root.join("signed-history.json"),
+        digest,
+        1024 * 1024,
+    )?)?)
+}
+fn replay_training_history(
+    history: &TrainingHistory,
+    p: &V3QueuePlan,
+    allocations: &TrainingAllocations,
+    c: &Config,
+    i: &Issuer,
+    h: &PublisherHead,
+) -> Result<credential_registry::v3::history::HistoricalReplay> {
+    use credential_registry::v3::history::{HistoricalReplay, MAX_HISTORY_CHECKPOINTS};
+    ensure!(
+        history.schema == "part5-v3-two-leaf-signed-history-v1"
+            && !history.checkpoints.is_empty()
+            && history.checkpoints.len() <= MAX_HISTORY_CHECKPOINTS,
+        "bounded complete signed training history"
+    );
+    let a = p.addresses();
+    ensure!(
+        i.config == a.config
+            && c.admin.to_bytes() == p.admin
+            && c.seed == p.seed
+            && c.genesis == p.genesis
+            && c.publisher.to_bytes() == p.publisher
+            && i.source.to_bytes() == p.source
+            && i.issuer_hash == p.issuer_hash,
+        "history enrollment differs from finalized deployment tuple"
+    );
+    let enrolled = EnrolledSource {
+        scope: Scope {
+            network: p.genesis,
+            program: p.program,
+            config: a.config.to_bytes(),
+            registry: a.queue.to_bytes(),
+            profile: c.profile_id,
+            circuit: c.circuit_id,
+            schema: c.schema_id,
+            package: c.package_id,
+            ordinary_vk: c.ordinary_vk_digest,
+            policy_hash: c.policy_id,
+            policy_version: c.policy_version,
+            config_eligibility_epoch: c.eligibility_epoch,
+            leaf_domain: credential_registry::v3::LEAF_DOMAIN,
+            depth: credential_registry::v3::DEPTH as u8,
+        },
+        issuer: IssuerScope {
+            issuer_account: a.issuer.to_bytes(),
+            issuer_hash: i.issuer_hash,
+            source_key: i.source.to_bytes(),
+            issuer_eligibility_epoch: i.eligibility_epoch,
+            enrollment_evidence_version: i.enrollment_version,
+            evidence_digest: i.evidence_digest,
+        },
+        config_enabled: c.enabled,
+        issuer_enabled: i.enabled,
+        max_age_seconds: 240,
+    };
+    allocations.check_issues(&history.checkpoints[0].source.observation.changes)?;
+    let mut replay = HistoricalReplay::new(enrolled.clone(), c.publisher.to_bytes())
+        .map_err(|e| anyhow::anyhow!("history initialization {e:?}"))?;
+    for checkpoint in &history.checkpoints {
+        replay
+            .apply(
+                &checkpoint.source,
+                &checkpoint.publisher,
+                checkpoint.checked_at,
+            )
+            .map_err(|e| anyhow::anyhow!("signed allocation history {e:?}"))?;
+    }
+    let last = history
+        .checkpoints
+        .last()
+        .context("last history checkpoint")?;
+    check_finalized_envelopes(
+        &enrolled,
+        &last.source,
+        &last.publisher,
+        c,
+        i,
+        h,
+        last.checked_at,
+    )?;
+    ensure!(
+        replay.root() == c.root
+            && replay.root_version() == Some(c.root_version)
+            && replay.source_head().sequence == i.sequence
+            && replay.source_head().digest == i.digest
+            && replay.publication_sequence() == h.publication_sequence
+            && replay.publication_digest() == h.envelope_digest,
+        "replayed history differs from exact finalized accounts"
+    );
+    let (base, near, revoked) = allocations.roots()?;
+    ensure!(
+        p.root == base
+            && match c.root_version {
+                0 => c.root == base,
+                1 => c.root == near,
+                2 => c.root == revoked,
+                _ => false,
+            },
+        "two-leaf history state differs from expected revocation progression"
+    );
+    for (digest, slot, active) in [
+        (
+            transport::unhex(&allocations.own_tbs_digest)?,
+            allocations.slot,
+            c.root_version < 2,
+        ),
+        (
+            transport::unhex(&allocations.unrelated_tbs_digest)?,
+            allocations.slot ^ 1,
+            c.root_version == 0,
+        ),
+    ] {
+        let member = replay.active_holder(digest, slot as u16, allocations.allocation_epoch);
+        if active {
+            member.map_err(|e| anyhow::anyhow!("active signed allocation {e:?}"))?;
+        } else {
+            ensure!(
+                matches!(member, Err(credential_registry::Error::Revoked)),
+                "expected revoked signed allocation"
+            );
+        }
+    }
+    Ok(replay)
 }
 
 fn training_context() -> Result<(
@@ -194,17 +445,22 @@ fn validate_full_wire(
     Ok(())
 }
 
-// Initial status authenticates no allocation changes or prior registry history.
+// Initial signed issuance is checked by replay from the empty v3 tree.
 fn signed_initial_source(
     p: &V3QueuePlan,
     evidence_digest: [u8; 32],
     observed: i64,
     source: &Keypair,
+    allocations: &TrainingAllocations,
 ) -> Result<(EnrolledSource, SignedSource, [u8; 32])> {
     use zk_fresh_program::generated_vk_v3 as identity;
     ensure!(
         source.pubkey().to_bytes() == p.source,
         "initial enrolled source key"
+    );
+    ensure!(
+        p.root == allocations.roots()?.0,
+        "initial signed allocation root"
     );
     let a = p.addresses();
     let enrolled = EnrolledSource {
@@ -246,7 +502,7 @@ fn signed_initial_source(
             .checked_add(240)
             .context("initial source expiry overflow")?,
         issuer_status_active: true,
-        changes: Vec::new(),
+        changes: allocations.changes()?,
     };
     let mut message = SOURCE_SIGN_TAG.to_vec();
     message.extend(serde_json::to_vec(&observation)?);
@@ -371,6 +627,14 @@ pub fn stage_from_env() -> Result<()> {
     let rpc = transport::local_rpc()?;
     let (program, genesis, loaded) = transport::domain(&rpc)?;
     let (context, root, issuer_hash, policy_id, aki, evidence_digest) = training_context()?;
+    let allocations = context
+        .initial_allocations
+        .as_ref()
+        .context("two-leaf initial allocations required")?;
+    ensure!(
+        allocations.roots()?.0 == root,
+        "staged cohort allocation root"
+    );
     let now = transport::clock(&rpc)?;
     ensure!(
         now >= context.not_before && now < context.not_after,
@@ -469,7 +733,7 @@ pub fn stage_from_env() -> Result<()> {
     )?;
     let observed = transport::clock(&rpc)?;
     let (enrolled, signed_source, source_digest) =
-        signed_initial_source(&p, evidence_digest, observed, &source)?;
+        signed_initial_source(&p, evidence_digest, observed, &source, allocations)?;
     transport::new_json(&output.join("signed-source.json"), &signed_source)?;
     transport::new_json(&output.join("enrolled-source.json"), &enrolled)?;
     transport::send(
@@ -599,6 +863,13 @@ pub fn stage_from_env() -> Result<()> {
         &h,
         checked_at,
     )?;
+    let mut history = TrainingHistory::empty();
+    history.push(signed_source, signed_publisher, checked_at);
+    replay_training_history(&history, &p, allocations, &c, &i, &h)?;
+    let history_sha256 = write_training_history(&output, &history)?;
+    let allocation_bytes = serde_json::to_vec_pretty(allocations)?;
+    transport::new_file(&output.join("initial-allocations.json"), &allocation_bytes)?;
+    let allocations_sha256 = hex::encode(Sha256::digest(allocation_bytes));
     transport::new_json(&output.join("plan.json"), &p)?;
     for (name, data) in [
         ("config.bin", &bytes[0]),
@@ -614,8 +885,9 @@ pub fn stage_from_env() -> Result<()> {
         &json!({
             "schema":"part5-v3-local-stage-v1", "passed":true,
             "training_only":true,"upstream_source_authentication":true,
-            "upstream_publisher_authentication":true,"registry_history_authenticated":false,
-            "allocation_history_authenticated":false,
+            "upstream_publisher_authentication":true,"registry_history_authenticated":true,
+            "allocation_history_authenticated":true,"signed_history_sha256":history_sha256,
+            "initial_allocations_sha256":allocations_sha256,
             "source_head_digest":hex::encode(source_digest),
             "publisher_envelope_digest":hex::encode(envelope_digest),
             "proof_created":false,"application_effect":false,"devnet":false,
@@ -990,6 +1262,9 @@ pub fn transition_from_env() -> Result<()> {
     let plan_raw = transport::pinned(&stage_root.join("plan.json"), &plan_sha, 8192)?;
     let p: V3QueuePlan = serde_json::from_slice(&plan_raw)?;
     let (transition, near_root) = transition_context()?;
+    let allocations = load_training_allocations(&stage_root, &report)?;
+    allocations.check_transition(&transition)?;
+    let mut history = load_training_history(&stage_root, &report)?;
     ensure!(
         transition.stage_report_sha256 == report_sha,
         "exact staged transition request"
@@ -1069,6 +1344,7 @@ pub fn transition_from_env() -> Result<()> {
             && q.entries.is_empty(),
         "staged unconsumed request and source required"
     );
+    replay_training_history(&history, &p, &allocations, &c, &i, &h)?;
     let admin = transport::load_key(&stage_root, "admin.json", p.admin)?;
     let publisher = transport::load_key(&stage_root, "publisher.json", p.publisher)?;
     let source = transport::load_key(&stage_root, "source.json", p.source)?;
@@ -1197,17 +1473,19 @@ pub fn transition_from_env() -> Result<()> {
         .publication_sequence
         .checked_add(1)
         .context("publication sequence overflow")?;
-    let envelope_digest: [u8; 32] = Sha256::digest(
-        [
-            b"part5-v3-unrelated-head-training-v1".as_slice(),
-            &near_root,
-            &source_digest,
-            &h.envelope_digest,
-            &observed.to_be_bytes(),
-        ]
-        .concat(),
-    )
-    .into();
+    let (signed_publisher, envelope_digest) = branch::signed_publisher_envelope(
+        &enrolled,
+        SourceHead {
+            sequence,
+            digest: source_digest,
+        },
+        near_root,
+        expected_config.root_version,
+        &publisher,
+        next_publication,
+        h.envelope_digest,
+    )?;
+    transport::new_json(&output.join("signed-publisher.json"), &signed_publisher)?;
     let binding = V3HeadBinding {
         expected_config_epoch: c.eligibility_epoch,
         expected_issuer_epoch: i.eligibility_epoch,
@@ -1259,6 +1537,25 @@ pub fn transition_from_env() -> Result<()> {
             && next_head.source_digest == source_digest,
         "finalized signed unrelated transition differs from exact expected state"
     );
+    check_finalized_envelopes(
+        &enrolled,
+        &signed,
+        &signed_publisher,
+        &expected_config,
+        &next_issuer,
+        &next_head,
+        checked_at,
+    )?;
+    history.push(signed, signed_publisher, checked_at);
+    replay_training_history(
+        &history,
+        &p,
+        &allocations,
+        &expected_config,
+        &next_issuer,
+        &next_head,
+    )?;
+    let history_sha256 = write_training_history(&output, &history)?;
     for (index, name) in ["config", "issuer", "head", "request", "queue"]
         .iter()
         .enumerate()
@@ -1270,7 +1567,9 @@ pub fn transition_from_env() -> Result<()> {
         &json!({
             "schema":"part5-v3-unrelated-local-transition-v1", "passed":true,
             "training_only":true, "upstream_source_authentication":true,
-            "registry_history_authenticated":false, "application_effect":false,
+            "registry_history_authenticated":true,"allocation_history_authenticated":true,
+            "upstream_publisher_authentication":true,"signed_history_sha256":history_sha256,
+            "initial_allocations_sha256":report["initial_allocations_sha256"],"application_effect":false,
             "request_unconsumed":true, "devnet":false,
             "program":Pubkey::new_from_array(program).to_string(),
             "genesis":Hash::new_from_array(genesis).to_string(),
@@ -1778,8 +2077,202 @@ mod tests {
             payload: vec![0, 1, 2, 3],
         }
     }
+    fn allocation_fixture() -> TrainingAllocations {
+        TrainingAllocations {
+            own_tbs_digest: hex::encode([41; 32]),
+            unrelated_tbs_digest: hex::encode([42; 32]),
+            slot: 7,
+            allocation_epoch: 1,
+            cohort_receipt_sha256: hex::encode([43; 32]),
+            membership_sha256: hex::encode([44; 32]),
+        }
+    }
+
     #[test]
-    fn initial_signed_envelopes_bind_sequence_one_and_root_zero_without_allocation_claims() {
+    fn two_leaf_signed_history_matches_finalized_r0_r1_r2_and_rejects_substitution() {
+        use zk_fresh_program::{application_v3::PublisherHeadBinding, generated_vk_v3 as identity};
+        let source = Keypair::new();
+        let publisher = Keypair::new();
+        let allocations = allocation_fixture();
+        let (base, near, revoked) = allocations.roots().unwrap();
+        let mut p = plan();
+        p.source = source.pubkey().to_bytes();
+        p.publisher = publisher.pubkey().to_bytes();
+        p.root = base;
+        let a = p.addresses();
+        let mut c = Config {
+            admin: Pubkey::new_from_array(p.admin),
+            seed: p.seed,
+            publisher: publisher.pubkey(),
+            genesis: p.genesis,
+            policy_id: p.policy_id,
+            policy_version: 1,
+            circuit_id: identity::CIRCUIT_ID,
+            package_id: identity::PACKAGE_ID,
+            schema_id: identity::SEMANTIC_SCHEMA_ID,
+            profile_id: identity::PROFILE_ID,
+            ordinary_vk_digest: identity::ORDINARY_VK_DIGEST,
+            root: base,
+            root_version: 0,
+            eligibility_epoch: 0,
+            enabled: true,
+        };
+        let (enrolled, initial, _) =
+            signed_initial_source(&p, [31; 32], 100, &source, &allocations).unwrap();
+        let mut issuer = Issuer::enroll(
+            a.config,
+            &c,
+            Authority {
+                key: c.admin,
+                is_signer: true,
+            },
+            p.issuer_hash,
+            p.aki,
+            source.pubkey(),
+            1,
+            [31; 32],
+        )
+        .unwrap();
+        let mut previous_head: Option<PublisherHead> = None;
+        let mut history = TrainingHistory::empty();
+        for (version, root) in [base, near, revoked].into_iter().enumerate() {
+            let observed = 100 + 10 * version as i64;
+            if version > 0 {
+                c.publish(
+                    Authority {
+                        key: publisher.pubkey(),
+                        is_signer: true,
+                    },
+                    c.root_version,
+                    root,
+                )
+                .unwrap();
+            }
+            let signed = if version == 0 {
+                initial.clone()
+            } else {
+                let observation = Observation {
+                    scope: enrolled.scope.clone(),
+                    issuer: enrolled.issuer.clone(),
+                    sequence: issuer.sequence + 1,
+                    previous_digest: issuer.digest,
+                    observed_at: observed,
+                    valid_until: observed + 180,
+                    issuer_status_active: true,
+                    changes: vec![Change::Revoke {
+                        tbs_digest: transport::unhex(if version == 1 {
+                            &allocations.unrelated_tbs_digest
+                        } else {
+                            &allocations.own_tbs_digest
+                        })
+                        .unwrap(),
+                    }],
+                };
+                let mut message = SOURCE_SIGN_TAG.to_vec();
+                message.extend(serde_json::to_vec(&observation).unwrap());
+                SignedSource {
+                    observation,
+                    signature: source.sign_message(&message).as_ref().to_vec(),
+                }
+            };
+            let verified = signed
+                .verify(
+                    &enrolled,
+                    &SourceHead {
+                        sequence: issuer.sequence,
+                        digest: issuer.digest,
+                    },
+                    observed,
+                )
+                .unwrap();
+            let sequence = verified.head().sequence;
+            let digest = verified.head().digest;
+            issuer
+                .observe(
+                    &c,
+                    Authority {
+                        key: source.pubkey(),
+                        is_signer: true,
+                    },
+                    0,
+                    0,
+                    issuer.sequence,
+                    sequence,
+                    digest,
+                    true,
+                    observed,
+                    signed.observation.valid_until,
+                    observed,
+                )
+                .unwrap();
+            let previous_digest = previous_head
+                .as_ref()
+                .map(|h| h.envelope_digest)
+                .unwrap_or([0; 32]);
+            let (binding, envelope_digest) = branch::signed_publisher_envelope(
+                &enrolled,
+                SourceHead { sequence, digest },
+                root,
+                version as u64,
+                &publisher,
+                sequence,
+                previous_digest,
+            )
+            .unwrap();
+            let (next_issuer, head) = PublisherHead::prepare_bind(
+                a.config,
+                a.issuer,
+                &c,
+                &issuer,
+                Authority {
+                    key: publisher.pubkey(),
+                    is_signer: true,
+                },
+                previous_head.as_ref(),
+                &PublisherHeadBinding {
+                    expected_config_epoch: 0,
+                    expected_issuer_epoch: 0,
+                    expected_root: root,
+                    expected_root_version: version as u64,
+                    expected_source_sequence: sequence,
+                    expected_source_digest: digest,
+                    expected_publication_sequence: sequence - 1,
+                    expected_publication_digest: previous_digest,
+                    next_publication_sequence: sequence,
+                    envelope_digest,
+                },
+                observed + 1,
+            )
+            .unwrap();
+            issuer = next_issuer;
+            history.push(signed, binding, observed + 2);
+            replay_training_history(&history, &p, &allocations, &c, &issuer, &head).unwrap();
+            let mut bad = history.clone();
+            bad.checkpoints[0].source.observation.changes.clear();
+            assert!(replay_training_history(&bad, &p, &allocations, &c, &issuer, &head).is_err());
+            let mut bad_head = head.clone();
+            bad_head.envelope_digest[0] ^= 1;
+            assert!(
+                replay_training_history(&history, &p, &allocations, &c, &issuer, &bad_head)
+                    .is_err()
+            );
+            previous_head = Some(head);
+        }
+        let mut wrong_allocations = allocations.clone();
+        wrong_allocations.slot ^= 1;
+        assert!(replay_training_history(
+            &history,
+            &p,
+            &wrong_allocations,
+            &c,
+            &issuer,
+            previous_head.as_ref().unwrap()
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn initial_signed_envelopes_bind_sequence_one_and_two_allocations() {
         use zk_fresh_program::application_v3::PublisherHeadBinding;
         use zk_fresh_program::generated_vk_v3 as identity;
         let source = Keypair::new();
@@ -1787,6 +2280,8 @@ mod tests {
         let mut p = plan();
         p.source = source.pubkey().to_bytes();
         p.publisher = publisher.pubkey().to_bytes();
+        let allocations = allocation_fixture();
+        p.root = allocations.roots().unwrap().0;
         let a = p.addresses();
         let c = Config {
             admin: Pubkey::new_from_array(p.admin),
@@ -1805,13 +2300,14 @@ mod tests {
             eligibility_epoch: 0,
             enabled: true,
         };
-        let (enrolled, signed, digest) = signed_initial_source(&p, [31; 32], 100, &source).unwrap();
+        let (enrolled, signed, digest) =
+            signed_initial_source(&p, [31; 32], 100, &source, &allocations).unwrap();
         assert_eq!(signed.observation.sequence, 1);
         assert_eq!(signed.observation.previous_digest, [0; 32]);
-        assert!(
-            signed.observation.changes.is_empty(),
-            "no authenticated allocation history"
-        );
+        assert_eq!(signed.observation.changes.len(), 2);
+        allocations
+            .check_issues(&signed.observation.changes)
+            .unwrap();
         let mut issuer = Issuer::enroll(
             a.config,
             &c,
@@ -1922,7 +2418,7 @@ mod tests {
             check_finalized_envelopes(&enrolled, &signed, &binding, &c, &issuer, &head, 340)
                 .is_err()
         );
-        assert!(signed_initial_source(&p, [31; 32], 100, &publisher).is_err());
+        assert!(signed_initial_source(&p, [31; 32], 100, &publisher, &allocations).is_err());
     }
 
     #[test]

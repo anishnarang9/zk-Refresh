@@ -102,6 +102,8 @@ fn sign_and_bind(
     revocation: Option<[u8; 32]>,
     stage_root: &Path,
     output: &Path,
+    history: &mut TrainingHistory,
+    allocations: &TrainingAllocations,
 ) -> Result<(u64, [Vec<u8>; 5], Vec<Value>, [u8; 32])> {
     let a = p.addresses();
     let admin = transport::load_key(stage_root, "admin.json", p.admin)?;
@@ -314,6 +316,15 @@ fn sign_and_bind(
         &next_head,
         checked_at,
     )?;
+    history.push(signed, signed_publisher, checked_at);
+    replay_training_history(
+        history,
+        p,
+        allocations,
+        &expected_config,
+        &next_issuer,
+        &next_head,
+    )?;
     Ok((slot, after, events, source_digest))
 }
 
@@ -353,6 +364,13 @@ pub fn branch_from_env() -> Result<()> {
         65536,
     )?)?;
     let (context, near_root) = transition_context()?;
+    let allocations = load_training_allocations(&stage_root, &stage_report)?;
+    allocations.check_transition(&context)?;
+    let mut history = load_training_history(&transition_root, &transition)?;
+    ensure!(
+        transition["initial_allocations_sha256"] == stage_report["initial_allocations_sha256"],
+        "transition retains exact staged allocation evidence"
+    );
     let (certificate, base_root, issuer_hash, policy_id, aki, evidence_digest) =
         training_context()?;
     let rpc = transport::local_rpc()?;
@@ -417,6 +435,7 @@ pub fn branch_from_env() -> Result<()> {
             && q.entries.is_empty(),
         "exact R1 policy, signed status, head and unconsumed request required"
     );
+    replay_training_history(&history, &p, &allocations, &c, &i, &h)?;
     let base_wire = transport::pinned(
         Path::new(&transport::env("P5_V3_FULL_WIRE")?),
         &transport::env("P5_V3_FULL_WIRE_SHA256")?,
@@ -506,7 +525,10 @@ pub fn branch_from_env() -> Result<()> {
         },
         &stage_root,
         &output,
+        &mut history,
+        &allocations,
     )?;
+    let history_sha256 = write_training_history(&output, &history)?;
     let admin = transport::load_key(&stage_root, "admin.json", p.admin)?;
     transport::send(
         &rpc,
@@ -642,7 +664,9 @@ pub fn branch_from_env() -> Result<()> {
             "schema":"part5-v3-r1-branch-v1", "passed":true, "mode":mode,
             "training_only":true, "devnet":false,
             "upstream_source_authentication":true,
-            "registry_history_authenticated":false,
+            "registry_history_authenticated":true,"allocation_history_authenticated":true,
+            "upstream_publisher_authentication":true,"signed_history_sha256":history_sha256,
+            "initial_allocations_sha256":stage_report["initial_allocations_sha256"],
             "application_effect":effect, "effect_count":u8::from(effect),
             "request_consumed":effect, "request_unconsumed":!effect,
             "stage_report_sha256":stage_sha, "stage_plan_sha256":plan_sha,
