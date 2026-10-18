@@ -145,9 +145,13 @@ def summarize(reconciliation, economics):
     if (not isinstance(economics, dict) or economics.get('schema') != ECONOMICS_SCHEMA
             or economics.get('training_only') is not True):
         raise ValueError('training campaign economics report required')
+    if type(economics.get('grid_complete', False)) is not bool:
+        raise ValueError('training matrix grid completeness must be boolean')
+    matrix_grid_complete = economics.get('grid_complete') is True
 
     effect_costs = economics.get('application_effect_costs')
     effect_metric_sessions = 0
+    effect_metrics_by_mode = None
     if effect_costs is not None:
         if not isinstance(effect_costs, dict):
             raise ValueError('application effect cost map required')
@@ -156,12 +160,37 @@ def summarize(reconciliation, economics):
         if not isinstance(by_mode, dict) or set(by_mode) != {
                 'full', 'anchor', 'coalesced-full'}:
             raise ValueError('application effect metrics by mode required')
+        effect_metrics_by_mode = {}
         for mode in ('full', 'anchor', 'coalesced-full'):
             row = by_mode[mode]
             count = row.get('available_samples') if isinstance(row, dict) else None
             if type(count) is not int or count < 0:
                 raise ValueError('application effect metric sample count required')
+            values = row.get('sampled_values')
+            if type(values) is not list or len(values) != count:
+                raise ValueError('application effect metric sample count differs from values')
+            seen = set()
+            for value in values:
+                if (type(value) is not dict
+                        or set(value) != {'target_count', 'repetition',
+                                          'transaction_bytes', 'compute_units',
+                                          'fee_lamports'}
+                        or type(value['target_count']) is not int
+                        or value['target_count'] not in COUNTS
+                        or type(value['repetition']) is not int
+                        or value['repetition'] not in REPETITIONS
+                        or type(value['transaction_bytes']) is not int
+                        or value['transaction_bytes'] <= 0
+                        or any(type(value[field]) is not int or value[field] < 0
+                               for field in ('compute_units', 'fee_lamports'))):
+                    raise ValueError('invalid confirmed application effect metric sample')
+                key = value['target_count'], value['repetition']
+                if key in seen:
+                    raise ValueError('duplicate confirmed application effect metric sample')
+                seen.add(key)
             effect_metric_sessions += count
+            effect_metrics_by_mode[mode] = {'available_samples': count,
+                                            'sampled_values': values}
         if any(effect_costs.get(field) is not bool(effect_metric_sessions)
                for field in ('transaction_bytes_available',
                              'compute_units_available', 'fee_lamports_available')):
@@ -208,6 +237,22 @@ def summarize(reconciliation, economics):
                  and row['status'] == 'matched']
         by_update_count[str(count)] = _summarize_spread(group)
 
+    if matrix_grid_complete and sum(row['status'] == 'matched' for row in pair_rows) != 20:
+        raise ValueError('complete matrix requires all 20 matched Full/Anchor pairs')
+    measured_median = {'status': 'incomplete', 'first_sampled_k': None,
+                       'previous_sampled_k': None,
+                       'basis': ('first sampled k with positive median of four paired '
+                                 'Full-minus-Anchor totals')}
+    if matrix_grid_complete:
+        crossing = next((count for count in COUNTS
+                         if by_update_count[str(count)][
+                             'median_full_minus_anchor_total_wall_seconds'] > 0), None)
+        measured_median.update(
+            status='crossed' if crossing is not None else 'not_crossed_through_k10',
+            first_sampled_k=crossing,
+            previous_sampled_k=(COUNTS[COUNTS.index(crossing) - 1]
+                                if crossing is not None and crossing != COUNTS[0] else None))
+
     by_pair_key = {(row['repetition'], row['target_count']): row for row in pair_rows}
     break_even = {}
     first_crossing_distribution = {str(count): 0 for count in COUNTS}
@@ -222,7 +267,7 @@ def summarize(reconciliation, economics):
                 incomplete_before_crossing = True
                 complete_through_max = False
                 break
-            if row['anchor_total_wall_seconds'] <= row['full_total_wall_seconds']:
+            if row['full_minus_anchor_total_wall_seconds'] > 0:
                 crossing = count
                 break
         if crossing is not None:
@@ -237,7 +282,7 @@ def summarize(reconciliation, economics):
         else:
             state, reason = 'incomplete', 'registered sequence incomplete'
         break_even[str(repetition)] = {
-            'first_measured_break_even_k': crossing,
+            'first_positive_pair_k': crossing,
             'status': state, 'basis': reason}
 
     one_time = reconciliation.get('one_time')
@@ -252,15 +297,18 @@ def summarize(reconciliation, economics):
         },
         'accounting': (
             'Each pair total is directly timed outer session wall plus the same-count '
-            'shared prepare/stage/cumulative transition duration plus that mode slot clone '
+            'shared prepare/stage/exact R0-to-Rk transition duration plus that mode slot clone '
             'preparation. The shared duration is added to both modes; do not sum separate '
             'run medians.'),
+        'matrix_grid_complete': matrix_grid_complete,
         'matched_pairs': sum(row['status'] == 'matched' for row in pair_rows),
         'expected_pairs': len(REPETITIONS) * len(COUNTS),
         'pairs': pair_rows,
         'by_update_count': by_update_count,
         'break_even': {
-            'basis': 'first sampled k with total Anchor wall <= total Full wall per repetition',
+            'basis': ('measured crossing uses the median of four within-pair total wall '
+                      'differences; per-repetition first positive pair is descriptive'),
+            'measured_median': measured_median,
             'per_repetition': break_even,
             'first_crossing_distribution': {
                 'by_sampled_k': {str(count): first_crossing_distribution[str(count)]
@@ -288,6 +336,7 @@ def summarize(reconciliation, economics):
             'fee_lamports_available': effect_metric_sessions > 0,
             'confirmed_application_effect_metric_sessions': effect_metric_sessions,
             'confirmed_rpc_metric_source': 'economics report application_effect_costs',
+            'confirmed_rpc_metrics_by_mode': effect_metrics_by_mode,
         },
         'extrapolation_used': False,
         'whole_application_benefit_established': False,

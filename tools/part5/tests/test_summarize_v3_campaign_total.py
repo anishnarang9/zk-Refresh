@@ -40,7 +40,8 @@ class CampaignTotalSummaryTests(unittest.TestCase):
                 economics_pairs.append(econ)
                 total_pairs.append(total)
         economics = {'schema': 'part5-v3-campaign-economics-report-v1',
-                     'training_only': True, 'pairs': economics_pairs}
+                     'training_only': True, 'grid_complete': False,
+                     'pairs': economics_pairs}
         reconciler = {
             'schema': 'part5-v3-campaign-observed-component-costs-v1',
             'training_only': True,
@@ -68,7 +69,8 @@ class CampaignTotalSummaryTests(unittest.TestCase):
                 economics_pairs.append(econ)
                 total_pairs.append(total)
         economics = {'schema': 'part5-v3-campaign-economics-report-v1',
-                     'training_only': True, 'pairs': economics_pairs}
+                     'training_only': True, 'grid_complete': True,
+                     'pairs': economics_pairs}
         reconciler = {
             'schema': 'part5-v3-campaign-observed-component-costs-v1',
             'training_only': True,
@@ -98,10 +100,15 @@ class CampaignTotalSummaryTests(unittest.TestCase):
                           'full_minus_anchor_negative': 2,
                           'matched_pairs': 4, 'expected_pairs': 4})
         self.assertEqual(report['break_even']['first_crossing_distribution'], {
-            'by_sampled_k': {'0': 1, '1': 0, '2': 1, '5': 1, '10': 0},
+            'by_sampled_k': {'0': 0, '1': 1, '2': 1, '5': 1, '10': 0},
             'not_crossed_through_k10': 1,
             'incomplete': 0,
             'expected_repetitions': 4,
+        })
+        self.assertEqual(report['break_even']['measured_median'], {
+            'status': 'crossed', 'first_sampled_k': 5,
+            'previous_sampled_k': 2,
+            'basis': 'first sampled k with positive median of four paired Full-minus-Anchor totals',
         })
 
     def test_summarizes_total_pair_costs_spread_break_even_and_target(self):
@@ -118,8 +125,9 @@ class CampaignTotalSummaryTests(unittest.TestCase):
         self.assertEqual(report['pairs'][1]['anchor_sampled_peak_owned_tree_rss_bytes'], 2001)
 
         rep1 = report['break_even']['per_repetition']['1']
-        self.assertEqual(rep1['first_measured_break_even_k'], 1)
+        self.assertEqual(rep1['first_positive_pair_k'], 1)
         self.assertEqual(rep1['status'], 'crossed')
+        self.assertEqual(report['break_even']['measured_median']['status'], 'incomplete')
         self.assertEqual(report['one_time_costs']['charged_per_request'], False)
         self.assertFalse(report['cpu']['complete_tree_cpu_qualified'])
         self.assertFalse(report['extrapolation_used'])
@@ -131,9 +139,15 @@ class CampaignTotalSummaryTests(unittest.TestCase):
             'compute_units_available': True,
             'fee_lamports_available': True,
             'confirmed_rpc_metrics': {'by_mode': {
-                'full': {'available_samples': 1},
-                'anchor': {'available_samples': 1},
-                'coalesced-full': {'available_samples': 0},
+                'full': {'available_samples': 1, 'sampled_values': [
+                    {'target_count': 1, 'repetition': 1,
+                     'transaction_bytes': 825, 'compute_units': 185532,
+                     'fee_lamports': 5000}]},
+                'anchor': {'available_samples': 1, 'sampled_values': [
+                    {'target_count': 1, 'repetition': 1,
+                     'transaction_bytes': 903, 'compute_units': 190000,
+                     'fee_lamports': 5000}]},
+                'coalesced-full': {'available_samples': 0, 'sampled_values': []},
             }},
         }
         report = tool.summarize(reconciler, economics)
@@ -142,6 +156,32 @@ class CampaignTotalSummaryTests(unittest.TestCase):
         self.assertTrue(resources['compute_units_available'])
         self.assertTrue(resources['fee_lamports_available'])
         self.assertEqual(resources['confirmed_application_effect_metric_sessions'], 2)
+        self.assertEqual(resources['confirmed_rpc_metrics_by_mode']['anchor']['sampled_values'],
+                         [{'target_count': 1, 'repetition': 1,
+                           'transaction_bytes': 903, 'compute_units': 190000,
+                           'fee_lamports': 5000}])
+
+    def test_rejects_effect_metric_count_without_matching_samples(self):
+        economics, reconciler = self.fixtures()
+        economics['application_effect_costs'] = {
+            'transaction_bytes_available': True,
+            'compute_units_available': True,
+            'fee_lamports_available': True,
+            'confirmed_rpc_metrics': {'by_mode': {
+                'full': {'available_samples': 1, 'sampled_values': []},
+                'anchor': {'available_samples': 0, 'sampled_values': []},
+                'coalesced-full': {'available_samples': 0, 'sampled_values': []},
+            }},
+        }
+        with self.assertRaisesRegex(ValueError, 'sample count'):
+            tool.summarize(reconciler, economics)
+
+    def test_carries_training_matrix_grid_completeness(self):
+        economics, reconciler = self.complete_fixtures()
+        economics['grid_complete'] = False
+        self.assertFalse(tool.summarize(reconciler, economics)['matrix_grid_complete'])
+        economics['grid_complete'] = True
+        self.assertTrue(tool.summarize(reconciler, economics)['matrix_grid_complete'])
 
     def test_break_even_is_incomplete_when_an_earlier_sample_is_missing(self):
         economics, reconciler = self.fixtures()
@@ -151,7 +191,7 @@ class CampaignTotalSummaryTests(unittest.TestCase):
                                if not (row['target_count'] == 0 and row['repetition'] == 2)]
         report = tool.summarize(reconciler, economics)
         self.assertEqual(report['break_even']['per_repetition']['2']['status'], 'incomplete')
-        self.assertIsNone(report['break_even']['per_repetition']['2']['first_measured_break_even_k'])
+        self.assertIsNone(report['break_even']['per_repetition']['2']['first_positive_pair_k'])
         self.assertEqual(report['break_even']['first_crossing_distribution']['incomplete'], 1)
 
     def test_rejects_pair_rows_that_do_not_match_or_reconcile(self):
