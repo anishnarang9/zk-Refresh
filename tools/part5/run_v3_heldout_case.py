@@ -558,25 +558,10 @@ class RunJournal:
                     raise ValueError(f'resumable step {name} evidence no longer verifies')
                 return prior
             if prior.get('status') == 'running':
-                prior_monotonic = prior.get('started_monotonic')
-                prior_unix_ns = prior.get('started_unix_ns')
-                if (type(prior_monotonic) not in (int, float)
-                        or not math.isfinite(prior_monotonic)
-                        or type(prior_unix_ns) is not int or prior_unix_ns <= 0):
-                    raise ValueError(f'resumable step {name} has no trustworthy start clocks')
-                monotonic_elapsed = started_monotonic - prior_monotonic
-                wall_elapsed = (started_unix_ns - prior_unix_ns) / 1_000_000_000
-                if (not math.isfinite(monotonic_elapsed) or not math.isfinite(wall_elapsed)
-                        or monotonic_elapsed < 0 or wall_elapsed < 0
-                        or abs(monotonic_elapsed - wall_elapsed) > 5.0):
-                    raise ValueError(f'resumable step {name} interrupted timing is uncertain')
-                # Include downtime while the prior invocation was absent. If a
-                # crash/reboot made either clock uncertain, fail closed above.
-                failed_attempt_wall_seconds.append(max(monotonic_elapsed, wall_elapsed))
-                prior['status'] = 'interrupted'
-                prior['failed_attempt_wall_seconds'] = list(failed_attempt_wall_seconds)
-                prior['failed_attempt_count'] = len(failed_attempt_wall_seconds)
-                self._save(document)
+                # The gap until restart may include idle time after a crash.
+                raise ValueError(f'resumable step {name} interrupted attempt has unknown work time')
+            if prior.get('status') != 'failed':
+                raise ValueError(f'resumable step {name} has unknown prior status')
         row = {'status': 'running', 'inputs': inputs,
                'started_monotonic': started_monotonic,
                'started_unix_ns': started_unix_ns,
