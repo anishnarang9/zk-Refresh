@@ -72,6 +72,12 @@ A prior single-pair engineering run measured Full at 115.326 seconds and Anchor 
 
 The current matrix uses the amended comparator: Full and coalesced Full omit Anchor-only delta/support preparation; all modes authenticate the same history and validate complete witnesses. Count `k` is the number of distinct authenticated root changes for one still-unconsumed exact request. The chosen update pattern is controlled synthetic training history, not observed issuer churn or user action-lifetime data.
 
+### Post-snapshot negative-coverage status (source revision `2a79c60`)
+
+This inventory describes source and planned coverage after the dated evidence snapshots above; it does not record execution. Planned loaded-ELF held-out case A covers wrong issuer/policy public words, wrong action, malformed proof, read-only request, missing final account, System Program in the issuer slot, and replay. The planned loaded B and C branches reject old-root proofs after unrelated and own revocation, respectively; C's attempted active-current-root witness is rejected by the witness/relation checks before submission. The loaded harness and held-out verifier source include the missing-final-account and System-Program-as-issuer scenarios, but this does not establish a runner build or a held-out case run. The report's earlier signed-history receipts are local training evidence for stale-root and own-revocation behavior, not held-out evidence.
+
+Local DER admission negatives have source/fixture validation coverage only; they are not loaded application transactions. Disabled issuer/config, expired status, queue-capacity (fixture available), account-order, and ambiguous-restart cases remain host-only or test/mock coverage at this revision, not demonstrated loaded-ELF held-out rejections. **Held-out negative execution: none established.** The required `v3-heldout-queue-runner-002` is absent; no held-out freeze, cohort, case fragment, assembled manifest, or verifier report exists. The training `r1-k1-anchor` slot has work files but no receipt at this inspection. Do not infer case execution, a build, or a freeze from this inventory.
+
 ### Cost interpretation rules
 
 The primary unit is one complete authorization of one exact, still-unconsumed
