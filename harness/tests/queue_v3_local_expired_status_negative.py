@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """Preflight and validate one bounded loaded expired-status negative.
 
-The isolated Rust publisher/Execute entry point is not present yet. Until it is
-added and frozen, this supervisor records that integration blocker and starts no
-validator or proof runner.
+The exact Rust publisher/Execute entry point is required before launch. The
+external bounded runner owns whole-tree limits and final cleanup evidence. This
+supervisor records an integration blocker and starts no processes until the
+Rust report and external monitor protocol is reviewed. Source checks establish
+neither a loaded result nor heldout acceptance.
 """
 import argparse
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import sys
 import stat
@@ -27,10 +30,37 @@ LIMITS = {'runtime_seconds': 180, 'rss_bytes': 4294967296,
           'storage_growth_bytes': 268435456}
 PROCESS_LIMITS = {'validators': 1, 'runners': 1}
 MAX_STATUS_AGE = 300
+RUST_TEST = 'root_pinned_queue_v3_expired_status_negative'
+REPORT_NAME = 'expired-status-negative-report.json'
 SCOPE = 'part5-v3-expired-status-negative'
 CONFIG_SCHEMA = 'credential-v3-expired-status-negative-supervisor-v1'
 REPORT_SCHEMA = expired_evidence.SCHEMA
 ACCOUNT_NAMES = expired_evidence.checks.ACCOUNT_NAMES
+# Prospective handoff contract only. No runtime publisher implements this yet.
+RUST_REPORT_CONTRACT = {
+    'entrypoint': RUST_TEST,
+    'runner_arguments': [RUST_TEST, '--exact', '--ignored', '--test-threads=1'],
+    'config_environment': 'P5_V3_EXPIRED_STATUS_NEGATIVE_CONFIG',
+    'config_hash_environment': 'P5_V3_EXPIRED_STATUS_NEGATIVE_CONFIG_SHA256',
+    'scope_environment': 'P5_V3_EXPIRED_STATUS_NEGATIVE_SCOPE',
+    'config_schema': CONFIG_SCHEMA,
+    'report_name': REPORT_NAME,
+    'report_schema': REPORT_SCHEMA,
+    'report_fields': sorted(expired_evidence.REPORT_FIELDS),
+    'identity_roles': list(expired_evidence.IDENTITY_ROLES),
+    'full_proof_identity': 'raw SHA-256 of externally pinned Full proof receipt JSON',
+    'full_wire_identity': 'raw SHA-256 of separately pinned complete Full wire',
+    'transaction_instruction_index': 1,
+    'transaction_custom_error': 705,
+    'finalized_rpc_required': True,
+    'account_names': list(ACCOUNT_NAMES),
+    'report_validator': 'tools.part5.heldout_expired_status_evidence.validate_report',
+    'external_monitor_required': True,
+    'unresolved_protocol': (
+        'Bind final owner resource measurements and post-exit whole-tree cleanup '
+        'from the external bounded runner to the exact Rust report and supervisor '
+        'status; Rust cannot assert its own reaping or supervisor validator cleanup.'),
+}
 PIN_FIELDS = (
     'freeze_sha256', 'expected_genesis_sha256', 'stage_report_sha256', 'stage_plan_sha256',
     'stage_config_sha256', 'stage_status_sha256',
@@ -359,6 +389,50 @@ def _validate_report(report, config):
     return expired_evidence.validate_report(report, _expected_identities(config))
 
 
+def _rust_source_parts(source):
+    """Separate declaration text and string values for this conservative source gate."""
+    token_start = re.compile(r'//|/\*|(?<![A-Za-z0-9_])(?:br|cr|r)(#{0,255})"|"')
+    code, strings, position = [], [], 0
+    while match := token_start.search(source, position):
+        code.append(source[position:match.start()])
+        start, token = match.start(), match.group()
+        if token == '//':
+            end = source.find('\n', match.end())
+            end = len(source) if end < 0 else end
+        elif token == '/*':
+            depth, end = 1, match.end()
+            while depth:
+                nested = re.search(r'/\*|\*/', source[end:])
+                if nested is None:
+                    raise IntegrationRequired('Rust source contains an unterminated block comment')
+                depth += 1 if nested.group() == '/*' else -1
+                end += nested.end()
+        elif token != '"':
+            closing = '"' + match.group(1)
+            finish = source.find(closing, match.end())
+            if finish < 0:
+                raise IntegrationRequired('Rust source contains an unterminated raw string')
+            strings.append(source[match.end():finish])
+            end = finish + len(closing)
+        else:
+            end = match.end()
+            while end < len(source):
+                if source[end] == '\\':
+                    end += 2
+                elif source[end] == '"':
+                    strings.append(source[match.end():end])
+                    end += 1
+                    break
+                else:
+                    end += 1
+            else:
+                raise IntegrationRequired('Rust source contains an unterminated string')
+        code.append(re.sub(r'[^\n]', ' ', source[start:end]))
+        position = end
+    code.append(source[position:])
+    return ''.join(code), strings
+
+
 def _require_rust_entrypoint():
     test_path = REPO / 'harness/tests/queue_v3.rs'
     module_path = REPO / 'harness/src/solana/queue_v3/expired_status_negative.rs'
@@ -366,11 +440,21 @@ def _require_rust_entrypoint():
     test_source = test_path.read_text() if test_path.is_file() else ''
     parent_source = parent_path.read_text() if parent_path.is_file() else ''
     module_source = module_path.read_text() if module_path.is_file() else ''
+    # Strings and comments cannot supply executable declarations.
+    test_source, _ = _rust_source_parts(test_source)
+    parent_source, _ = _rust_source_parts(parent_source)
+    module_source, module_strings = _rust_source_parts(module_source)
     present = (
-        'root_pinned_queue_v3_expired_status_negative' in test_source
-        and 'mod expired_status_negative;' in parent_source
-        and 'expired_status_negative_from_env' in parent_source
-        and 'expired_status_negative_from_env' in module_source
+        re.search(r'#\[test\]\s*#\[ignore[^\n]*\]\s*fn\s+' + RUST_TEST
+                  + r'\s*\(\s*\)\s*\{\s*'
+                    r'zk_fresh_benchmark::solana::queue_v3::'
+                    r'expired_status_negative_from_env\(\)\.unwrap\(\);\s*\}', test_source)
+        and re.search(r'(?m)^\s*mod expired_status_negative;', parent_source)
+        and re.search(r'(?m)^\s*pub use expired_status_negative::expired_status_negative_from_env;', parent_source)
+        and re.search(r'(?m)^\s*pub fn expired_status_negative_from_env\(\)', module_source)
+        and REPORT_SCHEMA in module_strings
+        and 'P5_V3_EXPIRED_STATUS_NEGATIVE_CONFIG_SHA256' in module_strings
+        and REPORT_NAME in module_strings
     )
     if not present:
         raise IntegrationRequired(
@@ -381,7 +465,7 @@ def _require_rust_entrypoint():
             'account snapshots. No validator or proof runner was started.')
 
 
-def _write_blocked_status(config, config_sha256, config_path):
+def _write_blocked_status(config, config_sha256, config_path, reason=None):
     root = REPO / 'artifacts/dynark/part5'
     output = execute.base.fresh_child(config['output_dir'], root)
     control = execute.base.fresh_child(config['control_output'], root)
@@ -391,9 +475,12 @@ def _write_blocked_status(config, config_sha256, config_path):
     status = {
         'schema': 1, 'scope': SCOPE, 'status': 'blocked_integration',
         'error_type': 'IntegrationRequired',
-        'integration_required': (
+        'integration_required': reason or (
             'Add an isolated Rust publisher/expiry/Execute entry point and report '
             'before any loaded stale-status result can be claimed.'),
+        'rust_report_contract': RUST_REPORT_CONTRACT,
+        'outer_monitor_required': True,
+        'whole_tree_cleanup_authority': 'external bounded_runner',
         'config_path': str(config_path), 'config_sha256': config_sha256,
         'effect_verified': False, 'application_effect': False,
         'loaded_execution_claimed': False,
@@ -428,12 +515,16 @@ def run(config, config_sha256, config_path):
     _check_input_pins(config)
     try:
         _require_rust_entrypoint()
-    except IntegrationRequired:
-        _write_blocked_status(config, config_sha256, config_path)
+        raise IntegrationRequired(
+            'Rust entrypoint markers exist, but loaded report/launch integration '
+            'is unreviewed: require finalized error 705 at instruction 1, five '
+            'unchanged snapshots, live RPC rechecks, and separately bound external '
+            'monitor measurements and post-exit whole-tree cleanup. A live Rust '
+            'runner cannot establish its own reaping or validator cleanup. '
+            'No validator or proof runner was started.')
+    except IntegrationRequired as error:
+        _write_blocked_status(config, config_sha256, config_path, str(error))
         return 2
-    raise IntegrationRequired(
-        'Rust entry point exists, but its validator launch/report protocol has not '
-        'been integrated into this supervisor; no loaded claim is permitted.')
 
 
 def main():

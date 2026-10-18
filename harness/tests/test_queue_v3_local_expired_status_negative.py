@@ -547,5 +547,102 @@ class ExpiredStatusNegativeTests(unittest.TestCase):
             self.assertIs(status['loaded_execution_claimed'], False)
 
 
+class ExpiredSupervisorLaunchTests(unittest.TestCase):
+    def test_rust_names_in_comments_do_not_enable_launch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            paths = {
+                'harness/tests/queue_v3.rs': '// root_pinned_queue_v3_expired_status_negative',
+                'harness/src/solana/queue_v3.rs': '// mod expired_status_negative; expired_status_negative_from_env',
+                'harness/src/solana/queue_v3/expired_status_negative.rs': '// expired_status_negative_from_env',
+            }
+            for relative, source in paths.items():
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(source)
+            with mock.patch.object(supervisor, 'REPO', root), self.assertRaises(
+                    supervisor.IntegrationRequired):
+                supervisor._require_rust_entrypoint()
+
+    def test_raw_string_only_rust_declarations_do_not_enable_launch(self):
+        sources = {
+            'harness/tests/queue_v3.rs': '#[test]\n#[ignore = "loaded validator required"]\n'
+                'fn root_pinned_queue_v3_expired_status_negative() {\n'
+                'zk_fresh_benchmark::solana::queue_v3::expired_status_negative_from_env().unwrap();\n}',
+            'harness/src/solana/queue_v3.rs': 'mod expired_status_negative;\n'
+                'pub use expired_status_negative::expired_status_negative_from_env;',
+            'harness/src/solana/queue_v3/expired_status_negative.rs':
+                'pub fn expired_status_negative_from_env() -> Result<()> {}\n'
+                + 'const REPORT: &str = "' + evidence.SCHEMA + '";\n'
+                + 'const ENV: &str = "P5_V3_EXPIRED_STATUS_NEGATIVE_CONFIG_SHA256";\n'
+                + 'const FILE: &str = "expired-status-negative-report.json";',
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            for relative, source in sources.items():
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text('const DECOY: &str = r###"\n' + source + '\n"###;')
+            with mock.patch.object(supervisor, 'REPO', root), self.assertRaises(
+                    supervisor.IntegrationRequired):
+                supervisor._require_rust_entrypoint()
+
+    def test_marker_only_entrypoint_records_protocol_blocker_without_spawn(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            output_root = root / 'artifacts/dynark/part5'
+            output_root.mkdir(parents=True)
+            value = config()
+            value['output_dir'] = str(output_root / 'out')
+            value['control_output'] = str(output_root / 'control')
+            path = root / 'config.json'
+            raw = json.dumps(value).encode()
+            path.write_bytes(raw)
+            path.chmod(0o600)
+            digest = hashlib.sha256(raw).hexdigest()
+            with mock.patch.dict(os.environ, {'P5_V3_EXPIRED_STATUS_NEGATIVE_SCOPE': supervisor.SCOPE}), \
+                    mock.patch.object(supervisor, 'REPO', root), \
+                    mock.patch.object(supervisor, '_check_input_pins'), \
+                    mock.patch.object(supervisor, '_require_rust_entrypoint'), \
+                    mock.patch('subprocess.Popen') as spawn:
+                self.assertEqual(supervisor.run(value, digest, path), 2)
+            spawn.assert_not_called()
+            status = json.loads((output_root / 'control/status.json').read_text())
+            self.assertEqual(status['status'], 'blocked_integration')
+            self.assertFalse(status['loaded_execution_claimed'])
+            self.assertIn('live Rust runner cannot establish its own reaping', status['integration_required'])
+            self.assertTrue(status['outer_monitor_required'])
+            self.assertEqual(status['rust_report_contract']['report_schema'], evidence.SCHEMA)
+            self.assertEqual(status['rust_report_contract']['account_names'], list(supervisor.ACCOUNT_NAMES))
+            for role in ('runner', 'validator'):
+                self.assertEqual(status[role + '_cleanup'], {'spawned': False, 'reaped': True})
+
+    def test_exact_entrypoint_and_report_markers_are_required(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            paths = {
+                'harness/tests/queue_v3.rs': '#[test]\n#[ignore = "loaded validator required"]\n'
+                    'fn root_pinned_queue_v3_expired_status_negative() {\n'
+                    'zk_fresh_benchmark::solana::queue_v3::expired_status_negative_from_env().unwrap();\n}',
+                'harness/src/solana/queue_v3.rs': 'mod expired_status_negative;\n'
+                    'pub use expired_status_negative::expired_status_negative_from_env;',
+                'harness/src/solana/queue_v3/expired_status_negative.rs':
+                    'pub fn expired_status_negative_from_env() -> Result<()> {}\n'
+                    + 'const REPORT: &str = "' + evidence.SCHEMA + '";\n'
+                    + 'const ENV: &str = "P5_V3_EXPIRED_STATUS_NEGATIVE_CONFIG_SHA256";\n'
+                    + 'const FILE: &str = "expired-status-negative-report.json";',
+            }
+            for relative, source in paths.items():
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(source)
+            with mock.patch.object(supervisor, 'REPO', root):
+                supervisor._require_rust_entrypoint()
+                module = root / 'harness/src/solana/queue_v3/expired_status_negative.rs'
+                module.write_text(module.read_text().replace(evidence.SCHEMA, 'wrong-schema'))
+                with self.assertRaises(supervisor.IntegrationRequired):
+                    supervisor._require_rust_entrypoint()
+
+
 if __name__ == '__main__':
     unittest.main()
