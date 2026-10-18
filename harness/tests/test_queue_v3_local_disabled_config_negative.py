@@ -349,6 +349,29 @@ class DisabledConfigNegativeReportTests(unittest.TestCase):
                 'eligible', 'before', 'after', 'issuer_eligible',
                 'issuer_before', 'issuer_after'})
 
+    def test_source_finalized_slot_may_advance_after_staging_but_not_precede_it(self):
+        config = {'variant': 3, 'expected_program': 'local-program',
+                  'expected_genesis': 'local-genesis',
+                  'expected_elf_sha256': 'e' * 64,
+                  'stage_report_sha256': 'a' * 64,
+                  'stage_plan_sha256': 'b' * 64,
+                  'full_wire_sha256': 'c' * 64,
+                  'heldout_r0_clone_report_sha256': 'd' * 64}
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp)
+            report, stage_report = fixture_report(output)
+            stage_report['finalized_slot'] = 39
+            self.assertEqual(report['source_finalized_slot'], 40)
+            supervisor._validate_report(report, config, stage_report, output)
+
+            report['source_finalized_slot'] = 38
+            with self.assertRaisesRegex(ValueError, 'staged finalized source slot mismatch'):
+                supervisor._validate_report(report, config, stage_report, output)
+
+            report['source_finalized_slot'] = True
+            with self.assertRaisesRegex(ValueError, 'staged finalized source slot mismatch'):
+                supervisor._validate_report(report, config, stage_report, output)
+
     def test_supervisor_budget_is_enforced_at_the_165_second_boundary(self):
         with mock.patch.object(supervisor.time, 'monotonic', return_value=164.9):
             supervisor._check_supervisor_budget(0)

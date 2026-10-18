@@ -154,7 +154,7 @@ def _validate_report(report, config, stage_report, output):
         raise ValueError('issuer eligibility clock required')
     if (type(report.get('source_finalized_slot')) is not int
             or isinstance(report['source_finalized_slot'], bool)
-            or report['source_finalized_slot'] != stage_report.get('finalized_slot')):
+            or report['source_finalized_slot'] < stage_report.get('finalized_slot')):
         raise ValueError('staged finalized source slot mismatch')
 
     transactions = report.get('transactions')
