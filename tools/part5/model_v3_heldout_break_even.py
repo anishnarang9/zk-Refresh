@@ -191,7 +191,7 @@ def build(heldout_report, training_report, heldout_sha256, training_sha256,
                     'basis': ('direct heldout k1 calibration' if count == 1
                               else 'model/inference'),
                 })
-                if not crossed and value <= 0:
+                if not crossed and value < 0:
                     first_crossing = count
                     crossed = True
             first_distribution[str(first_crossing)] += 1
@@ -236,7 +236,7 @@ def build(heldout_report, training_report, heldout_sha256, training_sha256,
             'training_delta': ('D_rk = anchor_total_wall_seconds - '
                                'full_total_wall_seconds'),
             'conditional_transfer': 'D_vrk = D_v1 + (D_rk - D_r1)',
-            'first_crossing': 'first sampled k with D_vrk <= 0',
+            'first_crossing': 'first sampled k with D_vrk < 0',
             'sampled_counts': list(COUNTS),
             'interpolation_or_extrapolation_used': False,
             'non_k1_basis': 'model/inference from training delta changes',
