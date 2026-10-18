@@ -1,6 +1,6 @@
 # Clean-checkout reproduction status and build steps
 
-This partial guide separates two goals: checking the evidence for the specific Training-010 run, and running a new campaign from the pinned source. A new run creates new keys, state, binary hashes, and receipts; it cannot recreate Training-010's receipt hashes. The Training-010 matrix was still in progress in the registered snapshot, and the heldout runbook says its acceptance steps have not run. Neither is a completed application acceptance result. The missing setup/package evidence and prior-public-key inventory below still prevent a full clean-checkout rerun; the initial R0 prepare config can now be constructed from source using the bounded commands below.
+This partial guide separates two goals: checking the evidence for the specific Training-010 run, and running a new campaign from the pinned source. A new run creates new keys, state, binary hashes, and receipts; it cannot recreate Training-010's receipt hashes. The Training-010 matrix was still in progress in the registered snapshot, and the heldout runbook says its acceptance steps have not run. Neither is a completed application acceptance result. The missing setup/package evidence below still prevents a full clean-checkout rerun; the initial R0 prepare config and a synthetic prior-public-key control can now be constructed from source using the bounded commands below.
 
 ## Source and runtime pins
 
@@ -368,10 +368,28 @@ and no remaining owned processes. `freeze_v3_campaign_cohort.py` permits this
 specific failed prepare shape only with `reaped: true` and
 `ledger_reuse_requires_review: true`; review the retained ledger before reuse.
 This fresh R0 constructor closes only the missing config-generation step. The
-fixed setup-suite/package-check identity and absent prior-public-key inventory
-described above still block a full from-zero campaign.
+fixed setup-suite/package-check identity described above still blocks a full
+from-zero campaign.
 
-After a new bounded prepare run produces a fresh `PREPARE_STATUS`, and after local `artifacts/dynark/part5` contains a reviewed prior-public-key inventory, use the documented freeze and cohort CLIs. The freeze source requires at least one earlier PEM/DER public-key input (`freeze_v3_campaign_cohort.py:129-130`); the clean checkout has none, and no public inventory seed is packaged. Choose new output names; do not replace the Training-010 freeze or reuse its private cohort. These are application input-generation commands, not acceptance or a matrix run:
+After a new bounded prepare run produces a fresh `PREPARE_STATUS`, create a
+synthetic prior-key control if this checkout has no earlier retained RSA public
+key. The freeze source requires at least one earlier PEM/DER public-key input
+(`freeze_v3_campaign_cohort.py:129-130`). This command writes only a new
+RSA-2048 public SPKI PEM and prints its hashes; it does not save a private key
+or represent a previously issued credential. The later inventory establishes
+disjointness only from the keys it actually observes, not from discarded keys
+in other checkouts.
+
+```bash
+SEED="$PART5/v3-prior-public-seed-clean.pem"
+test ! -e "$SEED" && test ! -L "$SEED"
+"$PYTHON" -B -m tools.part5.create_v3_prior_public_seed --output "$SEED"
+test -s "$SEED"
+```
+
+Then use the documented freeze and cohort CLIs. Choose new output names; do
+not replace the Training-010 freeze or reuse its private cohort. These are
+application input-generation commands, not acceptance or a matrix run:
 
 ```bash
 RESULTS="$ROOT/results/dynark/part5"
