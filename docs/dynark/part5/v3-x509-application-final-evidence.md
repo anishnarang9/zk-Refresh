@@ -112,6 +112,12 @@ The failure was traced to the issuance source SHA changing from the frozen `6199
 
 The ordered sequence-1 `r1-k0-full` receipt is present at `artifacts/dynark/part5/v3-matrix-training-008/slot-r1-k0-full/slot-receipt.json` (SHA-256 `407dcabf3db6fe1e97fcfd2e56e0900da18e845324f5783ba7b5dfb4c710c325`). The uncensored outer run passed in 110.484 seconds with exit code 0; the session passed and verified the protected effect. Validator cleanup remains review-required for ledger reuse. The 60-slot campaign is still running; this single receipt does not establish paired economics, break-even, or held-out acceptance.
 
+### Training-008 stop and Training-009 launch (2026-10-18 02:02 UTC)
+
+Training-008 stopped after exactly three ordered receipts, all for repetition 1 at `k = 0`: sequence 1 `r1-k0-full` (SHA-256 `407dcabf3db6fe1e97fcfd2e56e0900da18e845324f5783ba7b5dfb4c710c325`), sequence 2 `r1-k0-anchor` (SHA-256 `b82a8984246851ed50630f68c26c50f6b904d3fd3def660bb507d3462601f869`), and sequence 3 `r1-k0-coalesced-full` (SHA-256 `1990708a1e492052076c3d2759fc35c3c4f8d5061e403adcc1cbb810b15be83c`). The campaign matrix driver's `tool_names_for_campaign` omitted `effect_execute` even though the Training-008 manifest pinned it, so the session argv omitted the helper pin. No slot-4 (`r1-k1-full`) clone was created. The run is incomplete: no complete matrix, paired economics, break-even, or application-level benefit result is established.
+
+Training-009 replaces the incomplete Training-008 run. Its manifest was added and pushed in commit `499a82f2c5b49af79cfd00a73881a9586cd3e99f`, and the remote branch matched that commit when checked. The same commit includes the matrix-driver fix that forwards `effect_execute` in every session argv; the pinned driver source SHA-256 is `a24b7035bbc73032a96a38358a3e68fd0ef9eaa9d7381be781300317faa13ce8`. Relative to Training-008, the manifest changes only `campaign_id` and `output_root`. The Training-009 input's raw SHA-256 is `f5ff9b2ec6faa81da5a46e289f7174b0b7d73d4eb9e5713159a74120d0e679b4`; its canonical JSON and materialized input manifest have SHA-256 `75e2a9e22211d1ccc5899975cf60ff9c60db2cb8e0c3819785789e7b47688d5d`, and the materialized plan SHA-256 is `d281ba8efd59a43e3db2882bb53dd60d3b2bd7aff90864cd7a00454a27380ba9`. Pinned-interpreter preflight validated the 60-slot plan, with `effect_execute` SHA-256 `df6fd4ff07bab02fffc8f05c3c58e2e744432a37b23c0ee25bb4addcc2fd430e` forwarded in all session argv. The campaign started at `2026-10-18T02:02:25.635344+00:00` with a 36-hour envelope. PID `47786` was live at the latest check; its first `r1-k0-full` session had begun and displayed the helper arguments. No Training-009 slot receipt exists yet. This confirms registration, pinned preflight, and launch only; no matrix outcome, economics, or held-out result is established.
+
 ### Post-snapshot negative-coverage status (source revision `2a79c60`)
 
 This inventory describes source and planned coverage after the dated evidence snapshots above; it does not record execution. Planned loaded-ELF held-out case A covers wrong issuer/policy public words, wrong action, malformed proof, read-only request, missing final account, System Program in the issuer slot, and replay. The planned loaded B and C branches reject old-root proofs after unrelated and own revocation, respectively; C's attempted active-current-root witness is rejected by the witness/relation checks before submission. The loaded harness and held-out verifier source include the missing-final-account and System-Program-as-issuer scenarios, but this does not establish a runner build or a held-out case run. The report's earlier signed-history receipts are local training evidence for stale-root and own-revocation behavior, not held-out evidence.
@@ -165,25 +171,26 @@ the CPU accounting. Report peak RSS and retained/storage growth, plus
 transaction size and compute where present; wall time alone does not establish
 a resource or deployment benefit.
 
-### Conditional post-matrix Training-008 reports (not run)
+### Conditional post-matrix Training-009 reports (not yet eligible)
 
-Run this only after Training-008 has all 60 ordered slot receipts and its
-verified sequence receipt; the matrix runner publishes
+Run this only if Training-009 has all 60 ordered slot receipts and its verified
+sequence receipt; the matrix runner publishes
 `economics-input-manifest.json` only after that gate. The preflight and
 reconciler below recheck the receipt chain. These commands describe a future
-report sequence and do not mean any report exists. Run from the repository
-root, with fresh output paths:
+report sequence; the campaign is registered and launched, but no economics
+input or report exists at this update. Run from the repository root, with fresh
+output paths:
 
 ```sh
 set -euo pipefail
 ROOT="$PWD"
 PY="$ROOT/artifacts/dynark/part5/v3-campaign-python-002"
-MATRIX="$ROOT/results/dynark/part5/v3-campaign-matrix-training-008.json"
-OUTPUT_ROOT="$ROOT/artifacts/dynark/part5/v3-matrix-training-008"
+MATRIX="$ROOT/results/dynark/part5/v3-campaign-matrix-training-009.json"
+OUTPUT_ROOT="$ROOT/artifacts/dynark/part5/v3-matrix-training-009"
 ECONOMICS_INPUT="$OUTPUT_ROOT/economics-input-manifest.json"
-ECONOMICS_REPORT="$ROOT/results/dynark/part5/v3-campaign-economics-training-008.json"
-RECONCILIATION_REPORT="$ROOT/results/dynark/part5/v3-campaign-cost-reconciliation-training-008.json"
-TOTAL_SUMMARY="$ROOT/results/dynark/part5/v3-campaign-total-cost-training-008.json"
+ECONOMICS_REPORT="$ROOT/results/dynark/part5/v3-campaign-economics-training-009.json"
+RECONCILIATION_REPORT="$ROOT/results/dynark/part5/v3-campaign-cost-reconciliation-training-009.json"
+TOTAL_SUMMARY="$ROOT/results/dynark/part5/v3-campaign-total-cost-training-009.json"
 
 test -s "$ECONOMICS_INPUT"
 for OUTPUT in "$ECONOMICS_REPORT" "$RECONCILIATION_REPORT" \
@@ -199,7 +206,7 @@ from tools.part5.reconcile_v3_campaign_costs import verify_completed_matrix
 
 matrix_path, output_root = map(Path, sys.argv[1:])
 validated = matrix.validate_manifest(matrix_path)
-if validated["campaign_id"] != "training-008":
+if validated["campaign_id"] != "training-009":
     raise ValueError("wrong training campaign")
 if validated["output_root"] != output_root:
     raise ValueError("wrong matrix output root")
@@ -230,7 +237,7 @@ For every credential, verify issuer/AKI and exact-policy enrollment (including p
 | --- | --- | --- |
 | Request-bound Full plus protected effect | The cited signed-history run passed its training fixture; the four receipt-bearing training-005 sessions each have an effect receipt. The fifth slot failed before application submission. | Preserve the exact Full/native-client and loaded-ELF identity evidence; held-out cases must independently exercise the complete predicate. |
 | Current-root and own-revocation safety | Passed for the two controlled training credentials in the signed-history report. | Repeat for all eight post-freeze credentials, with separate unconsumed requests and no effect/consumption on rejection. |
-| Training-004 | Nine of 60 slots completed; slot 10 was censored at the 256 MiB storage-growth cap. | Do not use as a completed matrix. Training-008 is the current running replacement; training-005, training-006, and training-007 remain incomplete. |
+| Training-004 | Nine of 60 slots completed; slot 10 was censored at the 256 MiB storage-growth cap. | Do not use as a completed matrix. Training-005 through Training-009 remain incomplete; Training-009 has launched but has no verified slot receipt yet. |
 | Training-005 | Four ordered receipts exist: `r1-k0-full`, `r1-k0-anchor`, `r1-k0-coalesced-full`, `r1-k1-full`. The fifth slot `r1-k1-anchor` generated a passing proof report, then failed before submission with `ValueError: finalized exact account bytes mismatch`; outer exit is 2, `passed` is false, and no fifth receipt exists. A read-only fresh-clone diagnostic matched all five account hashes but did not observe the original failure role, leaving cause unknown. | Preserve the failed slot artifacts. `--resume` refuses the partial slot. No full matrix, pooled distribution, CPU result, measured break-even, or 20% target result is available. |
 | Training-006 | At the 23:31 UTC snapshot, `r1-k0-full` had a passing proof, finalized and verified effect, and completed slot receipt. Its nested effect supervisor exited 1 during SIGINT validator cleanup (`-2`); `ledger_reuse_requires_review: true`, which the session gate explicitly accepts as a reviewed shutdown, not clean ledger reuse. The second slot `r1-k0-anchor` had started but had no receipt. One of 60 receipts existed and the matrix driver remained active. | Continue to record ordered receipts and failures. No full matrix, paired distribution, CPU result, measured break-even, or 20% target result is available. |
 | Training-005 reproducibility inputs | Input, materialized manifest and plan hashes are recorded below; the freeze identities are in the registered input. | Check the exact digests and inspect the generated plan before interpreting results. A plan-only invocation does not execute or validate a campaign. |
@@ -240,7 +247,7 @@ For every credential, verify issuer/AKI and exact-policy enrollment (including p
 
 ## Reproducibility and evidence boundary
 
-The scrubbed evidence is under `results/dynark/part5/`; raw credentials, keys, witnesses, proofs, signed envelopes, and ledger clones remain in protected ignored artifacts. The checked-in training campaign inputs are `results/dynark/part5/v3-campaign-matrix-training-004.json` through `v3-campaign-matrix-training-008.json`. The matrix driver and session runner expose their CLI surfaces with:
+The scrubbed evidence is under `results/dynark/part5/`; raw credentials, keys, witnesses, proofs, signed envelopes, and ledger clones remain in protected ignored artifacts. The checked-in training campaign inputs are `results/dynark/part5/v3-campaign-matrix-training-004.json` through `v3-campaign-matrix-training-009.json`. Training-009's raw and canonical JSON hashes and pinned driver/helper identities are recorded in the launch update above. The matrix driver and session runner expose their CLI surfaces with:
 
 ```sh
 python3 -B -m tools.part5.run_v3_campaign_matrix --help
