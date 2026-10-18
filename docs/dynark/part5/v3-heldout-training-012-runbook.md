@@ -324,11 +324,13 @@ These are post-case gates. Do not assemble acceptance inputs, verify acceptance,
 analyze costs, or write a heldout result report until all eight cases pass. The
 assembler requires eight distinct, explicitly hash-pinned fragments. The
 independent verifier must pass before cost analysis. The cost analyzer reports
-matched heldout request-B wall costs; it does not infer CPU savings or choose
-an economic winner. The final model combines those direct `k = 1` heldout
-deltas with the sampled Training-012 update-count deltas. Its other heldout
+matched heldout request-B proof, clone, and effect component-sum wall costs;
+it does not infer CPU savings or choose an economic winner. The final model
+combines those separately timed `k = 1` heldout deltas with the sampled
+Training-012 update-count deltas. Its other heldout
 counts are conditional estimates, not new heldout runs or a measured heldout
-break-even. Final reporting must preserve the verifier outcome and cost
+break-even. A directly timed complete arm still needs a separate loaded run.
+Final reporting must preserve the verifier outcome and cost
 limitations and must not claim acceptance or economics from
 freeze/cohort/manifests alone.
 
@@ -387,4 +389,4 @@ python3 -B tools/part5/model_v3_heldout_break_even.py \
 test -s "$MODEL_REPORT"
 ```
 
-This runbook is prospective. The registration reports that Training-012 launched, but the campaign completion gate must be observed and validated before heldout Step 1. No heldout freeze, issuance, manifests, cases, acceptance, direct cost report, or conditional model was executed while preparing this document. Outputs remain unrun or conditional until their gates pass.
+This runbook is prospective. The registration reports that Training-012 launched, but the campaign completion gate must be observed and validated before heldout Step 1. No heldout freeze, issuance, manifests, cases, acceptance, component-sum cost report, or conditional model was executed while preparing this document. Outputs remain unrun or conditional until their gates pass.
