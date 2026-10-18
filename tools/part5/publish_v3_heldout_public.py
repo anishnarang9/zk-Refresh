@@ -217,6 +217,8 @@ def project_reports(acceptance, cost, model, training, source_hashes,
     conditional_counts = {key: pooled[key] for key in (
         '0', '1', '2', '5', '10', 'not_crossed_through_k10',
         'expected_variant_repetition_pairs')}
+    if conditional_counts['0'] != 0:
+        raise ValueError('k=0 is not a positive-k break-even crossing')
     if (conditional_counts['expected_variant_repetition_pairs'] != 32
             or sum(conditional_counts[k] for k in (
                 '0', '1', '2', '5', '10', 'not_crossed_through_k10')) != 32):
@@ -292,7 +294,7 @@ def render_report(summary):
         'Only heldout target count k=1 is measured. Other counts are conditional estimates '
         'using Training-012 sampled count-delta changes; they are not heldout runs or '
         'measured break-even results.', '',
-        'Conditional first-crossing counts over 32 variant/repetition pairs: '
+        'Conditional first-positive-k crossing counts over 32 variant/repetition pairs: '
         + ', '.join(f"k={key}: {model_counts[key]}" for key in
                     ('0', '1', '2', '5', '10', 'not_crossed_through_k10')) + '.', '',
     ]

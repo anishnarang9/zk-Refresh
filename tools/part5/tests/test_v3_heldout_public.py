@@ -132,6 +132,47 @@ def test_projection_recomputes_pair_arithmetic_and_eight_case_medians():
         publisher.project_reports(acceptance, cost, model, training, hashes)
 
 
+def test_projection_excludes_favorable_k0_model_value_from_break_even():
+    acceptance, cost, _, training, hashes = _fixtures()
+    for pair in training['pairs']:
+        if pair['target_count'] == 0:
+            pair['anchor_total_wall_seconds'] -= 10.0
+    model = break_even.build(cost, training, hashes['cost_report_sha256'],
+                             hashes['training_total_summary_sha256'])
+
+    summary, report = publisher.project_reports(acceptance, cost, model,
+                                                 training, hashes)
+
+    assert model['variants'][0]['per_repetition'][0]['deltas'][0][
+        'anchor_minus_full_seconds'] < 0
+    assert summary['conditional_model']['pooled_first_crossing_counts']['0'] == 0
+    assert 'Conditional first-positive-k crossing counts' in report
+    assert 'k=0: 0' in report
+
+
+def test_offline_verifier_rejects_k0_break_even_count_with_rebound_hashes(tmp_path):
+    acceptance, cost, _, training, hashes = _fixtures()
+    for pair in training['pairs']:
+        if pair['target_count'] == 0:
+            pair['anchor_total_wall_seconds'] += 10.0
+    model = break_even.build(cost, training, hashes['cost_report_sha256'],
+                             hashes['training_total_summary_sha256'])
+    summary, report = publisher.project_reports(acceptance, cost, model,
+                                                 training, hashes)
+    out = tmp_path / 'public'
+    publisher.write_bundle(out, summary, report)
+    projected = json.loads((out / 'summary.json').read_text())
+    counts = projected['conditional_model']['pooled_first_crossing_counts']
+    counts['0'] = 1
+    counts['1'] -= 1
+    (out / 'summary.json').write_text(json.dumps(projected))
+    (out / 'report.md').write_text(publisher.render_report(projected))
+    _rebind_public_hashes(out)
+
+    with pytest.raises(ValueError, match='positive k|k=0'):
+        verifier.verify_bundle(out, _sha((out / 'SHA256SUMS').read_text()))
+
+
 def test_negative_savings_fraction_is_reported_separately_from_cost_delta():
     acceptance, cost, model, training, hashes = _fixtures()
     for row in cost['pairs']:

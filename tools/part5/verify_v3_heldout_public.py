@@ -134,6 +134,8 @@ def validate_summary(summary):
     crossing_keys = {'0', '1', '2', '5', '10', 'not_crossed_through_k10',
                      'expected_variant_repetition_pairs'}
     _exact_object(crossing, crossing_keys, 'conditional crossing counts')
+    if crossing['0'] != 0:
+        raise ValueError('k=0 is not a positive-k break-even crossing')
     if (any(type(crossing[key]) is not int or crossing[key] < 0
             for key in crossing_keys)
             or crossing['expected_variant_repetition_pairs'] != 32

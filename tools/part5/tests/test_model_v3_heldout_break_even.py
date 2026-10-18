@@ -99,6 +99,25 @@ class HeldoutConditionalBreakEvenTests(unittest.TestCase):
         self.assertEqual(deltas[1]['basis'], 'direct heldout k1 calibration')
         self.assertEqual(deltas[2]['basis'], 'model/inference')
 
+    def test_negative_k0_model_value_does_not_count_as_positive_break_even(self):
+        for pair in self.training['pairs']:
+            if pair['target_count'] == 0:
+                pair['anchor_total_wall_seconds'] = 90.0
+        result = model.build(self.heldout, self.training,
+                             'a' * 64, 'b' * 64)
+
+        first = result['variants'][0]['per_repetition'][0]
+        self.assertEqual(first['deltas'][0], {
+            'target_count': 0, 'anchor_minus_full_seconds': -15.0,
+            'basis': 'model/inference',
+        })
+        self.assertEqual(first['first_crossing'], 'not_crossed_through_k10')
+        self.assertEqual(result['pooled_first_crossing_counts']['0'], 0)
+        self.assertEqual(result['pooled_first_crossing_counts'][
+            'not_crossed_through_k10'], 32)
+        self.assertEqual(result['method']['first_crossing'],
+                         'first sampled positive k with D_vrk < 0')
+
     def test_equal_conditional_cost_is_not_a_crossing(self):
         for pair in self.training['pairs']:
             if pair['target_count'] == 2:
@@ -111,7 +130,7 @@ class HeldoutConditionalBreakEvenTests(unittest.TestCase):
         self.assertEqual(first['deltas'][2]['anchor_minus_full_seconds'], 0.0)
         self.assertEqual(first['first_crossing'], 5)
         self.assertEqual(result['method']['first_crossing'],
-                         'first sampled k with D_vrk < 0')
+                         'first sampled positive k with D_vrk < 0')
 
     def test_rejects_complete_matched_pairs_when_matrix_grid_is_incomplete(self):
         self.training['matrix_grid_complete'] = False
