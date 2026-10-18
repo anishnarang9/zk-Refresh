@@ -1194,6 +1194,11 @@ pub fn execute_from_env() -> Result<()> {
         context.not_after,
         &replay_wire,
     )?;
+    let ambiguous_snapshot = match std::env::var("P5_V3_AMBIGUOUS_SNAPSHOT") {
+        Err(std::env::VarError::NotPresent) => false,
+        Ok(value) if value == "1" => true,
+        _ => bail!("ambiguous pre-submit snapshot requires explicit value 1"),
+    };
     let admin = transport::load_key(&stage_root, "admin.json", p.admin)?;
     let publisher = transport::load_key(&stage_root, "publisher.json", p.publisher)?;
     let source = transport::load_key(&stage_root, "source.json", p.source)?;
@@ -1371,7 +1376,12 @@ pub fn execute_from_env() -> Result<()> {
         Some(zk_fresh_program::application_v3::AppError::Proof as u64),
         &mut events,
     )?;
-    let mut wrong_privilege = p.execute(&wire)?;
+    let account_meta_negative_wire = if ambiguous_snapshot {
+        &replay_wire
+    } else {
+        &wire
+    };
+    let mut wrong_privilege = p.execute(account_meta_negative_wire)?;
     wrong_privilege.accounts[3].is_writable = false;
     transport::send(
         &rpc,
@@ -1382,7 +1392,7 @@ pub fn execute_from_env() -> Result<()> {
         Some(zk_fresh_program::application_v3::AppError::Privileges as u64),
         &mut events,
     )?;
-    let mut missing_final_account = p.execute(&wire)?;
+    let mut missing_final_account = p.execute(account_meta_negative_wire)?;
     missing_final_account.accounts.pop();
     transport::send(
         &rpc,
@@ -1393,7 +1403,7 @@ pub fn execute_from_env() -> Result<()> {
         Some(zk_fresh_program::application_v3::AppError::Accounts as u64),
         &mut events,
     )?;
-    let mut system_program_as_issuer = p.execute(&wire)?;
+    let mut system_program_as_issuer = p.execute(account_meta_negative_wire)?;
     system_program_as_issuer.accounts[1] = AccountMeta::new_readonly(system_program::id(), false);
     transport::send(
         &rpc,
@@ -1404,7 +1414,7 @@ pub fn execute_from_env() -> Result<()> {
         Some(zk_fresh_program::application_v3::AppError::Owner as u64),
         &mut events,
     )?;
-    let mut wrong_account_order = p.execute(&wire)?;
+    let mut wrong_account_order = p.execute(account_meta_negative_wire)?;
     wrong_account_order.accounts.swap(1, 2);
     transport::send(
         &rpc,
@@ -1421,11 +1431,6 @@ pub fn execute_from_env() -> Result<()> {
         rejected == bound,
         "rejected Execute changed any finalized account"
     );
-    let ambiguous_snapshot = match std::env::var("P5_V3_AMBIGUOUS_SNAPSHOT") {
-        Err(std::env::VarError::NotPresent) => false,
-        Ok(value) if value == "1" => true,
-        _ => bail!("ambiguous pre-submit snapshot requires explicit value 1"),
-    };
     if ambiguous_snapshot {
         for (name, bytes) in ["config", "issuer", "head", "request", "queue"]
             .iter()
