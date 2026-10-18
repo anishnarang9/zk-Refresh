@@ -16,6 +16,8 @@ Pushed commit `1fd7f53` adds held-out effect-transaction and pinned proof-artifa
 
 **2026-10-18 implementation and run update (01:20 UTC):** Pushed `c255ccf`, `699963d`, `210736b`, and `9e1e897` so cost reconciliation requires and revalidates the completed 60-slot receipt chain, the total summary and held-out model carry its SHA-256 pin, and sequence timings match each current slot report. The related focused suite passed 28 tests. Training-007 still has four independently verified ordered receipts; `r1-k1-anchor` is running without a fifth receipt. The held-out runner-002, held-out cohort, full-matrix reports, and final benefit result do not yet exist.
 
+**2026-10-18 implementation update (01:25 UTC):** Pushed commit `3912f01` updates the local acceptance verifier to construct matching-issuer, signed, out-of-profile DER with `notBefore` in 1999 for each of the eight variants and reject it at the UTCTime profile bound. The 32 focused tests pass. The new DER check is local admission only; no held-out cohort, case run, or held-out loaded-ELF negative has executed. Loaded config/status, queue-capacity, and ambiguous-restart cases remain limitations; this does not complete the acceptance matrix.
+
 ## What the application demonstrates
 
 The experiment covers the declared bounded X.509/RSA profile and an exact, finalized action-v2 request. The v3 application checks the current authenticated registry state and uses a program-owned queue append with request consumption as its protected effect. This is development evidence for the declared profile; it does not establish arbitrary X.509 support, production issuer operations, production setup, or devnet deployment.
