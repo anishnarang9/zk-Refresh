@@ -126,7 +126,7 @@ def bind(matrix_manifest, clock_report, economics_report, reconciliation_report,
         raise ValueError('economics recomputation mismatch')
     reconciled = costs.reconcile(validated, recomputed)
     reconciled['economics_report_sha256'] = loaded['economics_report'][1]
-    if reconciled != loaded['reconciliation_report'][0]:
+    if json.loads(json.dumps(reconciled, sort_keys=True, allow_nan=False)) != loaded['reconciliation_report'][0]:
         raise ValueError('reconciliation recomputation mismatch')
     summarized = total.summarize(reconciled, recomputed)
     if (summarized != loaded['total_summary'][0]

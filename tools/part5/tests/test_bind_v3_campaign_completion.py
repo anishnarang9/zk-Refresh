@@ -77,6 +77,14 @@ class CompletionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             binder.bind(**self.args)
 
+    def test_reconciliation_json_numeric_keys(self):
+        self.mocks[6].return_value = {'shared': {'by_count_seconds': {0: 1.0}}}
+        self.write('reconciliation_report.json', {
+            'shared': {'by_count_seconds': {'0': 1.0}},
+            'economics_report_sha256': binder._read(self.args['economics_report'])[1],
+        })
+        self.assertTrue(binder.bind(**self.args)['qualified'])
+
     def test_rejects_incomplete_matrix(self):
         self.mocks[1].side_effect = ValueError('incomplete')
         with self.assertRaises(ValueError):
