@@ -104,6 +104,271 @@ class CampaignEconomicsTests(unittest.TestCase):
         report['effect_monitor_sha256'] = hashlib.sha256(monitor_path.read_bytes()).hexdigest()
         return self.write(f'{directory}/session-report.json', report)
 
+    def write_pinned_effect_session(self, mode='full', count=1, repetition=1,
+                                    report_mutator=None):
+        report = self.session(mode, count, repetition, 10.0)
+        artifact_root = self.root / 'artifacts' / 'dynark' / 'part5'
+        campaign_root = artifact_root / 'v3-matrix-training-006'
+        slot_root = campaign_root / f'slot-r{repetition}-k{count}-{mode}'
+        work_root = slot_root / 'work'
+        work_root.mkdir(parents=True)
+
+        monitor_path = work_root / 'effect-monitor.json'
+        monitor_path.write_text(json.dumps(self.effect_monitor(mode, count, 0)))
+        report['effect_monitor_sha256'] = hashlib.sha256(
+            monitor_path.read_bytes()).hexdigest()
+
+        effect_output = artifact_root / (
+            f'application-v3-matrix-training-006-r{repetition}-k{count}-{mode}-effect')
+        effect_output.mkdir(mode=0o700)
+        effect = {
+            'schema': 'part5-v3-campaign-effect-v1',
+            'mode': mode,
+            'target_count': count,
+            'passed': True,
+            'training_only': True,
+            'application_effect': True,
+            'request_consumed': True,
+            'effect_count': 1,
+            'finalized_slot': 187,
+            'bound_finalized_slot': 119,
+            'transactions': [
+                {'scenario': 'v3-campaign-bind-current-head', 'err': None,
+                 'transactionBytes': 618, 'computeUnits': 22376,
+                 'feeLamports': 10000, 'slot': 119, 'signature': 'setup'},
+                {'scenario': f'v3-campaign-valid-{mode}', 'err': None,
+                 'transactionBytes': 825, 'computeUnits': 185532,
+                 'feeLamports': 5000, 'slot': 186, 'signature': 'application'},
+                {'scenario': f'v3-campaign-replay-{mode}',
+                 'err': {'InstructionError': [1, {'Custom': 707}]},
+                 'transactionBytes': 825, 'computeUnits': 46910,
+                 'feeLamports': 5000, 'slot': 187, 'signature': 'replay'},
+            ],
+        }
+        effect_path = effect_output / 'effect-report.json'
+        effect_path.write_text(json.dumps(effect))
+        config = {
+            'schema': 1,
+            'scope': 'part5-v3-campaign-effect',
+            'mode': mode,
+            'proof_mode': mode,
+            'target_count': count,
+            'effect_output': str(effect_output),
+        }
+        config_path = work_root / 'effect-config.json'
+        config_path.write_text(json.dumps(config))
+        report['effect_config_sha256'] = hashlib.sha256(
+            config_path.read_bytes()).hexdigest()
+        report['effect_report_sha256'] = hashlib.sha256(
+            effect_path.read_bytes()).hexdigest()
+        if report_mutator is not None:
+            report_mutator(report, config_path, effect_path)
+
+        session_path = work_root / 'session-report.json'
+        session_path.write_text(json.dumps(report))
+        outer_path = self.root / f'{mode}-{count}-{repetition}-outer.json'
+        outer_path.write_text(json.dumps(self.outer(mode, count, 10.0)))
+        manifest = {
+            'schema': 'part5-v3-campaign-economics-input-v1',
+            'sessions': [{
+                'mode': mode, 'target_count': count, 'repetition': repetition,
+                'session_report': str(session_path),
+                'outer_report': str(outer_path),
+            }],
+        }
+        return manifest, session_path, effect_path
+
+    def test_reads_only_pinned_successful_mode_specific_transaction_metrics(self):
+        manifest, _, _ = self.write_pinned_effect_session()
+
+        report = aggregate(manifest, self.root)
+
+        row = next(row for row in report['sessions']
+                   if row['mode'] == 'full' and row['target_count'] == 1
+                   and row['repetition'] == 1)
+        self.assertEqual(row['status'], 'valid')
+        self.assertEqual(row['application_effect_cost_metrics_status'], 'available')
+        self.assertEqual(row['confirmed_rpc_metrics'], {
+            'transaction_bytes': 825,
+            'compute_units': 185532,
+            'fee_lamports': 5000,
+            'slot': 186,
+        })
+        self.assertEqual(row['finalized_effect_scope'], {
+            'finalized_slot': 187,
+            'bound_finalized_slot': 119,
+            'effect_count': 1,
+        })
+        self.assertEqual(
+            report['application_effect_costs']['confirmed_rpc_metrics']['by_mode']
+            ['full']['sampled_values'],
+            [{'target_count': 1, 'repetition': 1,
+              'transaction_bytes': 825, 'compute_units': 185532,
+              'fee_lamports': 5000}])
+
+    def test_effect_report_pin_mismatch_invalidates_pinned_session(self):
+        def mutate(_session, _config_path, effect_path):
+            effect = json.loads(effect_path.read_text())
+            effect['transactions'][1]['computeUnits'] = 1
+            effect_path.write_text(json.dumps(effect))
+
+        manifest, _, _ = self.write_pinned_effect_session(report_mutator=mutate)
+        report = aggregate(manifest, self.root)
+
+        row = next(row for row in report['sessions']
+                   if row['mode'] == 'full' and row['target_count'] == 1
+                   and row['repetition'] == 1)
+        self.assertEqual(row['status'], 'invalid')
+        self.assertEqual(row['reason'], 'application_effect_metrics_invalid')
+        self.assertEqual(row['application_effect_cost_metrics_status'],
+                         'effect_report_identity_mismatch')
+        self.assertIsNone(row['confirmed_rpc_metrics'])
+        self.assertIsNone(row['finalized_effect_scope'])
+
+    def test_other_mode_success_scenario_does_not_supply_transaction_metrics(self):
+        def mutate(session, _config_path, effect_path):
+            effect = json.loads(effect_path.read_text())
+            effect['transactions'][1]['scenario'] = 'v3-campaign-valid-anchor'
+            effect_path.write_text(json.dumps(effect))
+            session['effect_report_sha256'] = hashlib.sha256(
+                effect_path.read_bytes()).hexdigest()
+
+        pinned_manifest, _, _ = self.write_pinned_effect_session(report_mutator=mutate)
+        manifest = self.full_manifest()
+        pinned_row = pinned_manifest['sessions'][0]
+        manifest['sessions'] = [
+            pinned_row if (row['mode'], row['target_count'], row['repetition'])
+            == ('full', 1, 1) else row
+            for row in manifest['sessions']]
+        report = aggregate(manifest, self.root)
+
+        row = next(row for row in report['sessions']
+                   if row['mode'] == 'full' and row['target_count'] == 1
+                   and row['repetition'] == 1)
+        self.assertEqual(row['status'], 'invalid')
+        self.assertEqual(row['reason'], 'application_effect_metrics_invalid')
+        self.assertEqual(row['application_effect_cost_metrics_status'],
+                         'successful_application_transaction_missing_or_ambiguous')
+        self.assertIsNone(row['confirmed_rpc_metrics'])
+
+    def test_multiple_effects_cannot_enter_matched_economics(self):
+        def mutate(session, _config_path, effect_path):
+            effect = json.loads(effect_path.read_text())
+            effect['effect_count'] = 2
+            effect_path.write_text(json.dumps(effect))
+            session['effect_report_sha256'] = hashlib.sha256(
+                effect_path.read_bytes()).hexdigest()
+
+        manifest, _, _ = self.write_pinned_effect_session(report_mutator=mutate)
+        report = aggregate(manifest, self.root)
+        row = next(row for row in report['sessions']
+                   if row['mode'] == 'full' and row['target_count'] == 1
+                   and row['repetition'] == 1)
+        self.assertEqual(row['status'], 'invalid')
+        self.assertEqual(row['application_effect_cost_metrics_status'],
+                         'finalized_effect_scope_invalid')
+        self.assertEqual(report['complete_pairs'], 0)
+
+    def test_missing_optional_rpc_field_keeps_verified_session_valid(self):
+        def mutate(session, _config_path, effect_path):
+            effect = json.loads(effect_path.read_text())
+            del effect['transactions'][1]['transactionBytes']
+            effect_path.write_text(json.dumps(effect))
+            session['effect_report_sha256'] = hashlib.sha256(
+                effect_path.read_bytes()).hexdigest()
+
+        pinned_manifest, _, _ = self.write_pinned_effect_session(report_mutator=mutate)
+        manifest = self.full_manifest()
+        pinned_row = pinned_manifest['sessions'][0]
+        manifest['sessions'] = [
+            pinned_row if (row['mode'], row['target_count'], row['repetition'])
+            == ('full', 1, 1) else row
+            for row in manifest['sessions']]
+        report = aggregate(manifest, self.root)
+
+        row = next(row for row in report['sessions']
+                   if row['mode'] == 'full' and row['target_count'] == 1
+                   and row['repetition'] == 1)
+        self.assertEqual(row['status'], 'valid')
+        self.assertEqual(row['application_effect_cost_metrics_status'],
+                         'successful_application_transaction_metrics_unavailable')
+        self.assertIsNone(row['confirmed_rpc_metrics'])
+        self.assertEqual(row['finalized_effect_scope'], {
+            'finalized_slot': 187,
+            'bound_finalized_slot': 119,
+            'effect_count': 1,
+        })
+        pair = next(row for row in report['pairs']
+                    if row['target_count'] == 1 and row['repetition'] == 1)
+        self.assertEqual(pair['status'], 'matched')
+        self.assertEqual(
+            report['application_effect_costs']['finalized_effect_scope']['by_mode']
+            ['full']['available_samples'], 1)
+
+    def test_pinned_config_cannot_redirect_effect_output_outside_slot_root(self):
+        def mutate(session, config_path, _effect_path):
+            config = json.loads(config_path.read_text())
+            redirected = self.root / 'redirected-effect'
+            redirected.mkdir(mode=0o700)
+            config['effect_output'] = str(redirected)
+            config_path.write_text(json.dumps(config))
+            session['effect_config_sha256'] = hashlib.sha256(
+                config_path.read_bytes()).hexdigest()
+
+        manifest, _, _ = self.write_pinned_effect_session(report_mutator=mutate)
+        report = aggregate(manifest, self.root)
+
+        row = next(row for row in report['sessions']
+                   if row['mode'] == 'full' and row['target_count'] == 1
+                   and row['repetition'] == 1)
+        self.assertEqual(row['status'], 'invalid')
+        self.assertEqual(row['reason'], 'application_effect_metrics_invalid')
+        self.assertEqual(row['application_effect_cost_metrics_status'],
+                         'effect_output_path_invalid')
+        self.assertIsNone(row['confirmed_rpc_metrics'])
+
+    def test_older_valid_receipts_without_effect_config_remain_accepted(self):
+        manifest = self.full_manifest()
+
+        report = aggregate(manifest, self.root)
+
+        row = next(row for row in report['sessions']
+                   if row['mode'] == 'full' and row['target_count'] == 1
+                   and row['repetition'] == 1)
+        self.assertEqual(row['status'], 'valid')
+        self.assertEqual(row['application_effect_cost_metrics_status'],
+                         'effect_config_missing')
+        self.assertIsNone(row['confirmed_rpc_metrics'])
+        self.assertIsNone(row['finalized_effect_scope'])
+
+    def test_matrix_slot_requires_effect_pin_even_when_pin_field_is_removed(self):
+        def mutate(session, _config_path, effect_path):
+            session.pop('effect_config_sha256')
+            effect = json.loads(effect_path.read_text())
+            effect['transactions'][1]['computeUnits'] = 1
+            effect_path.write_text(json.dumps(effect))
+
+        pinned_manifest, _, _ = self.write_pinned_effect_session(report_mutator=mutate)
+        manifest = self.full_manifest()
+        pinned_row = pinned_manifest['sessions'][0]
+        manifest['sessions'] = [
+            pinned_row if (row['mode'], row['target_count'], row['repetition'])
+            == ('full', 1, 1) else row
+            for row in manifest['sessions']]
+
+        report = aggregate(manifest, self.root)
+
+        row = next(row for row in report['sessions']
+                   if row['mode'] == 'full' and row['target_count'] == 1
+                   and row['repetition'] == 1)
+        pair = next(row for row in report['pairs']
+                    if row['target_count'] == 1 and row['repetition'] == 1)
+        self.assertEqual(row['status'], 'invalid')
+        self.assertEqual(row['reason'], 'application_effect_metrics_invalid')
+        self.assertEqual(row['application_effect_cost_metrics_status'],
+                         'effect_config_missing')
+        self.assertEqual(pair['status'], 'incomplete')
+
     def full_manifest(self, failed_anchor=None, missing_full=None, mismatch=None):
         sessions = []
         for repetition in range(1, 5):

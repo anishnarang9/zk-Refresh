@@ -16,6 +16,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import stat
 import statistics
 
@@ -48,6 +49,11 @@ def _is_sha256(value):
 
 
 def _read_json(path):
+    raw = _read_bounded_file(path)
+    return json.loads(raw), hashlib.sha256(raw).hexdigest()
+
+
+def _read_bounded_file(path):
     path = Path(path)
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(fd, 'rb') as stream:
@@ -67,7 +73,194 @@ def _read_json(path):
             or identity(before) != identity(after)
             or identity(before) != identity(path_identity)):
         raise ValueError('report changed while reading')
-    return json.loads(raw), hashlib.sha256(raw).hexdigest()
+    return raw
+
+
+def _read_pinned_json(path, expected_sha256):
+    """Check a report pin before parsing the report contents."""
+    raw = _read_bounded_file(path)
+    actual_sha256 = hashlib.sha256(raw).hexdigest()
+    if actual_sha256 != expected_sha256:
+        raise ValueError('report identity mismatch')
+    return json.loads(raw)
+
+
+def _is_registered_matrix_slot_path(session_path, slot):
+    path = Path(session_path)
+    slot_path = path.parent.parent
+    campaign_root = slot_path.parent
+    prefix = 'v3-matrix-'
+    if (path.parent.name != 'work'
+            or slot_path.name != (
+                f"slot-r{slot['repetition']}-k{slot['target_count']}-{slot['mode']}")
+            or not campaign_root.name.startswith(prefix)):
+        return False
+    campaign_id = campaign_root.name[len(prefix):]
+    return bool(re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,63}', campaign_id))
+
+
+def _application_effect_costs(session_path, session, slot):
+    """Read transaction metrics only from the session-pinned private effect report."""
+    unavailable = {
+        'application_effect_cost_metrics_status': 'effect_config_missing',
+        'confirmed_rpc_metrics': None,
+        'finalized_effect_scope': None,
+    }
+    config_sha = session.get('effect_config_sha256')
+    if config_sha is None:
+        return unavailable
+    if not _is_sha256(config_sha):
+        return {**unavailable,
+                'application_effect_cost_metrics_status': 'effect_config_identity_missing'}
+    config_path = Path(session_path).parent / 'effect-config.json'
+    try:
+        config = _read_pinned_json(config_path, config_sha)
+    except FileNotFoundError:
+        return {**unavailable,
+                'application_effect_cost_metrics_status': 'effect_config_missing'}
+    except ValueError as error:
+        status = ('effect_config_identity_mismatch'
+                  if str(error) == 'report identity mismatch'
+                  else 'effect_config_unreadable')
+        return {**unavailable, 'application_effect_cost_metrics_status': status}
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return {**unavailable,
+                'application_effect_cost_metrics_status': 'effect_config_unreadable'}
+
+    if (not isinstance(config, dict) or config.get('schema') != 1
+            or config.get('scope') != 'part5-v3-campaign-effect'
+            or config.get('mode') != slot['mode']
+            or config.get('proof_mode') != slot['mode']
+            or config.get('target_count') != slot['target_count']):
+        return {**unavailable,
+                'application_effect_cost_metrics_status': 'effect_config_dimensions_mismatch'}
+
+    # Matrix slots keep private effect output as a sibling of the matrix root.
+    # Reconstruct the one permitted path from the pinned session's slot instead
+    # of trusting an arbitrary path supplied by effect-config.json.
+    slot_path = Path(session_path).parent.parent
+    campaign_root = slot_path.parent
+    artifact_root = campaign_root.parent
+    expected_slot_name = (
+        f"slot-r{slot['repetition']}-k{slot['target_count']}-{slot['mode']}")
+    campaign_prefix = 'v3-matrix-'
+    if (Path(session_path).parent.name != 'work'
+            or slot_path.name != expected_slot_name
+            or not campaign_root.name.startswith(campaign_prefix)
+            or len(campaign_root.name) == len(campaign_prefix)):
+        return {**unavailable,
+                'application_effect_cost_metrics_status': 'effect_output_path_invalid'}
+    campaign_id = campaign_root.name[len(campaign_prefix):]
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,63}', campaign_id):
+        return {**unavailable,
+                'application_effect_cost_metrics_status': 'effect_output_path_invalid'}
+    expected_output = artifact_root / (
+        f"application-v3-matrix-{campaign_id}-r{slot['repetition']}-"
+        f"k{slot['target_count']}-{slot['mode']}-effect")
+    try:
+        configured_output = Path(config.get('effect_output', ''))
+        artifact_root_resolved = artifact_root.resolve(strict=True)
+        expected_output_info = expected_output.lstat()
+        expected_output_resolved = expected_output.resolve(strict=True)
+        configured_output_resolved = configured_output.resolve(strict=True)
+        if (not stat.S_ISDIR(expected_output_info.st_mode)
+                or expected_output_resolved.parent != artifact_root_resolved
+                or not configured_output.is_absolute()
+                or configured_output_resolved != expected_output_resolved):
+            raise ValueError('effect output path differs')
+        output_info = configured_output_resolved.lstat()
+        if (not stat.S_ISDIR(output_info.st_mode)
+                or output_info.st_uid != os.getuid()
+                or stat.S_IMODE(output_info.st_mode) != 0o700):
+            raise ValueError('private effect output directory required')
+        configured_output = configured_output_resolved
+    except (OSError, ValueError, TypeError):
+        return {**unavailable,
+                'application_effect_cost_metrics_status': 'effect_output_path_invalid'}
+
+    effect_sha = session.get('effect_report_sha256')
+    if not _is_sha256(effect_sha):
+        return {**unavailable,
+                'application_effect_cost_metrics_status': 'effect_report_identity_missing'}
+    effect_path = configured_output / 'effect-report.json'
+    try:
+        effect = _read_pinned_json(effect_path, effect_sha)
+    except FileNotFoundError:
+        return {**unavailable,
+                'application_effect_cost_metrics_status': 'effect_report_missing'}
+    except ValueError as error:
+        status = ('effect_report_identity_mismatch'
+                  if str(error) == 'report identity mismatch'
+                  else 'effect_report_unreadable')
+        return {**unavailable, 'application_effect_cost_metrics_status': status}
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return {**unavailable,
+                'application_effect_cost_metrics_status': 'effect_report_unreadable'}
+
+    if (not isinstance(effect, dict)
+            or effect.get('schema') != 'part5-v3-campaign-effect-v1'
+            or effect.get('mode') != slot['mode']
+            or effect.get('target_count') != slot['target_count']
+            or effect.get('passed') is not True
+            or effect.get('training_only') is not True
+            or effect.get('application_effect') is not True
+            or effect.get('request_consumed') is not True):
+        return {**unavailable,
+                'application_effect_cost_metrics_status': 'effect_report_scope_mismatch'}
+    transactions = effect.get('transactions')
+    if not isinstance(transactions, list):
+        return {**unavailable,
+                'application_effect_cost_metrics_status': 'effect_report_scope_mismatch'}
+    scenario = f"v3-campaign-valid-{slot['mode']}"
+    selected = [transaction for transaction in transactions
+                if isinstance(transaction, dict)
+                and transaction.get('scenario') == scenario
+                and transaction.get('err') is None]
+    if len(selected) != 1:
+        return {**unavailable,
+                'application_effect_cost_metrics_status':
+                    'successful_application_transaction_missing_or_ambiguous'}
+    transaction = selected[0]
+    finalized_slot = effect.get('finalized_slot')
+    bound_finalized_slot = effect.get('bound_finalized_slot')
+    effect_count = effect.get('effect_count')
+    if (type(finalized_slot) is not int or finalized_slot < 0
+            or type(bound_finalized_slot) is not int or bound_finalized_slot < 0
+            or type(effect_count) is not int or effect_count != 1):
+        return {**unavailable,
+                'application_effect_cost_metrics_status':
+                    'finalized_effect_scope_invalid'}
+    finalized_scope = {
+        'finalized_slot': finalized_slot,
+        'bound_finalized_slot': bound_finalized_slot,
+        'effect_count': effect_count,
+    }
+    bytes_used = transaction.get('transactionBytes')
+    compute_units = transaction.get('computeUnits')
+    fee_lamports = transaction.get('feeLamports')
+    confirmed_slot = transaction.get('slot')
+    signature = transaction.get('signature')
+    if (type(bytes_used) is not int or bytes_used <= 0
+            or type(compute_units) is not int or compute_units <= 0
+            or type(fee_lamports) is not int or fee_lamports < 0
+            or type(confirmed_slot) is not int or confirmed_slot < 0
+            or not isinstance(signature, str) or not signature):
+        return {
+            'application_effect_cost_metrics_status':
+                'successful_application_transaction_metrics_unavailable',
+            'confirmed_rpc_metrics': None,
+            'finalized_effect_scope': finalized_scope,
+        }
+    return {
+        'application_effect_cost_metrics_status': 'available',
+        'confirmed_rpc_metrics': {
+            'transaction_bytes': bytes_used,
+            'compute_units': compute_units,
+            'fee_lamports': fee_lamports,
+            'slot': confirmed_slot,
+        },
+        'finalized_effect_scope': finalized_scope,
+    }
 
 
 def _input_path(value, base_dir):
@@ -79,7 +272,10 @@ def _input_path(value, base_dir):
 
 def _session_record(slot, entry, base_dir):
     result = {**slot, 'status': 'missing', 'reason': 'session_not_listed',
-              'session_report_sha256': None, 'outer_report_sha256': None}
+              'session_report_sha256': None, 'outer_report_sha256': None,
+              'application_effect_cost_metrics_status':
+                  'unavailable_session_not_valid',
+              'confirmed_rpc_metrics': None, 'finalized_effect_scope': None}
     if entry is None:
         return result
 
@@ -273,6 +469,15 @@ def _session_record(slot, entry, base_dir):
         result.update(status='invalid', reason='effect_report_identity_missing')
         return result
 
+    effect_costs = _application_effect_costs(session_path, session, slot)
+    if (('effect_config_sha256' in session
+         or _is_registered_matrix_slot_path(session_path, slot))
+            and effect_costs['application_effect_cost_metrics_status'] not in (
+                'available', 'successful_application_transaction_metrics_unavailable')):
+        result.update(status='invalid', reason='application_effect_metrics_invalid',
+                      **effect_costs)
+        return result
+
     result.update({
         'status': 'valid', 'reason': None,
         'freeze_sha256': session['freeze_sha256'],
@@ -305,6 +510,7 @@ def _session_record(slot, entry, base_dir):
         'outer_limits': limits,
         'outer_environment': environment,
         'complete_tree_cpu_qualified': False,
+        **effect_costs,
     })
     return result
 
@@ -510,6 +716,34 @@ def aggregate(manifest, base_dir='.'):
                         or any(row[field] is not True for row in valid_sessions)]
     shared_setup_charged = bool(valid_sessions) and all(
         row['shared_public_setup_material_charged'] is True for row in valid_sessions)
+    effect_metric_sessions = [
+        row for row in valid_sessions
+        if row['application_effect_cost_metrics_status'] == 'available']
+    finalized_scope_sessions = [
+        row for row in valid_sessions if row['finalized_effect_scope'] is not None]
+    confirmed_rpc_by_mode = {}
+    finalized_scope_by_mode = {}
+    for mode in MODES:
+        mode_rows = [row for row in effect_metric_sessions if row['mode'] == mode]
+        confirmed_rpc_by_mode[mode] = {
+            'available_samples': len(mode_rows),
+            'sampled_values': [
+                {'target_count': row['target_count'],
+                 'repetition': row['repetition'],
+                 'transaction_bytes': row['confirmed_rpc_metrics']['transaction_bytes'],
+                 'compute_units': row['confirmed_rpc_metrics']['compute_units'],
+                 'fee_lamports': row['confirmed_rpc_metrics']['fee_lamports']}
+                for row in mode_rows],
+        }
+        scope_rows = [row for row in finalized_scope_sessions if row['mode'] == mode]
+        finalized_scope_by_mode[mode] = {
+            'available_samples': len(scope_rows),
+            'sampled_values': [
+                {'target_count': row['target_count'],
+                 'repetition': row['repetition'],
+                 **row['finalized_effect_scope']}
+                for row in scope_rows],
+        }
     session_status_counts = {
         status: sum(row['status'] == status for row in sessions)
         for status in ('valid', 'missing', 'failed', 'invalid')
@@ -564,10 +798,24 @@ def aggregate(manifest, base_dir='.'):
         },
         'application_effect_costs': {
             'effect_execution_in_outer_wall': True,
-            'transaction_bytes_available': False,
-            'compute_units_available': False,
-            'reason': ('The current session report pins the effect report by SHA-256 '
-                       'but does not expose transaction bytes or compute units.'),
+            'transaction_bytes_available': bool(effect_metric_sessions),
+            'compute_units_available': bool(effect_metric_sessions),
+            'fee_lamports_available': bool(effect_metric_sessions),
+            'confirmed_rpc_metrics': {
+                'source': ('session-pinned effect-report successful mode-specific '
+                           'application transaction fields transactionBytes, computeUnits, '
+                           'feeLamports, and slot'),
+                'by_mode': confirmed_rpc_by_mode,
+            },
+            'finalized_effect_scope': {
+                'source': ('separate finalized effect-report scope: finalized_slot, '
+                           'bound_finalized_slot, and effect_count'),
+                'by_mode': finalized_scope_by_mode,
+            },
+            'unavailable_valid_sessions': sum(
+                row['status'] == 'valid'
+                and row['application_effect_cost_metrics_status'] != 'available'
+                for row in sessions),
         },
         'common_cost_accounting': {
             'reported_fields': [
