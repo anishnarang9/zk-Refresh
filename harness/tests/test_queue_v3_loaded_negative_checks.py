@@ -1,4 +1,5 @@
 import importlib.util
+import hashlib
 from pathlib import Path
 import copy
 import unittest
@@ -117,9 +118,12 @@ class LoadedNegativeCheckTests(unittest.TestCase):
     def fill_history():
         rows = []
         queue = []
+        queue_hash = hashlib.sha256(b"initial-empty-queue").hexdigest()
         for index in range(64):
             request = "fill-request-" + str(index)
             queue = queue + [request]
+            next_queue_hash = (hashlib.sha256(b"pre-submit-queue").hexdigest()
+                               if index == 63 else hashlib.sha256(f"queue-state-{index}".encode()).hexdigest())
             rows.append({
                 "request_address": request,
                 "signature": "fill-signature-" + str(index),
@@ -127,51 +131,56 @@ class LoadedNegativeCheckTests(unittest.TestCase):
                 "finalized": True,
                 "consumed": True,
                 "queue_after_addresses": list(queue),
+                "request_before_sha256": hashlib.sha256(f"request-before-{index}".encode()).hexdigest(),
+                "request_after_sha256": hashlib.sha256(f"request-after-{index}".encode()).hexdigest(),
+                "queue_before_sha256": queue_hash,
+                "queue_after_sha256": next_queue_hash,
             })
-        return rows, queue
+            queue_hash = next_queue_hash
+        return rows, queue, queue_hash
 
     def test_finalized_fill_history_accepts_ordered_successful_fills(self):
-        rows, queue = self.fill_history()
+        rows, queue, queue_hash = self.fill_history()
         self.assertIsNone(checks.check_finalized_fill_history(
-            rows, queue, "request-65"))
+            rows, queue, "request-65", queue_hash))
 
     def test_finalized_fill_history_rejects_duplicate_nonfinalized_and_reordered(self):
-        rows, queue = self.fill_history()
+        rows, queue, queue_hash = self.fill_history()
         duplicate = copy.deepcopy(rows)
         duplicate[1]["request_address"] = duplicate[0]["request_address"]
         duplicate[1]["queue_after_addresses"][-1] = duplicate[0]["request_address"]
         with self.assertRaisesRegex(ValueError, "distinct"):
-            checks.check_finalized_fill_history(duplicate, queue, "request-65")
+            checks.check_finalized_fill_history(duplicate, queue, "request-65", queue_hash)
 
         nonfinalized = copy.deepcopy(rows)
         nonfinalized[7]["finalized"] = False
         with self.assertRaisesRegex(ValueError, "finalized"):
-            checks.check_finalized_fill_history(nonfinalized, queue, "request-65")
+            checks.check_finalized_fill_history(nonfinalized, queue, "request-65", queue_hash)
 
         reordered = copy.deepcopy(rows)
         reordered[0], reordered[1] = reordered[1], reordered[0]
         with self.assertRaisesRegex(ValueError, "append exactly"):
-            checks.check_finalized_fill_history(reordered, queue, "request-65")
+            checks.check_finalized_fill_history(reordered, queue, "request-65", queue_hash)
 
     def test_finalized_fill_history_rejects_bad_append_or_unconsumed_request(self):
-        rows, queue = self.fill_history()
+        rows, queue, queue_hash = self.fill_history()
         bad_append = copy.deepcopy(rows)
         bad_append[5]["queue_after_addresses"][-1] = "wrong-request"
         with self.assertRaisesRegex(ValueError, "append exactly"):
-            checks.check_finalized_fill_history(bad_append, queue, "request-65")
+            checks.check_finalized_fill_history(bad_append, queue, "request-65", queue_hash)
 
         unconsumed = copy.deepcopy(rows)
         unconsumed[5]["consumed"] = False
         with self.assertRaisesRegex(ValueError, "must be consumed"):
-            checks.check_finalized_fill_history(unconsumed, queue, "request-65")
+            checks.check_finalized_fill_history(unconsumed, queue, "request-65", queue_hash)
 
         wrong_final = list(queue)
         wrong_final[-1] = "different-request"
         with self.assertRaisesRegex(ValueError, "pre-submit queue"):
-            checks.check_finalized_fill_history(rows, wrong_final, "request-65")
+            checks.check_finalized_fill_history(rows, wrong_final, "request-65", queue_hash)
 
     def test_finalized_fill_history_rejects_bad_signature_slot_and_row_schema(self):
-        rows, queue = self.fill_history()
+        rows, queue, queue_hash = self.fill_history()
         for field, value, message in (
                 ("signature", "", "signature"),
                 ("signature", 12, "signature"),
@@ -181,10 +190,25 @@ class LoadedNegativeCheckTests(unittest.TestCase):
             mutated = copy.deepcopy(rows)
             mutated[0][field] = value
             with self.subTest(field=field, value=value), self.assertRaisesRegex(ValueError, message):
-                checks.check_finalized_fill_history(mutated, queue, "request-65")
+                checks.check_finalized_fill_history(mutated, queue, "request-65", queue_hash)
 
         with self.assertRaisesRegex(ValueError, "65th request"):
-            checks.check_finalized_fill_history(rows, queue, rows[10]["request_address"])
+            checks.check_finalized_fill_history(rows, queue, rows[10]["request_address"], queue_hash)
+
+    def test_finalized_fill_history_rejects_bad_hash_transitions_and_chain(self):
+        rows, queue, queue_hash = self.fill_history()
+        for index, field, value, message in (
+                (0, "request_after_sha256", rows[0]["request_before_sha256"], "request account hash must change"),
+                (0, "queue_after_sha256", rows[0]["queue_before_sha256"], "queue account hash must change"),
+                (1, "queue_before_sha256", "f" * 64, "queue account hash chain is broken"),
+                (0, "request_before_sha256", "F" * 64, "SHA-256 is invalid")):
+            mutated = copy.deepcopy(rows)
+            mutated[index][field] = value
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, message):
+                checks.check_finalized_fill_history(mutated, queue, "request-65", queue_hash)
+
+        with self.assertRaisesRegex(ValueError, "pre-submit queue snapshot"):
+            checks.check_finalized_fill_history(rows, queue, "request-65", "a" * 64)
 
 
 if __name__ == "__main__":
