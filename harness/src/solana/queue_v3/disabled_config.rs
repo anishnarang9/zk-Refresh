@@ -443,6 +443,264 @@ pub fn disabled_config_negative_from_env() -> Result<()> {
     );
     let after_refs = save_snapshot(&config.output_dir, "after", &after)?;
 
+    // Restore config eligibility, then refresh and bind the issuer against the
+    // new config epoch before exercising issuer disablement independently.
+    let enable_ix = plan.instruction(
+        10,
+        vec![1],
+        vec![
+            AccountMeta::new(Pubkey::new_from_array(plan.admin), true),
+            AccountMeta::new(plan.addresses().config, false),
+        ],
+    );
+    ensure!(
+        enable_ix.data == [0x51, 10, 1],
+        "reenable-config instruction must be exact opcode 10 true"
+    );
+    transport::send(
+        &rpc,
+        &admin,
+        None,
+        enable_ix,
+        "v3-disabled-negative-reenable-config",
+        None,
+        &mut events,
+    )?;
+    let reenabled_barrier_slot = transport::wait_finalized(&rpc, &events)?;
+    let (reenabled_slot, reenabled) = finalized_accounts(&rpc, &plan, reenabled_barrier_slot)?;
+    let reenabled_config = Config::decode(&reenabled[0])
+        .map_err(|e| anyhow::anyhow!("config codec after reenable {e:?}"))?;
+    let mut expected_reenabled_config = disabled_config.clone();
+    expected_reenabled_config
+        .set_enabled(
+            Authority {
+                key: admin.pubkey(),
+                is_signer: true,
+            },
+            true,
+        )
+        .map_err(|e| anyhow::anyhow!("expected config reenable {e:?}"))?;
+    ensure!(
+        reenabled_config.enabled
+            && reenabled_config.eligibility_epoch
+                == disabled_config
+                    .eligibility_epoch
+                    .checked_add(1)
+                    .context("config eligibility epoch overflow after reenable")?
+            && reenabled[0] == expected_reenabled_config.encode()
+            && reenabled[1..] == before[1..],
+        "reenable must only flip config enabled and advance its epoch"
+    );
+    let reenabled_issuer = Issuer::decode(&reenabled[1])
+        .map_err(|e| anyhow::anyhow!("issuer codec after reenable {e:?}"))?;
+
+    let observed_deadline = Instant::now() + Duration::from_secs(20);
+    let issuer_observed = loop {
+        let candidate = transport::clock(&rpc)?;
+        if candidate > reenabled_issuer.observed_at {
+            break candidate;
+        }
+        ensure!(
+            Instant::now() < observed_deadline,
+            "newer issuer observation deadline"
+        );
+        thread::sleep(Duration::from_millis(250));
+    };
+    let issuer_expires = issuer_observed
+        .checked_add(240)
+        .context("issuer source expiry overflow")?;
+    let issuer_next_sequence = reenabled_issuer
+        .sequence
+        .checked_add(1)
+        .context("issuer source sequence overflow")?;
+    let issuer_source_digest = source_digest(
+        reenabled_config.root,
+        &reenabled_issuer,
+        issuer_observed,
+        issuer_next_sequence,
+    );
+    ensure!(
+        issuer_source_digest != reenabled_issuer.digest,
+        "fresh issuer source digest required"
+    );
+    transport::send(
+        &rpc,
+        &admin,
+        Some(&source),
+        plan.observe(
+            reenabled_config.eligibility_epoch,
+            reenabled_issuer.eligibility_epoch,
+            reenabled_issuer.sequence,
+            issuer_next_sequence,
+            issuer_source_digest,
+            true,
+            issuer_observed,
+            issuer_expires,
+        ),
+        "v3-disabled-negative-refresh-issuer-source",
+        None,
+        &mut events,
+    )?;
+    let issuer_refresh_barrier_slot = transport::wait_finalized(&rpc, &events)?;
+    let (_, issuer_observed_accounts) =
+        finalized_accounts(&rpc, &plan, issuer_refresh_barrier_slot)?;
+    let issuer_observed_state = Issuer::decode(&issuer_observed_accounts[1])
+        .map_err(|e| anyhow::anyhow!("issuer codec after issuer observe {e:?}"))?;
+    ensure!(
+        issuer_observed_accounts[0] == reenabled[0]
+            && issuer_observed_accounts[2..] == reenabled[2..]
+            && issuer_observed_state.sequence == issuer_next_sequence
+            && issuer_observed_state.digest == issuer_source_digest
+            && issuer_observed_state.observed_at == issuer_observed
+            && issuer_observed_state.expires_at == issuer_expires
+            && issuer_observed_state.observed_config_epoch == reenabled_config.eligibility_epoch
+            && issuer_observed_state.observed_issuer_epoch == reenabled_issuer.eligibility_epoch
+            && issuer_observed_state.status_valid,
+        "issuer source refresh changed unexpected accounts or bytes"
+    );
+
+    let disabled_head = PublisherHead::decode(&before[2])
+        .map_err(|e| anyhow::anyhow!("head codec before issuer rebind {e:?}"))?;
+    let issuer_envelope_digest = head_digest(
+        reenabled_config.root,
+        disabled_head.envelope_digest,
+        issuer_source_digest,
+        issuer_observed,
+    );
+    let issuer_binding = V3HeadBinding {
+        expected_config_epoch: reenabled_config.eligibility_epoch,
+        expected_issuer_epoch: issuer_observed_state.eligibility_epoch,
+        expected_root: reenabled_config.root,
+        expected_root_version: reenabled_config.root_version,
+        expected_source_sequence: issuer_next_sequence,
+        expected_source_digest: issuer_source_digest,
+        expected_publication_sequence: disabled_head.publication_sequence,
+        expected_publication_digest: disabled_head.envelope_digest,
+        next_publication_sequence: disabled_head
+            .publication_sequence
+            .checked_add(1)
+            .context("issuer head publication sequence overflow")?,
+        envelope_digest: issuer_envelope_digest,
+    };
+    transport::send(
+        &rpc,
+        &admin,
+        Some(&publisher),
+        plan.bind_with_head(&issuer_binding),
+        "v3-disabled-negative-rebind-issuer-head",
+        None,
+        &mut events,
+    )?;
+    let issuer_eligible_barrier_slot = transport::wait_finalized(&rpc, &events)?;
+    let (issuer_eligible_finalized_slot, issuer_eligible) =
+        finalized_accounts(&rpc, &plan, issuer_eligible_barrier_slot)?;
+    let issuer_eligible_config = Config::decode(&issuer_eligible[0])
+        .map_err(|e| anyhow::anyhow!("config codec after issuer bind {e:?}"))?;
+    let issuer_eligible_state = Issuer::decode(&issuer_eligible[1])
+        .map_err(|e| anyhow::anyhow!("issuer codec after issuer bind {e:?}"))?;
+    let issuer_eligible_head = PublisherHead::decode(&issuer_eligible[2])
+        .map_err(|e| anyhow::anyhow!("head codec after issuer bind {e:?}"))?;
+    ensure!(
+        issuer_eligible_config.enabled && issuer_eligible_state.enabled,
+        "issuer eligibility requires enabled config and issuer"
+    );
+    let issuer_eligible_clock = transport::clock(&rpc)?;
+    issuer_eligible_state
+        .fresh(&issuer_eligible_config, issuer_eligible_clock)
+        .map_err(|e| anyhow::anyhow!("issuer freshness after rebind {e:?}"))?;
+    issuer_eligible_state
+        .binding_current(&issuer_eligible_config)
+        .map_err(|e| anyhow::anyhow!("issuer binding after rebind {e:?}"))?;
+    ensure!(
+        issuer_eligible[0] == reenabled[0]
+            && issuer_eligible[3] == reenabled[3]
+            && issuer_eligible[4] == reenabled[4]
+            && issuer_eligible_head.root == issuer_eligible_config.root
+            && issuer_eligible_head.root_version == issuer_eligible_config.root_version
+            && issuer_eligible_head.source_sequence == issuer_next_sequence
+            && issuer_eligible_head.source_digest == issuer_source_digest
+            && issuer_eligible_state.sequence == issuer_next_sequence
+            && issuer_eligible_state.digest == issuer_source_digest,
+        "issuer-eligible state does not match refreshed source and exact R0 request"
+    );
+    let issuer_eligible_refs =
+        save_snapshot(&config.output_dir, "issuer_eligible", &issuer_eligible)?;
+
+    let disable_issuer_ix = plan.instruction(
+        12,
+        vec![0],
+        vec![
+            AccountMeta::new(Pubkey::new_from_array(plan.admin), true),
+            AccountMeta::new_readonly(plan.addresses().config, false),
+            AccountMeta::new(plan.addresses().issuer, false),
+        ],
+    );
+    ensure!(
+        disable_issuer_ix.data == [0x51, 12, 0],
+        "disable-issuer instruction must be exact opcode 12 false"
+    );
+    transport::send(
+        &rpc,
+        &admin,
+        None,
+        disable_issuer_ix,
+        "v3-disabled-negative-disable-issuer",
+        None,
+        &mut events,
+    )?;
+    let issuer_disabled_barrier_slot = transport::wait_finalized(&rpc, &events)?;
+    let (issuer_disabled_finalized_slot, issuer_before) =
+        finalized_accounts(&rpc, &plan, issuer_disabled_barrier_slot)?;
+    let issuer_disabled_state = Issuer::decode(&issuer_before[1])
+        .map_err(|e| anyhow::anyhow!("issuer codec after disable {e:?}"))?;
+    let mut expected_issuer_disabled = issuer_eligible_state.clone();
+    expected_issuer_disabled
+        .set_enabled(
+            &issuer_eligible_config,
+            Authority {
+                key: admin.pubkey(),
+                is_signer: true,
+            },
+            false,
+        )
+        .map_err(|e| anyhow::anyhow!("expected issuer disable {e:?}"))?;
+    ensure!(
+        !issuer_disabled_state.enabled
+            && issuer_disabled_state.eligibility_epoch
+                == issuer_eligible_state
+                    .eligibility_epoch
+                    .checked_add(1)
+                    .context("issuer eligibility epoch overflow")?
+            && !issuer_disabled_state.status_valid
+            && issuer_before[1] == expected_issuer_disabled.encode()
+            && issuer_before[0] == issuer_eligible[0]
+            && issuer_before[2..] == issuer_eligible[2..],
+        "disable issuer must only change issuer bytes as expected"
+    );
+    let issuer_before_refs = save_snapshot(&config.output_dir, "issuer_before", &issuer_before)?;
+
+    transport::send(
+        &rpc,
+        &admin,
+        None,
+        plan.execute(&wire)?,
+        "v3-disabled-negative-valid-full-execute-issuer",
+        Some(POLICY_ERROR),
+        &mut events,
+    )?;
+    let issuer_rejected_barrier_slot = transport::wait_finalized(&rpc, &events)?;
+    let (issuer_rejected_finalized_slot, issuer_after) =
+        finalized_accounts(&rpc, &plan, issuer_rejected_barrier_slot)?;
+    ensure!(
+        issuer_after == issuer_before,
+        "issuer-disabled Execute changed one or more finalized accounts"
+    );
+    let issuer_after_refs = save_snapshot(&config.output_dir, "issuer_after", &issuer_after)?;
+
+    ensure!(
+        events.len() == 9,
+        "exactly nine negative-run events required"
+    );
     let (refresh_signature, refresh_slot) =
         instruction_event(event(&events, 0, "refresh")?, None, "refresh")?;
     let (bind_signature, bind_slot) = instruction_event(event(&events, 1, "bind")?, None, "bind")?;
@@ -450,8 +708,24 @@ pub fn disabled_config_negative_from_env() -> Result<()> {
         instruction_event(event(&events, 2, "disable")?, None, "disable")?;
     let (execute_signature, execute_slot) =
         instruction_event(event(&events, 3, "Execute")?, Some(POLICY_ERROR), "Execute")?;
+    let (reenable_signature, reenable_slot) = instruction_event(
+        event(&events, 4, "reenable config")?,
+        None,
+        "reenable config",
+    )?;
+    let (issuer_refresh_signature, issuer_refresh_slot) =
+        instruction_event(event(&events, 5, "issuer refresh")?, None, "issuer refresh")?;
+    let (issuer_bind_signature, issuer_bind_slot) =
+        instruction_event(event(&events, 6, "issuer bind")?, None, "issuer bind")?;
+    let (issuer_disable_signature, issuer_disable_slot) =
+        instruction_event(event(&events, 7, "issuer disable")?, None, "issuer disable")?;
+    let (issuer_execute_signature, issuer_execute_slot) = instruction_event(
+        event(&events, 8, "issuer Execute")?,
+        Some(POLICY_ERROR),
+        "issuer Execute",
+    )?;
     let report = json!({
-        "schema":"part5-v3-disabled-config-negative-report-v1",
+        "schema":"part5-v3-disabled-config-negative-report-v2",
         "variant":config.variant,
         "request_slot":"A",
         "passed":true,
@@ -467,6 +741,10 @@ pub fn disabled_config_negative_from_env() -> Result<()> {
         "refresh_and_bind_succeeded":true,
         "disable_changed_only_enabled_and_epoch":true,
         "accounts_unchanged_after_rejection":true,
+        "issuer_disabled":true,
+        "issuer_execute_rejected":true,
+        "issuer_disable_changed_only_enabled_epoch_status":true,
+        "issuer_accounts_unchanged_after_rejection":true,
         "expected_custom_error":POLICY_ERROR,
         "addresses":{
             "config":plan.addresses().config.to_string(),
@@ -479,16 +757,31 @@ pub fn disabled_config_negative_from_env() -> Result<()> {
         "eligible_finalized_slot":eligible_slot,
         "disabled_finalized_slot":disabled_finalized_slot,
         "rejected_finalized_slot":rejected_finalized_slot,
+        "issuer_eligible_finalized_slot":issuer_eligible_finalized_slot,
+        "issuer_eligible_clock":issuer_eligible_clock,
+        "issuer_disabled_finalized_slot":issuer_disabled_finalized_slot,
+        "issuer_rejected_finalized_slot":issuer_rejected_finalized_slot,
         "refresh_transaction":{"signature":refresh_signature,"slot":refresh_slot},
         "bind_transaction":{"signature":bind_signature,"slot":bind_slot},
         "disable_transaction":{"signature":disable_signature,"slot":disable_slot,"finalized_slot":disabled_finalized_slot},
         "execute_transaction":{"signature":execute_signature,"slot":execute_slot,"custom_error":POLICY_ERROR,"finalized_slot":rejected_finalized_slot},
+        "reenable_transaction":{"signature":reenable_signature,"slot":reenable_slot,"finalized_slot":reenabled_slot},
+        "issuer_refresh_transaction":{"signature":issuer_refresh_signature,"slot":issuer_refresh_slot},
+        "issuer_bind_transaction":{"signature":issuer_bind_signature,"slot":issuer_bind_slot,"finalized_slot":issuer_eligible_finalized_slot},
+        "issuer_disable_transaction":{"signature":issuer_disable_signature,"slot":issuer_disable_slot,"finalized_slot":issuer_disabled_finalized_slot},
+        "issuer_execute_transaction":{"signature":issuer_execute_signature,"slot":issuer_execute_slot,"custom_error":POLICY_ERROR,"finalized_slot":issuer_rejected_finalized_slot},
         "eligible_sha256":account_hashes(&eligible),
         "before_sha256":account_hashes(&before),
         "after_sha256":account_hashes(&after),
+        "issuer_eligible_sha256":account_hashes(&issuer_eligible),
+        "issuer_before_sha256":account_hashes(&issuer_before),
+        "issuer_after_sha256":account_hashes(&issuer_after),
         "eligible_accounts":eligible_refs,
         "before_accounts":before_refs,
         "after_accounts":after_refs,
+        "issuer_eligible_accounts":issuer_eligible_refs,
+        "issuer_before_accounts":issuer_before_refs,
+        "issuer_after_accounts":issuer_after_refs,
         "transactions":events
     });
     transport::new_json(

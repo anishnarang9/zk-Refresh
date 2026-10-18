@@ -23,13 +23,39 @@ from harness.tests.queue_v3_clone_ledger import inventory as ledger_inventory
 
 LIMITS = {'runtime_seconds': 180, 'rss_bytes': 4294967296,
           'storage_growth_bytes': 268435456}
+SUPERVISOR_BUDGET_SECONDS = 165
+RUNNER_BUDGET_SECONDS = 140
 ACCOUNT_NAMES = ('config', 'issuer', 'head', 'request', 'queue')
-REPORT_SCHEMA = 'part5-v3-disabled-config-negative-report-v1'
+REPORT_SCHEMA = 'part5-v3-disabled-config-negative-report-v2'
 SCOPE = 'part5-v3-disabled-config-negative'
+SCENARIOS = (
+    'v3-disabled-negative-refresh-source',
+    'v3-disabled-negative-refresh-head',
+    'v3-disabled-negative-disable-config',
+    'v3-disabled-negative-valid-full-execute',
+    'v3-disabled-negative-reenable-config',
+    'v3-disabled-negative-refresh-issuer-source',
+    'v3-disabled-negative-rebind-issuer-head',
+    'v3-disabled-negative-disable-issuer',
+    'v3-disabled-negative-valid-full-execute-issuer',
+)
+TRANSACTION_SUMMARIES = (
+    'refresh_transaction', 'bind_transaction', 'disable_transaction',
+    'execute_transaction', 'reenable_transaction',
+    'issuer_refresh_transaction', 'issuer_bind_transaction',
+    'issuer_disable_transaction', 'issuer_execute_transaction',
+)
+SNAPSHOT_GROUPS = ('eligible', 'before', 'after', 'issuer_eligible',
+                   'issuer_before', 'issuer_after')
 
 
 def _sha(raw):
     return hashlib.sha256(raw).hexdigest()
+
+
+def _check_supervisor_budget(started):
+    if time.monotonic() >= started + SUPERVISOR_BUDGET_SECONDS:
+        raise TimeoutError('disabled-config supervisor deadline')
 
 
 def _pinned(path, expected, cap=65536):
@@ -72,7 +98,7 @@ def _clone_is_initial(config, stage_config, stage_report, stage_status,
 
 def _check_snapshots(report, output):
     hashes = {}
-    for group in ('eligible', 'before', 'after'):
+    for group in SNAPSHOT_GROUPS:
         rows = report.get(group + '_accounts')
         expected_hashes = report.get(group + '_sha256')
         if (type(rows) is not list or len(rows) != len(ACCOUNT_NAMES)
@@ -92,8 +118,110 @@ def _check_snapshots(report, output):
             actual_group.append(actual)
         hashes[group] = actual_group
     if hashes['before'] != hashes['after']:
-        raise ValueError('rejected Execute changed finalized account bytes')
+        raise ValueError('config-rejected Execute changed finalized account bytes')
+    if hashes['issuer_before'] != hashes['issuer_after']:
+        raise ValueError('issuer-rejected Execute changed finalized account bytes')
     return hashes
+
+
+def _validate_report(report, config, stage_report, output):
+    if (type(report) is not dict or report.get('schema') != REPORT_SCHEMA
+            or report.get('passed') is not True
+            or report.get('variant') != config['variant']
+            or report.get('request_slot') != 'A'
+            or report.get('program') != config['expected_program']
+            or report.get('genesis') != config['expected_genesis']
+            or report.get('loaded_elf_sha256') != config['expected_elf_sha256']
+            or report.get('addresses') != {
+                name: stage_report.get(name) for name in ACCOUNT_NAMES}
+            or report.get('stage_report_sha256') != config['stage_report_sha256']
+            or report.get('stage_plan_sha256') != config['stage_plan_sha256']
+            or report.get('full_wire_sha256') != config['full_wire_sha256']
+            or report.get('clone_receipt_sha256') != config['heldout_r0_clone_report_sha256']):
+        raise ValueError('pinned disabled-config report identity required')
+    claims = (
+        'config_disabled', 'execute_rejected', 'refresh_and_bind_succeeded',
+        'disable_changed_only_enabled_and_epoch',
+        'accounts_unchanged_after_rejection', 'issuer_disabled',
+        'issuer_execute_rejected',
+        'issuer_disable_changed_only_enabled_epoch_status',
+        'issuer_accounts_unchanged_after_rejection',
+    )
+    if any(report.get(name) is not True for name in claims):
+        raise ValueError('pinned disabled-config and disabled-issuer claims required')
+    if type(report.get('expected_custom_error')) is not int or report['expected_custom_error'] != 713:
+        raise ValueError('Policy 713 custom error required')
+    if type(report.get('issuer_eligible_clock')) is not int or report['issuer_eligible_clock'] < 0:
+        raise ValueError('issuer eligibility clock required')
+    if (type(report.get('source_finalized_slot')) is not int
+            or isinstance(report['source_finalized_slot'], bool)
+            or report['source_finalized_slot'] != stage_report.get('finalized_slot')):
+        raise ValueError('staged finalized source slot mismatch')
+
+    transactions = report.get('transactions')
+    if type(transactions) is not list or len(transactions) != len(SCENARIOS):
+        raise ValueError('exactly nine ordered loaded-ELF transactions required')
+    ordered_slots = []
+    signatures = set()
+    indexed = {}
+    for index, (scenario, summary_name, row) in enumerate(
+            zip(SCENARIOS, TRANSACTION_SUMMARIES, transactions)):
+        summary = report.get(summary_name)
+        if (type(summary) is not dict or type(row) is not dict
+                or row.get('scenario') != scenario
+                or type(row.get('signature')) is not str or not row['signature']
+                or type(row.get('slot')) is not int or isinstance(row.get('slot'), bool)
+                or row['slot'] <= 0
+                or summary.get('signature') != row['signature']
+                or type(summary.get('slot')) is not int
+                or isinstance(summary.get('slot'), bool)
+                or summary['slot'] != row['slot']):
+            raise ValueError('ordered transaction summary mismatch')
+        error_expected = index in (3, 8)
+        expected_err = {'InstructionError': [1, {'Custom': 713}]} if error_expected else None
+        if (row.get('customError') != (713 if error_expected else None)
+                or row.get('err') != expected_err):
+            raise ValueError('both disabled Execute transactions must reject with Policy 713')
+        if error_expected and (type(summary.get('custom_error')) is not int
+                               or summary['custom_error'] != 713):
+            raise ValueError('Policy 713 transaction summary required')
+        if not error_expected and 'custom_error' in summary:
+            raise ValueError('unexpected policy error in successful transition summary')
+        if index in (2, 3, 7, 8):
+            if (type(summary.get('finalized_slot')) is not int
+                    or isinstance(summary.get('finalized_slot'), bool)
+                    or summary['finalized_slot'] < summary['slot']):
+                raise ValueError('finalized transition transaction required')
+        ordered_slots.append(row['slot'])
+        signatures.add(row['signature'])
+        indexed[scenario] = row['slot']
+    if (ordered_slots != sorted(ordered_slots)
+            or len(signatures) != len(ordered_slots)
+            or ordered_slots[0] <= report['source_finalized_slot']):
+        raise ValueError('distinct ordered transactions must follow staged source finality')
+
+    finalized_slots = {
+        'eligible_finalized_slot': (indexed[SCENARIOS[1]], None),
+        'disabled_finalized_slot': (indexed[SCENARIOS[2]],
+                                    report['disable_transaction']['finalized_slot']),
+        'rejected_finalized_slot': (indexed[SCENARIOS[3]],
+                                    report['execute_transaction']['finalized_slot']),
+        'issuer_eligible_finalized_slot': (indexed[SCENARIOS[6]], None),
+        'issuer_disabled_finalized_slot': (indexed[SCENARIOS[7]],
+                                           report['issuer_disable_transaction']['finalized_slot']),
+        'issuer_rejected_finalized_slot': (indexed[SCENARIOS[8]],
+                                           report['issuer_execute_transaction']['finalized_slot']),
+    }
+    observed_finalized_slots = []
+    for name, (minimum, transaction_finalized) in finalized_slots.items():
+        value = report.get(name)
+        if (type(value) is not int or isinstance(value, bool) or value < minimum
+                or (transaction_finalized is not None and value != transaction_finalized)):
+            raise ValueError('finalized snapshot slot mismatch: ' + name)
+        observed_finalized_slots.append(value)
+    if observed_finalized_slots != sorted(observed_finalized_slots):
+        raise ValueError('finalized snapshot slots must advance monotonically')
+    return _check_snapshots(report, output)
 
 
 def _validate_config(config):
@@ -226,6 +354,8 @@ def run(config, config_sha256, config_path):
               'effect_verified': False,
               'application_effect': False, 'config_disabled': False,
               'execute_rejected': False, 'accounts_unchanged': False,
+              'issuer_disabled': False, 'issuer_execute_rejected': False,
+              'issuer_accounts_unchanged': False,
               'ledger_reuse_requires_review': True,
               'whole_tree_cleanup_authority': 'external bounded_runner',
               'outer_limits_required': LIMITS}
@@ -293,7 +423,8 @@ def run(config, config_sha256, config_path):
             '--test-threads=1']
         runner = subprocess.Popen(command, cwd=REPO, env=env,
             stdin=subprocess.DEVNULL, stdout=streams[2], stderr=streams[3])
-        deadline = time.monotonic() + 110
+        deadline = min(time.monotonic() + RUNNER_BUDGET_SECONDS,
+                       started + SUPERVISOR_BUDGET_SECONDS)
         while runner.poll() is None:
             if validator.poll() is not None:
                 raise RuntimeError('validator exited during disabled-config Execute')
@@ -302,31 +433,16 @@ def run(config, config_sha256, config_path):
             time.sleep(0.1)
         if runner.wait() != 0:
             raise RuntimeError('disabled-config Rust runner failed')
+        _check_supervisor_budget(started)
         report_path = output / 'disabled-config-negative-report.json'
         report_raw, report_sha = execute.stage.snapshot_generated(report_path, 65536)
         report = execute.base.decode_json(report_raw)
-        if (report.get('schema') != REPORT_SCHEMA or report.get('passed') is not True
-                or report.get('variant') != config['variant']
-                or report.get('request_slot') != 'A'
-                or report.get('program') != config['expected_program']
-                or report.get('genesis') != config['expected_genesis']
-                or report.get('loaded_elf_sha256') != config['expected_elf_sha256']
-                or report.get('addresses') != {
-                    name: stage_report.get(name) for name in ACCOUNT_NAMES}
-                or report.get('stage_report_sha256') != config['stage_report_sha256']
-                or report.get('stage_plan_sha256') != config['stage_plan_sha256']
-                or report.get('full_wire_sha256') != config['full_wire_sha256']
-                or report.get('clone_receipt_sha256') != config['heldout_r0_clone_report_sha256']
-                or report.get('config_disabled') is not True
-                or report.get('execute_rejected') is not True
-                or report.get('refresh_and_bind_succeeded') is not True
-                or report.get('disable_changed_only_enabled_and_epoch') is not True
-                or report.get('accounts_unchanged_after_rejection') is not True
-                or report.get('expected_custom_error') != 713):
-            raise ValueError('pinned disabled-config rejection report required')
-        _check_snapshots(report, output)
+        _validate_report(report, config, stage_report, output)
+        _check_supervisor_budget(started)
         status.update({'effect_verified': True, 'config_disabled': True,
             'execute_rejected': True, 'accounts_unchanged': True,
+            'issuer_disabled': True, 'issuer_execute_rejected': True,
+            'issuer_accounts_unchanged': True,
             'report_path': str(report_path), 'report_sha256': report_sha,
             'loaded_program': loaded})
     except Exception as error:
