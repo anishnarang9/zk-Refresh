@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Privately revalidate completed Training-011 evidence and publish metrics only."""
+"""Privately revalidate a completed allowlisted campaign and publish metrics only."""
 import argparse
 import hashlib
 import json
@@ -24,6 +24,7 @@ from tools.part5 import verify_v3_campaign_public_receipts as public_receipts
 SCHEMA = 'part5-v3-public-metrics-capsule-v1'
 COUNTS = (0, 1, 2, 5, 10)
 MODES = ('full', 'anchor', 'coalesced-full')
+CAMPAIGN_IDS = ('training-011', 'training-012')
 
 
 def _hash(raw):
@@ -117,6 +118,31 @@ def _same(actual, expected, label):
         raise ValueError(label + ' differs from recomputation')
 
 
+def _registered_campaign(manifest_path, manifest_raw_sha256):
+    registered = getattr(registration, 'REGISTERED_CAMPAIGNS', None)
+    if not isinstance(registered, dict) or set(registered) != set(CAMPAIGN_IDS):
+        raise ValueError('registered Training-011/012 campaign map required')
+    matches = []
+    required = {'manifest_path', 'manifest_raw_sha256', 'manifest_canonical_sha256',
+                'output_root', 'actual_plan_sha256'}
+    for campaign_id in CAMPAIGN_IDS:
+        row = registered[campaign_id]
+        if not isinstance(row, dict) or set(row) != required:
+            raise ValueError('complete registered campaign pins required')
+        if (Path(manifest_path) == Path(row['manifest_path'])
+                and manifest_raw_sha256 == row['manifest_raw_sha256']):
+            matches.append((campaign_id, row))
+    if len(matches) != 1:
+        raise ValueError('registered campaign manifest path and raw digest required')
+    campaign_id, row = matches[0]
+    if (not isinstance(row['manifest_canonical_sha256'], str)
+            or not isinstance(row['output_root'], Path)
+            or (row['actual_plan_sha256'] is not None
+                and not isinstance(row['actual_plan_sha256'], str))):
+        raise ValueError('valid registered campaign pins required')
+    return campaign_id, row
+
+
 def export_public_metrics(matrix_manifest, economics_manifest, economics_report,
                           reconciliation_report, total_report, clock_report,
                           projection_dir, receipt_dir, output):
@@ -136,14 +162,13 @@ def export_public_metrics(matrix_manifest, economics_manifest, economics_report,
     for module in (sys.modules[__name__], economics, costs, total, clock, matrix,
                    registration, bindings, public_receipts, receipts):
         sources.pin(module.__file__)
-    if (Path(matrix_manifest) != registration.REGISTERED_MANIFEST_PATH
-            or sources.pin(matrix_manifest) != registration.REGISTERED_MANIFEST_RAW_SHA256):
-        raise ValueError('registered Training-011 manifest required')
+    campaign_id, registered = _registered_campaign(
+        Path(matrix_manifest), sources.pin(matrix_manifest))
     validated = matrix.validate_manifest(Path(matrix_manifest))
-    if (validated['campaign_id'] != registration.REGISTERED_CAMPAIGN_ID
-            or validated['manifest_sha256'] != registration.REGISTERED_MANIFEST_CANONICAL_SHA256
-            or validated['output_root'] != registration.REGISTERED_OUTPUT_ROOT):
-        raise ValueError('registered Training-011 required')
+    if (validated['campaign_id'] != campaign_id
+            or validated['manifest_sha256'] != registered['manifest_canonical_sha256']
+            or validated['output_root'] != registered['output_root']):
+        raise ValueError('registered campaign manifest identity required')
     for path in validated['evidence_paths'].values():
         sources.tree(path)
     for row in validated['transitions'].values():
@@ -163,6 +188,22 @@ def export_public_metrics(matrix_manifest, economics_manifest, economics_report,
     planned = matrix.plan_slots(validated)
     if len(planned) != 60:
         raise ValueError('complete 60-slot plan required')
+    plan_path = Path(validated['output_root']) / 'matrix-plan.json'
+    actual_plan_sha = sources.pin(plan_path)
+    plan = sources.read(plan_path)
+    expected_plan = {
+        'schema': 'part5-v3-campaign-matrix-plan-v1',
+        'manifest_sha256': validated['manifest_sha256'],
+        'driver_sha256': validated['driver_sha256'],
+        'campaign_id': campaign_id,
+        'campaign_runtime_seconds': matrix.CAMPAIGN_SECONDS,
+        'slot_count': len(planned),
+        'slots': planned,
+    }
+    _same(plan, expected_plan, 'registered actual matrix plan')
+    if (registered['actual_plan_sha256'] is not None
+            and actual_plan_sha != registered['actual_plan_sha256']):
+        raise ValueError('registered actual matrix plan byte pin required')
     # Pin private reports before recomputation, including their referenced evidence.
     for slot in planned:
         paths = matrix.output_paths(validated, slot)
@@ -196,7 +237,7 @@ def export_public_metrics(matrix_manifest, economics_manifest, economics_report,
     if (sources.pin(Path(projection_dir) / 'index.json') != bound['projection_index_sha256']
             or sources.pin(Path(receipt_dir) / 'index.json') != bound['receipt_index_sha256']):
         raise ValueError('public bundle index changed after verification')
-    if (bound['campaign_id'] != 'training-011'
+    if (bound['campaign_id'] != campaign_id
             or bound['matrix_manifest_canonical_sha256'] != validated['manifest_sha256']
             or bound['sequence_receipt_sha256'] != sequence_sha):
         raise ValueError('public bundle differs from private campaign')
@@ -306,7 +347,7 @@ def export_public_metrics(matrix_manifest, economics_manifest, economics_report,
                       ('economics_analyzer_source', economics.__file__), ('reconciler_source', costs.__file__),
                       ('total_summarizer_source', total.__file__)):
         hashes[key + '_sha256'] = sources.pin(path)
-    capsule = {'schema': SCHEMA, 'campaign_id': 'training-011', 'training_only': True,
+    capsule = {'schema': SCHEMA, 'campaign_id': campaign_id, 'training_only': True,
         'matrix_grid_complete': True, 'source_hashes': hashes, 'slots': slots,
         'shared': shared_public, 'one_time': one_time_public,
         'claims': {'directly_timed_whole_application_session': False,
@@ -330,7 +371,7 @@ def main():
         export_public_metrics(**vars(args))
     except Exception as error:
         raise SystemExit(f'private metrics export rejected ({type(error).__name__}); no result established') from None
-    print('Exported one verified Training-011 metrics capsule.')
+    print('Exported one verified training campaign metrics capsule.')
 
 
 if __name__ == '__main__':

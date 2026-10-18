@@ -28,6 +28,15 @@ class MetricsExportTests(unittest.TestCase):
             with self.subTest(raw=raw), self.assertRaises(ValueError):
                 exporter._decode(raw)
 
+    def test_training_012_registration_pins_are_exact(self):
+        self.assertEqual(exporter.registration.REGISTERED_CAMPAIGNS['training-012'], {
+            'manifest_path': exporter.registration.ROOT / 'results/dynark/part5/v3-campaign-matrix-training-012.json',
+            'manifest_raw_sha256': '21612a6451c00b7a46d9abaa3445e5acecec3c14583317884800b49b2614ff53',
+            'manifest_canonical_sha256': '21612a6451c00b7a46d9abaa3445e5acecec3c14583317884800b49b2614ff53',
+            'output_root': exporter.registration.ROOT / 'artifacts/dynark/part5/v3-matrix-training-012',
+            'actual_plan_sha256': 'e1cd1b9eb1c08fed70cd7544b0286af82422eb50a49a63875be267b57907f467',
+        })
+
     def test_boolean_and_nonfinite_times_rejected(self):
         for value in (True, False, -1, float('inf'), float('nan')):
             with self.subTest(value=value), self.assertRaises(ValueError):
@@ -93,7 +102,8 @@ class MetricsExportTests(unittest.TestCase):
                                          'current_root': '/SECRET/credential', 'source_identities': {'SECRET': '/SECRET'}})
                         clocks.append({**sequence[-1], 'monotonic_duration_seconds': 10.123456789012345})
             sequence_path = write('sequence-receipt.json', {'sequence': sequence})
-            validated = {'campaign_id': 'training-011', 'manifest_sha256': H, 'output_root': root,
+            validated = {'campaign_id': 'training-011', 'manifest_sha256': H,
+                         'driver_sha256': H, 'output_root': root,
                          'evidence_paths': evidence, 'transitions': transitions}
             pairs = [dict(repetition=r, target_count=k, status='matched', full_session_wall_seconds=10.123456789012345,
                           anchor_session_wall_seconds=10.123456789012345) for r in range(1, 5) for k in exporter.COUNTS]
@@ -121,10 +131,38 @@ class MetricsExportTests(unittest.TestCase):
                 write(f'public-receipts/slot-receipts/slot-{number:04d}.json', {})
             bound = {'campaign_id': 'training-011', 'matrix_manifest_canonical_sha256': H,
                      'sequence_receipt_sha256': sha(sequence_path), 'projection_index_sha256': sha(args[6] / 'index.json'), 'receipt_index_sha256': sha(args[7] / 'index.json')}
+            campaign_manifest = write('matrix-012.json', {})
+
+            def write_private_plan():
+                return write('matrix-plan.json', {
+                    'schema': 'part5-v3-campaign-matrix-plan-v1',
+                    'manifest_sha256': validated['manifest_sha256'],
+                    'driver_sha256': validated['driver_sha256'],
+                    'campaign_id': validated['campaign_id'],
+                    'campaign_runtime_seconds': exporter.matrix.CAMPAIGN_SECONDS,
+                    'slot_count': len(planned), 'slots': planned,
+                })
+
+            write_private_plan()
+            registrations = {
+                'training-011': {
+                    'manifest_path': args[0], 'manifest_raw_sha256': sha(args[0]),
+                    'manifest_canonical_sha256': H, 'output_root': root,
+                    'actual_plan_sha256': None,
+                },
+                'training-012': {
+                    'manifest_path': campaign_manifest,
+                    'manifest_raw_sha256': sha(campaign_manifest),
+                    'manifest_canonical_sha256': H, 'output_root': root,
+                    'actual_plan_sha256': None,
+                },
+            }
             patches = [patch.object(exporter.registration, 'REGISTERED_MANIFEST_PATH', args[0]),
                        patch.object(exporter.registration, 'REGISTERED_MANIFEST_RAW_SHA256', sha(args[0])),
                        patch.object(exporter.registration, 'REGISTERED_MANIFEST_CANONICAL_SHA256', H),
                        patch.object(exporter.registration, 'REGISTERED_OUTPUT_ROOT', root),
+                       patch.object(exporter.registration, 'REGISTERED_CAMPAIGNS', registrations,
+                                    create=True),
                        patch.object(exporter.matrix, 'economics_input_manifest', return_value={}),
                        patch.object(exporter.matrix, 'validate_manifest', return_value=validated),
                        patch.object(exporter.matrix, 'plan_slots', return_value=planned),
@@ -172,6 +210,46 @@ class MetricsExportTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     exporter.export_public_metrics(*args)
                 self.assertFalse(args[-1].exists())
+
+                # A second allowlisted identity uses the completion binding's
+                # campaign ID in the public capsule and is joined to its own
+                # manifest path and raw pin.
+                sessions[0]['status'] = 'valid'
+                econ_report.write_text(json.dumps(direct))
+                validated['campaign_id'] = 'training-012'
+                args[0] = campaign_manifest
+                bound['campaign_id'] = 'training-012'
+                plan_path = write_private_plan()
+                registrations['training-012']['actual_plan_sha256'] = sha(plan_path)
+                capsule = exporter.export_public_metrics(*args)
+                self.assertEqual(capsule['campaign_id'], 'training-012')
+                self.assertFalse(any(value == 'training-011' for value in capsule.values()))
+                args[-1].unlink()
+
+                with patch.object(exporter.matrix, 'plan_slots', return_value=planned[:-1]):
+                    with self.assertRaises(ValueError):
+                        exporter.export_public_metrics(*args)
+                self.assertFalse(args[-1].exists())
+
+                bound['campaign_id'] = 'training-011'
+                with self.assertRaises(ValueError):
+                    exporter.export_public_metrics(*args)
+                self.assertFalse(args[-1].exists())
+                bound['campaign_id'] = 'training-012'
+
+                registered_raw = registrations['training-012']['manifest_raw_sha256']
+                registrations['training-012']['manifest_raw_sha256'] = 'b' * 64
+                with self.assertRaises(ValueError):
+                    exporter.export_public_metrics(*args)
+                self.assertFalse(args[-1].exists())
+                registrations['training-012']['manifest_raw_sha256'] = registered_raw
+
+                registered_plan = registrations['training-012']['actual_plan_sha256']
+                registrations['training-012']['actual_plan_sha256'] = 'c' * 64
+                with self.assertRaises(ValueError):
+                    exporter.export_public_metrics(*args)
+                self.assertFalse(args[-1].exists())
+                registrations['training-012']['actual_plan_sha256'] = registered_plan
 
 
 if __name__ == '__main__':

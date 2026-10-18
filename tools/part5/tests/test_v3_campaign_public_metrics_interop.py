@@ -41,6 +41,7 @@ class PublicMetricsInteropTests(unittest.TestCase):
             transitions = {str(k): {kind: write(f'private/transition-{k}-{kind}.json', {})
                                    for kind in ('config', 'status', 'monitor')} for k in exporter.COUNTS[1:]}
             validated = {'campaign_id': 'training-011', 'manifest_sha256': template['source_hashes']['matrix_manifest_canonical_sha256'],
+                         'driver_sha256': 'd' * 64,
                          'output_root': root / 'private/campaign', 'evidence_paths': evidence, 'transitions': transitions}
             planned, paths_by_key, sessions = [], {}, []
             identity_fields = ('freeze_sha256', 'cohort_receipt_sha256', 'current_root',
@@ -93,6 +94,15 @@ class PublicMetricsInteropTests(unittest.TestCase):
             _write_json(clock_path, audit)
             write('private/campaign/sequence-receipt.json', sequence)
             manifest_path = write('private/matrix.json', {})
+            write('private/campaign/matrix-plan.json', {
+                'schema': 'part5-v3-campaign-matrix-plan-v1',
+                'manifest_sha256': validated['manifest_sha256'],
+                'driver_sha256': validated['driver_sha256'],
+                'campaign_id': validated['campaign_id'],
+                'campaign_runtime_seconds': exporter.matrix.CAMPAIGN_SECONDS,
+                'slot_count': len(planned), 'slots': planned,
+            })
+            training_012_manifest = write('private/matrix-012.json', {})
             economics_manifest = write('private/campaign/economics-input-manifest.json', exporter.matrix.economics_input_manifest(planned))
             pairs = []
             by_key = {(row['repetition'], row['target_count'], row['mode']): row for row in sessions}
@@ -110,6 +120,22 @@ class PublicMetricsInteropTests(unittest.TestCase):
             with ExitStack() as stack:
                 for replacement in (
                     patch.object(exporter.matrix, 'REPO', root),
+                    patch.object(exporter.registration, 'REGISTERED_CAMPAIGNS', {
+                        'training-011': {
+                            'manifest_path': manifest_path,
+                            'manifest_raw_sha256': _sha(manifest_path.read_bytes()),
+                            'manifest_canonical_sha256': validated['manifest_sha256'],
+                            'output_root': validated['output_root'],
+                            'actual_plan_sha256': None,
+                        },
+                        'training-012': {
+                            'manifest_path': training_012_manifest,
+                            'manifest_raw_sha256': _sha(training_012_manifest.read_bytes()),
+                            'manifest_canonical_sha256': validated['manifest_sha256'],
+                            'output_root': validated['output_root'],
+                            'actual_plan_sha256': None,
+                        },
+                    }),
                     patch.object(exporter.registration, 'REGISTERED_MANIFEST_PATH', manifest_path),
                     patch.object(exporter.registration, 'REGISTERED_MANIFEST_RAW_SHA256', _sha(manifest_path.read_bytes())),
                     patch.object(exporter.registration, 'REGISTERED_MANIFEST_CANONICAL_SHA256', validated['manifest_sha256']),
