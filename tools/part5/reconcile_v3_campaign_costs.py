@@ -64,6 +64,11 @@ def _monitored_step(status, monitor, owner, kind, count=None):
     return monitor['duration_seconds']
 
 
+def by_count_seconds(prepare, stage, transition):
+    return {count: prepare + stage + (transition[count] if count else 0.0)
+            for count in COUNTS}
+
+
 def shared_steps(validated):
     paths = validated['evidence_paths']
     stage_config = _pinned(paths['stage_config'],
@@ -93,10 +98,7 @@ def shared_steps(validated):
             raise ValueError('transition status/config target mismatch')
         transition[count] = _monitored_step(status, monitor, row['monitor_owner'],
                                            'part5-v3-campaign-transition', count)
-    by_count = {}
-    for count in COUNTS:
-        by_count[count] = prepare + stage + sum(
-            transition[step] for step in TRANSITIONS if step <= count)
+    by_count = by_count_seconds(prepare, stage, transition)
     return {'prepare_seconds': prepare, 'stage_seconds': stage,
             'transition_seconds': transition, 'by_count_seconds': by_count}
 
@@ -194,7 +196,7 @@ def reconcile(validated, economics):
             'economics_report_sha256': None,
             'directly_timed_whole_application_session': False,
             'component_sum_scope': ('For each matched pair, add the actual bounded prepare, '
-                'stage, cumulative signed transition and slot-clone durations to each '
+                'stage, exact R0-to-Rk signed transition and slot-clone durations to each '
                 'directly timed source-import-through-effect session. The same preexisting '
                 'signed state is shared by both modes; component sums are derived and '
                 'do not measure idle gaps, full deployment, or operator churn.'),

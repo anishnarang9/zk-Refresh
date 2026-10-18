@@ -7,6 +7,12 @@ from tools.part5 import reconcile_v3_campaign_costs as tool
 
 
 class CampaignCostReconciliationTests(unittest.TestCase):
+    def test_common_cost_uses_only_exact_r0_to_rk_transition(self):
+        transitions = {1: 11.0, 2: 22.0, 5: 55.0, 10: 110.0}
+        self.assertEqual(tool.by_count_seconds(3.0, 7.0, transitions),
+                         {0: 10.0, 1: 21.0, 2: 32.0,
+                          5: 65.0, 10: 120.0})
+
     def test_direct_script_help_from_repository_root(self):
         script = Path(tool.__file__).resolve()
         completed = subprocess.run(
