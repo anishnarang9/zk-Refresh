@@ -23,6 +23,7 @@ ROOT=/Users/anishnarang/Zk-refresh
 cd "$ROOT"
 RESULTS="$ROOT/results/dynark/part5"
 PART5="$ROOT/artifacts/dynark/part5"
+CAMPAIGN_PY="$PART5/v3-campaign-python-002"
 PREPARE_STATUS="$PART5/application-v3-campaign-prepare-control-002/status.json"
 ADAPTER="$ROOT/crates/dynark-solana-adapter/target/debug/build/dynark-solana-adapter/3a4659842a713e9a/out/v3_request_bound_host-3a4659842a713e9a"
 PROOF_BINARY="$PART5/v3-proof-runner-training-010"
@@ -48,7 +49,7 @@ test "$(sha256_file "$PROOF_BINARY")" = \
   093659cec842945fd3db15e9e51087b5717d71dcb375fdf60ced58279a5ad19a
 test "$(sha256_file "$RUNNER")" = \
   f82401e93c506eb1bdd8e2787a18bdbdbd5d948fc42a8f04a0cbeefe9ebe002c
-for f in "$PREPARE_STATUS" "$ADAPTER" "$PROOF_BINARY" "$RUNNER" \
+for f in "$CAMPAIGN_PY" "$PREPARE_STATUS" "$ADAPTER" "$PROOF_BINARY" "$RUNNER" \
          "$BASE_PREPARE_CONFIG" "$PACKET_TEMPLATE" "$SUPERVISOR" "$NODE" "$EXPORTER"; do
   test -f "$f"
 done
@@ -110,7 +111,12 @@ The freeze includes current heldout registry/client and shared queue/transition 
 
 This is a required pre-freeze gate, not a claim that the matrix or summary has passed. Wait until the serial matrix driver exits 0 and publishes its final sequence receipt. The freeze tool does not enforce matrix completion. The commands below use the registered Training-010 manifest and output root; the read-only audit revalidates all 60 slot receipts and the sequence, checks the economics input against the registered plan, and recomputes the reconciliation and summary from their pinned inputs.
 
-After matrix completion, run this gate immediately before Step 1. It creates each missing report in dependency order and preserves existing reports, so a later report can be retried if an earlier command succeeded before a failure. The read-only audit at the end validates the full chain.
+After matrix completion, run this gate immediately before Step 1 with the
+interpreter pinned in the matrix manifest. Its validator rejects `python3` if
+that resolves to a different executable. The gate creates each missing report
+in dependency order and preserves existing reports, so a later report can be
+retried if an earlier command succeeded before a failure. The read-only audit
+at the end validates the full chain.
 
 ```bash
 MATRIX="$RESULTS/v3-campaign-matrix-training-010.json"
@@ -134,17 +140,17 @@ ensure_report() {
     test -f "$path" && test -s "$path"
   fi
 }
-ensure_report "$ECONOMICS_REPORT" python3 -B tools/part5/analyze_v3_campaign_economics.py \
+ensure_report "$ECONOMICS_REPORT" "$CAMPAIGN_PY" -B tools/part5/analyze_v3_campaign_economics.py \
   --manifest "$ECONOMICS_INPUT" --output "$ECONOMICS_REPORT"
-ensure_report "$RECONCILIATION_REPORT" python3 -B tools/part5/reconcile_v3_campaign_costs.py \
+ensure_report "$RECONCILIATION_REPORT" "$CAMPAIGN_PY" -B tools/part5/reconcile_v3_campaign_costs.py \
   --matrix-manifest "$MATRIX" --economics-report "$ECONOMICS_REPORT" \
   --output "$RECONCILIATION_REPORT"
-ensure_report "$TOTAL_SUMMARY" python3 -B tools/part5/summarize_v3_campaign_total.py \
+ensure_report "$TOTAL_SUMMARY" "$CAMPAIGN_PY" -B tools/part5/summarize_v3_campaign_total.py \
   --reconciliation-report "$RECONCILIATION_REPORT" \
   --matrix-manifest "$MATRIX" --economics-report "$ECONOMICS_REPORT" \
   --output "$TOTAL_SUMMARY"
 
-python3 -B - "$ROOT" "$MATRIX" "$MATRIX_OUTPUT" "$ECONOMICS_INPUT" \
+"$CAMPAIGN_PY" -B - "$ROOT" "$MATRIX" "$MATRIX_OUTPUT" "$ECONOMICS_INPUT" \
   "$ECONOMICS_REPORT" "$RECONCILIATION_REPORT" "$TOTAL_SUMMARY" <<'PY'
 import json, pathlib, sys
 root, matrix_path, output_root, economics_input, economics_report, reconciliation_report, total_summary = map(pathlib.Path, sys.argv[1:])
