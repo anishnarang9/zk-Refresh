@@ -160,7 +160,7 @@ assert clock['matrix_manifest_sha256'] == validated['manifest_sha256']
 economics = matrix.read_json(economics_path)
 expected = costs.reconcile(validated, economics)
 expected['economics_report_sha256'] = matrix.sha256(economics_path)
-assert matrix.read_json(reconciliation_path) == expected
+assert matrix.read_json(reconciliation_path) == json.loads(json.dumps(expected))
 summary = total.load_and_summarize(reconciliation_path, matrix_path, economics_path)
 assert json.loads(total_path.read_bytes()) == summary
 assert summary['matrix_grid_complete'] is True
