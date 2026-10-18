@@ -15,15 +15,13 @@ STEP_NAMES = ('prepare', 'stage', 'transition', 'source-r0', 'source-r1',
 class FakeClock:
     def __init__(self):
         self.value = 0.0
-        self.wall = 0
 
     def monotonic(self):
         self.value += 1.0
         return self.value
 
     def utc_now(self):
-        self.wall += 1
-        return f'2026-10-18T00:00:{self.wall:02d}Z'
+        return f'2026-10-18T00:00:{int(self.value):02d}Z'
 
 
 def _identity(mode='Full-B'):
@@ -69,11 +67,12 @@ class DirectArmSpanTests(unittest.TestCase):
             self.assertFalse(report['full_application_evidence_established'])
             self.assertEqual(report['integration_status'], 'source-level-helper-only')
             self.assertEqual(report['direct_duration_seconds'], 19.0)
+            self.assertEqual(report['utc_monotonic_disagreement_seconds'], 0.0)
             self.assertEqual(sum(report['step_durations_seconds'].values()), 9.0)
             self.assertGreater(report['direct_duration_seconds'],
                                sum(report['step_durations_seconds'].values()))
             self.assertEqual(report['start_utc'], '2026-10-18T00:00:01Z')
-            self.assertEqual(report['end_utc'], '2026-10-18T00:00:02Z')
+            self.assertEqual(report['end_utc'], '2026-10-18T00:00:20Z')
             raw = output.read_bytes()
             self.assertEqual(json.loads(raw), report)
             self.assertEqual(os.stat(output).st_mode & 0o777, 0o600)
@@ -121,6 +120,19 @@ class DirectArmSpanTests(unittest.TestCase):
             steps, _ = _steps()
             with self.assertRaisesRegex(ValueError, 'identity'):
                 recorder.record_arm(identity, steps, output, clock=FakeClock())
+            self.assertFalse(output.exists())
+
+    def test_clock_disagreement_fails_closed_without_receipt(self):
+        class SuspendedClock(FakeClock):
+            def utc_now(self):
+                return '2026-10-18T00:00:01Z' if self.value < 20 else '2026-10-18T01:00:20Z'
+
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / 'arm.json'
+            steps, calls = _steps()
+            with self.assertRaisesRegex(ValueError, 'clock disagreement'):
+                recorder.record_arm(_identity(), steps, output, clock=SuspendedClock())
+            self.assertEqual(calls, list(STEP_NAMES))
             self.assertFalse(output.exists())
 
 

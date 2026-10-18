@@ -20,6 +20,7 @@ STEP_NAMES = ('prepare', 'stage', 'transition', 'source-r0', 'source-r1',
 IDENTITY_FIELDS = ('credential_sha256', 'action_sha256', 'root_sha256',
                    'setup_sha256', 'vk_sha256', 'elf_sha256')
 MAX_RECEIPT_BYTES = 64 * 1024
+CLOCK_TOLERANCE_SECONDS = 5.0
 
 
 class _SystemClock:
@@ -184,13 +185,20 @@ def record_arm(arm_identity, ordered_steps, output, clock=None):
         end_utc = _utc(clock)
         if ended < started:
             raise ValueError('arm clock moved backward')
+        direct_duration = ended - started
+        utc_duration = (datetime.fromisoformat(end_utc.replace('Z', '+00:00')) -
+                        datetime.fromisoformat(start_utc.replace('Z', '+00:00'))).total_seconds()
+        disagreement = abs(utc_duration - direct_duration)
+        if utc_duration < 0 or disagreement > CLOCK_TOLERANCE_SECONDS:
+            raise ValueError('arm clock disagreement')
         report = {
             'schema': SCHEMA,
             'arm_identity': identity,
             'directly_timed': True,
             'start_utc': start_utc,
             'end_utc': end_utc,
-            'direct_duration_seconds': ended - started,
+            'direct_duration_seconds': direct_duration,
+            'utc_monotonic_disagreement_seconds': disagreement,
             'step_durations_seconds': durations,
             'step_durations_are_attribution_only': True,
             'integration_status': 'source-level-helper-only',
