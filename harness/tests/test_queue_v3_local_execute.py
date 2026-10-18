@@ -84,6 +84,9 @@ class ExecuteTests(unittest.TestCase):
         with patch.object(m, 'finalized_accounts', side_effect=ValueError('finalized exact account bytes mismatch')):
             with self.assertRaisesRegex(ValueError, 'finalized exact account bytes mismatch'):
                 m.wait_staged_finality(None, {'finalized_slot': 44}, 'program', ['a'] * 5, [5] * 5)
+        with self.assertRaisesRegex(ValueError, 'minimum slot precedes staged finality'):
+            m.wait_staged_finality(None, {'finalized_slot': 44}, 'program', ['a'] * 5,
+                                   [5] * 5, minimum_slot=43)
 
     def test_effect_requires_only_consumption_and_one_exact_queue_append(self):
         self.assertTrue(hasattr(m, 'check_effect_bytes'), 'independent effect-byte check missing')

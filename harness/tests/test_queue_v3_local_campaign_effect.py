@@ -1,9 +1,11 @@
+import base64
 import hashlib
 import json
 import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
@@ -24,6 +26,40 @@ def wire(root, action=3):
 
 
 class CampaignEffectChecks(unittest.TestCase):
+    def test_restarted_rk_waits_for_transition_slot_before_comparing_accounts(self):
+        names = effect.execute.ACCOUNT_NAMES
+        staged = {'finalized_slot': 46, **{name: name for name in names}}
+        current = [bytes([index + 1]) * 7 for index in range(5)]
+        stale = [b'oldroot', *current[1:]]
+        changed = {'finalized_slot': 83, 'account_sha256': [sha(raw) for raw in current]}
+        minimums = []
+
+        def rpc(method, params):
+            self.assertEqual(method, 'getMultipleAccounts')
+            self.assertEqual(params[0], list(names))
+            self.assertEqual(params[1]['commitment'], 'finalized')
+            minimums.append(params[1]['minContextSlot'])
+            if minimums[-1] < 83:
+                slot, accounts = 62, stale
+            elif len(minimums) == 1:
+                raise ValueError('invalid RPC envelope')
+            else:
+                slot, accounts = 83, current
+            return {'context': {'slot': slot}, 'value': [
+                {'owner': 'program', 'executable': False,
+                 'data': [base64.b64encode(raw).decode(), 'base64']}
+                for raw in accounts]}
+
+        with patch.object(effect.execute.time, 'sleep'):
+            with self.assertRaisesRegex(ValueError, 'role=config context_slot=62'):
+                effect.execute.wait_staged_finality(
+                    rpc, staged, 'program', changed['account_sha256'], [7] * 5)
+            self.assertEqual(minimums, [46])
+            minimums.clear()
+            result = effect.wait_current_finality(rpc, staged, changed, 'program', [7] * 5)
+        self.assertEqual(result, (83, current))
+        self.assertEqual(minimums, [83, 83])
+
     def test_bounded_monitor_requires_clean_owned_tree(self):
         monitor = {'owner': 'campaign-effect', 'exit_code': 1,
                    'stop_reason': None, 'runner_error_type': None,

@@ -622,6 +622,12 @@ def report_loaded(report, original, loaded):
         raise ValueError('report loaded program size or loader mismatch')
 
 
+def wait_current_finality(rpc, staged, changed, program, sizes):
+    return execute.wait_staged_finality(
+        rpc, staged, program, changed['account_sha256'], sizes,
+        minimum_slot=changed['finalized_slot'])
+
+
 def run(config, config_sha256):
     if os.environ.get('P5_V3_CAMPAIGN_EFFECT_SUPERVISOR') != 'reviewed-campaign-clone':
         raise ValueError('explicit external bounded campaign effect scope required')
@@ -675,8 +681,8 @@ def run(config, config_sha256):
             rpc, validator, original['program'], elf, original['elf_sha256'])
         execute.same_loaded(previous['loaded_program'], loaded)
         sizes = [len(raw) for raw in before]
-        pre_slot, finalized_before = execute.wait_staged_finality(
-            rpc, staged, original['program'], changed['account_sha256'], sizes)
+        pre_slot, finalized_before = wait_current_finality(
+            rpc, staged, changed, original['program'], sizes)
         if finalized_before != before:
             raise ValueError('restarted finalized accounts differ from Rk artifacts')
         env.update({

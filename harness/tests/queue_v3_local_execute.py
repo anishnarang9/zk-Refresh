@@ -131,11 +131,14 @@ def finalized_accounts(rpc, report, minimum, program, expected_hashes, sizes):
     return slot, raw_accounts
 
 
-def wait_staged_finality(rpc, report, program, expected_hashes, sizes):
+def wait_staged_finality(rpc, report, program, expected_hashes, sizes, minimum_slot=None):
+    minimum = report['finalized_slot'] if minimum_slot is None else minimum_slot
+    if type(minimum) is not int or minimum < report['finalized_slot']:
+        raise ValueError('finalized account minimum slot precedes staged finality')
     deadline = time.monotonic() + 30
     while True:
         try:
-            return finalized_accounts(rpc, report, report['finalized_slot'], program,
+            return finalized_accounts(rpc, report, minimum, program,
                                       expected_hashes, sizes)
         except base.NotReady:
             pass
