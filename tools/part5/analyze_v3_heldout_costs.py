@@ -493,6 +493,157 @@ def _load_proof_report(bundle):
     return receipt, report
 
 
+def _unavailable(reason):
+    return {'status': 'unavailable', 'reason': reason}
+
+
+def _effect_transaction_metrics(case, report_case, journal, branch):
+    """Read metrics from the exact successful application-effect event only."""
+    scenarios = {
+        'full': ('positive_full:execute', 'v3-valid-full-execute'),
+        'unrelated_full': ('unrelated_compare:unrelated_full:effect',
+                           'v3-valid-full-R1'),
+        'anchor': ('unrelated_compare:anchor:effect', 'v3-valid-anchor-R1'),
+        'own_revocation': ('own_revocation:effect', None),
+    }
+    step, scenario = scenarios[branch]
+    if scenario is None:
+        return _unavailable('acceptance branch records no successful application effect')
+
+    result = case.get('branches', {}).get(branch, {}).get('result')
+    ref = result.get('report') if type(result) is dict else None
+    if ref is None:
+        return _unavailable('pinned effect report reference absent')
+    if (type(ref) is not dict or set(ref) != {'path', 'sha256'}
+            or type(ref.get('path')) is not str
+            or type(ref.get('sha256')) is not str):
+        raise ValueError(f'{branch} effect report pin required for transaction metrics')
+
+    accepted = report_case.get('branches', {}).get(branch)
+    if type(accepted) is not dict or accepted.get('result_report_sha256') != ref['sha256']:
+        raise ValueError(f'{branch} effect report differs from independent acceptance')
+    step_row = journal.get('steps', {}).get(step)
+    if type(step_row) is not dict:
+        return _unavailable('effect report journal reference absent')
+    if (step_row.get('report') != ref['path']
+            or step_row.get('report_sha256') != ref['sha256']):
+        raise ValueError(f'{branch} effect report differs from pinned run journal')
+
+    report = _load_pinned_json(ref, f'{branch} effect report')
+    expected = {
+        'full': ('part5-v3-local-execute-v1', 'Full'),
+        'unrelated_full': ('part5-v3-r1-branch-v1', 'full'),
+        'anchor': ('part5-v3-r1-branch-v1', 'anchor'),
+    }[branch]
+    mode_field = 'proof_mode' if branch == 'full' else 'mode'
+    if (report.get('schema') != expected[0] or report.get('passed') is not True
+            or report.get('training_only') is not True
+            or report.get(mode_field) != expected[1]):
+        raise ValueError(f'{branch} effect report schema/mode required for transaction metrics')
+    if report.get('application_effect') is not True or report.get('effect_count') != 1:
+        raise ValueError(f'{branch} effect report does not record one successful effect')
+
+    transactions = report.get('transactions')
+    if type(transactions) is not list:
+        raise ValueError(f'{branch} transaction event list required')
+    matches = [row for row in transactions
+               if type(row) is dict and row.get('scenario') == scenario]
+    if len(matches) != 1 or matches[0].get('err') is not None:
+        raise ValueError(f'{branch} exact successful effect transaction required')
+    event = matches[0]
+    for event_name in ('transactionBytes', 'computeUnits'):
+        value = event.get(event_name)
+        if type(value) is not int or value <= 0:
+            raise ValueError(
+                f'{branch} successful effect transaction {event_name} must be a positive integer')
+    values = {}
+    for output_name, event_name in (
+            ('transaction_bytes', 'transactionBytes'),
+            ('compute_units', 'computeUnits'),
+            ('fee_lamports', 'feeLamports')):
+        value = event.get(event_name)
+        if type(value) is int and value >= 0:
+            values[output_name] = value
+        else:
+            values[output_name] = None
+    return {'status': 'available', 'scenario': scenario,
+            'source_report_sha256': ref['sha256'], **values,
+            'unavailable_fields': [name for name, value in values.items()
+                                   if value is None],
+            'field_source': 'direct transport event fields'}
+
+
+def _artifact_privacy_class(name):
+    if (name.endswith('.proof') or name.endswith('-public.bin')
+            or name.endswith('/public.json') or name.endswith('solana-wire.bin')):
+        return 'public'
+    if name.endswith('/input.json') or name.endswith('/output.wtns'):
+        return 'private'
+    return 'unclassified'
+
+
+def _proof_artifact_bytes(bundle):
+    if type(bundle) is not dict or set(bundle) != {'receipt', 'artifacts'}:
+        return _unavailable('proof receipt bundle absent')
+    receipt, _ = _load_proof_report(bundle)
+    artifacts = receipt.get('artifacts')
+    if artifacts is None:
+        return _unavailable('proof receipt artifact references absent')
+    if type(artifacts) is not dict:
+        raise ValueError('proof receipt artifact reference map required')
+    if not artifacts:
+        return _unavailable('proof receipt artifact reference map is empty')
+    if bundle.get('artifacts') is not None and bundle['artifacts'] != artifacts:
+        raise ValueError('proof bundle artifact refs differ from pinned proof receipt')
+
+    files = {}
+    totals = {'public': 0, 'private': 0, 'unclassified': 0}
+    proof_payload_bytes = 0
+    proof_public_input_bytes = 0
+    solana_wire_bytes = 0
+    for name, ref in sorted(artifacts.items()):
+        if type(name) is not str or not name:
+            raise ValueError('proof artifact name required')
+        try:
+            raw = _read_ref(ref, cap=32 * 1024 * 1024)
+        except (OSError, ValueError) as error:
+            raise ValueError(f'proof artifact pin invalid: {error}') from None
+        privacy = _artifact_privacy_class(name)
+        size = len(raw)
+        totals[privacy] += size
+        if name.endswith('.proof'):
+            proof_payload_bytes += size
+        elif name.endswith('-public.bin'):
+            proof_public_input_bytes += size
+        elif name.endswith('solana-wire.bin'):
+            solana_wire_bytes += size
+        files[name] = {'bytes': size, 'privacy_class': privacy,
+                       'presence': 'verified_present_at_analysis',
+                       'retention_lifecycle': 'unavailable_no_receipt_field'}
+    total = sum(totals.values())
+    return {
+        'status': 'available',
+        'current_pinned_file_bytes': total,
+        'current_pinned_file_bytes_by_privacy_class': totals,
+        'proof_payload_bytes': proof_payload_bytes,
+        'proof_public_input_bytes': proof_public_input_bytes,
+        'solana_wire_bytes': solana_wire_bytes,
+        'retained_bytes': None,
+        'temporary_bytes': None,
+        'lifecycle_note': ('Files are pinned and present during analysis; the receipt has no '
+                           'retained-versus-temporary lifecycle field.'),
+        'files': files,
+    }
+
+
+def _available_summary(values):
+    values = [value for value in values if _number(value)]
+    if not values:
+        return {'median': None, 'min': None, 'max': None, 'spread': None, 'n': 0}
+    return {'median': median(values), 'min': min(values), 'max': max(values),
+            'spread': max(values) - min(values), 'n': len(values)}
+
+
 def _anchor_preparation_seconds(bundle):
     receipt, report = _load_proof_report(bundle)
     if receipt.get('mode') != 'anchor' or report.get('mode') != 'matched-anchor-k1':
@@ -652,6 +803,23 @@ def analyze(manifest_ref, acceptance_ref):
         _verify_b_request(report_case, case)
         proof_samples = _verify_proof_durations(case, journal, durations)
         monitor_samples = _verify_monitor_durations(case, journal, durations)
+        effect_transactions = {
+            branch: _effect_transaction_metrics(case, report_case, journal, branch)
+            for branch in ('full', 'unrelated_full', 'anchor', 'own_revocation')
+        }
+        branch_proofs = case['branches']
+        proof_artifact_accounting = {
+            'full_A_initial': _proof_artifact_bytes(
+                branch_proofs['full'].get('proof')),
+            'full_A_fresh_replay_test_only': _proof_artifact_bytes(
+                branch_proofs['full'].get('replay_proof')),
+            'full_B': _proof_artifact_bytes(
+                branch_proofs['unrelated_full'].get('proof', {}).get('full')),
+            'anchor_B': _proof_artifact_bytes(
+                branch_proofs['anchor'].get('proof')),
+            'anchor_C_own_revocation': _proof_artifact_bytes(
+                branch_proofs['own_revocation'].get('proof')),
+        }
         anchor_preparation = {
             'B': _anchor_preparation_seconds(case['branches']['anchor'].get('proof')),
             'C': _anchor_preparation_seconds(
@@ -710,6 +878,8 @@ def analyze(manifest_ref, acceptance_ref):
                 'full': _sampled_peak(full_samples),
                 'anchor': _sampled_peak(anchor_samples),
             },
+            'effect_transaction_metrics': effect_transactions,
+            'proof_artifact_accounting': proof_artifact_accounting,
             'action_hash': report_case['branches']['anchor']['action_hash'],
             'current_root': report_case['branches']['anchor']['current_root'],
         })
@@ -731,6 +901,33 @@ def analyze(manifest_ref, acceptance_ref):
         }
         for slot in ('B', 'C')
     }
+    summary['effect_transaction_metrics'] = {
+        branch: {
+            field: _available_summary([
+                row['effect_transaction_metrics'][branch].get(field)
+                for row in output_rows])
+            for field in ('transaction_bytes', 'compute_units', 'fee_lamports')
+        }
+        for branch in ('full', 'unrelated_full', 'anchor', 'own_revocation')
+    }
+    summary['proof_artifact_current_file_bytes'] = {
+        role: _available_summary([
+            row['proof_artifact_accounting'][role].get('current_pinned_file_bytes')
+            for row in output_rows])
+        for role in ('full_A_initial', 'full_A_fresh_replay_test_only',
+                     'full_B', 'anchor_B', 'anchor_C_own_revocation')
+    }
+    summary['proof_artifact_components_bytes'] = {
+        role: {
+            field: _available_summary([
+                row['proof_artifact_accounting'][role].get(field)
+                for row in output_rows])
+            for field in ('proof_payload_bytes', 'proof_public_input_bytes',
+                          'solana_wire_bytes')
+        }
+        for role in ('full_A_initial', 'full_A_fresh_replay_test_only',
+                     'full_B', 'anchor_B', 'anchor_C_own_revocation')
+    }
     rss_values = [row[0] for row in sampled]
     storage_values = [row[1] for row in sampled]
     return {
@@ -745,6 +942,14 @@ def analyze(manifest_ref, acceptance_ref):
                                  'the plus-pair-view totals charge it once to each B mode'),
         'fresh_replay_accounting': ('A:proof-full-fresh-replay is a test-only second '
                                     'Full proof bundle; reported per case and excluded from matched B totals'),
+        'transaction_metric_accounting': (
+            'Transaction bytes, compute units, and fee lamports are direct fields from the '
+            'unique successful effect event in the pinned application report. They are '
+            'reported separately from wall time; own-revocation has no successful effect event.'),
+        'proof_artifact_accounting': (
+            'Artifact bytes sum raw files whose paths and SHA-256 values are pinned by each '
+            'proof receipt and verified present during analysis. Privacy classes are conservative; '
+            'retained-versus-temporary lifecycle is unavailable because receipts record no lifecycle field.'),
         'spread_definition': 'maximum minus minimum across the eight heldout variants',
         'pairs': output_rows,
         'summary': summary,

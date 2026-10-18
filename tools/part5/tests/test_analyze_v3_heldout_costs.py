@@ -25,6 +25,12 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         raw = path.read_bytes()
         return {'path': str(path), 'sha256': sha(raw)}
 
+    def write_bytes(self, name, raw):
+        path = self.root / name
+        path.write_bytes(raw)
+        path.chmod(0o600)
+        return {'path': str(path), 'sha256': sha(raw)}
+
     @staticmethod
     def step_names():
         names = ['pair-view']
@@ -179,6 +185,18 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
                 'destination': f'/clone/anchor/{variant}'})
             def proof_bundle(label):
                 mode = 'anchor' if label in ('B-anchor', 'C-anchor') else 'full'
+                artifacts = {
+                    'proof/request.proof': self.write_bytes(
+                        f'{variant}-{label}-proof.bin', b'proof'),
+                    'proof/request-public.bin': self.write_bytes(
+                        f'{variant}-{label}-public.bin', b'public'),
+                    'near/input.json': self.write_bytes(
+                        f'{variant}-{label}-input.json', b'private-input'),
+                    'near/output.wtns': self.write_bytes(
+                        f'{variant}-{label}-witness.wtns', b'witness'),
+                    'packet.json': self.write_bytes(
+                        f'{variant}-{label}-packet.json', b'metadata'),
+                }
                 proof_report = self.write_json(
                     f'{variant}-{label}-proof-report.json', {
                         'schema': 'credential-v3-matched-k1-proof-v1',
@@ -210,9 +228,10 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
                     'proof_mode': 'matched-anchor-k1' if mode == 'anchor'
                                   else 'matched-full-k1',
                     'proof_report': proof_report,
+                    'artifacts': artifacts,
                     'supervisor_reports': supervisors,
                 })
-                return {'receipt': receipt, 'artifacts': {}}
+                return {'receipt': receipt, 'artifacts': artifacts}
             proof_a = proof_bundle('A-full')
             proof_a_replay = proof_bundle('A-full-fresh-replay')
             proof_b_full = proof_bundle('B-full')
@@ -292,6 +311,43 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
                 'receipt': r2_rejection['path'],
                 'receipt_sha256': r2_rejection['sha256'],
             })
+            effect_specs = {
+                'full': ('positive_full:execute', 'full-A-report.json',
+                         'part5-v3-local-execute-v1', 'Full',
+                         'v3-valid-full-execute', 12, 131000, 5000),
+                'unrelated_full': (
+                    'unrelated_compare:unrelated_full:effect', 'full-B-report.json',
+                    'part5-v3-r1-branch-v1', 'full', 'v3-valid-full-R1',
+                    13, 132000, 5100),
+                'anchor': ('unrelated_compare:anchor:effect', 'anchor-B-report.json',
+                           'part5-v3-r1-branch-v1', 'anchor',
+                           'v3-valid-anchor-R1', 14, 133000, 5200),
+                'own_revocation': ('own_revocation:effect', 'own-revocation-report.json',
+                                   'part5-v3-r1-branch-v1', 'own-revocation',
+                                   'v3-stale-R0-anchor', 15, 134000, 5300),
+            }
+            effect_reports = {}
+            for branch, (step, filename, schema, mode, scenario, size, units, fee) in effect_specs.items():
+                successful = branch != 'own_revocation'
+                transactions = [{
+                    'scenario': scenario, 'err': None if successful else {'InstructionError': [1, {'Custom': 716}]},
+                    'transactionBytes': size, 'computeUnits': units,
+                    'feeLamports': fee,
+                }]
+                document = {
+                    'schema': schema, 'passed': True, 'training_only': True,
+                    'application_effect': successful,
+                    'effect_count': 1 if successful else 0,
+                    'transactions': transactions,
+                }
+                if branch == 'full':
+                    document['proof_mode'] = mode
+                else:
+                    document['mode'] = mode
+                ref = self.write_json(f'{variant}-{filename}', document)
+                effect_reports[branch] = ref
+                steps[step]['report'] = ref['path']
+                steps[step]['report_sha256'] = ref['sha256']
             stage_evidence = {
                 'A': {'monitor': monitor_for_step['positive_full:stage']},
                 'B': {'monitor': monitors['stage']},
@@ -325,18 +381,22 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
                                      'monitor': monitors['transition']},
                                'C': {'monitor': monitor_for_step['own_revocation:transition']}},
                 'branches': {
-                    'full': {'result': {'outer': monitors['full']}, 'proof': proof_a,
+                    'full': {'result': {'outer': monitors['full'],
+                                        'report': effect_reports['full']}, 'proof': proof_a,
                              'replay_proof': proof_a_replay},
                     'unrelated_full': {
-                        'result': {'outer': monitors['unrelated_full']},
+                        'result': {'outer': monitors['unrelated_full'],
+                                   'report': effect_reports['unrelated_full']},
                         'proof': {'full': proof_b_full, 'anchor': proof_b_anchor},
                         'r1_clone': {'receipt': full_clone}},
                     'anchor': {
-                        'result': {'outer': monitors['anchor']},
+                        'result': {'outer': monitors['anchor'],
+                                   'report': effect_reports['anchor']},
                         'proof': proof_b_anchor,
                         'r1_clone': {'receipt': anchor_clone}},
                     'own_revocation': {
-                        'result': {'outer': monitors['own_revocation']},
+                        'result': {'outer': monitors['own_revocation'],
+                                   'report': effect_reports['own_revocation']},
                         'proof': proof_c,
                         'current_r2_witness_rejection': r2_rejection},
                 },
@@ -372,6 +432,7 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
                     'r1_source_receipt_sha256': branch_id[name]['r1_source_receipt_sha256'],
                     'effect_count': 0 if name == 'own_revocation' else 1,
                     'request_consumed': name != 'own_revocation',
+                    'result_report_sha256': effect_reports[name]['sha256'],
                 } for name in ('full', 'unrelated_full', 'anchor', 'own_revocation')},
             })
 
@@ -413,6 +474,33 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         self.assertEqual(pair['shared_B_seconds'], 15.0)
         self.assertEqual(pair['full_B_seconds'], 38.0)
         self.assertEqual(pair['anchor_B_seconds'], 43.0)
+        self.assertEqual(pair['effect_transaction_metrics']['unrelated_full'], {
+            'status': 'available', 'scenario': 'v3-valid-full-R1',
+            'source_report_sha256': pair['effect_transaction_metrics'][
+                'unrelated_full']['source_report_sha256'],
+            'transaction_bytes': 13, 'compute_units': 132000,
+            'fee_lamports': 5100,
+            'unavailable_fields': [],
+            'field_source': 'direct transport event fields',
+        })
+        self.assertEqual(pair['effect_transaction_metrics']['anchor']['transaction_bytes'], 14)
+        self.assertEqual(pair['effect_transaction_metrics']['full']['compute_units'], 131000)
+        self.assertEqual(pair['effect_transaction_metrics']['own_revocation'], {
+            'status': 'unavailable',
+            'reason': 'acceptance branch records no successful application effect',
+        })
+        proof_bytes = pair['proof_artifact_accounting']['full_B']
+        self.assertEqual(proof_bytes['current_pinned_file_bytes'], 39)
+        self.assertEqual(proof_bytes['current_pinned_file_bytes_by_privacy_class'], {
+            'public': 11, 'private': 20, 'unclassified': 8,
+        })
+        self.assertEqual(proof_bytes['proof_payload_bytes'], 5)
+        self.assertEqual(proof_bytes['proof_public_input_bytes'], 6)
+        self.assertEqual(proof_bytes['solana_wire_bytes'], 0)
+        self.assertIsNone(proof_bytes['retained_bytes'])
+        self.assertIsNone(proof_bytes['temporary_bytes'])
+        self.assertTrue(all(row['presence'] == 'verified_present_at_analysis'
+                            for row in proof_bytes['files'].values()))
         self.assertEqual(pair['anchor_preparation_seconds']['B'], {
             'public_material_prepare': 1.0,
             'private_anchor_prepare': 2.0,
@@ -432,6 +520,19 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         self.assertEqual(result['summary']['full_B_seconds']['median'], 38.0)
         self.assertEqual(result['summary']['full_B_plus_pair_view_seconds']['median'], 38.5)
         self.assertEqual(result['summary']['anchor_B_seconds']['spread'], 0.0)
+        self.assertEqual(result['summary']['effect_transaction_metrics']['anchor'][
+            'fee_lamports'], {
+                'median': 5200, 'min': 5200, 'max': 5200, 'spread': 0, 'n': 8,
+            })
+        self.assertEqual(result['summary']['effect_transaction_metrics']['own_revocation'][
+            'fee_lamports']['n'], 0)
+        self.assertEqual(result['summary']['proof_artifact_current_file_bytes']['full_B'], {
+            'median': 39, 'min': 39, 'max': 39, 'spread': 0, 'n': 8,
+        })
+        self.assertEqual(result['summary']['proof_artifact_components_bytes']['full_B'][
+            'proof_payload_bytes'], {
+                'median': 5, 'min': 5, 'max': 5, 'spread': 0, 'n': 8,
+            })
         self.assertEqual(
             result['summary']['anchor_preparation_seconds']['B']['total'], {
                 'median': 3.007, 'min': 3.0, 'max': 3.0140000000000002,
@@ -456,6 +557,101 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         self.assertIn('samples', result['resource_observations']['caveat'])
         self.assertFalse(result['claims']['cpu_savings'])
         self.assertFalse(result['claims']['whole_application_benefit'])
+
+    def test_transaction_metrics_use_only_pinned_success_event_fields(self):
+        report = self.write_json('partial-effect-report.json', {
+            'schema': 'part5-v3-local-execute-v1', 'passed': True,
+            'training_only': True, 'proof_mode': 'Full',
+            'application_effect': True, 'effect_count': 1,
+            'transactions': [{
+                'scenario': 'v3-valid-full-execute', 'err': None,
+                'transactionBytes': 448, 'computeUnits': 180000,
+            }],
+        })
+        case = {'branches': {'full': {'result': {'report': report}}}}
+        accepted = {'branches': {'full': {
+            'result_report_sha256': report['sha256']}}}
+        journal = {'steps': {'positive_full:execute': {
+            'report': report['path'], 'report_sha256': report['sha256']}}}
+        metrics = analyzer._effect_transaction_metrics(case, accepted, journal, 'full')
+        self.assertEqual(metrics['transaction_bytes'], 448)
+        self.assertEqual(metrics['compute_units'], 180000)
+        self.assertIsNone(metrics['fee_lamports'])
+        self.assertEqual(metrics['unavailable_fields'], ['fee_lamports'])
+        self.assertEqual(metrics['field_source'], 'direct transport event fields')
+        for event_name, invalid_value in (
+                ('transactionBytes', None), ('transactionBytes', '448'),
+                ('computeUnits', None), ('computeUnits', -1)):
+            with self.subTest(event_name=event_name, invalid_value=invalid_value):
+                event = {'scenario': 'v3-valid-full-execute', 'err': None,
+                         'transactionBytes': 448, 'computeUnits': 180000}
+                if invalid_value is None:
+                    event.pop(event_name)
+                else:
+                    event[event_name] = invalid_value
+                invalid_report = self.write_json(
+                    f'invalid-{event_name}-{invalid_value}.json', {
+                        'schema': 'part5-v3-local-execute-v1', 'passed': True,
+                        'training_only': True, 'proof_mode': 'Full',
+                        'application_effect': True, 'effect_count': 1,
+                        'transactions': [event],
+                    })
+                invalid_case = {'branches': {'full': {'result': {
+                    'report': invalid_report}}}}
+                invalid_acceptance = {'branches': {'full': {
+                    'result_report_sha256': invalid_report['sha256']}}}
+                invalid_journal = {'steps': {'positive_full:execute': {
+                    'report': invalid_report['path'],
+                    'report_sha256': invalid_report['sha256']}}}
+                with self.assertRaisesRegex(ValueError, event_name):
+                    analyzer._effect_transaction_metrics(
+                        invalid_case, invalid_acceptance, invalid_journal, 'full')
+        del case['branches']['full']['result']['report']
+        self.assertEqual(analyzer._effect_transaction_metrics(
+            case, accepted, journal, 'full'), {
+                'status': 'unavailable', 'reason': 'pinned effect report reference absent',
+            })
+
+    def test_proof_artifact_bytes_require_receipt_pins_and_report_unknown_lifecycle(self):
+        proof_report = self.write_json('artifact-proof-report.json', {
+            'schema': 'credential-v3-matched-k1-proof-v1', 'passed': True,
+            'mode': 'matched-full-k1',
+        })
+        artifact = self.write_bytes('proof-output.bin', b'proof-bytes')
+        receipt = self.write_json('artifact-proof-receipt.json', {
+            'schema': 'credential-v3-heldout-proof-evidence-v1',
+            'mode': 'full', 'proof_mode': 'matched-full-k1',
+            'proof_report': proof_report,
+            'artifacts': {'proof/request.proof': artifact},
+        })
+        bundle = {'receipt': receipt, 'artifacts': {'proof/request.proof': artifact}}
+        accounting = analyzer._proof_artifact_bytes(bundle)
+        self.assertEqual(accounting['current_pinned_file_bytes'], len(b'proof-bytes'))
+        self.assertEqual(accounting['current_pinned_file_bytes_by_privacy_class'], {
+            'public': len(b'proof-bytes'), 'private': 0, 'unclassified': 0,
+        })
+        self.assertEqual(accounting['files']['proof/request.proof']['privacy_class'], 'public')
+        self.assertIsNone(accounting['retained_bytes'])
+        self.assertIsNone(accounting['temporary_bytes'])
+        with self.assertRaisesRegex(ValueError, 'bundle artifact refs differ'):
+            analyzer._proof_artifact_bytes({**bundle, 'artifacts': {}})
+
+        Path(artifact['path']).write_bytes(b'different')
+        Path(artifact['path']).chmod(0o600)
+        with self.assertRaisesRegex(ValueError, 'proof artifact pin invalid'):
+            analyzer._proof_artifact_bytes(bundle)
+
+        no_artifacts = self.write_json('no-artifacts-proof-receipt.json', {
+            'schema': 'credential-v3-heldout-proof-evidence-v1',
+            'mode': 'full', 'proof_mode': 'matched-full-k1',
+            'proof_report': proof_report,
+        })
+        self.assertEqual(analyzer._proof_artifact_bytes({
+            'receipt': no_artifacts, 'artifacts': {},
+        }), {
+            'status': 'unavailable',
+            'reason': 'proof receipt artifact references absent',
+        })
 
     def test_each_proof_step_must_pin_the_receipt_used_for_timing(self):
         manifest = json.loads(Path(self.manifest['path']).read_text())
