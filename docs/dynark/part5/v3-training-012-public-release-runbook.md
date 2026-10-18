@@ -34,6 +34,7 @@ METRICS_DIR="$RESULTS/v3-training-012-public-metrics-001"
 METRICS_CAPSULE="$METRICS_DIR/metrics.json"
 METRICS_SHA_FILE="$METRICS_DIR/metrics.sha256"
 PUBLIC_REPORT="$METRICS_DIR/report.md"
+INTERPRETATION_NOTE="$RESULTS/v3-training-012-interpretation.md"
 
 sha256_file() { shasum -a 256 "$1" | awk '{print $1}'; }
 test "$(git rev-parse --show-toplevel)" = "$ROOT"
@@ -54,6 +55,7 @@ test -s "$TOTAL_SUMMARY"
 test ! -e "$QUALIFICATION" && test ! -L "$QUALIFICATION"
 test ! -e "$RECEIPT_DIR" && test ! -L "$RECEIPT_DIR"
 test ! -e "$METRICS_DIR" && test ! -L "$METRICS_DIR"
+test ! -e "$INTERPRETATION_NOTE" && test ! -L "$INTERPRETATION_NOTE"
 ```
 
 These identity and presence checks do not qualify completion. The completion runbook's validation must have passed first; the publisher must independently recheck all 60 receipts, the sequence, clock, economics, reconciliation, and total summary before it writes any capsule.
@@ -134,7 +136,7 @@ printf '%s\n' "$METRICS_SHA" > "$METRICS_SHA_FILE"
 
 ## 7. Verify offline and render the public report
 
-The public verifier reads only the public projection, public receipts, the capsule, the published clock audit, and the separately pinned capsule byte hash. It independently recomputes the 20 paired component-sum totals, savings, and sampled strict-positive break-even. It cannot independently recover withheld private reports or prove the publisher's private identity equality claim. The renderer accepts only a verified capsule and keeps that limitation in the report.
+The public verifier reads only the public projection, public receipts, the capsule, the published clock audit, and an expected capsule byte hash. The hash computed in Step 6 checks local consistency; an independent reader needs a digest obtained from a separately trusted source, such as the reviewed pushed commit. The verifier independently recomputes the 20 paired component-sum totals, savings, and sampled strict-positive break-even. It cannot independently recover withheld private reports or prove the publisher's private identity equality claim. The renderer accepts only a verified capsule and keeps that limitation in the report.
 
 ```bash
 "$CAMPAIGN_PY" -B tools/part5/verify_v3_campaign_public_clock_audit.py \
@@ -151,4 +153,36 @@ The public verifier reads only the public projection, public receipts, the capsu
 test -s "$PUBLIC_REPORT"
 ```
 
-Inspect each public file before staging it. Publish only the verified projection, 60-receipt bundle, metrics capsule, capsule digest, clock audit, report, and a scrubbed interpretation note. Stage their exact paths; keep the raw manifest, keys, witnesses, proofs, private effects, full reports, and other untracked files outside Git. No Training-012 metric or benefit is asserted by this prospective procedure before the complete run and these commands pass.
+## 8. Interpret and stage only public evidence
+
+Write `$INTERPRETATION_NOTE` after inspecting the verified report. State the measured Full and Anchor component totals and spread, strict-positive sampled break-even or its absence, the registered 20% target result, resource costs, and the distinction between training component sums and directly timed complete application arms. Include the capsule digest and source commit. Do not copy paths, arguments, keys, DER, witnesses, proofs, or private effect reports into the note.
+
+Inspect each public file before staging it. The allowed public paths are the three already published projection files (`index.json`, `matrix-plan.json`, `matrix-manifest.json`), the receipt bundle's `index.json`, `sequence-receipt.json`, and exactly `slot-receipts/slot-0001.json` through `slot-0060.json`, the metrics directory's `metrics.json`, `metrics.sha256`, `clock-audit.json`, and `report.md`, plus `$INTERPRETATION_NOTE`. The projection files are already tracked; the following block stages only the new public bundle after the note is written and checks the staged names exactly. Use a clean index for this step.
+
+```bash
+test -z "$(git diff --cached --name-only)"
+PUBLIC_NEW=(
+  "$RECEIPT_DIR/index.json" "$RECEIPT_DIR/sequence-receipt.json"
+  "$METRICS_CAPSULE" "$METRICS_SHA_FILE"
+  "$METRICS_DIR/clock-audit.json" "$PUBLIC_REPORT" "$INTERPRETATION_NOTE"
+)
+for ((i=1; i<=60; i++)); do
+  printf -v slot '%04d' "$i"
+  PUBLIC_NEW+=("$RECEIPT_DIR/slot-receipts/slot-$slot.json")
+done
+for path in "${PUBLIC_NEW[@]}"; do test -f "$path" && test ! -L "$path"; done
+git add -- "${PUBLIC_NEW[@]}"
+"$CAMPAIGN_PY" -B - "$ROOT" "${PUBLIC_NEW[@]}" <<'PY'
+from pathlib import Path
+import subprocess
+import sys
+root = Path(sys.argv[1])
+expected = {str(Path(path).relative_to(root)) for path in sys.argv[2:]}
+raw = subprocess.check_output(['git', 'diff', '--cached', '--name-only', '-z'], cwd=root)
+actual = {path.decode() for path in raw.split(b'\0') if path}
+assert actual == expected, 'unexpected or missing staged public path'
+print(f'{len(actual)} exact public paths staged')
+PY
+```
+
+Keep the raw manifest, keys, witnesses, proofs, private effects, full reports, and other untracked files outside Git. No Training-012 metric or benefit is asserted by this prospective procedure before the complete run and these commands pass.

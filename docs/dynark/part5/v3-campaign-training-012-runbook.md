@@ -119,32 +119,23 @@ ECONOMICS_REPORT="$RESULTS/v3-campaign-economics-training-012.json"
 RECONCILIATION_REPORT="$RESULTS/v3-campaign-cost-reconciliation-training-012.json"
 TOTAL_SUMMARY="$RESULTS/v3-campaign-total-cost-training-012.json"
 
-ensure_report() {
-  local path="$1"
-  shift
-  if [ -L "$path" ]; then
-    printf 'Refusing symlink report path: %s\n' "$path" >&2
-    return 1
-  elif [ -e "$path" ]; then
-    test -f "$path" && test -s "$path"
-  else
-    "$@"
-    test -f "$path" && test -s "$path"
-  fi
-}
+for report in "$ECONOMICS_REPORT" "$RECONCILIATION_REPORT" "$TOTAL_SUMMARY"; do
+  test ! -e "$report" && test ! -L "$report"
+done
 
-ensure_report "$ECONOMICS_REPORT" "$CAMPAIGN_PY" -B \
+"$CAMPAIGN_PY" -B \
   tools/part5/analyze_v3_campaign_economics.py \
   --manifest "$ECONOMICS_INPUT" --output "$ECONOMICS_REPORT"
-ensure_report "$RECONCILIATION_REPORT" "$CAMPAIGN_PY" -B \
+"$CAMPAIGN_PY" -B \
   tools/part5/reconcile_v3_campaign_costs.py \
   --matrix-manifest "$MATRIX" --economics-report "$ECONOMICS_REPORT" \
   --output "$RECONCILIATION_REPORT"
-ensure_report "$TOTAL_SUMMARY" "$CAMPAIGN_PY" -B \
+"$CAMPAIGN_PY" -B \
   tools/part5/summarize_v3_campaign_total.py \
   --reconciliation-report "$RECONCILIATION_REPORT" \
   --matrix-manifest "$MATRIX" --economics-report "$ECONOMICS_REPORT" \
   --output "$TOTAL_SUMMARY"
+test -s "$ECONOMICS_REPORT" && test -s "$RECONCILIATION_REPORT" && test -s "$TOTAL_SUMMARY"
 
 "$CAMPAIGN_PY" -B - "$ROOT" "$MATRIX" "$MATRIX_OUTPUT" "$ECONOMICS_INPUT" \
   "$CLOCK_REPORT" "$ECONOMICS_REPORT" "$RECONCILIATION_REPORT" "$TOTAL_SUMMARY" <<'PY'
