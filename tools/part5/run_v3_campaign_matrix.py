@@ -18,9 +18,8 @@ The JSON manifest uses schema ``part5-v3-campaign-matrix-input-v1`` and has:
   pins and a monitor owner
 * ``tools`` pins for python, proof_binary, adapter_binary, exporter, node, old_packet,
   effect_runner, session_script, bounded_runner, effect_config,
-  effect_supervisor, clone_r0 and clone_final. Campaigns training-006 and
-  training-007 also pin ``effect_execute`` because the effect supervisor
-  imports it directly.
+  effect_supervisor, clone_r0 and clone_final. Campaigns training-006 and later
+  also pin ``effect_execute`` because the effect supervisor imports it directly.
 
 Every file pin is ``{"path": "/absolute/canonical/path", "sha256": "..."}``.
 The script only executes after all manifest pins and registered evidence roles
@@ -195,7 +194,8 @@ def tool_names_for_campaign(campaign_id):
     names = ('python', 'proof_binary', 'adapter_binary', 'exporter', 'node',
              'old_packet', 'effect_runner', 'session_script', 'bounded_runner',
              'effect_config', 'effect_supervisor', 'clone_r0', 'clone_final')
-    if campaign_id in ('training-006', 'training-007'):
+    match = re.fullmatch(r'training-(\d+)', campaign_id)
+    if match and int(match.group(1)) >= 6:
         names += ('effect_execute',)
     return names
 

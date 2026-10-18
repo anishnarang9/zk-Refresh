@@ -1,0 +1,270 @@
+{
+  "campaign_id": "training-009",
+  "campaign_runtime_seconds": 129600,
+  "evidence": {
+    "cohort_receipt": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-cohort-002/cohort/cohort-receipt.json",
+      "sha256": "08ea8df64177d65ff509344b10d1592387578f96eef8e74ec7ca33157e8e4b8b"
+    },
+    "cohort_root": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-cohort-002/cohort",
+    "context": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-cohort-002/context.json",
+      "sha256": "5d4d9df969de1b7ba5be86b777c763f757fd15540ca83700d157ddecdf2b159f"
+    },
+    "freeze": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/part5/v3-campaign-freeze-002/freeze.json",
+      "sha256": "37ea465e2493d53a20cbd7ba24cb75a5ecb83c51b91a4abde1f38d1b7021d4c6"
+    },
+    "stage_config": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-stage-config-002.json",
+      "sha256": "4b111c485af2532e524e6e35f4d71827d0d9f3351f3a6c1d6cb3ed59c6db5f37"
+    },
+    "stage_monitor": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-stage-bounded-002.json",
+      "sha256": "d847ea1b7b8abcc09f55941f5e0ba60f036b64bb6a0c53f653e83443c2b68341"
+    },
+    "stage_monitor_owner": "part5-v3-campaign-stage-002",
+    "stage_plan": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-stage-002/plan.json",
+      "sha256": "267fb7760260521bb0805127e9971eeaac7171092c0da3bae2160a002a45a2eb"
+    },
+    "stage_report": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-stage-002/stage-report.json",
+      "sha256": "7dc2c002d5b91d2b5ec0bb7472d3beb048b985cffe6f1a54111939e72f9c4fdb"
+    },
+    "stage_root": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-stage-002",
+    "stage_status": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-stage-control-002/status.json",
+      "sha256": "a9236d3023d05bdeea09fddba75334ffe4c603ac05523ab2f762dd513ba2b559"
+    },
+    "transitions": {
+      "1": {
+        "config": {
+          "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-r1-transition-config-003.json",
+          "sha256": "62b803c86f3015aae7d64eee92070fb90d2f064bb8e6447b627932a361f8b888"
+        },
+        "monitor": {
+          "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-r1-transition-bounded-003.json",
+          "sha256": "f788cf0135f44345dab548fd2af3d209aa2d026a24f5e7290429a3fab8dc923a"
+        },
+        "monitor_owner": "part5-v3-campaign-r1-transition-003",
+        "report": {
+          "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-r1-transition-003/transition-report.json",
+          "sha256": "442d31138dfc7f5437850b31536f47f6d7abfbfc9058e8e7787c79446a1d85f4"
+        },
+        "root": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-r1-transition-003",
+        "status": {
+          "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-r1-transition-control-003/status.json",
+          "sha256": "273e1d18d535b4134d842800e93855adb8cdfee602b86815aecd2af9f1cd84b3"
+        }
+      },
+      "10": {
+        "config": {
+          "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-r10-transition-config-003.json",
+          "sha256": "e17469e89b17dfefe4b440d6fe04aa2f18a096a978c5e494089ec80aec6e4598"
+        },
+        "monitor": {
+          "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-r10-transition-bounded-003.json",
+          "sha256": "18b640023f76f28cc7a52c97cd8ce02875615a8cc5ae05d4d38420f9b8fd0b9d"
+        },
+        "monitor_owner": "part5-v3-campaign-r10-transition-003",
+        "report": {
+          "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-r10-transition-003/transition-report.json",
+          "sha256": "bd61fad3feaaa5630d71e5c7fad145b93bc17ccf996adf57f75abed9eca0759d"
+        },
+        "root": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-r10-transition-003",
+        "status": {
+          "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-r10-transition-control-003/status.json",
+          "sha256": "2bd6a28f0670233acb6ada923c2516cdf5cf617d6be38bdbb77851150f70a7b7"
+        }
+      },
+      "2": {
+        "config": {
+          "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-r2-transition-config-003.json",
+          "sha256": "2e02443a424c76c5b23a9145019ca9c1509fd1bdc57f3c0028f3ac18fcfee0da"
+        },
+        "monitor": {
+          "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-r2-transition-bounded-003.json",
+          "sha256": "2f80b3da61eef2258e640e9ecf487e98d4250744325902c2c0ae3f3bd45dcfb3"
+        },
+        "monitor_owner": "part5-v3-campaign-r2-transition-003",
+        "report": {
+          "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-r2-transition-003/transition-report.json",
+          "sha256": "27314eb1a819866d988102599662cba64eb90579caa5eca18459ff43dcbf8b1f"
+        },
+        "root": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-r2-transition-003",
+        "status": {
+          "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-r2-transition-control-003/status.json",
+          "sha256": "643173112deb34817d270cd5d5e21cfbc4f4cf2668cdba30cf51208b81e8d9ed"
+        }
+      },
+      "5": {
+        "config": {
+          "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-r5-transition-config-003.json",
+          "sha256": "5df18e12a19f0d9607f28ceef13f8d83b06a97865d2fdffb4ada68226814601f"
+        },
+        "monitor": {
+          "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-r5-transition-bounded-003.json",
+          "sha256": "5358ea06954ee03d6053ef699f8b7c8c3013a3144c72dd6c14affbcb4b4cda4f"
+        },
+        "monitor_owner": "part5-v3-campaign-r5-transition-003",
+        "report": {
+          "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-r5-transition-003/transition-report.json",
+          "sha256": "3af9e0e4af743c9d52eda0031d00f50d5d1136dd971c50a41e9a9856ce26403f"
+        },
+        "root": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-r5-transition-003",
+        "status": {
+          "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/application-v3-campaign-r5-transition-control-003/status.json",
+          "sha256": "877cd0b4578b3bef40d34f95bb88781263684e9ea97e4184f58ad13af521e50a"
+        }
+      }
+    }
+  },
+  "limits": {
+    "0": {
+      "anchor": {
+        "rss_bytes": 4294967296,
+        "runtime_seconds": 2400,
+        "storage_bytes": 536870912
+      },
+      "coalesced-full": {
+        "rss_bytes": 4294967296,
+        "runtime_seconds": 900,
+        "storage_bytes": 536870912
+      },
+      "full": {
+        "rss_bytes": 4294967296,
+        "runtime_seconds": 900,
+        "storage_bytes": 536870912
+      }
+    },
+    "1": {
+      "anchor": {
+        "rss_bytes": 4294967296,
+        "runtime_seconds": 2400,
+        "storage_bytes": 536870912
+      },
+      "coalesced-full": {
+        "rss_bytes": 4294967296,
+        "runtime_seconds": 900,
+        "storage_bytes": 536870912
+      },
+      "full": {
+        "rss_bytes": 4294967296,
+        "runtime_seconds": 900,
+        "storage_bytes": 536870912
+      }
+    },
+    "10": {
+      "anchor": {
+        "rss_bytes": 4294967296,
+        "runtime_seconds": 3300,
+        "storage_bytes": 536870912
+      },
+      "coalesced-full": {
+        "rss_bytes": 4294967296,
+        "runtime_seconds": 900,
+        "storage_bytes": 536870912
+      },
+      "full": {
+        "rss_bytes": 4294967296,
+        "runtime_seconds": 2400,
+        "storage_bytes": 536870912
+      }
+    },
+    "2": {
+      "anchor": {
+        "rss_bytes": 4294967296,
+        "runtime_seconds": 2400,
+        "storage_bytes": 536870912
+      },
+      "coalesced-full": {
+        "rss_bytes": 4294967296,
+        "runtime_seconds": 900,
+        "storage_bytes": 536870912
+      },
+      "full": {
+        "rss_bytes": 4294967296,
+        "runtime_seconds": 1200,
+        "storage_bytes": 536870912
+      }
+    },
+    "5": {
+      "anchor": {
+        "rss_bytes": 4294967296,
+        "runtime_seconds": 2700,
+        "storage_bytes": 536870912
+      },
+      "coalesced-full": {
+        "rss_bytes": 4294967296,
+        "runtime_seconds": 900,
+        "storage_bytes": 536870912
+      },
+      "full": {
+        "rss_bytes": 4294967296,
+        "runtime_seconds": 1800,
+        "storage_bytes": 536870912
+      }
+    }
+  },
+  "output_root": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-matrix-training-009",
+  "schema": "part5-v3-campaign-matrix-input-v1",
+  "tools": {
+    "adapter_binary": {
+      "path": "/Users/anishnarang/Zk-refresh/crates/dynark-solana-adapter/target/debug/build/dynark-solana-adapter/3a4659842a713e9a/out/v3_request_bound_host-3a4659842a713e9a",
+      "sha256": "5e364d7ea4d2321a1135e697ed7cf3233abaa832d371bff2f4dfdf2ea5ff6521"
+    },
+    "bounded_runner": {
+      "path": "/Users/anishnarang/Zk-refresh/results/dynark/part5/session_runner.py",
+      "sha256": "77fc4107089d14039af8726051e174a9b6508e09c13b07e2ac1bcc083eec5429"
+    },
+    "clone_final": {
+      "path": "/Users/anishnarang/Zk-refresh/harness/tests/queue_v3_clone_campaign_final.py",
+      "sha256": "1f3c7c7c389b4bf83c6d987761406cedff38ee0dad0669707346188d9d3de9af"
+    },
+    "clone_r0": {
+      "path": "/Users/anishnarang/Zk-refresh/harness/tests/queue_v3_clone_campaign_r0.py",
+      "sha256": "cf567fa4037ecbf74a7db6b8bbdc18296db2a776f0c2692d78d8d4238ee3bcca"
+    },
+    "effect_config": {
+      "path": "/Users/anishnarang/Zk-refresh/tools/part5/create_v3_campaign_effect_config.py",
+      "sha256": "5df148a405871bcf357afab233dd7da02bad9b69a082eacde7a086b41bbfa297"
+    },
+    "effect_execute": {
+      "path": "/Users/anishnarang/Zk-refresh/harness/tests/queue_v3_local_execute.py",
+      "sha256": "df6fd4ff07bab02fffc8f05c3c58e2e744432a37b23c0ee25bb4addcc2fd430e"
+    },
+    "effect_runner": {
+      "path": "/Users/anishnarang/Zk-refresh/harness/target/debug/build/zk-fresh-benchmark/0d22d099108927cf/out/queue_v3-0d22d099108927cf",
+      "sha256": "7d065e967bb38bcb06e4bf5de6506a94d042301314627b720daa8c19c203b2ff"
+    },
+    "effect_supervisor": {
+      "path": "/Users/anishnarang/Zk-refresh/harness/tests/queue_v3_local_campaign_effect.py",
+      "sha256": "2851442797c8daff367138646e6f6f4020cbee9eb0ec9de66dbe350b35d53ac0"
+    },
+    "exporter": {
+      "path": "/Users/anishnarang/Zk-refresh/program/target/debug/examples/export_v3_request_fixture",
+      "sha256": "d5b10820153334b5cb5996ad2f26aad95a033741e0883f69019ebf79fb051700"
+    },
+    "node": {
+      "path": "/Users/anishnarang/.nvm/versions/node/v24.10.0/bin/node",
+      "sha256": "9e759d34d97af8a71b75854d20af297794611155406997f06d796b5e0f6d573b"
+    },
+    "old_packet": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-full-r1-proof-training-001/packet-003.json",
+      "sha256": "f74da66ef9a12c03a028ed52bee8cb4de2ddf0958abbecb0b7e528b22065512b"
+    },
+    "proof_binary": {
+      "path": "/Users/anishnarang/Zk-refresh/circuits/credential-v3-bounded/qualification/proof-runner-v1/target/release/credential-v3-bounded-proof-qualification-v1",
+      "sha256": "b564fc5d9159aa5d96589221a73cf0c1fba6d3cf91439e05a842f36e380c0305"
+    },
+    "python": {
+      "path": "/Users/anishnarang/Zk-refresh/artifacts/dynark/part5/v3-campaign-python-002",
+      "sha256": "4fce274f0e60574ada0b53f17bceb49bbd804125ddae972c7674b8eb13d9e49d"
+    },
+    "session_script": {
+      "path": "/Users/anishnarang/Zk-refresh/tools/part5/run_v3_campaign_session.py",
+      "sha256": "ec829bad3b7bee77c50f143da032af706a0d789360b4cee92d16e0bcf06853c6"
+    }
+  }
+}

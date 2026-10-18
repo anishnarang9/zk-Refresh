@@ -70,10 +70,12 @@ class CampaignMatrixTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'changed after manifest validation'):
                 matrix.verify_launch_pins(validated, ('effect_execute',))
 
-    def test_training_007_requires_and_forwards_effect_execute_pin(self):
-        for campaign_id in ('training-006', 'training-007'):
+    def test_training_006_and_later_require_and_forward_effect_execute_pin(self):
+        for campaign_id in ('training-006', 'training-007', 'training-008',
+                            'training-009', 'training-010'):
             self.assertIn('effect_execute', matrix.tool_names_for_campaign(campaign_id))
-        for campaign_id in ('training-004', 'training-005'):
+        for campaign_id in ('training-001', 'training-002', 'training-003',
+                            'training-004', 'training-005'):
             self.assertNotIn('effect_execute', matrix.tool_names_for_campaign(campaign_id))
 
         python = Path('/runtime/python')
