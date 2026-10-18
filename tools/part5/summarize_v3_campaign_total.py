@@ -146,6 +146,27 @@ def summarize(reconciliation, economics):
             or economics.get('training_only') is not True):
         raise ValueError('training campaign economics report required')
 
+    effect_costs = economics.get('application_effect_costs')
+    effect_metric_sessions = 0
+    if effect_costs is not None:
+        if not isinstance(effect_costs, dict):
+            raise ValueError('application effect cost map required')
+        confirmed = effect_costs.get('confirmed_rpc_metrics')
+        by_mode = confirmed.get('by_mode') if isinstance(confirmed, dict) else None
+        if not isinstance(by_mode, dict) or set(by_mode) != {
+                'full', 'anchor', 'coalesced-full'}:
+            raise ValueError('application effect metrics by mode required')
+        for mode in ('full', 'anchor', 'coalesced-full'):
+            row = by_mode[mode]
+            count = row.get('available_samples') if isinstance(row, dict) else None
+            if type(count) is not int or count < 0:
+                raise ValueError('application effect metric sample count required')
+            effect_metric_sessions += count
+        if any(effect_costs.get(field) is not bool(effect_metric_sessions)
+               for field in ('transaction_bytes_available',
+                             'compute_units_available', 'fee_lamports_available')):
+            raise ValueError('application effect availability contradicts samples')
+
     econ = _index(economics.get('pairs'), 'economics')
     costs = _index(reconciliation.get('pairs'), 'reconciliation')
     if set(econ) != set(costs):
@@ -262,8 +283,11 @@ def summarize(reconciliation, economics):
         },
         'resource_limits': {
             'rss_and_storage': 'report per-slot sampled outer peaks from the economics report',
-            'transaction_bytes_available': False,
-            'compute_units_available': False,
+            'transaction_bytes_available': effect_metric_sessions > 0,
+            'compute_units_available': effect_metric_sessions > 0,
+            'fee_lamports_available': effect_metric_sessions > 0,
+            'confirmed_application_effect_metric_sessions': effect_metric_sessions,
+            'confirmed_rpc_metric_source': 'economics report application_effect_costs',
         },
         'extrapolation_used': False,
         'whole_application_benefit_established': False,

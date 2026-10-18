@@ -124,6 +124,25 @@ class CampaignTotalSummaryTests(unittest.TestCase):
         self.assertFalse(report['cpu']['complete_tree_cpu_qualified'])
         self.assertFalse(report['extrapolation_used'])
 
+    def test_reports_available_effect_transaction_metrics_from_economics(self):
+        economics, reconciler = self.fixtures()
+        economics['application_effect_costs'] = {
+            'transaction_bytes_available': True,
+            'compute_units_available': True,
+            'fee_lamports_available': True,
+            'confirmed_rpc_metrics': {'by_mode': {
+                'full': {'available_samples': 1},
+                'anchor': {'available_samples': 1},
+                'coalesced-full': {'available_samples': 0},
+            }},
+        }
+        report = tool.summarize(reconciler, economics)
+        resources = report['resource_limits']
+        self.assertTrue(resources['transaction_bytes_available'])
+        self.assertTrue(resources['compute_units_available'])
+        self.assertTrue(resources['fee_lamports_available'])
+        self.assertEqual(resources['confirmed_application_effect_metric_sessions'], 2)
+
     def test_break_even_is_incomplete_when_an_earlier_sample_is_missing(self):
         economics, reconciler = self.fixtures()
         economics['pairs'] = [row for row in economics['pairs']
