@@ -513,7 +513,7 @@ pub fn disabled_config_negative_from_env() -> Result<()> {
         .sequence
         .checked_add(1)
         .context("issuer source sequence overflow")?;
-    let issuer_source_digest = source_digest(
+    let issuer_source_digest = self::source_digest(
         reenabled_config.root,
         &reenabled_issuer,
         issuer_observed,
