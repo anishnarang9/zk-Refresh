@@ -14,6 +14,8 @@ Pushed commit `1fd7f53` adds held-out effect-transaction and pinned proof-artifa
 
 **2026-10-18 post-snapshot update (01:06 UTC):** Pushed `4323f65` to apply the registered median strict-positive break-even rule, carry confirmed transaction-byte/compute/fee samples, and expose matrix-grid completeness; pushed `ef2506e` to require the 60-slot grid for the held-out model. The related Python suite passed 41 tests and 4 subtests. Training-007 remains live and incomplete; the last verified ordered receipt sequence has four receipts, ending at repetition 1, `k = 1`, Full (`r1-k1-full`). No full-matrix or held-out result is established.
 
+**2026-10-18 implementation and run update (01:20 UTC):** Pushed `c255ccf`, `699963d`, `210736b`, and `9e1e897` so cost reconciliation requires and revalidates the completed 60-slot receipt chain, the total summary and held-out model carry its SHA-256 pin, and sequence timings match each current slot report. The related focused suite passed 28 tests. Training-007 still has four independently verified ordered receipts; `r1-k1-anchor` is running without a fifth receipt. The held-out runner-002, held-out cohort, full-matrix reports, and final benefit result do not yet exist.
+
 ## What the application demonstrates
 
 The experiment covers the declared bounded X.509/RSA profile and an exact, finalized action-v2 request. The v3 application checks the current authenticated registry state and uses a program-owned queue append with request consumption as its protected effect. This is development evidence for the declared profile; it does not establish arbitrary X.509 support, production issuer operations, production setup, or devnet deployment.
@@ -150,6 +152,61 @@ savings remain unqualified unless the cross-session ordering receipt verifies
 the CPU accounting. Report peak RSS and retained/storage growth, plus
 transaction size and compute where present; wall time alone does not establish
 a resource or deployment benefit.
+
+### Conditional post-matrix Training-007 reports (not run)
+
+Run this only after Training-007 has all 60 ordered slot receipts and its
+verified sequence receipt; the matrix runner publishes
+`economics-input-manifest.json` only after that gate. The preflight and
+reconciler below recheck the receipt chain. These commands describe a future
+report sequence and do not mean any report exists. Run from the repository
+root, with fresh output paths:
+
+```sh
+set -euo pipefail
+ROOT="$PWD"
+PY="$ROOT/artifacts/dynark/part5/v3-campaign-python-002"
+MATRIX="$ROOT/results/dynark/part5/v3-campaign-matrix-training-007.json"
+OUTPUT_ROOT="$ROOT/artifacts/dynark/part5/v3-matrix-training-007"
+ECONOMICS_INPUT="$OUTPUT_ROOT/economics-input-manifest.json"
+ECONOMICS_REPORT="$ROOT/results/dynark/part5/v3-campaign-economics-training-007.json"
+RECONCILIATION_REPORT="$ROOT/results/dynark/part5/v3-campaign-cost-reconciliation-training-007.json"
+TOTAL_SUMMARY="$ROOT/results/dynark/part5/v3-campaign-total-cost-training-007.json"
+
+test -s "$ECONOMICS_INPUT"
+for OUTPUT in "$ECONOMICS_REPORT" "$RECONCILIATION_REPORT" \
+  "$TOTAL_SUMMARY"; do
+  test ! -e "$OUTPUT" && test ! -L "$OUTPUT"
+done
+
+"$PY" -B -c '
+import sys
+from pathlib import Path
+from tools.part5 import run_v3_campaign_matrix as matrix
+from tools.part5.reconcile_v3_campaign_costs import verify_completed_matrix
+
+matrix_path, output_root = map(Path, sys.argv[1:])
+validated = matrix.validate_manifest(matrix_path)
+if validated["campaign_id"] != "training-007":
+    raise ValueError("wrong training campaign")
+if validated["output_root"] != output_root:
+    raise ValueError("wrong matrix output root")
+if (matrix.read_json(output_root / "economics-input-manifest.json") !=
+        matrix.economics_input_manifest(matrix.plan_slots(validated))):
+    raise ValueError("economics input differs from registered plan")
+verify_completed_matrix(validated)
+' "$MATRIX" "$OUTPUT_ROOT"
+
+"$PY" -B tools/part5/analyze_v3_campaign_economics.py \
+  --manifest "$ECONOMICS_INPUT" --output "$ECONOMICS_REPORT"
+"$PY" -B tools/part5/reconcile_v3_campaign_costs.py \
+  --matrix-manifest "$MATRIX" --economics-report "$ECONOMICS_REPORT" \
+  --output "$RECONCILIATION_REPORT"
+"$PY" -B tools/part5/summarize_v3_campaign_total.py \
+  --reconciliation-report "$RECONCILIATION_REPORT" \
+  --matrix-manifest "$MATRIX" --economics-report "$ECONOMICS_REPORT" \
+  --output "$TOTAL_SUMMARY"
+```
 
 ## Held-out acceptance: pending
 
