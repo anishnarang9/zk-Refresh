@@ -739,6 +739,70 @@ def test_disabled_config_sidecar_reuse_requires_every_pinned_snapshot(tmp_path):
         sidecar_path, hashlib.sha256(sidecar_path.read_bytes()).hexdigest())
 
 
+def test_disabled_config_negative_missing_child_report_has_bounded_diagnostics(
+        tmp_path, monkeypatch):
+    artifacts = tmp_path / 'artifacts'
+    monkeypatch.setattr(runner, 'ARTIFACTS', artifacts)
+    case_runner = object.__new__(runner.HeldoutCaseRunner)
+    case_runner.variant = 0
+    case_runner.run_id = 'a' * 32
+    case_runner.manifest = {
+        'frozen_files': {'loaded_elf': {'sha256': 'b' * 64}},
+        'runner': '/private/runner', 'runner_sha256': 'c' * 64,
+    }
+    case_runner.toolpaths = {'disabled_config_negative': Path('/private/child.py')}
+
+    def failed_child(owner, command, monitor_dir, monitor_path, **kwargs):
+        outer = {'exit_code': 1, 'stop_reason': None, 'passed': False}
+        monitor_dir.mkdir(mode=0o700)
+        (monitor_dir / 'stderr.log').write_text('bounded monitor stderr secret marker')
+        monitor_path.write_bytes(runner.encoded(outer))
+        Path(kwargs['storage_paths'][0]).mkdir(mode=0o700, parents=True)
+        control = Path(kwargs['storage_paths'][1])
+        control.mkdir(mode=0o700, parents=True)
+        (control / 'status.json').write_text('{"status":"failed"}\n')
+        (control / 'runner.stderr.log').write_text('child stderr secret marker')
+        return outer
+
+    case_runner.bounded_run = failed_child
+    stage_report_path = tmp_path / 'stage-report.json'
+    stage_report_path.write_bytes(runner.encoded({
+        'program': 'program-key', 'genesis': 'genesis-key'}))
+    stage = {
+        'report': str(stage_report_path),
+        'report_sha256': runner.digest(stage_report_path.read_bytes()),
+        'root': str(tmp_path / 'stage-root'),
+        'plan': str(tmp_path / 'stage-plan'), 'plan_sha256': 'd' * 64,
+        'config': str(tmp_path / 'stage-config'), 'config_sha256': 'e' * 64,
+        'status_path': str(tmp_path / 'stage-status'), 'status_sha256': 'f' * 64,
+        'monitor': str(tmp_path / 'stage-monitor'), 'monitor_sha256': '1' * 64,
+        'monitor_owner': 'stage-owner',
+    }
+    proof = {'wires': {'r0_full_wire': {'path': str(tmp_path / 'full.wire'),
+                                        'sha256': '2' * 64}}}
+    clone = {'ledger': str(tmp_path / 'ledger'), 'receipt': str(tmp_path / 'clone.json'),
+             'receipt_sha256': '3' * 64}
+    output = Path(case_runner._art('positive_full', 'disabled-config-negative'))
+    control = Path(case_runner._art(
+        'positive_full', 'disabled-config-negative-control'))
+
+    with pytest.raises(ValueError) as caught:
+        case_runner._disabled_config_negative(
+            'positive_full', tmp_path, stage, {'receipt_sha256': '4' * 64},
+            proof, clone)
+
+    message = str(caught.value)
+    assert 'missing report' in message
+    assert 'exit_code=1' in message
+    assert 'stop_reason=None' in message
+    assert str(tmp_path / 'disabled-config-negative' / 'outer.json') in message
+    assert str(tmp_path / 'disabled-config-negative' / 'monitor' / 'stderr.log') in message
+    assert str(control / 'runner.stderr.log') in message
+    assert str(control / 'status.json') in message
+    assert str(output / 'disabled-config-negative-report.json') in message
+    assert 'secret marker' not in message
+
+
 def test_acceptance_costs_include_full_branch_wall_and_shared_setup_wall():
     costs = runner.acceptance_wall_costs({
         'positive_full:proof-full': {'wall_seconds': 10},

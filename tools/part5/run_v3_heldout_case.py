@@ -1367,6 +1367,24 @@ class HeldoutCaseRunner:
                 storage_paths=(Path(output), Path(control)),
                 env={'P5_V3_DISABLED_CONFIG_NEGATIVE_SCOPE':
                      'part5-v3-disabled-config-negative'})
+            missing = [name for name, path in (
+                ('status', status_path), ('report', report_path))
+                if not path.is_file()]
+            if missing:
+                exit_code = outer.get('exit_code') if type(outer) is dict else None
+                if type(exit_code) is not int:
+                    exit_code = 'unknown'
+                stop_reason = outer.get('stop_reason') if type(outer) is dict else None
+                if stop_reason not in (None, 'runtime_seconds',
+                        'owned_tree_rss_bytes', 'storage_growth_bytes', 'runner_error'):
+                    stop_reason = 'unrecognized'
+                raise ValueError(
+                    'bounded disabled-config child missing '
+                    f'{", ".join(missing)} artifact(s); exit_code={exit_code}; '
+                    f'stop_reason={stop_reason}; monitor={monitor_path}; '
+                    f'bounded_stderr={monitor_dir / "stderr.log"}; '
+                    f'child_stderr={Path(control) / "runner.stderr.log"}; '
+                    f'status={status_path}; report={report_path}')
             status, report = _json(status_path), _json(report_path)
         if (not reviewed_application_outer(outer)
                 or outer.get('exit_code') != 1
