@@ -100,12 +100,12 @@ mod tests {
     }
 
     #[test]
-    fn cumulative_request_context_accepts_only_registered_zero_to_target_steps() {
+    fn cumulative_request_context_accepts_checkpoint_generations_through_ten() {
         let base = RootOnlyContext {
             root_version: 0,
             ..base()
         };
-        for count in [1, 2, 5, 10] {
+        for count in 1..=10 {
             let target = RootOnlyContext {
                 root: [count as u8 + 4; 32],
                 root_version: count,
@@ -126,9 +126,12 @@ mod tests {
         let mut wrong = base;
         wrong.root[0] ^= 1;
         assert!(admit_cumulative_request(&base, &wrong, 0).is_err());
-        for count in [3, 4, 11] {
-            assert!(admit_cumulative_request(&base, &base, count).is_err());
-        }
+        let unsupported = RootOnlyContext {
+            root: [15; 32],
+            root_version: 11,
+            ..base
+        };
+        assert!(admit_cumulative_request(&base, &unsupported, 11).is_err());
     }
 
     #[test]
@@ -398,16 +401,14 @@ pub(crate) fn admit_pair(
 /// The registered campaign compares one immutable R0 action with one current
 /// target after a fixed number of distinct, unrelated signed revocations.
 /// k=0 is the no-refresh Full control. This mathematical guard is not source,
-/// allocation, finality, request or current-chain authentication.
+/// allocation, finality, request or current-chain authentication. This count is
+/// the checkpoint generation; packet parsing validates terminal campaign counts.
 pub(crate) fn admit_cumulative_request(
     base: &RootOnlyContext,
     target: &RootOnlyContext,
     count: u64,
 ) -> Result<()> {
-    required(
-        matches!(count, 0 | 1 | 2 | 5 | 10),
-        "registered update count",
-    )?;
+    required(count <= 10, "cumulative checkpoint generation")?;
     admit_same_context(base, target)?;
     required(
         base.root_version == 0
