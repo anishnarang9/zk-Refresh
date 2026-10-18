@@ -70,6 +70,62 @@ class CampaignMatrixTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'changed after manifest validation'):
                 matrix.verify_launch_pins(validated, ('effect_execute',))
 
+    def test_training_007_requires_and_forwards_effect_execute_pin(self):
+        for campaign_id in ('training-006', 'training-007'):
+            self.assertIn('effect_execute', matrix.tool_names_for_campaign(campaign_id))
+        for campaign_id in ('training-004', 'training-005'):
+            self.assertNotIn('effect_execute', matrix.tool_names_for_campaign(campaign_id))
+
+        python = Path('/runtime/python')
+        effect_execute = Path('/repo/queue_v3_local_execute.py')
+        validated = {
+            'evidence': {},
+            'evidence_paths': {
+                'freeze': Path('/freeze.json'),
+                'context': Path('/context.json'),
+            },
+            'cohort_root': Path('/cohort'),
+            'stage_root': Path('/stage'),
+            'tools': {
+                'python': python,
+                'session_script': Path('/repo/run_v3_campaign_session.py'),
+                'proof_binary': Path('/proof'),
+                'adapter_binary': Path('/adapter'),
+                'exporter': Path('/exporter'),
+                'node': Path('/node'),
+                'old_packet': Path('/packet'),
+                'effect_runner': Path('/effect-runner'),
+                'effect_execute': effect_execute,
+            },
+            'tools_manifest': {
+                name: {'sha256': f'{index:064x}'}
+                for index, name in enumerate((
+                    'exporter', 'node', 'old_packet', 'effect_config',
+                    'effect_supervisor', 'bounded_runner', 'effect_execute'), 1)
+            },
+            'transitions': {'1': {
+                'root': Path('/transition'),
+                'config': Path('/transition/config.json'),
+                'report': Path('/transition/report.json'),
+                'status': Path('/transition/status.json'),
+                'monitor': Path('/transition/monitor.json'),
+                'monitor_owner': 'transition-owner',
+            }},
+        }
+        slot = {'mode': 'full', 'target_count': 1, 'repetition': 1}
+        paths = {'clone_report': Path('/clone/report.json'),
+                 'work_root': Path('/work'), 'effect_output': Path('/effect'),
+                 'control_output': Path('/control')}
+
+        argv = matrix.session_argv(validated, slot, paths)
+
+        self.assertIn('--effect-execute', argv)
+        self.assertEqual(argv[argv.index('--effect-execute') + 1], str(effect_execute))
+        self.assertIn('--effect-execute-sha256', argv)
+        self.assertEqual(
+            argv[argv.index('--effect-execute-sha256') + 1],
+            validated['tools_manifest']['effect_execute']['sha256'])
+
     def test_effect_outputs_satisfy_loaded_application_supervisor(self):
         from harness.tests.queue_v3_local_stage import validate_stage_paths
 

@@ -18,8 +18,9 @@ The JSON manifest uses schema ``part5-v3-campaign-matrix-input-v1`` and has:
   pins and a monitor owner
 * ``tools`` pins for python, proof_binary, adapter_binary, exporter, node, old_packet,
   effect_runner, session_script, bounded_runner, effect_config,
-  effect_supervisor, clone_r0 and clone_final. Campaign training-006 also pins
-  ``effect_execute`` because the effect supervisor imports it directly.
+  effect_supervisor, clone_r0 and clone_final. Campaigns training-006 and
+  training-007 also pin ``effect_execute`` because the effect supervisor
+  imports it directly.
 
 Every file pin is ``{"path": "/absolute/canonical/path", "sha256": "..."}``.
 The script only executes after all manifest pins and registered evidence roles
@@ -190,6 +191,15 @@ def validate_caps(raw, campaign_seconds):
     return normalized
 
 
+def tool_names_for_campaign(campaign_id):
+    names = ('python', 'proof_binary', 'adapter_binary', 'exporter', 'node',
+             'old_packet', 'effect_runner', 'session_script', 'bounded_runner',
+             'effect_config', 'effect_supervisor', 'clone_r0', 'clone_final')
+    if campaign_id in ('training-006', 'training-007'):
+        names += ('effect_execute',)
+    return names
+
+
 def validate_manifest(manifest_path, *, allow_legacy_inspection=False):
     manifest_path = Path(manifest_path).absolute()
     if manifest_path.resolve(strict=True) != manifest_path:
@@ -248,12 +258,8 @@ def validate_manifest(manifest_path, *, allow_legacy_inspection=False):
             raise ValueError(f'explicit transition monitor owner required for k={count}')
         transition_paths[str(count)] = {'root': root, **paths, 'monitor_owner': owner}
 
-    tool_names = ('python', 'proof_binary', 'adapter_binary', 'exporter', 'node', 'old_packet',
-                  'effect_runner', 'session_script', 'bounded_runner', 'effect_config',
-                  'effect_supervisor', 'clone_r0', 'clone_final')
-    require_effect_execute_pin = manifest.get('campaign_id') == 'training-006'
-    if require_effect_execute_pin:
-        tool_names += ('effect_execute',)
+    tool_names = tool_names_for_campaign(campaign_id)
+    require_effect_execute_pin = 'effect_execute' in tool_names
     tools_manifest = manifest.get('tools')
     if not isinstance(tools_manifest, dict):
         raise ValueError('pinned tools manifest required')
