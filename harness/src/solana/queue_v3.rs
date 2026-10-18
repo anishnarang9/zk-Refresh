@@ -1416,11 +1416,48 @@ pub fn execute_from_env() -> Result<()> {
         &mut events,
     )?;
     let rooted = transport::wait_finalized(&rpc, &events)?;
-    let (_, rejected) = finalized_accounts(&rpc, &p, rooted)?;
+    let (pre_submit_finalized_slot, rejected) = finalized_accounts(&rpc, &p, rooted)?;
     ensure!(
         rejected == bound,
         "rejected Execute changed any finalized account"
     );
+    let ambiguous_snapshot = match std::env::var("P5_V3_AMBIGUOUS_SNAPSHOT") {
+        Err(std::env::VarError::NotPresent) => false,
+        Ok(value) if value == "1" => true,
+        _ => bail!("ambiguous pre-submit snapshot requires explicit value 1"),
+    };
+    if ambiguous_snapshot {
+        for (name, bytes) in ["config", "issuer", "head", "request", "queue"]
+            .iter()
+            .zip(&rejected)
+        {
+            transport::new_file(&output.join(format!("pre-submit-{name}.bin")), bytes)?;
+        }
+        transport::new_json(
+            &output.join("pre-submit-report.json"),
+            &json!({
+                "schema":"part5-v3-ambiguous-pre-submit-v1",
+                "training_only":true,
+                "application_effect":false,
+                "request_consumed":false,
+                "finalized_slot":pre_submit_finalized_slot,
+                "stage_report_sha256":report_sha,
+                "stage_plan_sha256":plan_sha,
+                "wire_sha256":wire_sha,
+                "program":Pubkey::new_from_array(program).to_string(),
+                "genesis":Hash::new_from_array(genesis).to_string(),
+                "loaded_program":loaded.clone(),
+                "addresses":{
+                    "config":a.config.to_string(),
+                    "issuer":a.issuer.to_string(),
+                    "head":a.head.to_string(),
+                    "request":a.request.to_string(),
+                    "queue":a.queue.to_string(),
+                },
+                "account_sha256":rejected.iter().map(|bytes| hex::encode(Sha256::digest(bytes))).collect::<Vec<_>>(),
+            }),
+        )?;
+    }
     let good = p.execute(&wire)?;
     transport::send(
         &rpc,
