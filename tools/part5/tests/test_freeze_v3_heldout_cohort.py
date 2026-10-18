@@ -29,6 +29,7 @@ class HeldoutFreezePinClosureTests(unittest.TestCase):
             'tools/part5/witness_check.py',
             'tools/part5/prepare_v3_heldout_proof.py',
             'tools/part5/model_v3_heldout_break_even.py',
+            'tools/part5/observe_v3_heldout_cohort.py',
             'crates/dynark-native-client/tests/support/v3_relation_witness.cjs',
         }
         self.assertTrue(required.issubset(set(tool.CLIENT_FILES)))

@@ -335,6 +335,77 @@ def all_step_wall_seconds(journal_doc):
     return costs
 
 
+def _validate_observation_location(path, cohort_root):
+    path, cohort_root = Path(path), Path(cohort_root)
+    parent = path.parent
+    try:
+        parent_info = parent.lstat()
+        file_info = path.lstat()
+        if (not path.is_absolute() or path.resolve(strict=True) != path
+                or parent != cohort_root.parent
+                or parent.resolve(strict=True) != parent
+                or not stat.S_ISDIR(parent_info.st_mode)
+                or parent_info.st_uid != os.getuid()
+                or stat.S_IMODE(parent_info.st_mode) != 0o700
+                or not stat.S_ISREG(file_info.st_mode)
+                or file_info.st_uid != os.getuid()
+                or stat.S_IMODE(file_info.st_mode) != 0o600
+                or file_info.st_nlink != 1):
+            raise ValueError('private sibling observation required')
+    except OSError as error:
+        raise ValueError('private sibling observation required') from error
+
+
+def validate_cohort_observation(manifest, freeze_doc, cohort_doc):
+    reference = manifest.get('cohort_observation') if type(manifest) is dict else None
+    if (type(reference) is not dict or set(reference) != {'path', 'sha256'}
+            or not isinstance(reference.get('path'), str)
+            or not _hash(reference.get('sha256'))):
+        raise ValueError('pinned cohort observation reference required')
+    try:
+        _validate_observation_location(reference['path'], manifest.get('cohort_root'))
+        observation = json.loads(_read(reference['path'], reference['sha256'], 65536))
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        raise ValueError('pinned cohort observation could not be read') from error
+    required_fields = {
+        'schema', 'freeze_sha256', 'prior_key_inventory_sha256',
+        'wall_started_unix_ns', 'wall_completed_unix_ns',
+        'monotonic_started_ns', 'monotonic_completed_ns', 'child_exit_code',
+        'builder_source_sha256', 'observer_source_sha256', 'output_path_sha256',
+        'cohort_receipt_sha256', 'preexisting_output', 'creation_time_basis',
+        'openssl_invocation_observed',
+    }
+    if (type(freeze_doc) is not dict
+            or freeze_doc.get('schema') != 'credential-v3-frozen-holdout-boundary-v1'
+            or type(cohort_doc) is not dict
+            or cohort_doc.get('schema') != 'credential-v3-heldout-issuance-cohort-v1'
+            or type(manifest.get('cohort_root')) is not str
+            or type(observation) is not dict or set(observation) != required_fields
+            or observation.get('schema') != 'credential-v3-heldout-cohort-parent-observation-v1'
+            or observation.get('freeze_sha256') != manifest.get('freeze_sha256')
+            or observation.get('freeze_sha256') != cohort_doc.get('freeze_sha256')
+            or observation.get('cohort_receipt_sha256') != manifest.get('cohort_sha256')
+            or not _hash(observation.get('prior_key_inventory_sha256'))
+            or observation.get('prior_key_inventory_sha256') != cohort_doc.get(
+                'prior_key_inventory_sha256')
+            or not _hash(observation.get('builder_source_sha256'))
+            or not _hash(observation.get('observer_source_sha256'))
+            or observation.get('output_path_sha256') != digest(
+                str(Path(manifest.get('cohort_root'))).encode())
+            or any(type(observation.get(field)) is not int or observation[field] <= 0
+                   for field in ('wall_started_unix_ns', 'wall_completed_unix_ns',
+                                 'monotonic_started_ns', 'monotonic_completed_ns'))
+            or observation['wall_started_unix_ns'] > observation['wall_completed_unix_ns']
+            or observation['monotonic_started_ns'] > observation['monotonic_completed_ns']
+            or type(observation.get('child_exit_code')) is not int
+            or observation.get('child_exit_code') != 0
+            or observation.get('preexisting_output') is not False
+            or observation.get('creation_time_basis') != 'observer_parent_started_child_after_freeze'
+            or observation.get('openssl_invocation_observed') is not False):
+        raise ValueError('cohort observation does not pin successful cohort output')
+    return reference
+
+
 def validate_manifest(manifest):
     if (type(manifest) is not dict or manifest.get('schema') != RUN_SCHEMA
             or type(manifest.get('variant')) is not int
@@ -352,6 +423,7 @@ def validate_manifest(manifest):
             or cohort_doc.get('schema') != 'credential-v3-heldout-issuance-cohort-v1'
             or cohort_doc.get('freeze_sha256') != manifest['freeze_sha256']):
         raise ValueError('freeze receipt and issued cohort provenance mismatch')
+    validate_cohort_observation(manifest, freeze_doc, cohort_doc)
     template = Path(manifest['base_prepare_config'])
     base = json.loads(_read(template, manifest['base_prepare_config_sha256'], 65536))
     if (base.get('schema') != 1 or base.get('scope') != 'part5-v3-local-prepare'
@@ -1664,6 +1736,7 @@ class HeldoutCaseRunner:
                 'freeze_receipt': self._artifact(self.manifest['freeze_receipt']),
                 'cohort_receipt': self._artifact(
                     Path(self.manifest['cohort_root']) / 'cohort-receipt.json'),
+                'cohort_observation': self.manifest['cohort_observation'],
                 'source_files': self.manifest['source_files'],
                 'proof_inputs': self.manifest['proof_inputs'],
                 'frozen_files': {role: global_ref(role) for role in ROLE_NAMES},

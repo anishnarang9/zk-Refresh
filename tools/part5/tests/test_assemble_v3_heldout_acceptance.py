@@ -19,6 +19,7 @@ class HeldoutAcceptanceAssemblerTests(unittest.TestCase):
         self.globals = {
             'freeze_receipt': self.ref,
             'cohort_receipt': self.ref,
+            'cohort_observation': self.ref,
             'frozen_files': {role: self.ref for role in assembler.FROZEN_ROLES},
             'frozen_bundles': {
                 name: [{'path': f'{name}/file', 'artifact': self.ref}]
@@ -170,6 +171,21 @@ class HeldoutAcceptanceAssemblerTests(unittest.TestCase):
     def test_rejects_common_identity_mismatch(self):
         changed = json.loads(self.fragments[7].read_text())
         changed['cohort_receipt'] = {'path': str(self.artifact), 'sha256': '0' * 64}
+        self.fragments[7].write_text(json.dumps(changed))
+        with self.assertRaisesRegex(ValueError, 'common identities'):
+            self.assemble()
+
+    def test_requires_same_pinned_cohort_observation_for_all_cases(self):
+        for path in self.fragments:
+            changed = json.loads(path.read_text())
+            changed['cohort_observation'] = self.ref
+            path.write_text(json.dumps(changed))
+        manifest = self.assemble()
+        self.assertEqual(manifest['cohort_observation'], self.ref)
+
+        changed = json.loads(self.fragments[7].read_text())
+        changed['cohort_observation'] = {'path': str(self.artifact),
+                                         'sha256': '0' * 64}
         self.fragments[7].write_text(json.dumps(changed))
         with self.assertRaisesRegex(ValueError, 'common identities'):
             self.assemble()

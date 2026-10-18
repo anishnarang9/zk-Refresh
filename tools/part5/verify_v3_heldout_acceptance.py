@@ -794,6 +794,87 @@ def _verify_cohort_generation_provenance(freeze, freeze_sha, cohort, by_variant,
             'cohort_import_evidence': import_evidence}
 
 
+def _verify_cohort_parent_observation(observation_ref, freeze, freeze_sha, cohort,
+                                      cohort_ref, inventory_sha, client_paths):
+    _require(type(observation_ref) is dict
+             and set(observation_ref) == {'path', 'sha256'}
+             and type(observation_ref['path']) is str
+             and Path(observation_ref['path']).is_absolute()
+             and _is_sha(observation_ref['sha256']),
+             'pinned heldout parent observation required')
+    observation_path = Path(observation_ref['path'])
+    cohort_root = Path(cohort_ref['path']).parent
+    private_root = cohort_root.parent
+    expected_parent = ROOT / 'artifacts' / 'dynark' / 'part5'
+    _require(private_root.parent == expected_parent
+             and private_root.name.startswith('v3-heldout-private-')
+             and observation_path.parent == private_root
+             and observation_path != cohort_root,
+             'observation must be the private cohort sibling')
+    for directory in (private_root, cohort_root):
+        info = directory.lstat()
+        _require(directory.resolve(strict=True) == directory
+                 and stat.S_ISDIR(info.st_mode) and info.st_uid == os.getuid()
+                 and stat.S_IMODE(info.st_mode) == 0o700,
+                 'owner-only heldout observation directory required')
+    info = observation_path.lstat()
+    _require(stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid()
+             and stat.S_IMODE(info.st_mode) == 0o600,
+             'owner-only heldout observation receipt required')
+    observation, observation_sha = _json(observation_ref, cap=65536)
+    expected_fields = {
+        'schema', 'freeze_sha256', 'prior_key_inventory_sha256',
+        'wall_started_unix_ns', 'wall_completed_unix_ns',
+        'monotonic_started_ns', 'monotonic_completed_ns', 'child_exit_code',
+        'builder_source_sha256', 'observer_source_sha256',
+        'output_path_sha256', 'cohort_receipt_sha256', 'preexisting_output',
+        'creation_time_basis', 'openssl_invocation_observed',
+    }
+    _require(type(observation) is dict and set(observation) == expected_fields
+             and observation['schema']
+                == 'credential-v3-heldout-cohort-parent-observation-v1'
+             and observation['freeze_sha256'] == freeze_sha
+             and observation['prior_key_inventory_sha256'] == inventory_sha
+             and observation['cohort_receipt_sha256'] == cohort_ref['sha256']
+             and observation['output_path_sha256'] == _sha(str(cohort_root).encode())
+             and observation['builder_source_sha256']
+                == client_paths.get('tools/part5/build_v3_heldout_cohort.py', {}).get('sha256')
+             and observation['observer_source_sha256']
+                == client_paths.get('tools/part5/observe_v3_heldout_cohort.py', {}).get('sha256')
+             and all(_is_sha(observation[field]) for field in (
+                 'freeze_sha256', 'prior_key_inventory_sha256',
+                 'cohort_receipt_sha256', 'output_path_sha256',
+                 'builder_source_sha256', 'observer_source_sha256'))
+             and type(observation['child_exit_code']) is int
+             and observation['child_exit_code'] == 0
+             and observation['preexisting_output'] is False
+             and observation['creation_time_basis']
+                == 'observer_parent_started_child_after_freeze'
+             and observation['openssl_invocation_observed'] is False,
+             'frozen heldout parent observation identity required')
+    wall_started = observation['wall_started_unix_ns']
+    wall_completed = observation['wall_completed_unix_ns']
+    monotonic_started = observation['monotonic_started_ns']
+    monotonic_completed = observation['monotonic_completed_ns']
+    _require(all(type(value) is int for value in (
+                 wall_started, wall_completed, monotonic_started, monotonic_completed))
+             and 0 < freeze['frozen_at_unix_ns'] < wall_started
+             and wall_started <= cohort['generation_started_unix_ns']
+             and cohort['generation_started_unix_ns']
+                <= cohort['generation_completed_unix_ns'] <= wall_completed
+             and 0 < monotonic_started < monotonic_completed
+             and wall_started < wall_completed,
+             'heldout parent chronology must enclose cohort issuance after freeze')
+    return {
+        'observation_sha256': observation_sha,
+        'wall_started_unix_ns': wall_started,
+        'wall_completed_unix_ns': wall_completed,
+        'monotonic_elapsed_ns': monotonic_completed - monotonic_started,
+        'pinned_parent_observation_chronology_consistent': True,
+        'openssl_invocation_observed': False,
+    }
+
+
 def _source(source_ref, expected, globals_, case, stage, transition_sha=None,
             prior_r0_sha=None, prior_r0=None):
     _require(type(source_ref) is dict and set(source_ref) == {'receipt', 'artifacts'},
@@ -1889,7 +1970,8 @@ def _verify_case_run_provenance(case_bundle, variant, globals_, freeze_sha,
              and run.get('freeze_sha256') == freeze_sha
              and run.get('cohort_sha256') == cohort_sha,
              'case run manifest must bind the exact heldout variant and cohort')
-    for name in ('frozen_files', 'frozen_bundles', 'source_files', 'proof_inputs',
+    for name in ('cohort_observation', 'frozen_files', 'frozen_bundles',
+                 'source_files', 'proof_inputs',
                  'application_source_manifest', 'application_source_files'):
         _require(run.get(name) == globals_.get(name),
                  f'case run manifest {name} differs from common frozen evidence')
@@ -2644,6 +2726,14 @@ def verify_manifest(manifest_path):
     _require(verifier_rel in client_paths
              and client_paths[verifier_rel]['sha256'] == _sha(Path(__file__).read_bytes()),
              'acceptance verifier must be included in the frozen client source bundle')
+    cohort_import_evidence['parent_observation'] = _verify_cohort_parent_observation(
+        manifest.get('cohort_observation'), freeze, freeze_sha, cohort,
+        manifest['cohort_receipt'], cohort_provenance['prior_key_inventory_sha256'],
+        client_paths)
+    cohort_import_evidence['creation_time_basis'] = (
+        'pinned local observer receipt records post-freeze builder launch; '
+        'child receipts and imported keys and certificates corroborate its '
+        'chronology; execution is not externally attested')
 
     globals_ = {'freeze': freeze, 'freeze_sha256': freeze_sha,
                 'cohort': cohort, 'cohort_sha256': cohort_sha,

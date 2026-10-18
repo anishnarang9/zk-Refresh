@@ -73,6 +73,73 @@ def _ref(path, cap=1024 * 1024 * 1024):
     return {'path': str(path), 'sha256': digest(_read(path, cap))}
 
 
+def _validate_observation_location(path, cohort_root):
+    path, cohort_root = Path(path), Path(cohort_root)
+    parent = path.parent
+    try:
+        parent_info = parent.lstat()
+        file_info = path.lstat()
+        if (not path.is_absolute() or path.resolve(strict=True) != path
+                or parent != cohort_root.parent
+                or parent.resolve(strict=True) != parent
+                or not stat.S_ISDIR(parent_info.st_mode)
+                or parent_info.st_uid != os.getuid()
+                or stat.S_IMODE(parent_info.st_mode) != 0o700
+                or not stat.S_ISREG(file_info.st_mode)
+                or file_info.st_uid != os.getuid()
+                or stat.S_IMODE(file_info.st_mode) != 0o600
+                or file_info.st_nlink != 1):
+            raise ValueError('private sibling observation required')
+    except OSError as error:
+        raise ValueError('private sibling observation required') from error
+
+
+def validate_cohort_observation(reference, freeze_sha256, cohort_sha256,
+                                prior_key_inventory_sha256, cohort_root):
+    if (type(reference) is not dict or set(reference) != {'path', 'sha256'}
+            or not isinstance(reference.get('path'), str)
+            or not keygen._hash(reference.get('sha256'))):
+        raise ValueError('pinned cohort parent observation required')
+    try:
+        _validate_observation_location(reference['path'], cohort_root)
+        raw = _read(reference['path'], 65536)
+        if digest(raw) != reference['sha256']:
+            raise ValueError('observation pin mismatch')
+        document = json.loads(raw)
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        raise ValueError('cohort parent observation could not be read') from error
+    required_fields = {
+        'schema', 'freeze_sha256', 'prior_key_inventory_sha256',
+        'wall_started_unix_ns', 'wall_completed_unix_ns',
+        'monotonic_started_ns', 'monotonic_completed_ns', 'child_exit_code',
+        'builder_source_sha256', 'observer_source_sha256', 'output_path_sha256',
+        'cohort_receipt_sha256', 'preexisting_output', 'creation_time_basis',
+        'openssl_invocation_observed',
+    }
+    if (type(document) is not dict or set(document) != required_fields
+            or document.get('schema') != 'credential-v3-heldout-cohort-parent-observation-v1'
+            or document.get('freeze_sha256') != freeze_sha256
+            or document.get('cohort_receipt_sha256') != cohort_sha256
+            or not keygen._hash(document.get('prior_key_inventory_sha256'))
+            or document.get('prior_key_inventory_sha256') != prior_key_inventory_sha256
+            or not keygen._hash(document.get('builder_source_sha256'))
+            or not keygen._hash(document.get('observer_source_sha256'))
+            or document.get('output_path_sha256') != digest(
+                str(Path(cohort_root)).encode())
+            or any(type(document.get(field)) is not int or document[field] <= 0
+                   for field in ('wall_started_unix_ns', 'wall_completed_unix_ns',
+                                 'monotonic_started_ns', 'monotonic_completed_ns'))
+            or document['wall_started_unix_ns'] > document['wall_completed_unix_ns']
+            or document['monotonic_started_ns'] > document['monotonic_completed_ns']
+            or type(document.get('child_exit_code')) is not int
+            or document.get('child_exit_code') != 0
+            or document.get('preexisting_output') is not False
+            or document.get('creation_time_basis') != 'observer_parent_started_child_after_freeze'
+            or document.get('openssl_invocation_observed') is not False):
+        raise ValueError('cohort parent observation does not pin successful cohort output')
+    return {'path': reference['path'], 'sha256': reference['sha256']}
+
+
 def _write(path, raw):
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, 'wb') as stream:
@@ -96,7 +163,8 @@ def _frozen_identities(boundary):
 
 
 def build(freeze_receipt, cohort_root, base_prepare_config, packet_template,
-          adapter_binary, bounded_supervisor, node, exporter, runner, output_dir):
+          adapter_binary, bounded_supervisor, node, exporter, runner, output_dir,
+          cohort_observation):
     if Path(runner) != ROOT / freeze_tool.RUNNER_BINARY:
         raise ValueError('frozen heldout queue runner binary path required')
     output_dir = Path(output_dir)
@@ -116,6 +184,9 @@ def build(freeze_receipt, cohort_root, base_prepare_config, packet_template,
             or issued.get('freeze_sha256') != freeze['sha256']
             or issued.get('identities') != boundary.get('identities')):
         raise ValueError('frozen heldout cohort required')
+    observation = _ref(cohort_observation, 65536)
+    validate_cohort_observation(observation, freeze['sha256'], cohort['sha256'],
+                                issued.get('prior_key_inventory_sha256'), cohort_root)
     roles = dict(ROLE_PATHS, ordinary_adapter=Path(adapter_binary))
     frozen_files = {name: _ref(path) for name, path in roles.items()}
     if (set(frozen_files) != set(case_runner.ROLE_NAMES)
@@ -174,6 +245,7 @@ def build(freeze_receipt, cohort_root, base_prepare_config, packet_template,
                 'variant': variant,
                 'freeze_receipt': freeze['path'], 'freeze_sha256': freeze['sha256'],
                 'cohort_root': str(cohort_root), 'cohort_sha256': cohort['sha256'],
+                'cohort_observation': observation,
                 'base_prepare_config': template['path'],
                 'base_prepare_config_sha256': template['sha256'],
                 'runner': runner_binary['path'], 'runner_sha256': runner_binary['sha256'],
@@ -199,7 +271,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('freeze_receipt', 'cohort_root', 'base_prepare_config',
                  'packet_template', 'adapter_binary', 'bounded_supervisor',
-                 'node', 'exporter', 'runner', 'output_dir'):
+                 'node', 'exporter', 'runner', 'output_dir',
+                 'cohort_observation'):
         parser.add_argument('--' + name.replace('_', '-'), required=True, type=Path)
     args = parser.parse_args()
     try:

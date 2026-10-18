@@ -29,7 +29,7 @@ SOURCE_ROLES = {'heldout_source_tool', 'training_helper', 'exporter',
                 'request_fixture_bridge'}
 PROOF_ROLES = {'packet_template', 'witness_js', 'relation_checker', 'node',
                'proof_runner', 'adapter_binary', 'bounded_supervisor', 'exporter'}
-GLOBAL_FIELDS = ('freeze_receipt', 'cohort_receipt', 'frozen_files',
+GLOBAL_FIELDS = ('freeze_receipt', 'cohort_receipt', 'cohort_observation', 'frozen_files',
                  'frozen_bundles', 'application_source_manifest',
                  'application_source_files', 'source_files', 'proof_inputs')
 CASE_FIELDS = ('variant', 'case_context', 'stage_context', 'pair_receipt',
@@ -158,7 +158,8 @@ def _validate_cost_fields(case):
 def _verify_globals(globals_):
     if type(globals_) is not dict or set(globals_) != set(GLOBAL_FIELDS):
         raise ValueError('complete common acceptance identities required')
-    for name in ('freeze_receipt', 'cohort_receipt', 'application_source_manifest'):
+    for name in ('freeze_receipt', 'cohort_receipt', 'cohort_observation',
+                 'application_source_manifest'):
         _verify_ref(globals_[name])
     for mapping_name in ('frozen_files', 'source_files', 'proof_inputs',
                          'application_source_files'):

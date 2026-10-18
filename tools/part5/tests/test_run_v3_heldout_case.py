@@ -101,7 +101,7 @@ def test_manifest_builder_rejects_non_queue_runner_path(tmp_path):
     python.chmod(0o700)
     try:
         manifest_builder.build(None, None, None, None, None, None, None, None,
-                               python, tmp_path / 'manifests')
+                               python, tmp_path / 'manifests', None)
     except ValueError as error:
         assert 'heldout queue runner binary' in str(error)
     else:
@@ -536,3 +536,143 @@ def test_reviewed_r1_anchor_accepts_failed_status_with_verified_inner_report():
     assert not runner.reviewed_r1_branch(outer, own_status, own_report, 'own-revocation')
     status['branch_verified'] = False
     assert not runner.reviewed_r1_branch(outer, status, report, 'anchor')
+
+
+def _write_private_json(path, value):
+    raw = (json.dumps(value, sort_keys=True, indent=2) + '\n').encode()
+    path.write_bytes(raw)
+    path.chmod(0o600)
+    return {'path': str(path), 'sha256': hashlib.sha256(raw).hexdigest()}
+
+
+def test_cohort_observation_pin_binds_successful_parent_to_cohort(tmp_path):
+    cohort_root = tmp_path / 'cohort'
+    cohort_root.mkdir(mode=0o700)
+    freeze_sha = 'a' * 64
+    cohort_sha = 'b' * 64
+    observation = {
+        'schema': 'credential-v3-heldout-cohort-parent-observation-v1',
+        'freeze_sha256': freeze_sha,
+        'prior_key_inventory_sha256': 'c' * 64,
+        'wall_started_unix_ns': 10,
+        'wall_completed_unix_ns': 20,
+        'monotonic_started_ns': 30,
+        'monotonic_completed_ns': 40,
+        'child_exit_code': 0,
+        'builder_source_sha256': 'd' * 64,
+        'observer_source_sha256': 'e' * 64,
+        'output_path_sha256': hashlib.sha256(str(cohort_root).encode()).hexdigest(),
+        'cohort_receipt_sha256': cohort_sha,
+        'preexisting_output': False,
+        'creation_time_basis': 'observer_parent_started_child_after_freeze',
+        'openssl_invocation_observed': False,
+    }
+    ref = _write_private_json(tmp_path / 'observation.json', observation)
+
+    assert manifest_builder.validate_cohort_observation(
+        ref, freeze_sha, cohort_sha, 'c' * 64, cohort_root) == ref
+    with pytest.raises(ValueError, match='cohort parent observation'):
+        manifest_builder.validate_cohort_observation(
+            ref, freeze_sha, cohort_sha, 'f' * 64, cohort_root)
+    with pytest.raises(ValueError, match='cohort parent observation'):
+        manifest_builder.validate_cohort_observation(
+            {**ref, 'sha256': 'f' * 64}, freeze_sha, cohort_sha,
+            'c' * 64, cohort_root)
+
+    for key, bad_value in (
+        ('schema', 'other'), ('freeze_sha256', 'f' * 64),
+        ('cohort_receipt_sha256', 'd' * 64),
+        ('prior_key_inventory_sha256', 'invalid'),
+        ('output_path_sha256', 'a' * 64), ('child_exit_code', 1),
+        ('preexisting_output', True), ('wall_started_unix_ns', 0),
+        ('wall_completed_unix_ns', 9), ('monotonic_started_ns', 41),
+        ('creation_time_basis', 'other'), ('openssl_invocation_observed', True),
+        ('builder_source_sha256', 'invalid'),
+    ):
+        changed = {**observation, key: bad_value}
+        bad_ref = _write_private_json(tmp_path / f'bad-{key}.json', changed)
+        with pytest.raises(ValueError, match='cohort parent observation'):
+            manifest_builder.validate_cohort_observation(
+                bad_ref, freeze_sha, cohort_sha, 'c' * 64, cohort_root)
+    incomplete = dict(observation)
+    del incomplete['observer_source_sha256']
+    bad_ref = _write_private_json(tmp_path / 'bad-schema.json', incomplete)
+    with pytest.raises(ValueError, match='cohort parent observation'):
+        manifest_builder.validate_cohort_observation(
+            bad_ref, freeze_sha, cohort_sha, 'c' * 64, cohort_root)
+    outside = tmp_path / 'outside'
+    outside.mkdir(mode=0o700)
+    outside_ref = _write_private_json(outside / 'observation.json', observation)
+    with pytest.raises(ValueError, match='cohort parent observation'):
+        manifest_builder.validate_cohort_observation(
+            outside_ref, freeze_sha, cohort_sha, 'c' * 64, cohort_root)
+    bad_mode = _write_private_json(tmp_path / 'bad-mode.json', observation)
+    Path(bad_mode['path']).chmod(0o644)
+    with pytest.raises(ValueError, match='cohort parent observation'):
+        manifest_builder.validate_cohort_observation(
+            bad_mode, freeze_sha, cohort_sha, 'c' * 64, cohort_root)
+
+
+def test_case_runner_requires_and_checks_pinned_cohort_observation(tmp_path):
+    cohort_root = tmp_path / 'cohort'
+    cohort_root.mkdir(mode=0o700)
+    freeze_sha = 'a' * 64
+    cohort_sha = 'b' * 64
+    observation = {
+        'schema': 'credential-v3-heldout-cohort-parent-observation-v1',
+        'freeze_sha256': freeze_sha,
+        'prior_key_inventory_sha256': 'c' * 64,
+        'wall_started_unix_ns': 10,
+        'wall_completed_unix_ns': 20,
+        'monotonic_started_ns': 30,
+        'monotonic_completed_ns': 40,
+        'child_exit_code': 0,
+        'builder_source_sha256': 'd' * 64,
+        'observer_source_sha256': 'e' * 64,
+        'output_path_sha256': hashlib.sha256(str(cohort_root).encode()).hexdigest(),
+        'cohort_receipt_sha256': cohort_sha,
+        'preexisting_output': False,
+        'creation_time_basis': 'observer_parent_started_child_after_freeze',
+        'openssl_invocation_observed': False,
+    }
+    ref = _write_private_json(tmp_path / 'observation.json', observation)
+    manifest = {'cohort_observation': ref, 'cohort_root': str(cohort_root),
+                'freeze_sha256': freeze_sha, 'cohort_sha256': cohort_sha}
+    freeze_doc = {'schema': 'credential-v3-frozen-holdout-boundary-v1'}
+    cohort_doc = {'schema': 'credential-v3-heldout-issuance-cohort-v1',
+                  'freeze_sha256': freeze_sha,
+                  'prior_key_inventory_sha256': 'c' * 64}
+
+    assert runner.validate_cohort_observation(
+        manifest, freeze_doc, cohort_doc) == ref
+    Path(ref['path']).chmod(0o644)
+    with pytest.raises(ValueError, match='cohort observation'):
+        runner.validate_cohort_observation(manifest, freeze_doc, cohort_doc)
+    Path(ref['path']).chmod(0o600)
+    minimal = dict(observation)
+    del minimal['openssl_invocation_observed']
+    manifest['cohort_observation'] = _write_private_json(
+        tmp_path / 'minimal.json', minimal)
+    with pytest.raises(ValueError, match='cohort observation'):
+        runner.validate_cohort_observation(manifest, freeze_doc, cohort_doc)
+    manifest['cohort_observation'] = ref
+    mismatch_doc = {**cohort_doc, 'prior_key_inventory_sha256': 'f' * 64}
+    with pytest.raises(ValueError, match='cohort observation'):
+        runner.validate_cohort_observation(manifest, freeze_doc, mismatch_doc)
+    with pytest.raises(ValueError, match='cohort observation'):
+        runner.validate_cohort_observation(
+            {**manifest, 'cohort_observation': {**ref, 'sha256': 'f' * 64}},
+            freeze_doc, cohort_doc)
+    manifest['cohort_observation'] = _write_private_json(
+        tmp_path / 'bad-exit.json', {**observation, 'child_exit_code': 9})
+    with pytest.raises(ValueError, match='cohort observation'):
+        runner.validate_cohort_observation(manifest, freeze_doc, cohort_doc)
+    outside = tmp_path / 'outside'
+    outside.mkdir(mode=0o700)
+    manifest['cohort_observation'] = _write_private_json(
+        outside / 'observation.json', observation)
+    with pytest.raises(ValueError, match='cohort observation'):
+        runner.validate_cohort_observation(manifest, freeze_doc, cohort_doc)
+    del manifest['cohort_observation']
+    with pytest.raises(ValueError, match='cohort observation'):
+        runner.validate_cohort_observation(manifest, freeze_doc, cohort_doc)

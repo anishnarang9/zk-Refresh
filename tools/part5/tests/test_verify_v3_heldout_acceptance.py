@@ -110,6 +110,125 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name).resolve()
 
+    def _parent_observation_fixture(self):
+        private = self.root / 'artifacts' / 'dynark' / 'part5' / 'v3-heldout-private-001'
+        private.mkdir(parents=True, mode=0o700)
+        cohort_root = private / 'v3-heldout-cohort-001'
+        cohort_root.mkdir(mode=0o700)
+        receipt_path = cohort_root / 'cohort-receipt.json'
+        receipt_path.write_bytes(b'{}')
+        receipt_path.chmod(0o600)
+        cohort_ref = {'path': str(receipt_path),
+                      'sha256': hashlib.sha256(b'{}').hexdigest()}
+        builder_sha = 'b' * 64
+        observer_sha = 'c' * 64
+        client_paths = {
+            'tools/part5/build_v3_heldout_cohort.py': {'sha256': builder_sha},
+            'tools/part5/observe_v3_heldout_cohort.py': {'sha256': observer_sha},
+        }
+        observation = {
+            'schema': 'credential-v3-heldout-cohort-parent-observation-v1',
+            'freeze_sha256': 'a' * 64,
+            'prior_key_inventory_sha256': 'd' * 64,
+            'wall_started_unix_ns': 2000,
+            'wall_completed_unix_ns': 5000,
+            'monotonic_started_ns': 100,
+            'monotonic_completed_ns': 3100,
+            'child_exit_code': 0,
+            'builder_source_sha256': builder_sha,
+            'observer_source_sha256': observer_sha,
+            'output_path_sha256': hashlib.sha256(str(cohort_root).encode()).hexdigest(),
+            'cohort_receipt_sha256': cohort_ref['sha256'],
+            'preexisting_output': False,
+            'creation_time_basis': 'observer_parent_started_child_after_freeze',
+            'openssl_invocation_observed': False,
+        }
+        observation_path = private / 'v3-heldout-cohort-observation-001.json'
+
+        def publish():
+            raw = json.dumps(observation, sort_keys=True).encode()
+            observation_path.write_bytes(raw)
+            observation_path.chmod(0o600)
+            return {'path': str(observation_path),
+                    'sha256': hashlib.sha256(raw).hexdigest()}
+
+        freeze = {'frozen_at_unix_ns': 1000}
+        cohort = {'generation_started_unix_ns': 2100,
+                  'generation_completed_unix_ns': 4900}
+        return (observation, publish, freeze, cohort, cohort_ref,
+                client_paths, private)
+
+    def test_parent_observation_requires_frozen_private_chronology(self):
+        observation, publish, freeze, cohort, cohort_ref, client_paths, _ = (
+            self._parent_observation_fixture())
+        with mock.patch.object(verifier, 'ROOT', self.root):
+            result = verifier._verify_cohort_parent_observation(
+                publish(), freeze, 'a' * 64, cohort, cohort_ref,
+                'd' * 64, client_paths)
+            self.assertTrue(result['pinned_parent_observation_chronology_consistent'])
+            self.assertFalse(result['openssl_invocation_observed'])
+            self.assertEqual(result['observation_sha256'],
+                             publish()['sha256'])
+
+            for field, value in (
+                ('prior_key_inventory_sha256', 'e' * 64),
+                ('cohort_receipt_sha256', 'e' * 64),
+                ('builder_source_sha256', 'e' * 64),
+                ('observer_source_sha256', 'e' * 64),
+                ('output_path_sha256', 'e' * 64),
+                ('wall_started_unix_ns', 999),
+                ('wall_completed_unix_ns', 4800),
+                ('monotonic_completed_ns', 99),
+                ('preexisting_output', True),
+                ('openssl_invocation_observed', True),
+                ('child_exit_code', 1),
+            ):
+                original = observation[field]
+                observation[field] = value
+                with self.subTest(field=field), self.assertRaises(ValueError):
+                    verifier._verify_cohort_parent_observation(
+                        publish(), freeze, 'a' * 64, cohort, cohort_ref,
+                        'd' * 64, client_paths)
+                observation[field] = original
+
+            del observation['observer_source_sha256']
+            with self.assertRaises(ValueError):
+                verifier._verify_cohort_parent_observation(
+                    publish(), freeze, 'a' * 64, cohort, cohort_ref,
+                    'd' * 64, client_paths)
+
+    def test_parent_observation_rejects_public_or_separate_path(self):
+        observation, publish, freeze, cohort, cohort_ref, client_paths, private = (
+            self._parent_observation_fixture())
+        with mock.patch.object(verifier, 'ROOT', self.root):
+            ref = publish()
+            path = Path(ref['path'])
+            path.chmod(0o644)
+            with self.assertRaises(ValueError):
+                verifier._verify_cohort_parent_observation(
+                    ref, freeze, 'a' * 64, cohort, cohort_ref,
+                    'd' * 64, client_paths)
+            path.chmod(0o600)
+            private.chmod(0o755)
+            with self.assertRaises(ValueError):
+                verifier._verify_cohort_parent_observation(
+                    ref, freeze, 'a' * 64, cohort, cohort_ref,
+                    'd' * 64, client_paths)
+            private.chmod(0o700)
+            outside = self.root / 'outside.json'
+            outside.write_bytes(path.read_bytes())
+            outside.chmod(0o600)
+            outside_ref = {'path': str(outside), 'sha256': ref['sha256']}
+            with self.assertRaises(ValueError):
+                verifier._verify_cohort_parent_observation(
+                    outside_ref, freeze, 'a' * 64, cohort, cohort_ref,
+                    'd' * 64, client_paths)
+            with self.assertRaises(ValueError):
+                verifier._verify_cohort_parent_observation(
+                    {'path': 12, 'sha256': ref['sha256']},
+                    freeze, 'a' * 64, cohort, cohort_ref,
+                    'd' * 64, client_paths)
+
     def _cohort_provenance_artifacts(self):
         def write(path, value):
             raw = json.dumps(value, sort_keys=True, separators=(',', ':')).encode()
@@ -345,7 +464,8 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
     def test_case_run_manifest_and_journal_must_join_frozen_evidence(self):
         globals_ = {name: {'pinned': name} for name in (
             'frozen_files', 'frozen_bundles', 'source_files', 'proof_inputs',
-            'application_source_manifest', 'application_source_files')}
+            'application_source_manifest', 'application_source_files',
+            'cohort_observation')}
         runner_path = str(verifier.ROOT / verifier.QUEUE_RUNNER_REL)
         globals_['frozen_bundles'] = {'registry': [{
             'path': verifier.QUEUE_RUNNER_REL,
@@ -371,6 +491,11 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
                             'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
         case = {'run_manifest': ref(run_path), 'run_journal': ref(journal_path)}
         verifier._verify_case_run_provenance(case, 2, globals_, 'a' * 64, 'b' * 64)
+        altered = dict(run, cohort_observation={'pinned': 'other-observation'})
+        run_path.write_bytes((json.dumps(altered, sort_keys=True, indent=2) + '\n').encode())
+        case['run_manifest'] = ref(run_path)
+        with self.assertRaisesRegex(ValueError, 'cohort_observation'):
+            verifier._verify_case_run_provenance(case, 2, globals_, 'a' * 64, 'b' * 64)
         altered = dict(run, runner_sha256='e' * 64)
         run_path.write_bytes((json.dumps(altered, sort_keys=True, indent=2) + '\n').encode())
         case['run_manifest'] = ref(run_path)

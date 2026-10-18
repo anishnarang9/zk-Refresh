@@ -94,6 +94,7 @@ CLIENT_FILES = [
     'tools/part5/freeze_v3_heldout_cohort.py',
     # Pin the exact heldout issuer that consumes this freeze.
     'tools/part5/build_v3_heldout_cohort.py',
+    'tools/part5/observe_v3_heldout_cohort.py',
     # Keep every local Python import reachable from the declared client and
     # verifier sources inside the same frozen source bundle.
     'tools/part5/freeze_v3_campaign_cohort.py',
