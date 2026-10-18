@@ -98,6 +98,20 @@ class AmbiguousRestartTests(unittest.TestCase):
         self.assertEqual(result['status'], 'failed')
         self.assertFalse(result['heldout_acceptance'])
 
+    def test_validator_stop_accepts_only_reviewed_exit_modes(self):
+        clean = {'spawned': True, 'reaped': True,
+                 'graceful': True, 'exit_code': 0}
+        interrupted = {'spawned': True, 'reaped': True,
+                       'graceful': False, 'exit_code': -2}
+        self.assertEqual(m.reviewed_validator_stop(clean), 'clean_zero')
+        self.assertEqual(m.reviewed_validator_stop(interrupted), 'interrupted_sigint')
+        for changed in ({**interrupted, 'exit_code': -15},
+                        {**interrupted, 'reaped': False},
+                        {**clean, 'graceful': False},
+                        {**clean, 'spawned': False}):
+            with self.subTest(changed=changed), self.assertRaises(ValueError):
+                m.reviewed_validator_stop(changed)
+
     def test_finality_reconciliation_uses_mock_rpc_and_exact_signature(self):
         signature = m.proxy.encode_base58(bytes(range(64)))
         replies = [

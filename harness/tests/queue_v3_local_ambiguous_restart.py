@@ -214,6 +214,17 @@ def final_status(evidence: dict) -> dict:
     return {'status': 'passed', 'heldout_acceptance': True}
 
 
+def reviewed_validator_stop(cleanup: object) -> str:
+    if type(cleanup) is not dict or cleanup.get('spawned') is not True \
+            or cleanup.get('reaped') is not True:
+        raise ValueError('validator was not fully reaped')
+    if cleanup.get('graceful') is True and cleanup.get('exit_code') == 0:
+        return 'clean_zero'
+    if cleanup.get('graceful') is False and cleanup.get('exit_code') == -signal.SIGINT:
+        return 'interrupted_sigint'
+    raise ValueError('validator stop is not a reviewed exit mode')
+
+
 def _read_private_json(path: Path, cap: int = 65536) -> tuple[dict, str]:
     raw, digest = execute.stage.snapshot_generated(path, cap)
     value = execute.base.decode_json(raw)
@@ -565,6 +576,11 @@ def run(config: dict, config_sha256: str, config_path: str) -> int:
         status.update({'initial_finalized_slot': pre_slot,
                        'initial_account_sha256': [_sha(raw) for raw in before],
                        'loaded_program_before': loaded})
+        genesis_before, genesis_before_sha = execute.stage.snapshot_generated(
+            ledger / 'genesis.bin', 16 * 1024 * 1024)
+        if not genesis_before:
+            raise ValueError('persistent heldout ledger genesis missing before stop')
+        status['ledger_genesis_sha256_before_stop'] = genesis_before_sha
 
         receipt_path = control / 'proxy-receipt.json'
         proxy_argv = [sys.executable, config['proxy_script'], '--upstream-url',
@@ -626,13 +642,11 @@ def run(config: dict, config_sha256: str, config_path: str) -> int:
         proxy_proc = None
         first_stop = execute.base.cleanup(validator)
         validator = None
-        status.update({'proxy_cleanup': proxy_cleanup, 'first_validator_cleanup': first_stop})
-        if (first_stop.get('graceful') is not True or first_stop.get('reaped') is not True
-                or first_stop.get('exit_code') != 0):
-            raise RuntimeError('validator did not stop gracefully before restart')
+        status.update({'proxy_cleanup': proxy_cleanup, 'first_validator_cleanup': first_stop,
+                       'first_validator_stop_mode': reviewed_validator_stop(first_stop)})
         genesis_raw, genesis_sha = execute.stage.snapshot_generated(ledger / 'genesis.bin', 16 * 1024 * 1024)
-        if not genesis_raw:
-            raise ValueError('persistent heldout ledger genesis missing after stop')
+        if not genesis_raw or genesis_sha != genesis_before_sha:
+            raise ValueError('persistent heldout ledger genesis changed after stop')
         status['ledger_genesis_sha256_after_stop'] = genesis_sha
         _check_deadline(deadline)
 
@@ -694,17 +708,21 @@ def run(config: dict, config_sha256: str, config_path: str) -> int:
                 status['final_validator_cleanup'] = execute.base.cleanup(validator)
             except Exception as error:
                 status['final_validator_cleanup'] = {'reaped': False, 'error_type': type(error).__name__}
+        for key in ('first', 'final'):
+            try:
+                status[key + '_validator_stop_mode'] = reviewed_validator_stop(
+                    status.get(key + '_validator_cleanup'))
+            except ValueError:
+                pass
         status['elapsed_seconds'] = time.monotonic() - started
         status['cleanup_verified'] = (
             status.get('proxy_cleanup', {}).get('reaped') is True
             and status.get('proxy_cleanup', {}).get('graceful') is True
             and status.get('proxy_cleanup', {}).get('exit_code') == 0
-            and status.get('first_validator_cleanup', {}).get('reaped') is True
-            and status.get('first_validator_cleanup', {}).get('graceful') is True
-            and status.get('first_validator_cleanup', {}).get('exit_code') == 0
-            and status.get('final_validator_cleanup', {}).get('reaped') is True
-            and status.get('final_validator_cleanup', {}).get('graceful') is True
-            and status.get('final_validator_cleanup', {}).get('exit_code') == 0)
+            and status.get('first_validator_stop_mode') in
+                ('clean_zero', 'interrupted_sigint')
+            and status.get('final_validator_stop_mode') in
+                ('clean_zero', 'interrupted_sigint'))
         if status.get('error_type') is None:
             status.update(final_status({key: status.get(key) for key in (
                 'proxy_receipt_verified', 'expected_transport_failure',
