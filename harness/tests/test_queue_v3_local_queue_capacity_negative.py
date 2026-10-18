@@ -123,6 +123,65 @@ class QueueCapacitySupervisorTests(unittest.TestCase):
                   'inputs': []}
         self.assertEqual(supervisor._expected_identities(config)['genesis_sha256'], 'b' * 64)
 
+    def test_stage_binding_rejects_hash_consistent_disconnected_clone_source(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            stage_ledger = root / 'stage' / 'ledger'
+            clone_source = root / 'other' / 'ledger'
+            destination = root / 'capacity' / 'ledger'
+            for ledger in (stage_ledger, clone_source, destination):
+                ledger.mkdir(parents=True)
+                (ledger / 'genesis.bin').write_bytes(b'same genesis')
+                (ledger / 'blockstore').write_bytes(b'same inventory')
+            stage_root = root / 'stage'
+            stage_root.mkdir(exist_ok=True)
+            control = root / 'stage-control'
+            control.mkdir()
+            stage_report_path = stage_root / 'stage-report.json'
+            stage_report_path.write_text('{}', encoding='utf-8')
+            report_sha = hashlib.sha256(stage_report_path.read_bytes()).hexdigest()
+            stage_config_path = root / 'stage-config.json'
+            stage_config = {'schema': 1, 'scope': 'part5-v3-local-stage',
+                            'stage_output': str(stage_root), 'control_output': str(control),
+                            'expected_genesis': 'genesis-id', 'ledger': str(stage_ledger)}
+            stage_config_path.write_text(json.dumps(stage_config), encoding='utf-8')
+            config_sha = hashlib.sha256(stage_config_path.read_bytes()).hexdigest()
+            status_path = control / 'status.json'
+            status = {'schema': 1, 'scope': 'part5-v3-local-stage', 'status': 'failed',
+                      'stage_verified': True, 'ledger_reuse_requires_review': True,
+                      'application_effect': False, 'devnet': False,
+                      'config_sha256': config_sha, 'stage_report_sha256': report_sha,
+                      'stage_output': str(stage_root),
+                      'validator_cleanup': {'spawned': True, 'reaped': True,
+                                            'graceful': False, 'exit_code': -2},
+                      'runner_cleanup': {'spawned': True, 'reaped': True, 'exit_code': 0}}
+            status_path.write_text(json.dumps(status), encoding='utf-8')
+            status_sha = hashlib.sha256(status_path.read_bytes()).hexdigest()
+            config = {'stage_report': str(stage_report_path),
+                      'stage_report_sha256': report_sha,
+                      'expected_genesis': 'genesis-id',
+                      'stage_config': str(stage_config_path),
+                      'stage_config_sha256': config_sha,
+                      'stage_status': str(status_path),
+                      'stage_status_sha256': status_sha}
+            clone = {'stage_status_sha256': status_sha}
+
+            # Both inventories and all supplied hashes agree, but the source is
+            # disconnected from the stage's configured persistent ledger.
+            with self.assertRaisesRegex(ValueError, 'bind the staged source ledger'):
+                supervisor._validate_stage_binding(config, clone, clone_source)
+
+            supervisor._validate_stage_binding(config, clone, stage_ledger)
+
+            # A byte-pinned status alone is insufficient unless it records the
+            # expected failed-after-SIGINT stage lifecycle and verified stage.
+            status['status'] = 'passed'
+            status_path.write_text(json.dumps(status), encoding='utf-8')
+            config['stage_status_sha256'] = hashlib.sha256(status_path.read_bytes()).hexdigest()
+            clone['stage_status_sha256'] = config['stage_status_sha256']
+            with self.assertRaisesRegex(ValueError, 'bind the staged source ledger'):
+                supervisor._validate_stage_binding(config, clone, stage_ledger)
+
     def test_established_capacity_report_validates_through_both_layers(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()

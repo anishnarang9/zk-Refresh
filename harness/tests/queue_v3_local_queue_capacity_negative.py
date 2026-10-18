@@ -196,6 +196,54 @@ def _expected_identities(config):
     }
 
 
+def _validate_stage_binding(config, clone, source):
+    """Bind the accepted report and cloned source to the externally pinned stage run."""
+    stage_config = execute.base.decode_json(_read_pinned(
+        config["stage_config"], config["stage_config_sha256"],
+        MAX_CONFIG_BYTES, "local-stage config"))
+    stage_status_path = Path(config["stage_status"])
+    stage_status = execute.base.decode_json(_read_pinned(
+        stage_status_path, config["stage_status_sha256"], 65536,
+        "local-stage status"))
+    if type(stage_config) is not dict or type(stage_status) is not dict:
+        raise ValueError("pinned local-stage status and config must bind the staged source ledger")
+    stage_root = Path(config["stage_report"]).parent
+    stage_control = Path(stage_config.get("control_output", ""))
+    validator_cleanup = stage_status.get("validator_cleanup")
+    runner_cleanup = stage_status.get("runner_cleanup")
+    if (type(stage_config) is not dict
+            or stage_config.get("schema") != 1
+            or stage_config.get("scope") != "part5-v3-local-stage"
+            or stage_config.get("stage_output") != str(stage_root)
+            or Path(config["stage_report"]) != stage_root / "stage-report.json"
+            or stage_config.get("expected_genesis") != config["expected_genesis"]
+            or stage_config.get("ledger") != str(source)
+            or stage_control != stage_status_path.parent
+            or stage_status_path != stage_control / "status.json"
+            or type(stage_status) is not dict
+            or stage_status.get("schema") != 1
+            or stage_status.get("scope") != "part5-v3-local-stage"
+            or stage_status.get("status") != "failed"
+            or stage_status.get("stage_verified") is not True
+            or stage_status.get("ledger_reuse_requires_review") is not True
+            or stage_status.get("application_effect") is not False
+            or stage_status.get("devnet") is not False
+            or stage_status.get("config_sha256") != config["stage_config_sha256"]
+            or stage_status.get("stage_report_sha256") != config["stage_report_sha256"]
+            or stage_status.get("stage_output") != str(stage_root)
+            or type(validator_cleanup) is not dict
+            or validator_cleanup.get("spawned") is not True
+            or validator_cleanup.get("reaped") is not True
+            or validator_cleanup.get("graceful") is not False
+            or validator_cleanup.get("exit_code") != -2
+            or type(runner_cleanup) is not dict
+            or runner_cleanup.get("spawned") is not True
+            or runner_cleanup.get("reaped") is not True
+            or runner_cleanup.get("exit_code") != 0
+            or clone.get("stage_status_sha256") != config["stage_status_sha256"]):
+        raise ValueError("pinned local-stage status and config must bind the staged source ledger")
+
+
 def _validate_report(report, config, evidence_dir):
     """Validate the established supplied-evidence schema and tie it to inputs.
 
@@ -235,7 +283,8 @@ def _validate_config(config):
     fields = {
         "schema", "scope", "cohort_id", "cohort_freeze", "cohort_freeze_sha256",
         "cohort_manifest", "cohort_manifest_sha256", "stage_report",
-        "stage_report_sha256", "clone_receipt", "clone_receipt_sha256", "ledger",
+        "stage_report_sha256", "stage_config", "stage_config_sha256",
+        "stage_status", "stage_status_sha256", "clone_receipt", "clone_receipt_sha256", "ledger",
         "expected_program", "expected_genesis", "expected_genesis_sha256",
         "expected_elf", "expected_elf_sha256", "validator", "validator_sha256",
         "runner", "runner_sha256", "rust_config_path", "rust_config_sha256",
@@ -249,7 +298,8 @@ def _validate_config(config):
     _opaque(config["expected_program"], "program id")
     _opaque(config["expected_genesis"], "genesis hash")
     for name in ("cohort_freeze_sha256", "cohort_manifest_sha256", "clone_receipt_sha256",
-                 "stage_report_sha256", "expected_genesis_sha256",
+                 "stage_report_sha256", "stage_config_sha256", "stage_status_sha256",
+                 "expected_genesis_sha256",
                  "expected_elf_sha256", "validator_sha256", "runner_sha256",
                  "rust_config_sha256"):
         _hash(config[name], name)
@@ -268,6 +318,18 @@ def _validate_config(config):
             or stage_report.get("loaded_program", {}).get("elf_match") is not True
             or stage_report.get("loaded_program", {}).get("elf_sha256") != config["expected_elf_sha256"]):
         raise ValueError("accepted stage report must bind the expected loaded ELF and genesis")
+    # Parse the externally pinned local-stage config even before the clone source
+    # is resolved; this confirms the configured stage artifact paths are direct.
+    stage_config_raw = _read_pinned(config["stage_config"], config["stage_config_sha256"],
+                                    MAX_CONFIG_BYTES, "local-stage config")
+    stage_config = execute.base.decode_json(stage_config_raw)
+    if (type(stage_config) is not dict or stage_config.get("schema") != 1
+            or stage_config.get("scope") != "part5-v3-local-stage"
+            or stage_config.get("stage_output") != str(Path(config["stage_report"]).parent)
+            or stage_config.get("expected_genesis") != config["expected_genesis"]):
+        raise ValueError("pinned local-stage config does not bind the accepted stage report")
+    _read_pinned(config["stage_status"], config["stage_status_sha256"],
+                 65536, "local-stage status")
     clone_raw = _read_pinned(config["clone_receipt"], config["clone_receipt_sha256"],
                              MAX_CONFIG_BYTES, "queue-capacity clone receipt")
     clone = execute.base.decode_json(clone_raw)
@@ -278,6 +340,7 @@ def _validate_config(config):
             or clone.get("loaded_identity_rechecked_after_restart") is not False
             or clone.get("application_effect") is not False
             or clone.get("stage_report_sha256") != config["stage_report_sha256"]
+            or clone.get("stage_status_sha256") != config["stage_status_sha256"]
             or not ledger.is_absolute() or ledger.resolve(strict=True) != ledger
             or ledger.name != "ledger" or clone.get("destination") != str(ledger)
             or Path(config["clone_receipt"]) != ledger.parent / "clone-report.json"
@@ -287,6 +350,7 @@ def _validate_config(config):
     if (not source.is_absolute() or source.resolve(strict=True) != source
             or source.name != "ledger" or source in ledger.parents or ledger in source.parents):
         raise ValueError("capacity clone must be separate from its finalized source ledger")
+    _validate_stage_binding(config, clone, source)
     source_rows = ledger_inventory(source)
     clone_rows = ledger_inventory(ledger)
     clone_tree_sha = _sha(json.dumps(source_rows, separators=(",", ":")).encode())
