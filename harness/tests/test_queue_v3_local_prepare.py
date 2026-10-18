@@ -79,7 +79,7 @@ class PrepareTests(unittest.TestCase):
         with patch.object(m, '_ports_free_once', side_effect=[
                 OSError(errno.EADDRINUSE, 'busy'), None]) as probe, \
                 patch.object(m.time, 'sleep') as sleep:
-            m.ports_free(timeout_seconds=1)
+            m.ports_free()
         self.assertEqual(probe.call_count, 2)
         sleep.assert_called_once()
 

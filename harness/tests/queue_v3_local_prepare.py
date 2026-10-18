@@ -266,8 +266,8 @@ def _ports_free_once():
             sock.close()
 
 
-def ports_free(*, timeout_seconds=0.0):
-    """Check fixed local ports, optionally waiting inside the bounded child."""
+def ports_free(*, timeout_seconds=PORT_WAIT_SECONDS):
+    """Wait for fixed local ports inside the bounded child; zero checks once."""
     if (type(timeout_seconds) not in (int, float) or not math.isfinite(timeout_seconds)
             or not 0 <= timeout_seconds <= PORT_WAIT_SECONDS):
         raise ValueError('bounded local-port wait required')
