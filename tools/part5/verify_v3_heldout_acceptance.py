@@ -402,6 +402,84 @@ def _verify_offline_provenance_flags(context, pair):
              'pair receipt must remain explicitly unauthenticated offline evidence')
 
 
+def _derive_current_head_evidence(*, history, history_sha256, chain, accounts,
+                                  expected_root, report, report_sha256, label):
+    """Expose a verified controlled-local signed publisher head, not freshness."""
+    _require(_is_sha(history_sha256) and _is_sha(report_sha256)
+             and type(chain) is dict and _is_sha(chain.get('source_sha256'))
+             and _is_sha(chain.get('publisher_sha256')),
+             f'{label} current-head evidence requires pinned history/report digests')
+    _bytes32(expected_root, f'{label} current root')
+    _require(type(history) is dict and type(history.get('checkpoints')) is list
+             and history['checkpoints'],
+             f'{label} current-head evidence requires verified signed history')
+    checkpoint = history['checkpoints'][-1]
+    _require(type(checkpoint) is dict and type(checkpoint.get('source')) is dict
+             and type(checkpoint['source'].get('observation')) is dict
+             and type(checkpoint.get('publisher')) is dict,
+             f'{label} final signed source/publisher checkpoint required')
+    observation, binding = checkpoint['source']['observation'], checkpoint['publisher']
+    root = _field_bytes(binding.get('root'), f'{label} signed root').hex()
+    root_version = binding.get('root_version')
+    source_sequence = observation.get('sequence')
+    publisher_sequence = binding.get('publication_sequence')
+    source_head = binding.get('source_head')
+    _require(root == expected_root and type(root_version) is int and root_version >= 0
+             and type(source_sequence) is int and source_sequence > 0
+             and type(publisher_sequence) is int and publisher_sequence > 0
+             and publisher_sequence == source_sequence
+             and type(source_head) is dict
+             and source_head.get('sequence') == source_sequence
+             and _field_bytes(source_head.get('digest'),
+                              f'{label} signed source digest').hex()
+                == chain['source_sha256']
+             and chain['source_sha256'] == report.get('source_head_digest'),
+             f'{label} report does not bind final signed root and sequences')
+    _require('publisher_envelope_digest' not in report
+             or report.get('publisher_envelope_digest') == chain['publisher_sha256'],
+             f'{label} report publisher digest disagrees with signed history')
+    _require(type(accounts) is dict and type(accounts.get('head')) is bytes
+             and type(accounts.get('config')) is bytes,
+             f'{label} finalized head/config account bytes required')
+    head, config = accounts['head'], accounts['config']
+    _require(len(head) == 280 and head[:8] == b'DYNHEAD3'
+             and len(config) == 381 and config[:8] == b'DYNCONF3',
+             f'{label} finalized current-head account layouts required')
+    publisher_digest = chain['publisher_sha256']
+    source_digest = chain['source_sha256']
+    publisher_key = _field_bytes(binding.get('publisher_key'),
+                                 f'{label} signed publisher key')
+    previous_publisher_digest = _field_bytes(
+        binding.get('previous_publication_digest'),
+        f'{label} previous publisher digest')
+    _require(head[104:112] == publisher_sequence.to_bytes(8, 'big')
+             and head[72:104] == publisher_key
+             and head[112:144].hex() == publisher_digest
+             and head[144:176] == previous_publisher_digest
+             and head[176:208].hex() == expected_root
+             and head[208:216] == root_version.to_bytes(8, 'big')
+             and head[216:224] == source_sequence.to_bytes(8, 'big')
+             and head[224:256].hex() == source_digest
+             and config[332:364].hex() == expected_root
+             and config[364:372] == root_version.to_bytes(8, 'big'),
+             f'{label} finalized head/config bytes disagree with signed publisher history')
+    return {
+        'evidence_scope': 'controlled_local_signed_publisher_current_head',
+        'independent_production_freshness': False,
+        'root': expected_root,
+        'root_version': root_version,
+        'source_sequence': source_sequence,
+        'source_digest': source_digest,
+        'publisher_sequence': publisher_sequence,
+        'publisher_digest': publisher_digest,
+        'publisher_key_sha256': _sha(publisher_key),
+        'history_sha256': history_sha256,
+        'report_sha256': report_sha256,
+        'finalized_head_account_sha256': _sha(head),
+        'finalized_config_account_sha256': _sha(config),
+    }
+
+
 def _verify_exporter_adapter_roles(source_hashes, proof_hashes, frozen_hashes):
     _require(source_hashes.get('exporter') == proof_hashes.get('exporter'),
              'heldout exporter source must match proof-input exporter role')
@@ -779,6 +857,13 @@ def _accounts(bundle, report, label):
     return raw_accounts
 
 
+def _config_root_version(config):
+    _require(type(config) is bytes and len(config) == 381
+             and config[:8] == b'DYNCONF3',
+             'finalized v3 config layout required')
+    return int.from_bytes(config[364:372], 'big')
+
+
 def _outer(ref, label, *, expected_exit=1):
     outer, _ = _json(ref, cap=65536)
     expected_passed = expected_exit == 0
@@ -955,6 +1040,10 @@ def _validate_stage(stage_bundle, case, frozen_elf_sha256):
              and accounts['head'][112:144].hex() == history_chain['publisher_sha256']
              and accounts['head'][224:256].hex() == history_chain['source_sha256'],
              'stage signed history must match its finalized publisher head')
+    current_head_evidence = _derive_current_head_evidence(
+        history=history, history_sha256=history_sha, chain=history_chain,
+        accounts=accounts, expected_root=case['roots']['R0'], report=report,
+        report_sha256=report_sha, label='R0 stage')
     return {'report': report, 'report_sha256': report_sha,
             'plan': plan, 'plan_sha256': plan_sha,
             'allocations': allocations, 'allocations_sha256': allocations_sha,
@@ -967,7 +1056,8 @@ def _validate_stage(stage_bundle, case, frozen_elf_sha256):
             'monitor': monitor, 'monitor_sha256': monitor_sha,
             'monitor_path': stage_bundle['monitor']['path'],
             'monitor_owner': monitor_owner,
-            'runtime_identity': runtime_identity}
+            'runtime_identity': runtime_identity,
+            'current_head_evidence': current_head_evidence}
 
 
 def _verify_transition(bundle, stage, case, frozen_elf_sha256):
@@ -1067,7 +1157,7 @@ def _verify_transition(bundle, stage, case, frozen_elf_sha256):
     _require(accounts['request'] == stage['accounts']['request']
              and accounts['queue'] == stage['accounts']['queue']
              and accounts['config'][332:364].hex() == case['roots']['R1']
-             and int.from_bytes(accounts['config'][364:372], 'little') == 1,
+             and _config_root_version(accounts['config']) == 1,
              'R0-to-R1 transition must preserve request/queue and finalize R1 config')
     return {'report': report, 'report_sha256': report_sha,
             'context': context, 'context_sha256': context_sha,
@@ -1962,16 +2052,20 @@ def _verify_branch(branch, bundle, case, globals_, slot_data, clone_destinations
                  and accounts['head'][112:144].hex() == chain['publisher_sha256']
                  and accounts['head'][224:256].hex() == chain['source_sha256'],
                  f'{branch} finalized head must match signed source history')
+        current_head_evidence = _derive_current_head_evidence(
+            history=history, history_sha256=history_sha, chain=chain,
+            accounts=accounts, expected_root=current_root, report=report,
+            report_sha256=report_sha, label=branch)
     _require(accounts['config'][332:364].hex() == current_root,
              f'{branch} finalized config has the wrong membership root')
     if branch == 'own_revocation':
-        _require(int.from_bytes(accounts['config'][364:372], 'little') == 2
+        _require(_config_root_version(accounts['config']) == 2
                  and accounts['request'] == transition['accounts']['request']
                  and accounts['queue'] == transition['accounts']['queue'],
                  'own-R2 branch must preserve unconsumed request/queue state')
         _verify_leaf_absent(case)
     elif branch != 'full':
-        _require(int.from_bytes(accounts['config'][364:372], 'little') == 1,
+        _require(_config_root_version(accounts['config']) == 1,
                  'R1 outcome must retain R1 generation')
     proof_outputs = _validate_proof_bundle(bundle['proof'], branch, case,
                                            globals_, slot_data, result_bundle['wires'])
@@ -1996,6 +2090,8 @@ def _verify_branch(branch, bundle, case, globals_, slot_data, clone_destinations
             'action_hash': r0['action_hash'], 'effect_count': report.get('effect_count'),
             'request_consumed': report.get('request_consumed'),
             'proof_evidence': proof_outputs,
+            **({'current_head_evidence': current_head_evidence}
+               if branch != 'full' else {}),
             **({'current_r2_witness_rejection': r2_witness_rejection}
                if branch == 'own_revocation' else {})}
 
@@ -2625,7 +2721,13 @@ def verify_manifest(manifest_path):
                              'target_tbs_sha256': target['tbs_sha256'],
                              'issuer_index': target['issuer_index'],
                              'holder_index': target['holder_index'],
-                             'roots': case['roots'], 'branches': branch_results})
+                             'roots': case['roots'],
+                             'current_head_evidence': {
+                                 'R0': slots['A']['stage']['current_head_evidence'],
+                                 'R1': branch_results['anchor']['current_head_evidence'],
+                                 'R2': branch_results['own_revocation']['current_head_evidence'],
+                             },
+                             'branches': branch_results})
     _require(seen_variants == set(range(8)), 'all eight heldout variants are required')
     return {
         'schema': OUTPUT_SCHEMA,

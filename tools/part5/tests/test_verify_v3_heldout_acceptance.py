@@ -21,6 +21,15 @@ from tools.part5.credential_profile import admit_certificate, public_bindings
 
 
 class HeldoutAcceptanceVerifierTests(unittest.TestCase):
+    def test_config_root_version_uses_program_big_endian_encoding(self):
+        config = bytearray(381)
+        config[:8] = b'DYNCONF3'
+        for version in (0, 1, 2):
+            config[364:372] = version.to_bytes(8, 'big')
+            self.assertEqual(verifier._config_root_version(bytes(config)), version)
+        config[364:372] = (1).to_bytes(8, 'little')
+        self.assertNotEqual(verifier._config_root_version(bytes(config)), 1)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -335,6 +344,113 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         pair['allocation_authorized'] = True
         with self.assertRaisesRegex(ValueError, 'pair receipt'):
             verifier._verify_offline_provenance_flags(context, pair)
+
+    def test_current_head_evidence_is_derived_from_signed_history_and_finalized_bytes(self):
+        root = '11' * 32
+        source_digest = '22' * 32
+        publisher_digest = '33' * 32
+        history_sha = '44' * 32
+        report_sha = '55' * 32
+        history = {'checkpoints': [{'source': {'observation': {'sequence': 2}},
+                                    'publisher': {
+                                        'root': list(bytes.fromhex(root)),
+                                        'root_version': 1,
+                                        'source_head': {'sequence': 2,
+                                                        'digest': list(bytes.fromhex(source_digest))},
+                                        'publication_sequence': 2,
+                                        'publisher_key': list(bytes([0x66]) * 32),
+                                        'previous_publication_digest': list(bytes(32))}}]}
+        chain = {'source_sha256': source_digest,
+                 'publisher_sha256': publisher_digest}
+        head = bytearray(280)
+        head[:8] = b'DYNHEAD3'
+        head[72:104] = bytes([0x66]) * 32
+        head[104:112] = (2).to_bytes(8, 'big')
+        head[112:144] = bytes.fromhex(publisher_digest)
+        head[144:176] = bytes(32)
+        head[176:208] = bytes.fromhex(root)
+        head[208:216] = (1).to_bytes(8, 'big')
+        head[216:224] = (2).to_bytes(8, 'big')
+        head[224:256] = bytes.fromhex(source_digest)
+        config = bytearray(381)
+        config[:8] = b'DYNCONF3'
+        config[332:364] = bytes.fromhex(root)
+        config[364:372] = (1).to_bytes(8, 'big')
+        accounts = {'head': bytes(head), 'config': bytes(config)}
+        report = {'source_head_digest': source_digest,
+                  'publisher_envelope_digest': publisher_digest}
+
+        evidence = verifier._derive_current_head_evidence(
+            history=history, history_sha256=history_sha, chain=chain,
+            accounts=accounts, expected_root=root, report=report,
+            report_sha256=report_sha, label='R1')
+
+        self.assertEqual(evidence['root'], root)
+        self.assertEqual(evidence['root_version'], 1)
+        self.assertEqual(evidence['source_sequence'], 2)
+        self.assertEqual(evidence['source_digest'], source_digest)
+        self.assertEqual(evidence['publisher_sequence'], 2)
+        self.assertEqual(evidence['publisher_digest'], publisher_digest)
+        self.assertEqual(evidence['history_sha256'], history_sha)
+        self.assertEqual(evidence['report_sha256'], report_sha)
+        self.assertEqual(evidence['finalized_head_account_sha256'],
+                         hashlib.sha256(bytes(head)).hexdigest())
+        self.assertFalse(evidence['independent_production_freshness'])
+
+    def test_current_head_evidence_rejects_mutated_finalized_head_fields(self):
+        root = '11' * 32
+        source_digest = '22' * 32
+        publisher_digest = '33' * 32
+        history = {'checkpoints': [{'source': {'observation': {'sequence': 2}},
+                                    'publisher': {
+                                        'root': list(bytes.fromhex(root)),
+                                        'root_version': 1,
+                                        'source_head': {'sequence': 2,
+                                                        'digest': list(bytes.fromhex(source_digest))},
+                                        'publication_sequence': 2,
+                                        'publisher_key': list(bytes([0x66]) * 32),
+                                        'previous_publication_digest': list(bytes(32))}}]}
+        chain = {'source_sha256': source_digest,
+                 'publisher_sha256': publisher_digest}
+        head = bytearray(280)
+        head[:8] = b'DYNHEAD3'
+        head[72:104] = bytes([0x66]) * 32
+        head[104:112] = (2).to_bytes(8, 'big')
+        head[112:144] = bytes.fromhex(publisher_digest)
+        head[144:176] = bytes(32)
+        head[176:208] = bytes.fromhex(root)
+        head[208:216] = (1).to_bytes(8, 'big')
+        head[216:224] = (2).to_bytes(8, 'big')
+        head[224:256] = bytes.fromhex(source_digest)
+        config = bytearray(381)
+        config[:8] = b'DYNCONF3'
+        config[332:364] = bytes.fromhex(root)
+        config[364:372] = (1).to_bytes(8, 'big')
+        report = {'source_head_digest': source_digest,
+                  'publisher_envelope_digest': publisher_digest}
+
+        mutations = (
+            ('head root version', 'head', 208, b'\x02'),
+            ('head publisher sequence', 'head', 104, b'\x03'),
+            ('head source sequence', 'head', 216, b'\x03'),
+            ('head source digest', 'head', 224, b'\x99'),
+            ('head publisher digest', 'head', 112, b'\x99'),
+            ('head publisher identity', 'head', 72, b'\x99'),
+            ('config root version', 'config', 364, b'\x02'),
+            ('config root', 'config', 332, b'\x99'),
+        )
+        for label, account_name, offset, replacement in mutations:
+            with self.subTest(field=label):
+                mutated = bytearray(head if account_name == 'head' else config)
+                mutated[offset:offset + len(replacement)] = replacement
+                accounts = {'head': bytes(head), 'config': bytes(config)}
+                accounts[account_name] = bytes(mutated)
+                with self.assertRaises(ValueError):
+                    verifier._derive_current_head_evidence(
+                        history=history, history_sha256='44' * 32, chain=chain,
+                        accounts=accounts,
+                        expected_root=root, report=report,
+                        report_sha256='55' * 32, label='R1')
 
     def test_branch_passes_globals_and_slot_data_to_proof_validator(self):
         tree = ast.parse(inspect.getsource(verifier._verify_branch))
