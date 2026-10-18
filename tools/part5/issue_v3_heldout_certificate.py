@@ -105,7 +105,21 @@ def issue_certificate(issuer, holder, parameters, encoder='cryptography'):
 
 
 def _openssl(issuer, holder, values, issuer_cn, holder_cn):
-    with tempfile.TemporaryDirectory(prefix='dynark-v3-issuance-') as directory:
+    temp_parent = ROOT / 'artifacts'
+    try:
+        temp_parent.mkdir(mode=0o700)
+    except FileExistsError:
+        pass
+    info = temp_parent.lstat()
+    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid()
+            or temp_parent.resolve(strict=True) != temp_parent
+            or subprocess.run(['git', '--no-optional-locks', 'check-ignore', '--quiet',
+                               '--no-index', '--', str(temp_parent / 'issuance-key.pem')],
+                              cwd=ROOT, capture_output=True, timeout=5,
+                              check=False).returncode != 0):
+        raise ValueError('owner-controlled ignored issuance temp parent required')
+    with tempfile.TemporaryDirectory(prefix='dynark-v3-issuance-',
+                                     dir=temp_parent) as directory:
         root = Path(directory)
         for name, key in [('issuer', issuer), ('holder', holder)]:
             _write(root / (name + '.pem'), key.private_bytes(serialization.Encoding.PEM,
