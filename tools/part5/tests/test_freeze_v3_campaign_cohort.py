@@ -83,9 +83,38 @@ class FreezeTests(unittest.TestCase):
         report = json.loads((self.results / 'manifest.json').read_bytes())
         self.assertEqual(report['prepare_status_sha256'], tool.file_digest(self.status))
         self.assertEqual(report['prior_public_key_sources'][0]['sha256'], tool.digest(self.public))
+        self.assertEqual(report['identity_inputs']['proof_runner']['path'],
+                         str((tool.PROOF / 'target/release/credential-v3-bounded-proof-qualification-v1')
+                             .relative_to(self.root)))
         self.assertNotIn('BEGIN', json.dumps(report))
         for path in self.results.iterdir():
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
+    def test_explicit_proof_binary_is_hashed_and_recorded(self):
+        self.fixture()
+        proof_binary = self.write(self.part5 / 'v3-proof-runner-training-010',
+                                  b'corrected isolated proof runner')
+        freeze_path, manifest_path = self.results / 'freeze.json', self.results / 'manifest.json'
+        with mock.patch('harness.tests.queue_v3_build_prep.source_manifest',
+                        return_value=self.application_manifest):
+            result = tool.freeze(freeze_path, manifest_path, self.status,
+                                 self.root / 'adapter', proof_binary=proof_binary)
+        report = json.loads(manifest_path.read_bytes())
+        expected_hash = hashlib.sha256(b'corrected isolated proof runner').hexdigest()
+        self.assertEqual(result['freeze_sha256'], report['freeze_sha256'])
+        self.assertEqual(report['identities']['proof_runner'], expected_hash)
+        self.assertEqual(report['identity_inputs']['proof_runner'],
+                         {'path': str(proof_binary.relative_to(self.root)), 'sha256': expected_hash})
+
+    def test_explicit_proof_binary_must_be_absolute_and_canonical(self):
+        self.fixture()
+        proof_binary = self.write(self.part5 / 'v3-proof-runner-training-010')
+        with mock.patch('harness.tests.queue_v3_build_prep.source_manifest',
+                        return_value=self.application_manifest), self.assertRaises(ValueError):
+            tool.freeze(self.results / 'freeze.json', self.results / 'manifest.json',
+                        self.status, self.root / 'adapter',
+                        proof_binary=proof_binary.relative_to(self.root))
+        self.assertEqual(list(self.results.iterdir()), [])
 
     def test_changed_or_malformed_identity_rejects_without_outputs(self):
         prepared = self.fixture()
@@ -166,6 +195,7 @@ class FreezeTests(unittest.TestCase):
         result = subprocess.run([sys.executable, str(script), '--help'], cwd=self.root,
                                 capture_output=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr.decode())
+        self.assertIn('--proof-binary', result.stdout.decode())
 
 
 if __name__ == '__main__':

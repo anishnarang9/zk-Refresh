@@ -172,10 +172,12 @@ def write_pair(path, boundary, manifest_path, report):
             temporary.unlink()
 
 
-def freeze(path, manifest_path, prepare_status, adapter_binary):
+def freeze(path, manifest_path, prepare_status, adapter_binary, proof_binary=None):
     path, manifest_path = fresh(path), fresh(manifest_path)
     if path == manifest_path or path.parent != manifest_path.parent:
         raise ValueError('distinct freeze and identity manifest in one private directory required')
+    proof_binary = (Path(proof_binary) if proof_binary is not None else
+                    PROOF / 'target/release/credential-v3-bounded-proof-qualification-v1')
     prepared_raw = read_input(prepare_status, 65536)
     prepared = cohort.issuance.decode_parameters(prepared_raw)
     setup_raw = read_input(SETUP / 'setup-manifest.json', 65536)
@@ -209,7 +211,7 @@ def freeze(path, manifest_path, prepare_status, adapter_binary):
     elf = PART5 / 'application-v3-sbf-build-002/elf/zk_fresh_program.so'
     single = {'profile': profile, 'r1cs': r1cs,
               'witness_executable': wasm, 'setup_manifest': SETUP / 'setup-manifest.json',
-              'ordinary_vk': vk, 'proof_runner': PROOF / 'target/release/credential-v3-bounded-proof-qualification-v1',
+              'ordinary_vk': vk, 'proof_runner': proof_binary,
               'signer_interface': ROOT / 'tools/part5/prepare_v3_request_fixture.py',
               'ordinary_adapter': Path(adapter_binary), 'loaded_elf': elf}
     identities = {role: file_digest(target) for role, target in single.items()}
@@ -269,9 +271,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('output', 'identity_manifest', 'prepare_status', 'adapter_binary'):
         parser.add_argument('--' + name.replace('_', '-'), type=Path, required=True)
+    parser.add_argument('--proof-binary', type=Path)
     args = parser.parse_args()
     print(json.dumps(freeze(args.output, args.identity_manifest,
-                            args.prepare_status, args.adapter_binary)))
+                            args.prepare_status, args.adapter_binary, args.proof_binary)))
 
 
 if __name__ == '__main__':
