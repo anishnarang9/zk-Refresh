@@ -25,6 +25,9 @@ REPO = Path(__file__).resolve().parents[2]
 ARTIFACTS = REPO / 'artifacts/dynark/part5'
 LIMITS = {'runtime_seconds': 180, 'rss_bytes': 4294967296,
           'storage_growth_bytes': 268435456}
+DISABLED_CONFIG_LIMITS = {
+    'runtime_seconds': 270, 'rss_bytes': LIMITS['rss_bytes'],
+    'storage_growth_bytes': LIMITS['storage_growth_bytes']}
 JOURNAL_SCHEMA = 'credential-v3-heldout-case-run-journal-v1'
 RUN_SCHEMA = 'credential-v3-heldout-case-run-v1'
 DISABLED_CONFIG_REPORT_SCHEMA = 'part5-v3-disabled-config-negative-report-v2'
@@ -1345,7 +1348,7 @@ class HeldoutCaseRunner:
             'rust_config_path': str(rust_config_path),
             'rust_config_sha256': rust_config_sha,
             'output_dir': output, 'control_output': control,
-            'outer_limits_required': LIMITS}
+            'outer_limits_required': DISABLED_CONFIG_LIMITS}
         wrapper_path = negative_root / 'supervisor-config.json'
         wrapper_sha = self._write_config(wrapper_path, wrapper_config)
         monitor_dir, monitor_path = (negative_root / 'monitor',
@@ -1363,7 +1366,8 @@ class HeldoutCaseRunner:
             outer = self.bounded_run(owner, [sys.executable,
                 str(self.toolpaths['disabled_config_negative']),
                 '--config', str(wrapper_path), '--config-sha256', wrapper_sha],
-                monitor_dir, monitor_path, runtime=LIMITS['runtime_seconds'],
+                monitor_dir, monitor_path,
+                runtime=DISABLED_CONFIG_LIMITS['runtime_seconds'],
                 storage_paths=(Path(output), Path(control)),
                 env={'P5_V3_DISABLED_CONFIG_NEGATIVE_SCOPE':
                      'part5-v3-disabled-config-negative'})

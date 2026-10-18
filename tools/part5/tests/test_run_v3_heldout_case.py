@@ -751,8 +751,10 @@ def test_disabled_config_negative_missing_child_report_has_bounded_diagnostics(
         'runner': '/private/runner', 'runner_sha256': 'c' * 64,
     }
     case_runner.toolpaths = {'disabled_config_negative': Path('/private/child.py')}
+    bounded_call = {}
 
     def failed_child(owner, command, monitor_dir, monitor_path, **kwargs):
+        bounded_call.update(command=command, **kwargs)
         outer = {'exit_code': 1, 'stop_reason': None, 'passed': False}
         monitor_dir.mkdir(mode=0o700)
         (monitor_dir / 'stderr.log').write_text('bounded monitor stderr secret marker')
@@ -801,6 +803,11 @@ def test_disabled_config_negative_missing_child_report_has_bounded_diagnostics(
     assert str(control / 'status.json') in message
     assert str(output / 'disabled-config-negative-report.json') in message
     assert 'secret marker' not in message
+    wrapper_path = Path(bounded_call['command'][
+        bounded_call['command'].index('--config') + 1])
+    wrapper = json.loads(wrapper_path.read_text())
+    assert bounded_call['runtime'] == runner.DISABLED_CONFIG_LIMITS['runtime_seconds']
+    assert wrapper['outer_limits_required'] == runner.DISABLED_CONFIG_LIMITS
 
 
 def test_acceptance_costs_include_full_branch_wall_and_shared_setup_wall():

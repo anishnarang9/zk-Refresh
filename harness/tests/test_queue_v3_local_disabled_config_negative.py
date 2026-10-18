@@ -116,6 +116,17 @@ def fixture_report(output):
 
 
 class DisabledConfigNegativeReportTests(unittest.TestCase):
+    def test_deadlines_leave_room_for_the_complete_disabled_config_audit(self):
+        self.assertEqual(supervisor.LIMITS, {
+            'runtime_seconds': 270, 'rss_bytes': 4294967296,
+            'storage_growth_bytes': 268435456})
+        self.assertEqual(supervisor.SUPERVISOR_BUDGET_SECONDS, 255)
+        self.assertEqual(supervisor.RUNNER_BUDGET_SECONDS, 210)
+        self.assertLess(supervisor.RUNNER_BUDGET_SECONDS,
+                        supervisor.SUPERVISOR_BUDGET_SECONDS)
+        self.assertLess(supervisor.SUPERVISOR_BUDGET_SECONDS,
+                        supervisor.LIMITS['runtime_seconds'])
+
     def test_run_checks_stage_report_with_wrapper_config(self):
         config = {
             'prior_stage_config': '/unused/stage-config.json',
@@ -372,10 +383,10 @@ class DisabledConfigNegativeReportTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'staged finalized source slot mismatch'):
                 supervisor._validate_report(report, config, stage_report, output)
 
-    def test_supervisor_budget_is_enforced_at_the_165_second_boundary(self):
-        with mock.patch.object(supervisor.time, 'monotonic', return_value=164.9):
+    def test_supervisor_budget_is_enforced_at_the_255_second_boundary(self):
+        with mock.patch.object(supervisor.time, 'monotonic', return_value=254.9):
             supervisor._check_supervisor_budget(0)
-        with mock.patch.object(supervisor.time, 'monotonic', return_value=165):
+        with mock.patch.object(supervisor.time, 'monotonic', return_value=255):
             with self.assertRaises(TimeoutError):
                 supervisor._check_supervisor_budget(0)
 

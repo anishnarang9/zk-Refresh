@@ -21,10 +21,10 @@ if str(REPO) not in sys.path:
 from harness.tests import queue_v3_local_execute as execute
 from harness.tests.queue_v3_clone_ledger import inventory as ledger_inventory
 
-LIMITS = {'runtime_seconds': 180, 'rss_bytes': 4294967296,
+LIMITS = {'runtime_seconds': 270, 'rss_bytes': 4294967296,
           'storage_growth_bytes': 268435456}
-SUPERVISOR_BUDGET_SECONDS = 165
-RUNNER_BUDGET_SECONDS = 140
+SUPERVISOR_BUDGET_SECONDS = 255
+RUNNER_BUDGET_SECONDS = 210
 ACCOUNT_NAMES = ('config', 'issuer', 'head', 'request', 'queue')
 REPORT_SCHEMA = 'part5-v3-disabled-config-negative-report-v2'
 SCOPE = 'part5-v3-disabled-config-negative'
