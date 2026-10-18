@@ -191,6 +191,56 @@ def _json(path, expected=None, cap=65536):
     return json.loads(_read(path, expected, cap))
 
 
+def verified_stage_ledger(config, config_sha256, status, report, report_sha256):
+    """Check stage evidence pins and derive its ledger from the pinned prepare run."""
+    if config.get('scope') != 'part5-v3-local-stage':
+        raise ValueError('pinned local stage config required')
+    prior_config = _json(config['prior_config'], config['prior_config_sha256'])
+    prior_status = _json(config['prior_status'], config['prior_status_sha256'])
+    runtime = prior_config.get('runtime_output')
+    prepared_identity = prior_status.get('loaded_program')
+    staged_identity = status.get('loaded_program')
+    loaded_genesis = prepared_identity.get('genesis') if isinstance(prepared_identity, dict) else None
+    identity_fields = ('genesis', 'elf_sha256', 'program', 'programdata',
+                       'program_account_sha256', 'programdata_account_sha256')
+    if (not isinstance(runtime, str) or not Path(runtime).is_absolute()
+            or Path(runtime).resolve() != Path(runtime)
+            or not isinstance(loaded_genesis, str) or not loaded_genesis
+            or prior_status.get('config_sha256') != config['prior_config_sha256']
+            or prior_status.get('ledger') != str(Path(runtime) / 'ledger')
+            or config.get('ledger') != str(Path(runtime) / 'ledger')
+            or config.get('expected_genesis') != loaded_genesis
+            or report.get('schema') != 'part5-v3-local-stage-v1'
+            or report.get('passed') is not True
+            or report.get('genesis') != loaded_genesis
+            or status.get('status') != 'failed'
+            or status.get('stage_verified') is not True
+            or status.get('ledger_reuse_requires_review') is not True
+            or status.get('config_sha256') != config_sha256
+            or status.get('stage_report_sha256') != report_sha256
+            or status.get('stage_output') != config.get('stage_output')
+            or not reviewed_validator_sigint(status.get('validator_cleanup'))
+            or not reviewed_runner_exit(status.get('runner_cleanup'))
+            or not isinstance(staged_identity, dict)
+            or any(not isinstance(prepared_identity.get(key), str)
+                   or not prepared_identity.get(key)
+                   or staged_identity.get(key) != prepared_identity[key]
+                   for key in identity_fields)):
+        raise ValueError('stage status/config/report binding or prepare provenance mismatch')
+    return config['ledger']
+
+
+def transition_ledger(stage):
+    """Derive the ledger from the pinned stage config and verify its status/report."""
+    config = _json(stage['config'], stage['config_sha256'])
+    status = _json(stage['status_path'], stage['status_sha256'])
+    report = _json(stage['report'], stage['report_sha256'])
+    if report.get('genesis') != config.get('expected_genesis'):
+        raise ValueError('stage ledger/genesis differs from pinned prepare')
+    return verified_stage_ledger(config, stage['config_sha256'], status,
+                                 report, stage['report_sha256'])
+
+
 def validate_runner_bundle(runner_path, runner_sha256, registry_bundle):
     """Require the executable role to be the queue test binary frozen in registry."""
     from tools.part5 import freeze_v3_heldout_cohort as freeze_tools
@@ -970,9 +1020,10 @@ class HeldoutCaseRunner:
                 runtime=LIMITS['runtime_seconds'], storage_paths=(Path(stage_output),),
                 env={'P5_V3_STAGE_SUPERVISOR': 'local-ledger-review-and-stage'})
             status, report = _json(status_path), _json(report_path)
+        report_sha = digest(_read(report_path))
+        verified_stage_ledger(config, config_sha, status, report, report_sha)
         if (not reviewed_application_outer(outer)
                 or status.get('stage_verified') is not True or status.get('error_type') is not None
-                or status.get('status') != 'failed'
                 or not reviewed_validator_sigint(status.get('validator_cleanup'))
                 or not reviewed_runner_exit(status.get('runner_cleanup'))
                 or report.get('schema') != 'part5-v3-local-stage-v1' or report.get('passed') is not True):
@@ -1002,7 +1053,7 @@ class HeldoutCaseRunner:
             context_receipt = context_builder.prepare_transition(case_root, stage['root'], context_path)
         output, control = self._art(req, 'transition'), self._art(req, 'transition-control')
         config_path = root / 'transition-config.json'
-        ledger = _json(stage['status_path'])['ledger']
+        ledger = transition_ledger(stage)
         config = {'schema': 1, 'scope': 'part5-v3-local-unrelated-transition',
             'prior_stage_config': str(stage['config']), 'prior_stage_config_sha256': stage['config_sha256'],
             'prior_stage_status': stage['status_path'], 'prior_stage_status_sha256': stage['status_sha256'],

@@ -330,6 +330,159 @@ def test_subprocess_status_path_stays_separate_from_journal_state(tmp_path):
     assert resumed_job == []
 
 
+def test_transition_ledger_comes_from_pinned_stage_status_and_prepare_runtime(tmp_path):
+    runtime = tmp_path / 'runtime'
+    ledger = runtime / 'ledger'
+    genesis = 'genesis-from-loaded-prepare'
+    prepare_config = tmp_path / 'prepare-config.json'
+    prepare_status = tmp_path / 'prepare-status.json'
+    stage_config = tmp_path / 'stage-config.json'
+    stage_report = tmp_path / 'stage-report.json'
+
+    def write_json(path, value):
+        raw = runner.encoded(value)
+        path.write_bytes(raw)
+        return hashlib.sha256(raw).hexdigest()
+
+    prepare_config_sha = write_json(prepare_config, {'runtime_output': str(runtime)})
+    loaded = {'genesis': genesis, 'elf_sha256': 'a' * 64, 'program': 'program',
+              'programdata': 'programdata', 'program_account_sha256': 'b' * 64,
+              'programdata_account_sha256': 'c' * 64}
+    prepare_status_sha = write_json(prepare_status, {
+        'config_sha256': prepare_config_sha, 'ledger': str(ledger),
+        'loaded_program': loaded})
+    stage_config_value = {
+        'scope': 'part5-v3-local-stage',
+        'prior_config': str(prepare_config),
+        'prior_config_sha256': prepare_config_sha,
+        'prior_status': str(prepare_status),
+        'prior_status_sha256': prepare_status_sha,
+        'expected_genesis': genesis,
+        'ledger': str(ledger),
+        'stage_output': str(tmp_path / 'stage-output'),
+    }
+    stage_config_sha = write_json(stage_config, stage_config_value)
+    report_sha = write_json(stage_report, {
+        'schema': 'part5-v3-local-stage-v1', 'passed': True, 'genesis': genesis})
+    stage_status = tmp_path / 'stage-status.json'
+    stage_status_sha = write_json(stage_status, {
+        'status': 'failed', 'stage_verified': True, 'ledger_reuse_requires_review': True,
+        'config_sha256': stage_config_sha, 'stage_report_sha256': report_sha,
+        'stage_output': stage_config_value['stage_output'], 'loaded_program': loaded,
+        'validator_cleanup': {'spawned': True, 'reaped': True, 'graceful': False,
+                              'exit_code': -2},
+        'runner_cleanup': {'spawned': True, 'reaped': True, 'exit_code': 0}})
+
+    assert runner.transition_ledger({
+        'config': str(stage_config), 'config_sha256': stage_config_sha,
+        'report': str(stage_report), 'report_sha256': report_sha,
+        'status_path': str(stage_status), 'status_sha256': stage_status_sha,
+    }) == str(ledger)
+
+    # Status from queue_v3_local_stage.py intentionally has no ledger field.
+    assert 'ledger' not in json.loads(stage_status.read_text())
+
+
+def test_transition_ledger_rejects_stage_config_that_disagrees_with_prepare(tmp_path):
+    runtime = tmp_path / 'runtime'
+    prepare_config = tmp_path / 'prepare-config.json'
+    prepare_status = tmp_path / 'prepare-status.json'
+    stage_config = tmp_path / 'stage-config.json'
+    stage_report = tmp_path / 'stage-report.json'
+
+    def write_json(path, value):
+        raw = runner.encoded(value)
+        path.write_bytes(raw)
+        return hashlib.sha256(raw).hexdigest()
+
+    prepare_config_sha = write_json(prepare_config, {'runtime_output': str(runtime)})
+    loaded = {'genesis': 'loaded-genesis', 'elf_sha256': 'a' * 64, 'program': 'program',
+              'programdata': 'programdata', 'program_account_sha256': 'b' * 64,
+              'programdata_account_sha256': 'c' * 64}
+    prepare_status_sha = write_json(prepare_status, {
+        'config_sha256': prepare_config_sha, 'ledger': str(runtime / 'ledger'),
+        'loaded_program': loaded})
+    stage_output = str(tmp_path / 'stage-output')
+    config_sha = write_json(stage_config, {
+        'scope': 'part5-v3-local-stage', 'prior_config': str(prepare_config),
+        'prior_config_sha256': prepare_config_sha,
+        'prior_status': str(prepare_status), 'prior_status_sha256': prepare_status_sha,
+        'expected_genesis': 'other-genesis', 'ledger': str(runtime / 'ledger'),
+        'stage_output': stage_output,
+    })
+    report_sha = write_json(stage_report, {
+        'schema': 'part5-v3-local-stage-v1', 'passed': True, 'genesis': 'other-genesis'})
+    status_path = tmp_path / 'stage-status.json'
+    status_sha = write_json(status_path, {
+        'status': 'failed', 'stage_verified': True, 'ledger_reuse_requires_review': True,
+        'config_sha256': config_sha,
+        'stage_report_sha256': report_sha, 'stage_output': stage_output,
+        'loaded_program': loaded,
+        'validator_cleanup': {'spawned': True, 'reaped': True, 'graceful': False,
+                              'exit_code': -2},
+        'runner_cleanup': {'spawned': True, 'reaped': True, 'exit_code': 0}})
+
+    with pytest.raises(ValueError, match='stage status/config/report binding or prepare provenance mismatch'):
+        runner.transition_ledger({
+            'config': str(stage_config), 'config_sha256': config_sha,
+            'report': str(stage_report), 'report_sha256': report_sha,
+            'status_path': str(status_path), 'status_sha256': status_sha,
+        })
+
+
+def test_stage_acceptance_rejects_stale_config_report_and_ledger_pins(tmp_path):
+    runtime = tmp_path / 'runtime'
+    prepare_config = tmp_path / 'prepare-config.json'
+    prepare_status = tmp_path / 'prepare-status.json'
+    stage_config_path = tmp_path / 'stage-config.json'
+    genesis = 'loaded-genesis'
+
+    def write_json(path, value):
+        raw = runner.encoded(value)
+        path.write_bytes(raw)
+        return hashlib.sha256(raw).hexdigest()
+
+    prepare_config_sha = write_json(prepare_config, {'runtime_output': str(runtime)})
+    prepare_status_sha = write_json(prepare_status, {
+        'config_sha256': prepare_config_sha, 'ledger': str(runtime / 'ledger'),
+        'loaded_program': {'genesis': genesis, 'elf_sha256': 'a' * 64,
+                           'program': 'program', 'programdata': 'programdata',
+                           'program_account_sha256': 'b' * 64,
+                           'programdata_account_sha256': 'c' * 64}})
+    config = {
+        'scope': 'part5-v3-local-stage', 'prior_config': str(prepare_config),
+        'prior_config_sha256': prepare_config_sha,
+        'prior_status': str(prepare_status), 'prior_status_sha256': prepare_status_sha,
+        'expected_genesis': genesis, 'ledger': str(runtime / 'ledger'),
+        'stage_output': str(tmp_path / 'stage-output'),
+    }
+    config_sha = write_json(stage_config_path, config)
+    report = {'schema': 'part5-v3-local-stage-v1', 'passed': True, 'genesis': genesis}
+    report_sha = hashlib.sha256(runner.encoded(report)).hexdigest()
+    status = {'status': 'failed', 'stage_verified': True,
+        'ledger_reuse_requires_review': True,
+        'config_sha256': config_sha, 'stage_report_sha256': report_sha,
+        'stage_output': config['stage_output'],
+        'loaded_program': json.loads(prepare_status.read_text())['loaded_program'],
+        'validator_cleanup': {'spawned': True, 'reaped': True, 'graceful': False,
+                              'exit_code': -2},
+        'runner_cleanup': {'spawned': True, 'reaped': True, 'exit_code': 0}}
+
+    assert runner.verified_stage_ledger(config, config_sha, status, report, report_sha) == config['ledger']
+
+    for stale_status in (
+        {**status, 'config_sha256': 'b' * 64},
+        {**status, 'stage_report_sha256': 'c' * 64},
+    ):
+        with pytest.raises(ValueError, match='stage status/config/report binding'):
+            runner.verified_stage_ledger(config, config_sha, stale_status, report, report_sha)
+
+    # A new prepare ledger with the same genesis cannot be substituted into a stage.
+    swapped = {**config, 'ledger': str(tmp_path / 'new-runtime' / 'ledger')}
+    with pytest.raises(ValueError, match='stage status/config/report binding'):
+        runner.verified_stage_ledger(swapped, config_sha, status, report, report_sha)
+
+
 def test_all_step_wall_times_require_every_completed_journal_step():
     result = runner.all_step_wall_seconds({'steps': {
         'prepare': {'status': 'passed', 'wall_seconds': 1},
