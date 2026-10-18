@@ -164,9 +164,70 @@ def test_journal_rejects_changed_inputs_for_completed_step(tmp_path):
         raise AssertionError('changed pins must invalidate a resumable step')
 
 
+def test_journal_preserves_failed_attempt_wall_time_in_successful_retry(tmp_path, monkeypatch):
+    journal = runner.RunJournal(tmp_path / 'journal.json', manifest_sha256='a' * 64)
+    times = iter((10.0, 10.1, 11.1, 20.0, 20.2, 21.7, 22.0))
+    monkeypatch.setattr(runner.time, 'monotonic', lambda: next(times))
+    inputs = {'config': 'b' * 64}
+
+    with pytest.raises(RuntimeError, match='first attempt failed'):
+        with journal:
+            journal.run_step(
+                'proof-B', inputs=inputs,
+                job=lambda: (_ for _ in ()).throw(RuntimeError('first attempt failed')),
+                category='stage')
+
+    failed = journal._read()['steps']['proof-B']
+    assert failed['status'] == 'failed'
+    assert failed['failed_attempt_wall_seconds'] == [pytest.approx(1.0)]
+    assert failed['failed_attempt_count'] == 1
+
+    with journal:
+        result = journal.run_step(
+            'proof-B', inputs=inputs,
+            job=lambda: {'status': 'passed', 'wall_seconds': 99.0},
+            category='stage')
+
+    assert result['status'] == 'passed'
+    assert result['failed_attempt_wall_seconds'] == [pytest.approx(1.0)]
+    assert result['failed_attempt_count'] == 1
+    assert result['wall_seconds'] == pytest.approx(2.5)
+    assert journal._read()['costs']['shared_stage_seconds'] == pytest.approx(2.5)
+
+
+def test_journal_rejects_changed_inputs_after_failed_attempt(tmp_path):
+    journal = runner.RunJournal(tmp_path / 'journal.json', manifest_sha256='a' * 64)
+    with pytest.raises(RuntimeError, match='first attempt failed'):
+        with journal:
+            journal.run_step(
+                'proof-B', inputs={'config': 'b' * 64},
+                job=lambda: (_ for _ in ()).throw(RuntimeError('first attempt failed')))
+
+    with pytest.raises(ValueError, match='inputs changed'):
+        with journal:
+            journal.run_step('proof-B', inputs={'config': 'd' * 64},
+                             job=lambda: {'status': 'passed'})
+
+
+def test_journal_rejects_legacy_failed_step_without_measured_time(tmp_path):
+    journal = runner.RunJournal(tmp_path / 'journal.json', manifest_sha256='a' * 64)
+    with journal:
+        document = journal._read()
+        document['steps']['proof-B'] = {
+            'status': 'failed', 'inputs': {'config': 'b' * 64}}
+        journal._save(document)
+        with pytest.raises(ValueError, match='unmeasured prior failed attempt'):
+            journal.run_step('proof-B', inputs={'config': 'b' * 64},
+                             job=lambda: {'status': 'passed'})
+
+
 def test_journal_preserves_reported_wall_time_on_artifact_recovery(tmp_path):
     journal = runner.RunJournal(tmp_path / 'journal.json', manifest_sha256='a' * 64)
     with journal:
+        document = journal._read()
+        document['steps']['stage-A'] = {
+            'status': 'running', 'inputs': {'config': 'b' * 64}}
+        journal._save(document)
         result = journal.run_step(
             'stage-A', inputs={'config': 'b' * 64},
             job=lambda: {'status': 'passed', 'wall_seconds': 12.5},

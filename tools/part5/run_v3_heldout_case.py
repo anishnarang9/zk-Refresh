@@ -537,9 +537,20 @@ class RunJournal:
             raise RuntimeError('journal lock must be held for every step')
         document = self._read()
         prior = document['steps'].get(name)
+        failed_attempt_wall_seconds = []
         if prior is not None:
             if prior.get('inputs') != inputs:
                 raise ValueError(f'resumable step {name} inputs changed')
+            if (prior.get('status') == 'failed'
+                    and 'failed_attempt_wall_seconds' not in prior):
+                raise ValueError(f'resumable step {name} has an unmeasured prior failed attempt')
+            failed_attempt_wall_seconds = prior.get('failed_attempt_wall_seconds', [])
+            if (type(failed_attempt_wall_seconds) is not list
+                    or any(type(value) not in (int, float) or not math.isfinite(value)
+                           or value < 0 for value in failed_attempt_wall_seconds)
+                    or (prior.get('failed_attempt_count') is not None
+                        and prior['failed_attempt_count'] != len(failed_attempt_wall_seconds))):
+                raise ValueError(f'resumable step {name} failed-attempt timing is invalid')
             if prior.get('status') == 'passed':
                 if reuse is None or not reuse(prior):
                     raise ValueError(f'resumable step {name} evidence no longer verifies')
@@ -550,7 +561,9 @@ class RunJournal:
                 prior['status'] = 'interrupted'
                 self._save(document)
         row = {'status': 'running', 'inputs': inputs,
-               'started_monotonic': time.monotonic()}
+               'started_monotonic': time.monotonic(),
+               'failed_attempt_wall_seconds': list(failed_attempt_wall_seconds),
+               'failed_attempt_count': len(failed_attempt_wall_seconds)}
         document['steps'][name] = row
         self._save(document)
         began = time.monotonic()
@@ -562,11 +575,19 @@ class RunJournal:
             row.update(result)
             row['status'] = 'passed'
         except BaseException as error:
-            row.update({'status': 'failed', 'error_type': type(error).__name__})
+            failed_attempt_wall_seconds.append(time.monotonic() - began)
+            row.update({'status': 'failed', 'error_type': type(error).__name__,
+                        'failed_attempt_wall_seconds': failed_attempt_wall_seconds,
+                        'failed_attempt_count': len(failed_attempt_wall_seconds)})
             self._save(document)
             raise
         elapsed = time.monotonic() - began
-        if (type(measured_wall) in (int, float) and math.isfinite(measured_wall)
+        if failed_attempt_wall_seconds:
+            # The previous failed call already includes any supervisor work
+            # left behind in a recoverable artifact. Charge the retry's actual
+            # call time so that artifact timing is not counted again.
+            elapsed += sum(failed_attempt_wall_seconds)
+        elif (type(measured_wall) in (int, float) and math.isfinite(measured_wall)
                 and measured_wall >= 0):
             # Use whole-call time on the original run; when recovering a
             # durable artifact after interruption, its supervisor duration is
