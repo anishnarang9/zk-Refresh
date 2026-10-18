@@ -111,6 +111,8 @@ def _training_index(report):
     if (type(report) is not dict or report.get('schema') != TRAINING_SCHEMA
             or report.get('training_only') is not True):
         raise ValueError('training total-cost summary schema required')
+    if report.get('matrix_grid_complete') is not True:
+        raise ValueError('training summary matrix grid complete flag required')
     if (type(report.get('matched_pairs')) is not int
             or report['matched_pairs'] != 20
             or type(report.get('expected_pairs')) is not int

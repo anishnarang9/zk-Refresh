@@ -24,6 +24,7 @@ class HeldoutConditionalBreakEvenTests(unittest.TestCase):
         self.training = {
             'schema': model.TRAINING_SCHEMA,
             'training_only': True,
+            'matrix_grid_complete': True,
             'source_hashes': {
                 'matrix_manifest_sha256': 'e' * 64,
                 'economics_report_sha256': 'f' * 64,
@@ -91,6 +92,12 @@ class HeldoutConditionalBreakEvenTests(unittest.TestCase):
         self.assertEqual(deltas[1]['anchor_minus_full_seconds'], 5.0)
         self.assertEqual(deltas[1]['basis'], 'direct heldout k1 calibration')
         self.assertEqual(deltas[2]['basis'], 'model/inference')
+
+    def test_rejects_complete_matched_pairs_when_matrix_grid_is_incomplete(self):
+        self.training['matrix_grid_complete'] = False
+        self.assertEqual(len(self.training['pairs']), 20)
+        with self.assertRaisesRegex(ValueError, 'matrix grid complete'):
+            model.build(self.heldout, self.training, 'a' * 64, 'b' * 64)
 
     def test_rejects_incomplete_training_pair_grid(self):
         self.training['pairs'].pop()
