@@ -121,8 +121,9 @@ def _training_index(report):
     source_hashes = report.get('source_hashes')
     if (type(source_hashes) is not dict
             or not _is_sha(source_hashes.get('matrix_manifest_sha256'))
+            or not _is_sha(source_hashes.get('sequence_receipt_sha256'))
             or not _is_sha(source_hashes.get('economics_report_sha256'))):
-        raise ValueError('training summary matrix-manifest and economics-report source hashes required')
+        raise ValueError('training summary matrix-manifest, sequence-receipt, and economics-report source hashes required')
 
     def key(row):
         count, repetition = row.get('target_count'), row.get('repetition')
@@ -230,6 +231,14 @@ def build(heldout_report, training_report, heldout_sha256, training_sha256,
                 'path': training_path, 'sha256': training_sha256,
                 'schema': TRAINING_SCHEMA,
             },
+        },
+        'source_hashes': {
+            'matrix_manifest_sha256': training_report['source_hashes'][
+                'matrix_manifest_sha256'],
+            'sequence_receipt_sha256': training_report['source_hashes'][
+                'sequence_receipt_sha256'],
+            'economics_report_sha256': training_report['source_hashes'][
+                'economics_report_sha256'],
         },
         'method': {
             'heldout_observed_delta': 'D_v1 = anchor_B_seconds - full_B_seconds',

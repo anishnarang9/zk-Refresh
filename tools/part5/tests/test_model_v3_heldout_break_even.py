@@ -27,6 +27,7 @@ class HeldoutConditionalBreakEvenTests(unittest.TestCase):
             'matrix_grid_complete': True,
             'source_hashes': {
                 'matrix_manifest_sha256': 'e' * 64,
+                'sequence_receipt_sha256': 'c' * 64,
                 'economics_report_sha256': 'f' * 64,
             },
             'matched_pairs': 20,
@@ -54,6 +55,11 @@ class HeldoutConditionalBreakEvenTests(unittest.TestCase):
                              'a' * 64, 'b' * 64)
 
         self.assertEqual(result['schema'], model.OUTPUT_SCHEMA)
+        self.assertEqual(result['source_hashes'], {
+            'matrix_manifest_sha256': 'e' * 64,
+            'sequence_receipt_sha256': 'c' * 64,
+            'economics_report_sha256': 'f' * 64,
+        })
         self.assertEqual(len(result['variants']), 8)
         self.assertEqual(result['pooled_first_crossing_counts'], {
             '0': 0, '1': 0, '2': 0, '5': 0, '10': 0,
@@ -147,6 +153,18 @@ class HeldoutConditionalBreakEvenTests(unittest.TestCase):
         training['source_hashes']['matrix_manifest_sha256'] = None
         with self.assertRaisesRegex(ValueError, 'source hash'):
             model.build(self.heldout, training, 'a' * 64, 'b' * 64)
+
+    def test_rejects_missing_or_malformed_training_sequence_receipt_hash(self):
+        for pin in (None, 'z' * 64, 'c' * 63):
+            training = dict(self.training)
+            training['source_hashes'] = dict(self.training['source_hashes'])
+            if pin is None:
+                training['source_hashes'].pop('sequence_receipt_sha256')
+            else:
+                training['source_hashes']['sequence_receipt_sha256'] = pin
+            with self.subTest(pin=pin), self.assertRaisesRegex(
+                    ValueError, 'sequence-receipt'):
+                model.build(self.heldout, training, 'a' * 64, 'b' * 64)
 
     def test_rejects_training_summary_with_wrong_pair_accounting(self):
         for field, value in (('matched_pairs', 19), ('expected_pairs', 20.0)):
