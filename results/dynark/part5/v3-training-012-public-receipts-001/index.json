@@ -1,0 +1,491 @@
+{
+  "campaign_id": "training-012",
+  "matrix_manifest_canonical_sha256": "21612a6451c00b7a46d9abaa3445e5acecec3c14583317884800b49b2614ff53",
+  "schema": "part5-v3-campaign-public-receipt-index-v1",
+  "sequence_receipt": {
+    "path": "sequence-receipt.json",
+    "sha256": "b9f19acdb6db9f3b711e25a01179ebcf57d19afc4a57de4b104df1de52bad024"
+  },
+  "slot_receipts": [
+    {
+      "mode": "full",
+      "path": "slot-receipts/slot-0001.json",
+      "repetition": 1,
+      "sequence": 1,
+      "sha256": "4db2f6890e564658738796803b4c9850698532b1f0e7fb245e75a4abc5f9b08a",
+      "target_count": 0
+    },
+    {
+      "mode": "anchor",
+      "path": "slot-receipts/slot-0002.json",
+      "repetition": 1,
+      "sequence": 2,
+      "sha256": "cf0b16cb2bfa7704f752e70eac2aa39ae7572fa96b488c8a2c2ba7adf9a8d877",
+      "target_count": 0
+    },
+    {
+      "mode": "coalesced-full",
+      "path": "slot-receipts/slot-0003.json",
+      "repetition": 1,
+      "sequence": 3,
+      "sha256": "d4eae52d5f9df76f79b1cc711b4b179b0983a2085f892a6b1450fd16ff2ebe7d",
+      "target_count": 0
+    },
+    {
+      "mode": "full",
+      "path": "slot-receipts/slot-0004.json",
+      "repetition": 1,
+      "sequence": 4,
+      "sha256": "a987e144062d5076e7a2db3fcf06c5b0255f2df92fcee545de59c5853563dd60",
+      "target_count": 1
+    },
+    {
+      "mode": "anchor",
+      "path": "slot-receipts/slot-0005.json",
+      "repetition": 1,
+      "sequence": 5,
+      "sha256": "96ed66568af5b59867f7e3d005c8ae04c606ec6243057b7aaab10b59d9794965",
+      "target_count": 1
+    },
+    {
+      "mode": "coalesced-full",
+      "path": "slot-receipts/slot-0006.json",
+      "repetition": 1,
+      "sequence": 6,
+      "sha256": "23f57d34819b2ddeb843d393adb8fe8c3ef09364f567a3bccd43c2521820cb2c",
+      "target_count": 1
+    },
+    {
+      "mode": "full",
+      "path": "slot-receipts/slot-0007.json",
+      "repetition": 1,
+      "sequence": 7,
+      "sha256": "625fc6234988ae7dc898ef7930b3b2f275406995e1639ed709e413c1801ab1d4",
+      "target_count": 2
+    },
+    {
+      "mode": "anchor",
+      "path": "slot-receipts/slot-0008.json",
+      "repetition": 1,
+      "sequence": 8,
+      "sha256": "4881efbeae5feebccdb659e2ee0c3d6467a2bc863000848e676535978d043890",
+      "target_count": 2
+    },
+    {
+      "mode": "coalesced-full",
+      "path": "slot-receipts/slot-0009.json",
+      "repetition": 1,
+      "sequence": 9,
+      "sha256": "438af2e0d3b019dac32859efc085801d202288241747a9cfe575542f7eb893db",
+      "target_count": 2
+    },
+    {
+      "mode": "full",
+      "path": "slot-receipts/slot-0010.json",
+      "repetition": 1,
+      "sequence": 10,
+      "sha256": "840ce732d9d3596a2b4613568d4275b5eee990102a79df61f5562d5e5b9b06e1",
+      "target_count": 5
+    },
+    {
+      "mode": "anchor",
+      "path": "slot-receipts/slot-0011.json",
+      "repetition": 1,
+      "sequence": 11,
+      "sha256": "c44e101fd6785d1288f637003a54091aa14e2242194b02a2426ea6bbba685a99",
+      "target_count": 5
+    },
+    {
+      "mode": "coalesced-full",
+      "path": "slot-receipts/slot-0012.json",
+      "repetition": 1,
+      "sequence": 12,
+      "sha256": "4c33c20075f5563393976ad5cb8dbc0213e8dcf0b08eb51a06055653417f085c",
+      "target_count": 5
+    },
+    {
+      "mode": "full",
+      "path": "slot-receipts/slot-0013.json",
+      "repetition": 1,
+      "sequence": 13,
+      "sha256": "46cbad49a1e2340f52b813f776cfddadd19eba5040e7b2f7ecdcb9801be31b30",
+      "target_count": 10
+    },
+    {
+      "mode": "anchor",
+      "path": "slot-receipts/slot-0014.json",
+      "repetition": 1,
+      "sequence": 14,
+      "sha256": "c86e9109c2d1b5ca04ad1c87bbb277c1f2fef894771f5203bb5684f165147496",
+      "target_count": 10
+    },
+    {
+      "mode": "coalesced-full",
+      "path": "slot-receipts/slot-0015.json",
+      "repetition": 1,
+      "sequence": 15,
+      "sha256": "fa3145b082691fc45675b70833d554c9b56c3069d40089706a57e32261b388f0",
+      "target_count": 10
+    },
+    {
+      "mode": "anchor",
+      "path": "slot-receipts/slot-0016.json",
+      "repetition": 2,
+      "sequence": 16,
+      "sha256": "9749e3e0cf40653575f4efba13992609de5f973a13abc317419a88ce98e9f419",
+      "target_count": 0
+    },
+    {
+      "mode": "coalesced-full",
+      "path": "slot-receipts/slot-0017.json",
+      "repetition": 2,
+      "sequence": 17,
+      "sha256": "bc100a56af6e1ea5fce37d1a6c11d2c29381801dbaf8c5b9b5bb36fe4d962b57",
+      "target_count": 0
+    },
+    {
+      "mode": "full",
+      "path": "slot-receipts/slot-0018.json",
+      "repetition": 2,
+      "sequence": 18,
+      "sha256": "a971de7f07d490547b697815a702c1816a637a7d0bf4c5f0632641b43ae9e581",
+      "target_count": 0
+    },
+    {
+      "mode": "anchor",
+      "path": "slot-receipts/slot-0019.json",
+      "repetition": 2,
+      "sequence": 19,
+      "sha256": "59400e5c5e15ecbc1ff9e0ff2d08f1e163cad8d9e917740e0c7db4403ab39b81",
+      "target_count": 1
+    },
+    {
+      "mode": "coalesced-full",
+      "path": "slot-receipts/slot-0020.json",
+      "repetition": 2,
+      "sequence": 20,
+      "sha256": "b70c2a13a2b9af2db433adf16862e1585d2fbb40d56a3fa3053d7d24b36a4a52",
+      "target_count": 1
+    },
+    {
+      "mode": "full",
+      "path": "slot-receipts/slot-0021.json",
+      "repetition": 2,
+      "sequence": 21,
+      "sha256": "a4fc82140a680ce52744d8e72f78a22d4d84c4a3cf38b29131db5681461550f7",
+      "target_count": 1
+    },
+    {
+      "mode": "anchor",
+      "path": "slot-receipts/slot-0022.json",
+      "repetition": 2,
+      "sequence": 22,
+      "sha256": "a227001ebd2d02d4cc4dcbda76006cc3833e7d565cc040cd7025c2d09184627b",
+      "target_count": 2
+    },
+    {
+      "mode": "coalesced-full",
+      "path": "slot-receipts/slot-0023.json",
+      "repetition": 2,
+      "sequence": 23,
+      "sha256": "916908546f7f19d0530c310aec1d53778fd1e58aee0653d5fb7b6b370ceaa34f",
+      "target_count": 2
+    },
+    {
+      "mode": "full",
+      "path": "slot-receipts/slot-0024.json",
+      "repetition": 2,
+      "sequence": 24,
+      "sha256": "88c71744486bccaa8596a44080a088ef619d8afc2abc2b5b19cd350457cec5cf",
+      "target_count": 2
+    },
+    {
+      "mode": "anchor",
+      "path": "slot-receipts/slot-0025.json",
+      "repetition": 2,
+      "sequence": 25,
+      "sha256": "1e96fe4ba7ff44d4daee49f9f0ef94e537e5004bd292ca6b14a4f69c17be24d2",
+      "target_count": 5
+    },
+    {
+      "mode": "coalesced-full",
+      "path": "slot-receipts/slot-0026.json",
+      "repetition": 2,
+      "sequence": 26,
+      "sha256": "589a5f537423875af6fc1e5502eb8911abb39325e68365a46a05c0cb77b0f2c2",
+      "target_count": 5
+    },
+    {
+      "mode": "full",
+      "path": "slot-receipts/slot-0027.json",
+      "repetition": 2,
+      "sequence": 27,
+      "sha256": "711181ff96bbcbb19ec7df0e5bf30c7c78d71e293ce46eb6ee39d934ef8e28a8",
+      "target_count": 5
+    },
+    {
+      "mode": "anchor",
+      "path": "slot-receipts/slot-0028.json",
+      "repetition": 2,
+      "sequence": 28,
+      "sha256": "0ecb35c71fada7fbf1be20025343ff77103555c29a8b71d6b20deafd874fd161",
+      "target_count": 10
+    },
+    {
+      "mode": "coalesced-full",
+      "path": "slot-receipts/slot-0029.json",
+      "repetition": 2,
+      "sequence": 29,
+      "sha256": "364303a954922e5f4162227cf2fb1f2cc0688db859baccf36ef7a6f7a6f82877",
+      "target_count": 10
+    },
+    {
+      "mode": "full",
+      "path": "slot-receipts/slot-0030.json",
+      "repetition": 2,
+      "sequence": 30,
+      "sha256": "343ae73ce7dddd4ed2a7812cad7138ad66b75e2b602d0531fa74a84c5ba92f6c",
+      "target_count": 10
+    },
+    {
+      "mode": "full",
+      "path": "slot-receipts/slot-0031.json",
+      "repetition": 3,
+      "sequence": 31,
+      "sha256": "58ef28c234f261bba25594c86148274b1c9682146e9dd2e549288c27db0bf5e9",
+      "target_count": 0
+    },
+    {
+      "mode": "coalesced-full",
+      "path": "slot-receipts/slot-0032.json",
+      "repetition": 3,
+      "sequence": 32,
+      "sha256": "46755317a69c099ff0ddfec78f1283cb17adce8b62eea1c1af82eb039c769d27",
+      "target_count": 0
+    },
+    {
+      "mode": "anchor",
+      "path": "slot-receipts/slot-0033.json",
+      "repetition": 3,
+      "sequence": 33,
+      "sha256": "74680705404f1c1a1f58f835808d1381f048b0dac01371d839d0d43885d819cc",
+      "target_count": 0
+    },
+    {
+      "mode": "full",
+      "path": "slot-receipts/slot-0034.json",
+      "repetition": 3,
+      "sequence": 34,
+      "sha256": "84b18a4cbe5aea860a43f18493e16c8a666299f5c2e813d4064f42a9d38f8f96",
+      "target_count": 1
+    },
+    {
+      "mode": "coalesced-full",
+      "path": "slot-receipts/slot-0035.json",
+      "repetition": 3,
+      "sequence": 35,
+      "sha256": "85786492241884c44c2c47c8dcc590393b60ae301d34652e31104ff4528eefe2",
+      "target_count": 1
+    },
+    {
+      "mode": "anchor",
+      "path": "slot-receipts/slot-0036.json",
+      "repetition": 3,
+      "sequence": 36,
+      "sha256": "c368e624179a433596b0d9449ca9e8ec3de54971b6303f31becc822dddbab796",
+      "target_count": 1
+    },
+    {
+      "mode": "full",
+      "path": "slot-receipts/slot-0037.json",
+      "repetition": 3,
+      "sequence": 37,
+      "sha256": "1a029f2ae1a448e899a8a7ac7a1be56873c250e33fefd8b824af58fda836f2a3",
+      "target_count": 2
+    },
+    {
+      "mode": "coalesced-full",
+      "path": "slot-receipts/slot-0038.json",
+      "repetition": 3,
+      "sequence": 38,
+      "sha256": "b58ea3e7f3162c84088f3832fd580506b3196f271f9b0dbc5eb43e9ece35f831",
+      "target_count": 2
+    },
+    {
+      "mode": "anchor",
+      "path": "slot-receipts/slot-0039.json",
+      "repetition": 3,
+      "sequence": 39,
+      "sha256": "21bde37ac3c71b8ae425c48aeba7600b429693dedb3206aaf2e08085fb4616ca",
+      "target_count": 2
+    },
+    {
+      "mode": "full",
+      "path": "slot-receipts/slot-0040.json",
+      "repetition": 3,
+      "sequence": 40,
+      "sha256": "0eeb820c0570ee0835ef9614a442be4674a7c3814fbf754304c22052c884b86a",
+      "target_count": 5
+    },
+    {
+      "mode": "coalesced-full",
+      "path": "slot-receipts/slot-0041.json",
+      "repetition": 3,
+      "sequence": 41,
+      "sha256": "dec7c80d423adc77d2cd953dbda5d5e5deb8a706d6fe29ca36c5df4b44b9bb00",
+      "target_count": 5
+    },
+    {
+      "mode": "anchor",
+      "path": "slot-receipts/slot-0042.json",
+      "repetition": 3,
+      "sequence": 42,
+      "sha256": "bc89768e6452ba7d924542dc1b9da249b2b2f2124ff6490fff3e5f5414af47c2",
+      "target_count": 5
+    },
+    {
+      "mode": "full",
+      "path": "slot-receipts/slot-0043.json",
+      "repetition": 3,
+      "sequence": 43,
+      "sha256": "672f2c49ca3ce03a36783c494f872008d34ad9e395164a4eb28f74f5a2574b9d",
+      "target_count": 10
+    },
+    {
+      "mode": "coalesced-full",
+      "path": "slot-receipts/slot-0044.json",
+      "repetition": 3,
+      "sequence": 44,
+      "sha256": "b66598557530f91dcbd398b55341616bee6c9bf2f5c89d4ec7f91af5b309e503",
+      "target_count": 10
+    },
+    {
+      "mode": "anchor",
+      "path": "slot-receipts/slot-0045.json",
+      "repetition": 3,
+      "sequence": 45,
+      "sha256": "eb3193b0b1ca086bed30c26ea8ac804704e9a269918e02c276c9b4921c8afd92",
+      "target_count": 10
+    },
+    {
+      "mode": "coalesced-full",
+      "path": "slot-receipts/slot-0046.json",
+      "repetition": 4,
+      "sequence": 46,
+      "sha256": "95040279c81e4f9fb291403e05e19f2af156f012513291d3c212f1bb0cb97212",
+      "target_count": 0
+    },
+    {
+      "mode": "anchor",
+      "path": "slot-receipts/slot-0047.json",
+      "repetition": 4,
+      "sequence": 47,
+      "sha256": "5094b20b76b1d03da4f3e79c464f4ea341f72316f6ab8b438d49ae1f577195e9",
+      "target_count": 0
+    },
+    {
+      "mode": "full",
+      "path": "slot-receipts/slot-0048.json",
+      "repetition": 4,
+      "sequence": 48,
+      "sha256": "f464f31360162e3675381179e01f2642edf7216f9ba78ec40521e16754fb9439",
+      "target_count": 0
+    },
+    {
+      "mode": "coalesced-full",
+      "path": "slot-receipts/slot-0049.json",
+      "repetition": 4,
+      "sequence": 49,
+      "sha256": "b1cbfd8d44ce7547b8da9e5bda4c81913afb620f1a18dc38854c5b64ad72b236",
+      "target_count": 1
+    },
+    {
+      "mode": "anchor",
+      "path": "slot-receipts/slot-0050.json",
+      "repetition": 4,
+      "sequence": 50,
+      "sha256": "862db8a83310de8626da396a9dac14dd36216d08be1c9c263c035bbdc2a22fd6",
+      "target_count": 1
+    },
+    {
+      "mode": "full",
+      "path": "slot-receipts/slot-0051.json",
+      "repetition": 4,
+      "sequence": 51,
+      "sha256": "fc9ea7e41d72ae6b5d00abcb558a80ab29bd5966e1f599ff4f8a5211eed36e4e",
+      "target_count": 1
+    },
+    {
+      "mode": "coalesced-full",
+      "path": "slot-receipts/slot-0052.json",
+      "repetition": 4,
+      "sequence": 52,
+      "sha256": "b0c1f474e377002c34f57b5aded80bc862435e128b31452080eb443dbfaa0821",
+      "target_count": 2
+    },
+    {
+      "mode": "anchor",
+      "path": "slot-receipts/slot-0053.json",
+      "repetition": 4,
+      "sequence": 53,
+      "sha256": "316a5368ecf35f7d8c75b1024633045ee3cfe20d8790002ff97d954bc7dd394d",
+      "target_count": 2
+    },
+    {
+      "mode": "full",
+      "path": "slot-receipts/slot-0054.json",
+      "repetition": 4,
+      "sequence": 54,
+      "sha256": "c64219fc626e8482d8083b6a1813aa9cb3bb627f94adbd5f1ac0d6713a35e33e",
+      "target_count": 2
+    },
+    {
+      "mode": "coalesced-full",
+      "path": "slot-receipts/slot-0055.json",
+      "repetition": 4,
+      "sequence": 55,
+      "sha256": "136441265d90c36120009ab0df079235bdbb10631e75b4484522b5e021c8aa1d",
+      "target_count": 5
+    },
+    {
+      "mode": "anchor",
+      "path": "slot-receipts/slot-0056.json",
+      "repetition": 4,
+      "sequence": 56,
+      "sha256": "6bde41cccd4f587b61a7153fa21b91f1f26e829309f2d4efb9c055b5eb9f7a6b",
+      "target_count": 5
+    },
+    {
+      "mode": "full",
+      "path": "slot-receipts/slot-0057.json",
+      "repetition": 4,
+      "sequence": 57,
+      "sha256": "381c92493f89f61460e89cbc31842d67e0b897b4bd32024670b76b6f83c59489",
+      "target_count": 5
+    },
+    {
+      "mode": "coalesced-full",
+      "path": "slot-receipts/slot-0058.json",
+      "repetition": 4,
+      "sequence": 58,
+      "sha256": "955cde594570a81bc25caeff94c07d4347359029ae8d14fff4d82820ab3272db",
+      "target_count": 10
+    },
+    {
+      "mode": "anchor",
+      "path": "slot-receipts/slot-0059.json",
+      "repetition": 4,
+      "sequence": 59,
+      "sha256": "98ed0536c23ffb1242f3ba53794fca4812a0a6ebccffaf61244e29ff6b462cbf",
+      "target_count": 10
+    },
+    {
+      "mode": "full",
+      "path": "slot-receipts/slot-0060.json",
+      "repetition": 4,
+      "sequence": 60,
+      "sha256": "8d0247fd404bacd82061ee469025a63cfa90dc459a742fbf25e4ff528f53407e",
+      "target_count": 10
+    }
+  ]
+}
