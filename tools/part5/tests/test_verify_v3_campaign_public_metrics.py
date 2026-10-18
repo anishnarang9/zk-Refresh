@@ -15,8 +15,8 @@ from tools.part5.tests.test_verify_v3_campaign_public_bundle_bindings import _sa
 from tools.part5.tests.test_verify_v3_campaign_public_clock_audit import _report
 
 
-def _fixture(root):
-    plan = _public_bundle(root, 'training-011')
+def _fixture(root, campaign_id='training-011'):
+    plan = _public_bundle(root, campaign_id)
     chain = _bundle(root / 'receipts')
     doc = _read_json(plan / 'matrix-plan.json')
     for slot in doc['slots']:
@@ -24,11 +24,11 @@ def _fixture(root):
     _write_json(plan / 'matrix-plan.json', doc)
     _rehash_public(_read_json(plan / 'index.json'), plan, 'matrix_plan')
     index, sequence = _read_json(chain / 'index.json'), _read_json(chain / 'sequence-receipt.json')
-    index['campaign_id'] = sequence['campaign_id'] = 'training-011'
+    index['campaign_id'] = sequence['campaign_id'] = campaign_id
     index['matrix_manifest_canonical_sha256'] = sequence['manifest_sha256'] = doc['matrix_manifest_canonical_sha256']
     _save_sequence(chain, index, sequence)
     bound = tool.bindings.verify_bundles(plan, chain)
-    audit = _report(campaign_id='training-011')
+    audit = _report(campaign_id=campaign_id)
     audit['matrix_manifest_sha256'] = bound['matrix_manifest_canonical_sha256']
     audit['sequence_receipt_sha256'] = bound['sequence_receipt_sha256']
     slots = []
@@ -48,7 +48,7 @@ def _fixture(root):
     sources = dict.fromkeys(tool.SOURCE_FIELDS, 'e' * 64)
     sources.update({field: bound[field] for field in ('projection_index_sha256', 'receipt_index_sha256', 'sequence_receipt_sha256', 'matrix_manifest_canonical_sha256')})
     sources['clock_audit_report_sha256'] = _sha(clock_path.read_bytes())
-    capsule = dict(schema=tool.SCHEMA, campaign_id='training-011', training_only=True,
+    capsule = dict(schema=tool.SCHEMA, campaign_id=campaign_id, training_only=True,
                    matrix_grid_complete=True, source_hashes=sources, slots=slots,
                    shared=dict(prepare_seconds=2.0, stage_seconds=3.0,
                                transitions=[dict(target_count=k, seconds=1.0, config_sha256='e'*64,
@@ -70,6 +70,18 @@ def _verify(paths):
 
 
 class PublicMetricsTests(unittest.TestCase):
+    def test_training_012_accepts_matching_public_bundles_and_rejects_mixed_campaign(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            paths = _fixture(Path(temporary).resolve(), 'training-012')
+            result = _verify(paths)
+            self.assertEqual(result['campaign_id'], 'training-012')
+            self.assertEqual(result['matched_pair_count'], 20)
+            capsule = _read_json(paths[2])
+            capsule['campaign_id'] = 'training-011'
+            _write_json(paths[2], capsule)
+            with self.assertRaisesRegex(ValueError, 'campaign'):
+                _verify(paths)
+
     def test_independent_checks_and_component_arithmetic_without_private_sources(self):
         with tempfile.TemporaryDirectory() as temporary:
             paths = _fixture(Path(temporary).resolve())

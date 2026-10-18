@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify a public Training-011 metrics capsule and render a Markdown report."""
+"""Verify a public campaign metrics capsule and render a Markdown report."""
 import argparse
 from pathlib import Path
 import sys
@@ -19,11 +19,14 @@ def render_report(result):
     """Render only values returned by the independent public metrics verifier."""
     if result.get("status") != "verified":
         raise ValueError("verified metrics result required")
+    campaign_id = result.get("campaign_id")
+    if campaign_id not in verifier.CAMPAIGNS:
+        raise ValueError("supported verified campaign required")
     rows = result.get("per_target_count")
     if type(rows) is not list or len(rows) != 5:
         raise ValueError("five verified target-count summaries required")
     lines = [
-        "# Training-011 public campaign metrics",
+        f"# {campaign_id.capitalize()} public campaign metrics",
         "",
         f"Campaign: `{result['campaign_id']}`",
         "",

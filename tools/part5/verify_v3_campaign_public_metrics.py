@@ -16,6 +16,7 @@ from tools.part5 import verify_v3_campaign_public_bundle_bindings as bindings
 from tools.part5 import verify_v3_campaign_public_clock_audit as clock
 
 SCHEMA = 'part5-v3-public-metrics-capsule-v1'
+CAMPAIGNS = ('training-011', 'training-012')
 SCOPE = ('arithmetic and published projection only; underlying private report truth '
          'and publisher-validated identity equality are not independently verifiable')
 MAX_METRICS_BYTES = 256 * 1024
@@ -138,9 +139,11 @@ def verify_metrics(projection_dir, receipt_dir, metrics_path, expected_sha256, c
         raise ValueError('metrics capsule byte hash mismatch')
     capsule = projection._json_object(raw, 'metrics capsule')
     _fields(capsule, ROOT_FIELDS, 'metrics capsule')
-    for field, value in {'schema': SCHEMA, 'campaign_id': 'training-011',
-                         'training_only': True, 'matrix_grid_complete': True}.items():
+    for field, value in {'schema': SCHEMA, 'training_only': True,
+                         'matrix_grid_complete': True}.items():
         _equal(capsule[field], value, field)
+    if capsule['campaign_id'] not in CAMPAIGNS:
+        raise ValueError('unsupported metrics campaign')
     _equal(bound['campaign_id'], capsule['campaign_id'], 'campaign')
     sources = capsule['source_hashes']
     _fields(sources, SOURCE_FIELDS, 'source hashes')
@@ -209,7 +212,7 @@ def verify_metrics(projection_dir, receipt_dir, metrics_path, expected_sha256, c
                               (metrics_path, MAX_METRICS_BYTES, expected_sha256),
                               (clock_audit_path, clock.MAX_REPORT_BYTES, sources['clock_audit_report_sha256'])]:
         _equal(projection._sha256(_read(path, cap, 'public input')), digest, 'public input changed')
-    return dict(status='verified', scope=SCOPE, campaign_id='training-011', slot_count=60,
+    return dict(status='verified', scope=SCOPE, campaign_id=capsule['campaign_id'], slot_count=60,
                 matched_pair_count=20, metrics_sha256=expected_sha256,
                 one_time_costs=one_time, **result)
 

@@ -37,6 +37,14 @@ def _result():
 
 
 class RenderPublicCampaignReportTests(unittest.TestCase):
+    def test_training_012_title_and_unknown_campaign_rejection(self):
+        result = _result()
+        result['campaign_id'] = 'training-012'
+        self.assertIn('Training-012 public campaign metrics', renderer.render_report(result))
+        result['campaign_id'] = 'training-013'
+        with self.assertRaisesRegex(ValueError, 'campaign'):
+            renderer.render_report(result)
+
     def test_render_includes_verified_coverage_medians_break_even_and_scope(self):
         report = renderer.render_report(_result())
         for expected in (
