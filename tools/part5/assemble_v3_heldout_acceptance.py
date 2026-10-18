@@ -34,9 +34,10 @@ GLOBAL_FIELDS = ('freeze_receipt', 'cohort_receipt', 'cohort_observation', 'froz
                  'application_source_files', 'source_files', 'proof_inputs')
 CASE_FIELDS = ('variant', 'case_context', 'stage_context', 'pair_receipt',
                'membership', 'stage', 'transition', 'sources', 'branches',
-               'disabled_config_negative',
+               'disabled_config_negative', 'ambiguous_restart',
                'run_manifest', 'run_journal', 'all_step_wall_seconds', 'shared_costs',
                'disabled_config_negative_wall_seconds',
+               'ambiguous_restart_wall_seconds',
                'branch_wall_components', 'branch_wall_seconds',
                'shared_stage_transition_wall_seconds', 'branch_order',
                'proof_order')
@@ -121,6 +122,8 @@ def _validate_cost_fields(case):
         raise ValueError('complete finite journal wall-time map required')
     if not _finite_cost(case['disabled_config_negative_wall_seconds']):
         raise ValueError('finite separate disabled-config negative wall time required')
+    if not _finite_cost(case['ambiguous_restart_wall_seconds']):
+        raise ValueError('finite separate ambiguous-restart wall time required')
     shared = case['shared_costs']
     if (type(shared) is not dict
             or set(shared) != {'shared_stage_seconds', 'shared_transition_seconds'}
@@ -220,6 +223,7 @@ def _case_from_fragment(fragment):
         raise ValueError('pinned current-R2 witness rejection receipt required')
     _verify_ref(own_revocation['current_r2_witness_rejection'], cap=1024 * 1024)
     _verify_ref(case['disabled_config_negative'], cap=1024 * 1024)
+    _verify_ref(case['ambiguous_restart'], cap=1024 * 1024)
     _validate_cost_fields(case)
     return case
 
