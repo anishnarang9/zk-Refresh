@@ -761,8 +761,10 @@ def aggregate(manifest, base_dir='.'):
             'The measured value is bounded-session wall time: source import through '
             'application reconciliation, launch, monitoring, and cleanup. It excludes '
             'initial metadata writes, report writes, and preexisting ledger clone, '
-            'signed history preparation, and state wait. Shared public setup/material '
-            'is not included by the current session runner.'),
+            'signed history preparation, and state wait. The Anchor proof runner '
+            'charges per-session public updating-material preparation and private '
+            'Anchor preparation inside this wall time. Development trusted setup '
+            'and shared preparation outside the session are accounted separately.'),
         'whole_application_benefit_established': False,
         'whole_application_benefit_unresolved_costs': unresolved_costs,
         'whole_application_savings_fraction': None,
