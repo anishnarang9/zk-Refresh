@@ -110,10 +110,7 @@ def clone_costs(validated, economics):
             continue
         slot = {key: session[key] for key in ('mode', 'target_count', 'repetition')}
         paths = matrix.output_paths(validated, slot)
-        try:
-            receipt = matrix.read_json(paths['slot_receipt'])
-        except FileNotFoundError:
-            continue
+        receipt = matrix.read_json(paths['slot_receipt'])
         if (receipt.get('schema') != 'part5-v3-campaign-matrix-slot-v1'
                 or any(receipt.get(key) != slot[key] for key in slot)
                 or receipt.get('session_report_sha256') != session['session_report_sha256']
@@ -126,6 +123,46 @@ def clone_costs(validated, economics):
         result[(slot['target_count'], slot['repetition'], slot['mode'])] = (
             receipt['clone_preparation_wall_seconds'])
     return result
+
+
+def verify_completed_matrix(validated):
+    """Verify the current complete matrix evidence before deriving costs."""
+    planned = matrix.plan_slots(validated)
+    sequence_path = validated['output_root'] / 'sequence-receipt.json'
+    if not sequence_path.is_file() or sequence_path.is_symlink():
+        raise ValueError('completed matrix sequence receipt required')
+    sequence_receipt_sha256 = matrix.sha256(sequence_path)
+    sequence_receipt = matrix.read_json(sequence_path)
+    sequence = sequence_receipt.get('sequence')
+    if (sequence_receipt.get('schema') != matrix.SEQUENCE_SCHEMA
+            or sequence_receipt.get('passed') is not True
+            or sequence_receipt.get('cross_session_order_verified') is not True
+            or sequence_receipt.get('campaign_id') != validated['campaign_id']
+            or sequence_receipt.get('manifest_sha256') != validated['manifest_sha256']
+            or sequence_receipt.get('sequence_count') != 60
+            or not isinstance(sequence, list) or len(sequence) != 60
+            or sequence_receipt.get('final_slot_receipt_sha256')
+               != (sequence[-1].get('slot_receipt_sha256') if sequence else None)):
+        raise ValueError('completed matrix sequence receipt identity mismatch')
+    matrix.verify_actual_sequence(sequence, planned)
+    previous_end_utc = None
+    for planned_slot, actual_slot in zip(planned, sequence):
+        paths = matrix.output_paths(validated, planned_slot)
+        receipt_path = paths['slot_receipt']
+        # verify_existing_slot may create a provisional receipt when this file is
+        # absent. Reconciliation must remain read-only, so reject before calling it.
+        if not receipt_path.is_file() or receipt_path.is_symlink():
+            raise ValueError('all 60 current matrix slot receipts are required')
+        receipt_sha, _ = matrix.verify_existing_slot(
+            planned_slot, validated, paths,
+            actual_slot.get('previous_slot_receipt_sha256'), previous_end_utc)
+        if (receipt_sha != actual_slot.get('slot_receipt_sha256')
+                or matrix.sha256(receipt_path) != actual_slot.get('slot_receipt_sha256')):
+            raise ValueError('current slot receipt differs from completed sequence')
+        previous_end_utc = actual_slot.get('outer_ended_at_utc')
+    if matrix.sha256(sequence_path) != sequence_receipt_sha256:
+        raise ValueError('sequence receipt changed during reconciliation')
+    return sequence_receipt_sha256
 
 
 def derive(pairs, common_by_count, clones):
@@ -180,6 +217,7 @@ def one_time_costs(validated):
 def reconcile(validated, economics):
     if economics.get('schema') != 'part5-v3-campaign-economics-report-v1':
         raise ValueError('campaign economics report required')
+    sequence_receipt_sha256 = verify_completed_matrix(validated)
     shared = shared_steps(validated)
     clones = clone_costs(validated, economics)
     pairs = derive(economics['pairs'], shared['by_count_seconds'], clones)
@@ -193,6 +231,7 @@ def reconcile(validated, economics):
             else None)
     return {'schema': 'part5-v3-campaign-observed-component-costs-v1',
             'training_only': True, 'matrix_manifest_sha256': validated['manifest_sha256'],
+            'sequence_receipt_sha256': sequence_receipt_sha256,
             'economics_report_sha256': None,
             'directly_timed_whole_application_session': False,
             'component_sum_scope': ('For each matched pair, add the actual bounded prepare, '
