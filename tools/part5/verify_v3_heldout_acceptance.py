@@ -1749,14 +1749,10 @@ def _verify_r0_clone(bundle, execution_config, stage_bundle, stage):
              and receipt.get('copy_identical') is True
              and receipt.get('loaded_identity_rechecked_after_restart') is False
              and receipt.get('application_effect') is False
-             and type(receipt.get('excluded_stale_admin_socket')) is bool,
+             and type(receipt.get('excluded_stale_admin_socket')) is bool
+             and type(receipt.get('entry_count')) is int and receipt['entry_count'] > 0
+             and _is_sha(receipt.get('tree_sha256')),
              'independently pinned byte-identical stopped R0 clone receipt required')
-    source_rows = ledger_inventory(source)
-    tree_sha = _sha(json.dumps(source_rows, separators=(',', ':')).encode())
-    _require(receipt.get('entry_count') == len(source_rows)
-             and receipt.get('tree_sha256') == tree_sha
-             and receipt.get('excluded_stale_admin_socket') == stale_admin_socket(source),
-             'R0 source inventory differs from the pre-execution clone receipt')
     return {'destination': destination, 'receipt_sha256': receipt_sha}
 
 
@@ -2271,6 +2267,7 @@ def _verify_case_run_provenance(case_bundle, variant, globals_, freeze_sha,
              and type(steps.get('positive_full:proof-full-fresh-replay')) is dict
              and steps['positive_full:proof-full-fresh-replay'].get('status') == 'passed',
              'case run journal must bind its canonical manifest and fresh replay proof')
+    _verify_positive_full_clone_order(steps)
     _require(all(type(steps.get(name)) is dict
                  and steps[name].get('status') == 'passed'
                  for name in ('positive_full:disabled-config-clone',
@@ -2394,12 +2391,7 @@ def _verify_ambiguous_restart_journal(case_bundle, steps, variant, frozen_elf):
     outer = _outer(sidecar.get('outer'), 'ambiguous restart', expected_exit=0)
     _require(clone.get('inputs') == {
                 'stage_report_sha256': sidecar.get('stage_report_sha256'),
-                'label': 'ambiguous-restart-r0',
-                'r0_source_receipt_sha256': sidecar.get('r0_source_receipt_sha256'),
-                'full_proof_receipt_sha256': sidecar.get('full_proof_receipt_sha256'),
-                'replay_proof_receipt_sha256': sidecar.get('replay_proof_receipt_sha256'),
-                'full_wire_sha256': sidecar.get('full_wire', {}).get('sha256'),
-                'replay_full_wire_sha256': sidecar.get('replay_full_wire', {}).get('sha256')}
+                'label': 'ambiguous-restart-r0'}
              and clone.get('receipt') == sidecar.get('clone_receipt', {}).get('path')
              and clone.get('receipt_sha256') == sidecar.get('clone_receipt', {}).get('sha256')
              and run.get('inputs') == {
@@ -2425,6 +2417,31 @@ def _verify_ambiguous_restart_journal(case_bundle, steps, variant, frozen_elf):
              and math.isfinite(outer['duration_seconds'])
              and run['wall_seconds'] >= outer['duration_seconds'],
              'ambiguous restart journal must join the exact clone, proof, sidecar and monitor')
+
+
+def _verify_positive_full_clone_order(steps):
+    """Require all three R0 clones to finish between Full staging and transition."""
+    stage = steps.get('positive_full:stage') if type(steps) is dict else None
+    transition = steps.get('positive_full:transition') if type(steps) is dict else None
+    clone_names = ('positive_full:r0-clone', 'positive_full:disabled-config-clone',
+                   'positive_full:ambiguous-restart-clone')
+
+    def times(name, row):
+        _require(type(row) is dict and row.get('status') == 'passed',
+                 f'{name} chronology requires a completed journal step')
+        started, completed = row.get('started_monotonic'), row.get('completed_monotonic')
+        _require(type(started) in (int, float) and math.isfinite(started)
+                 and type(completed) in (int, float) and math.isfinite(completed)
+                 and 0 < started <= completed,
+                 f'{name} chronology requires finite monotonic timestamps')
+        return started, completed
+
+    _, stage_completed = times('positive_full stage', stage)
+    transition_started, _ = times('positive_full transition', transition)
+    for name in clone_names:
+        clone_started, clone_completed = times(name, steps.get(name))
+        _require(stage_completed <= clone_started and clone_completed <= transition_started,
+                 f'{name} must start after Full staging and complete before transition')
 
 
 def _ambiguous_signature_bytes(text):

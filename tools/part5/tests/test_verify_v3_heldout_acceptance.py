@@ -170,7 +170,7 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
             verifier._verify_disabled_config_snapshot_bytes(
                 stage, wrong_clone, disabled, dict(disabled))
 
-    def test_r0_clone_verifier_returns_distinct_destination(self):
+    def test_r0_clone_verifier_uses_pinned_inventory_after_source_transition(self):
         source = self.root / 'stage-ledger'
         source.mkdir(mode=0o700)
         clone_root = self.root / 'clone'
@@ -193,8 +193,8 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
                   'loaded_identity_rechecked_after_restart': False,
                   'application_effect': False,
                   'excluded_stale_admin_socket': False,
-                  'entry_count': 0,
-                  'tree_sha256': hashlib.sha256(b'[]').hexdigest()}
+                  'entry_count': 1,
+                  'tree_sha256': hashlib.sha256(b'clone-time-inventory').hexdigest()}
         receipt_path = clone_root / 'clone-report.json'
         receipt_raw = (json.dumps(report, sort_keys=True) + '\n').encode()
         receipt_path.write_bytes(receipt_raw)
@@ -212,15 +212,32 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
             'prior_stage_monitor_sha256': stage['monitor_sha256'],
             'stage_root': stage['config']['stage_output'],
             'stage_report_sha256': stage['report_sha256']}
-        inventories = lambda path: [] if Path(path) == source else [
-            ['post-execute-ledger-change', 'file', 1, 'f' * 64]]
-        with mock.patch.object(verifier, 'ledger_inventory', side_effect=inventories), \
-                mock.patch.object(verifier, 'stale_admin_socket', return_value=False):
+        with mock.patch.object(verifier, 'ledger_inventory', return_value=[
+                    ['transitioned-source', 'file', 1, 'f' * 64]]) as inventory, \
+                mock.patch.object(verifier, 'stale_admin_socket', return_value=True) as stale_socket:
             result = verifier._verify_r0_clone(
                 {'receipt': {'path': str(receipt_path), 'sha256': receipt_sha}},
                 execution_config, bundle, stage)
+            inventory.assert_not_called()
+            stale_socket.assert_not_called()
         self.assertEqual(result['destination'], destination)
         self.assertEqual(result['receipt_sha256'], receipt_sha)
+        for field, value in (('entry_count', 0), ('entry_count', True),
+                             ('tree_sha256', 'not-a-sha')):
+            with self.subTest(receipt_field=field, value=value):
+                malformed = dict(report, **{field: value})
+                malformed_raw = (json.dumps(malformed, sort_keys=True) + '\n').encode()
+                receipt_path.write_bytes(malformed_raw)
+                receipt_path.chmod(0o600)
+                malformed_sha = hashlib.sha256(malformed_raw).hexdigest()
+                malformed_config = dict(execution_config,
+                    heldout_r0_clone_report_sha256=malformed_sha)
+                with self.assertRaisesRegex(ValueError, 'clone receipt required'):
+                    verifier._verify_r0_clone(
+                        {'receipt': {'path': str(receipt_path), 'sha256': malformed_sha}},
+                        malformed_config, bundle, stage)
+        receipt_path.write_bytes(receipt_raw)
+        receipt_path.chmod(0o600)
 
     def test_disabled_config_report_requires_real_policy_denial_and_snapshot_pins(self):
         names = ('config', 'issuer', 'head', 'request', 'queue')
@@ -453,8 +470,8 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
             'source_stable': True, 'copy_identical': True,
             'loaded_identity_rechecked_after_restart': False,
             'application_effect': False, 'excluded_stale_admin_socket': False,
-            'entry_count': 0,
-            'tree_sha256': hashlib.sha256(b'[]').hexdigest()}
+            'entry_count': 1,
+            'tree_sha256': hashlib.sha256(b'clone-time-inventory').hexdigest()}
         clone_ref = write_json(clone_root / 'clone-report.json', clone_report)
 
         root_hex, action_hex = '11' * 32, '22' * 32
@@ -1157,7 +1174,8 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
                   'replay_proof_receipt_sha256')}
         common.update(full_wire_sha256='7' * 64, replay_full_wire_sha256='8' * 64)
         clone = {'status': 'passed', 'wall_seconds': 1.25,
-                 'inputs': dict(common, label='ambiguous-restart-r0'),
+                 'inputs': {'stage_report_sha256': sidecar['stage_report_sha256'],
+                            'label': 'ambiguous-restart-r0'},
                  'receipt': sidecar['clone_receipt']['path'], 'receipt_sha256': '6' * 64}
         ref = save('ambiguous-sidecar.json', sidecar)
         run = {'status': 'passed', 'wall_seconds': 2.5,
@@ -1413,6 +1431,65 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
             verifier._verify_ambiguous_restart_journal(
                 dict(case, ambiguous_restart_wall_seconds=True), steps, 2, 'e' * 64)
 
+    def test_early_ambiguous_clone_is_proof_independent_but_negative_step_is_proof_bound(self):
+        case, steps = self._ambiguous_journal_fixture()
+        clone = steps['positive_full:ambiguous-restart-clone']
+        self.assertEqual(clone['inputs'], {
+            'stage_report_sha256': '1' * 64,
+            'label': 'ambiguous-restart-r0'})
+        verifier._verify_ambiguous_restart_journal(case, steps, 2, 'e' * 64)
+
+        broken = json.loads(json.dumps(steps))
+        broken['positive_full:ambiguous-restart-clone']['inputs'][
+            'full_proof_receipt_sha256'] = 'f' * 64
+        with self.assertRaisesRegex(ValueError, 'exact clone, proof, sidecar and monitor'):
+            verifier._verify_ambiguous_restart_journal(case, broken, 2, 'e' * 64)
+
+        broken = json.loads(json.dumps(steps))
+        broken['positive_full:ambiguous-restart']['inputs'][
+            'full_proof_receipt_sha256'] = 'f' * 64
+        with self.assertRaisesRegex(ValueError, 'exact clone, proof, sidecar and monitor'):
+            verifier._verify_ambiguous_restart_journal(case, broken, 2, 'e' * 64)
+
+    def test_positive_full_clones_must_complete_between_stage_and_transition(self):
+        steps = {
+            'positive_full:stage': {'status': 'passed', 'started_monotonic': 1.0,
+                                    'completed_monotonic': 2.0},
+            'positive_full:transition': {'status': 'passed', 'started_monotonic': 3.0,
+                                         'completed_monotonic': 4.0}}
+        clone_names = ('positive_full:r0-clone', 'positive_full:disabled-config-clone',
+                       'positive_full:ambiguous-restart-clone')
+        for index, name in enumerate(clone_names):
+            steps[name] = {'status': 'passed', 'started_monotonic': 2.1 + index * 0.2,
+                           'completed_monotonic': 2.2 + index * 0.2}
+
+        verifier._verify_positive_full_clone_order(steps)
+        for name in clone_names:
+            with self.subTest(clone=name, reversal='before-stage'):
+                broken = json.loads(json.dumps(steps))
+                broken[name]['started_monotonic'] = 1.9
+                broken[name]['completed_monotonic'] = 2.1
+                with self.assertRaisesRegex(ValueError, 'after Full staging'):
+                    verifier._verify_positive_full_clone_order(broken)
+            with self.subTest(clone=name, reversal='after-transition-start'):
+                broken = json.loads(json.dumps(steps))
+                broken[name]['started_monotonic'] = 3.1
+                broken[name]['completed_monotonic'] = 3.2
+                with self.assertRaisesRegex(ValueError, 'before transition'):
+                    verifier._verify_positive_full_clone_order(broken)
+
+        for field, value in (('started_monotonic', float('nan')),
+                             ('completed_monotonic', float('inf'))):
+            with self.subTest(field=field):
+                broken = json.loads(json.dumps(steps))
+                broken['positive_full:r0-clone'][field] = value
+                with self.assertRaisesRegex(ValueError, 'finite monotonic timestamps'):
+                    verifier._verify_positive_full_clone_order(broken)
+        broken = json.loads(json.dumps(steps))
+        del broken['positive_full:disabled-config-clone']['completed_monotonic']
+        with self.assertRaisesRegex(ValueError, 'finite monotonic timestamps'):
+            verifier._verify_positive_full_clone_order(broken)
+
     def test_ambiguous_restart_journal_allows_job_overhead_above_outer_duration(self):
         case, steps = self._ambiguous_journal_fixture()
         steps['positive_full:ambiguous-restart']['wall_seconds'] = 3.0
@@ -1521,6 +1598,17 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
                            'monitor_owner': 'heldout-v02-positive_full-disabled-config-negative'}}}
         ambiguous_case, ambiguous_steps = self._ambiguous_journal_fixture()
         journal['steps'].update(ambiguous_steps)
+        journal['steps'].update({
+            'positive_full:stage': {'status': 'passed', 'started_monotonic': 1.0,
+                                    'completed_monotonic': 2.0},
+            'positive_full:r0-clone': {'status': 'passed', 'started_monotonic': 2.1,
+                                       'completed_monotonic': 2.2},
+            'positive_full:transition': {'status': 'passed', 'started_monotonic': 2.7,
+                                         'completed_monotonic': 3.0}})
+        journal['steps']['positive_full:disabled-config-clone'].update(
+            started_monotonic=2.3, completed_monotonic=2.4)
+        journal['steps']['positive_full:ambiguous-restart-clone'].update(
+            started_monotonic=2.5, completed_monotonic=2.6)
         journal_raw = (json.dumps(journal, sort_keys=True) + '\n').encode()
         journal_path.write_bytes(journal_raw)
         journal_path.chmod(0o600)
