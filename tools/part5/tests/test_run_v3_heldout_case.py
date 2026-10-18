@@ -991,7 +991,8 @@ def test_ambiguous_restart_sidecar_pins_status_proxy_and_all_ten_account_files(t
         'limits': {'runtime_seconds': 180, 'owned_tree_rss_bytes': 4294967296,
                    'storage_growth_bytes': 268435456, 'poll_seconds': 0.1},
     })
-    save(control / 'runner.stderr.log', b'RPC sendTransaction transport failed')
+    save(control / 'runner.stdout.log', b'RPC sendTransaction transport failed')
+    save(control / 'runner.stderr.log', b'')
     sidecar = {
         'schema': runner.AMBIGUOUS_RESTART_SIDECAR_SCHEMA, 'variant': variant,
         'stage_report_sha256': stage_report_sha, 'stage_plan_sha256': stage_plan_sha,
@@ -1023,6 +1024,16 @@ def test_ambiguous_restart_sidecar_pins_status_proxy_and_all_ten_account_files(t
     sidecar_sha = hashlib.sha256(sidecar_raw).hexdigest()
     assert runner.HeldoutCaseRunner._ambiguous_restart_sidecar_verified(
         sidecar_path, sidecar_sha, inputs)
+
+    save(control / 'runner.stdout.log', b'')
+    save(control / 'runner.stderr.log', b'RPC sendTransaction transport failed')
+    assert runner.HeldoutCaseRunner._ambiguous_restart_sidecar_verified(
+        sidecar_path, sidecar_sha, inputs)
+    save(control / 'runner.stderr.log', b'no matching transport error')
+    assert not runner.HeldoutCaseRunner._ambiguous_restart_sidecar_verified(
+        sidecar_path, sidecar_sha, inputs)
+    save(control / 'runner.stdout.log', b'RPC sendTransaction transport failed')
+    save(control / 'runner.stderr.log', b'')
 
     receipt_path = Path(finality_receipt['path'])
     receipt_path.write_bytes(runner.encoded({**finality_receipt_value,
@@ -1268,3 +1279,98 @@ def test_case_runner_requires_and_checks_pinned_cohort_observation(tmp_path):
     del manifest['cohort_observation']
     with pytest.raises(ValueError, match='cohort observation'):
         runner.validate_cohort_observation(manifest, freeze_doc, cohort_doc)
+
+
+def test_r2_active_witness_uses_hex_root_from_producer_membership(tmp_path, monkeypatch):
+    from tools.part5 import prepare_v3_heldout_proof as proof_tool
+
+    r1_root = f'{789:064x}'
+    raw_r2_root = 456
+    r2_root = f'{raw_r2_root:064x}'
+    siblings = list(range(10))
+    case_root = tmp_path / 'pair-view'
+    case_root.mkdir(mode=0o700)
+    _write_private_json(case_root / 'membership.json', {
+        'slot': 10,
+        'issuer_hash': 11,
+        'policy_hash': 12,
+        'active_root': 123,
+        'active_siblings': [0] * 10,
+        'unrelated_root': 789,
+        'unrelated_siblings': [1] * 10,
+        'own_revoked_root': raw_r2_root,
+        'own_revoked_siblings': siblings,
+    })
+
+    root = tmp_path / 'run'
+    root.mkdir(mode=0o700)
+    # Stop before any witness generator or relation-checker job is launched.
+    (root / 'r2-active-witness').mkdir(mode=0o700)
+
+    effect_ref = _write_private_json(tmp_path / 'effect.json', {
+        'mode': 'own-revocation', 'application_effect': False,
+        'current_root': r2_root, 'request_consumed': False,
+    })
+    effect = {'report': effect_ref['path'],
+              'report_sha256': effect_ref['sha256']}
+
+    r1_root_dir = tmp_path / 'r1-source'
+    r1_root_dir.mkdir(mode=0o700)
+    action_hash = 'b' * 64
+    source_input = {
+        'root': str(int(r1_root, 16)),
+        'siblings': ['0'] * 10,
+        'actionHash': str(int(action_hash, 16)),
+    }
+    input_ref = _write_private_json(r1_root_dir / 'input.json', source_input)
+    coordinates_path = r1_root_dir / 'input-coordinates.bin'
+    coordinates_path.write_bytes(b'coordinates')
+    coordinates_path.chmod(0o600)
+    coordinates_ref = {'path': str(coordinates_path),
+                       'sha256': runner.digest(coordinates_path.read_bytes())}
+    witness_path = tmp_path / 'r1.wtns'
+    witness_path.write_bytes(b'witness')
+    witness_path.chmod(0o600)
+    witness_ref = {'path': str(witness_path),
+                   'sha256': runner.digest(witness_path.read_bytes())}
+    source_ref = _write_private_json(tmp_path / 'r1-receipt.json', {
+        'selected_root': r1_root,
+        'artifacts_sha256': {'input.json': input_ref['sha256'],
+                             'input-coordinates.bin': coordinates_ref['sha256']},
+        'action_hash': action_hash,
+        'target_der_sha256': 'c' * 64,
+        'target_tbs_sha256': 'd' * 64,
+    })
+    r1_source = {'receipt': source_ref['path'],
+                 'receipt_sha256': source_ref['sha256'],
+                 'root': str(r1_root_dir)}
+    proof_ref = _write_private_json(tmp_path / 'proof-receipt.json', {
+        'source_receipts': {'R1': {'sha256': source_ref['sha256']}},
+        'artifacts': {
+            'near/input.json': input_ref,
+            'near/output.wtns': witness_ref,
+        },
+    })
+    proof = {'receipt': proof_ref['path'],
+             'receipt_sha256': proof_ref['sha256']}
+
+    build = proof_tool.build_r2_active_witness_input
+    observed = {}
+
+    def capture_candidate(active_input, supplied_r2_root, own_revoked_siblings):
+        observed['root'] = supplied_r2_root
+        observed['siblings'] = own_revoked_siblings
+        observed['candidate'] = build(
+            active_input, supplied_r2_root, own_revoked_siblings)
+        return observed['candidate']
+
+    monkeypatch.setattr(proof_tool, 'build_r2_active_witness_input', capture_candidate)
+    case_runner = object.__new__(runner.HeldoutCaseRunner)
+    with pytest.raises(ValueError, match='partial R2 witness rejection output'):
+        case_runner._r2_active_witness_rejection(
+            root, case_root, r1_source, proof, effect)
+
+    assert observed['root'] == r2_root
+    assert observed['siblings'] == siblings
+    assert observed['candidate']['root'] == str(raw_r2_root)
+    assert observed['candidate']['siblings'] == [str(value) for value in siblings]

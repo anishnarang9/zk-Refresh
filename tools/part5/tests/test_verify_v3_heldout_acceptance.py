@@ -1306,7 +1306,8 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         status.update(first_validator_stop_mode='clean_zero', final_validator_stop_mode='clean_zero',
                       ledger_genesis_sha256_before_stop=genesis['sha256'],
                       ledger_genesis_sha256_after_stop=genesis['sha256'])
-        save(Path('control/runner.stderr.log'), b'Error: RPC sendTransaction transport failed\n')
+        save(Path('control/runner.stdout.log'), b'Error: RPC sendTransaction transport failed\n')
+        save(Path('control/runner.stderr.log'), b'')
         status_ref = save(Path('control/status.json'), status)
         sidecar = {'schema': 'credential-v3-heldout-ambiguous-restart-v1', 'variant': 2,
             'stage_report_sha256': '4'*64, 'stage_plan_sha256': '5'*64, 'r0_source_receipt_sha256': '6'*64,
@@ -1337,11 +1338,30 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
             result = verify(sidecar)
             self.assertEqual(result['effect_count'], 1)
             self.assertEqual(result['signature_finalization_evidence'], 'pinned local RPC observation')
+            stdout_path = self.root / 'control/runner.stdout.log'
             stderr_path = self.root / 'control/runner.stderr.log'
+            self.assertEqual(result['runner_stdout_sha256'], verifier._sha(
+                b'Error: RPC sendTransaction transport failed\n'))
+            self.assertEqual(result['runner_stderr_sha256'], verifier._sha(b''))
+            stdout_path.write_bytes(b'')
+            stderr_path.write_bytes(b'Error: RPC sendTransaction transport failed\n')
+            stderr_only = verify(sidecar)
+            self.assertEqual(stderr_only['effect_count'], 1)
+            self.assertEqual(stderr_only['runner_stdout_sha256'], verifier._sha(b''))
+            self.assertEqual(stderr_only['runner_stderr_sha256'], verifier._sha(
+                b'Error: RPC sendTransaction transport failed\n'))
             for raw in (b'unrelated failure', b'x' * 65537):
+                stdout_path.write_bytes(b'')
                 stderr_path.write_bytes(raw)
-                with self.assertRaisesRegex(ValueError, 'stderr'):
+                with self.assertRaisesRegex(ValueError, 'runner log'):
                     verify(sidecar)
+            stdout_path.write_bytes(b'Error: RPC sendTransaction transport failed\n')
+            stderr_path.write_bytes(b'')
+            stdout_path.chmod(0o644)
+            with self.assertRaisesRegex(ValueError, 'owner-only'):
+                verify(sidecar)
+            stdout_path.chmod(0o600)
+            stdout_path.write_bytes(b'')
             stderr_path.write_bytes(b'Error: RPC sendTransaction transport failed\n')
             stderr_path.chmod(0o644)
             with self.assertRaisesRegex(ValueError, 'owner-only'):

@@ -2458,27 +2458,31 @@ def _ambiguous_signature_bytes(text):
     return decoded
 
 
-def _read_ambiguous_runner_stderr(control):
-    path = control / 'runner.stderr.log'
-    _require(path.is_absolute() and path.resolve(strict=True) == path,
-             'canonical ambiguous runner stderr path required')
-    before = path.lstat()
-    _require(stat.S_ISREG(before.st_mode) and before.st_uid == os.getuid()
-             and before.st_nlink == 1 and stat.S_IMODE(before.st_mode) == 0o600
-             and 0 < before.st_size <= 65536,
-             'bounded owner-only ambiguous runner stderr required')
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
-    with os.fdopen(fd, 'rb') as stream:
-        _require(_identity(os.fstat(stream.fileno())) == _identity(before),
-                 'ambiguous runner stderr changed at open')
-        raw = stream.read(65537)
-        _require(_identity(os.fstat(stream.fileno())) == _identity(before)
-                 and len(raw) == before.st_size
-                 and _identity(path.lstat()) == _identity(before),
-                 'ambiguous runner stderr changed while reading')
-    _require(b'RPC sendTransaction transport failed' in raw,
-             'ambiguous runner stderr must show the expected transport failure')
-    return _sha(raw)
+def _read_ambiguous_runner_logs(control):
+    logs = {}
+    for name in ('runner.stdout.log', 'runner.stderr.log'):
+        path = control / name
+        _require(path.is_absolute() and path.resolve(strict=True) == path,
+                 'canonical ambiguous runner log path required')
+        before = path.lstat()
+        _require(stat.S_ISREG(before.st_mode) and before.st_uid == os.getuid()
+                 and before.st_nlink == 1 and stat.S_IMODE(before.st_mode) == 0o600
+                 and 0 <= before.st_size <= 65536,
+                 'bounded owner-only ambiguous runner log required')
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
+        with os.fdopen(fd, 'rb') as stream:
+            _require(_identity(os.fstat(stream.fileno())) == _identity(before),
+                     'ambiguous runner log changed at open')
+            raw = stream.read(65537)
+            _require(_identity(os.fstat(stream.fileno())) == _identity(before)
+                     and len(raw) == before.st_size
+                     and _identity(path.lstat()) == _identity(before),
+                     'ambiguous runner log changed while reading')
+        logs[name] = raw
+    marker = b'RPC sendTransaction transport failed'
+    _require(marker in logs['runner.stdout.log'] or marker in logs['runner.stderr.log'],
+             'ambiguous runner logs must show the expected transport failure')
+    return _sha(logs['runner.stdout.log']), _sha(logs['runner.stderr.log'])
 
 
 def _verify_ambiguous_restart(ref, variant, globals_, slot, full_bundle,
@@ -2592,7 +2596,7 @@ def _verify_ambiguous_restart(ref, variant, globals_, slot, full_bundle,
              and type(status.get('runner_exit_code')) is int and status['runner_exit_code'] != 0
              and status.get('ledger_path_sha256') == _sha(config['ledger'].encode()),
              'ambiguous restart successful reviewed status required')
-    runner_stderr_sha = _read_ambiguous_runner_stderr(control)
+    runner_stdout_sha, runner_stderr_sha = _read_ambiguous_runner_logs(control)
     for name in ('expected_program', 'expected_genesis', 'expected_elf_sha256',
                  'stage_report_sha256', 'stage_plan_sha256', 'heldout_r0_clone_report_sha256',
                  'runner_sha256', 'proxy_script_sha256', 'context_sha256',
@@ -2711,6 +2715,7 @@ def _verify_ambiguous_restart(ref, variant, globals_, slot, full_bundle,
     return {'sidecar_sha256': sidecar_sha, 'clone_receipt_sha256': clone['receipt_sha256'],
             'pre_submit_report_sha256': report_sha, 'final_account_sha256': final_hashes,
             'runtime_identity': stage['runtime_identity'], 'effect_count': 1,
+            'runner_stdout_sha256': runner_stdout_sha,
             'runner_stderr_sha256': runner_stderr_sha,
             'finality_receipt_sha256': finality_sha,
             'signature_finalization_evidence': 'pinned local RPC observation'}

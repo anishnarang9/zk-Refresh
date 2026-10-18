@@ -176,6 +176,30 @@ def _read(path, expected=None, cap=16 * 1024 * 1024, *, executable=False):
     return raw
 
 
+def _read_ambiguous_runner_log(path, cap=65536):
+    path = Path(path)
+    before = path.lstat()
+    if (not path.is_absolute() or path.resolve(strict=True) != path
+            or not stat.S_ISREG(before.st_mode) or before.st_uid != os.getuid()
+            or before.st_nlink != 1 or stat.S_IMODE(before.st_mode) != 0o600
+            or before.st_size < 0 or before.st_size > cap):
+        raise ValueError('canonical bounded owner-only ambiguous runner log required')
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, 'rb') as stream:
+        opened = os.fstat(stream.fileno())
+        ident = lambda value: (value.st_dev, value.st_ino, value.st_mode, value.st_uid,
+                               value.st_nlink, value.st_size, value.st_mtime_ns,
+                               value.st_ctime_ns)
+        if ident(before) != ident(opened):
+            raise ValueError('ambiguous runner log changed at open')
+        raw = stream.read(cap + 1)
+        if ident(opened) != ident(os.fstat(stream.fileno())):
+            raise ValueError('ambiguous runner log changed during read')
+    if (len(raw) != before.st_size or ident(before) != ident(path.lstat())):
+        raise ValueError('ambiguous runner log changed while reading')
+    return raw
+
+
 def validate_proof_runner_reference(frozen_ref, proof_ref, expected_hash):
     if (type(frozen_ref) is not dict or set(frozen_ref) != {'path', 'sha256'}
             or type(proof_ref) is not dict or set(proof_ref) != {'path', 'sha256'}
@@ -1856,9 +1880,11 @@ class HeldoutCaseRunner:
                     or finality_transaction.get('signatures')
                         != [proxy_receipt['signature']]):
                 return False
-            stderr_path = Path(config['control_output']) / 'runner.stderr.log'
-            stderr = _read(stderr_path, cap=65536)
-            if b'RPC sendTransaction transport failed' not in stderr:
+            control = Path(config['control_output'])
+            stdout = _read_ambiguous_runner_log(control / 'runner.stdout.log')
+            stderr = _read_ambiguous_runner_log(control / 'runner.stderr.log')
+            marker = b'RPC sendTransaction transport failed'
+            if marker not in stdout and marker not in stderr:
                 return False
             return True
         except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
@@ -2031,7 +2057,14 @@ class HeldoutCaseRunner:
 
         branch = _json(effect['report'], effect['report_sha256'])
         membership = _json(case_root / 'membership.json')
-        r2_root = membership['R2']
+        unrelated_root = membership.get('unrelated_root')
+        own_revoked_root = membership.get('own_revoked_root')
+        if (type(unrelated_root) is not int or not 0 <= unrelated_root < proof_tool.FR
+                or type(own_revoked_root) is not int
+                or not 0 <= own_revoked_root < proof_tool.FR):
+            raise ValueError('canonical unrelated R1 and own-revoked R2 field elements required')
+        r1_root = f'{unrelated_root:064x}'
+        r2_root = f'{own_revoked_root:064x}'
         if (branch.get('mode') != 'own-revocation'
                 or branch.get('application_effect') is not False
                 or branch.get('current_root') != r2_root
@@ -2039,7 +2072,7 @@ class HeldoutCaseRunner:
             raise ValueError('loaded own-revocation R2 denial required before witness check')
         source = _json(r1_source['receipt'], r1_source['receipt_sha256'])
         proof_receipt = _json(proof['receipt'], proof['receipt_sha256'])
-        if (source.get('selected_root') != membership['R1']
+        if (source.get('selected_root') != r1_root
                 or proof_receipt.get('source_receipts', {}).get('R1', {}).get('sha256')
                    != r1_source['receipt_sha256']):
             raise ValueError('C R1 witness source and proof required')
@@ -2058,7 +2091,7 @@ class HeldoutCaseRunner:
         siblings = membership['own_revoked_siblings']
         candidate_input = proof_tool.build_r2_active_witness_input(
             source_input, r2_root, siblings)
-        if (source_input['root'] != str(int(membership['R1'], 16))
+        if (source_input['root'] != str(int(r1_root, 16))
                 or candidate_input['actionHash'] != str(int(source['action_hash'], 16))):
             raise ValueError('R2 candidate must preserve C R1 root and action')
 
