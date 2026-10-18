@@ -301,7 +301,7 @@ for V in 00 01 02 03 04 05 06 07; do
   CASE_ROOT="$PART5/v3-heldout-case-training-012-$V"
   require_absent "$CASE_ROOT"
   git check-ignore -q "$CASE_ROOT"
-  python3 -B tools/part5/run_v3_heldout_case.py \
+  python3 -B -m tools.part5.run_v3_heldout_case \
     --manifest "$RUN_MANIFESTS/case-$V.json" \
     --output-root "$CASE_ROOT"
 done
@@ -311,7 +311,7 @@ For a reviewed retry of an existing case journal, replace `03` with the failed c
 
 ```bash
 V=03
-python3 -B tools/part5/run_v3_heldout_case.py \
+python3 -B -m tools.part5.run_v3_heldout_case \
   --manifest "$RUN_MANIFESTS/case-$V.json" \
   --output-root "$PART5/v3-heldout-case-training-012-$V"
 ```
