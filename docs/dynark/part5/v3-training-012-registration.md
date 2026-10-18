@@ -1,6 +1,6 @@
 # Training-012 registered matrix
 
-**Registered 2026-10-18 08:27 UTC; not yet a result.** Training-012 is a fresh
+**Registered and launched 2026-10-18 08:27 UTC; not yet a result.** Training-012 is a fresh
 attempt after the [Training-011 storage stop](v3-training-011-storage-stop.md).
 The 60-slot design retains four counterbalanced repetitions, counts
 `{0, 1, 2, 5, 10}`, and Full, Anchor, and coalesced Full modes. The controlled
@@ -40,3 +40,23 @@ and the maximum five-second UTC-versus-monotonic clock audit must pass. Only
 then may the fixed economics, reconciliation, and total-cost tools run. The
 eight new heldout credentials and direct complete-arm timing remain separate
 gates. This registration makes no savings or acceptance claim.
+
+## Launch and public design projection
+
+The sole serial matrix driver launched under `caffeinate -is`. Its private
+campaign state records start `2026-10-18T08:27:55.697769+00:00` and deadline
+`2026-10-19T20:27:55.697769+00:00`. A read-only launch check observed the
+driver, its first bounded `r1-k0-full` slot, and active
+`PreventSystemSleep`/`PreventUserIdleSystemSleep` assertions. The actual
+generated 60-slot `matrix-plan.json` has SHA-256
+`e1cd1b9eb1c08fed70cd7544b0286af82422eb50a49a63875be267b57907f467`
+and matched the registered preflight plan semantically. These checks show a
+launch, not completion or absence of later host suspension.
+
+The scrubbed [public projection](../../../results/dynark/part5/v3-training-012-public-projection-001/index.json)
+has index SHA-256 `d846e56347d3a244837426bf08f9358e7c0b0cc6aff62666ed5440090967e340`.
+Its independent verifier passed the three-file inventory, byte pins, source
+digest consistency, allowed tool roles, registered 60-slot design, and narrow
+Training-012 storage policy. The private manifest and actual plan were
+separately rehashed against the index's source pins. Projection verification
+does not verify any application effect, private slot receipt, or cost result.
