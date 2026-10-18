@@ -351,7 +351,7 @@ def _stop_proxy(proc) -> dict:
     return result
 
 
-def _wait_finalized_signature(rpc, signature: str, deadline: float) -> tuple[int, str]:
+def _wait_finalized_signature(rpc, signature: str, deadline: float) -> dict:
     while True:
         _check_deadline(deadline)
         status_result = rpc('getSignatureStatuses', [[signature], {'searchTransactionHistory': True}])
@@ -366,15 +366,77 @@ def _wait_finalized_signature(rpc, signature: str, deadline: float) -> tuple[int
             transaction = rpc('getTransaction', [signature, {
                 'commitment': 'finalized', 'maxSupportedTransactionVersion': 0,
                 'encoding': 'json'}])
-            if (not isinstance(transaction, dict) or transaction.get('slot') != slot
+            if (not isinstance(transaction, dict)
+                    or type(transaction.get('slot')) is not int
+                    or transaction.get('slot') != slot
                     or not isinstance(transaction.get('meta'), dict)
                     or transaction['meta'].get('err') is not None):
                 raise ValueError('finalized transaction record does not confirm success')
-            signatures = transaction.get('transaction', {}).get('signatures')
+            transaction_body = transaction.get('transaction')
+            signatures = (transaction_body.get('signatures')
+                          if isinstance(transaction_body, dict) else None)
             if not isinstance(signatures, list) or not signatures or signatures[0] != signature:
                 raise ValueError('finalized transaction signature differs from proxy receipt')
-            return slot, _sha(signature.encode())
+            return {
+                'schema': 'part5-v3-ambiguous-finality-receipt-v1',
+                'signature': signature,
+                'signature_status': {
+                    'slot': slot,
+                    'confirmationStatus': 'finalized',
+                    'err': None,
+                },
+                'transaction': {
+                    'slot': slot,
+                    'meta': {'err': None},
+                    'signatures': [signature],
+                },
+            }
         time.sleep(0.1)
+
+
+def _persist_finality_receipt(control: Path, receipt: dict) -> tuple[str, str]:
+    if (type(receipt) is not dict
+            or set(receipt) != {'schema', 'signature', 'signature_status', 'transaction'}
+            or receipt.get('schema') != 'part5-v3-ambiguous-finality-receipt-v1'):
+        raise ValueError('scrubbed finalized signature receipt required')
+    signature_status = receipt.get('signature_status')
+    transaction = receipt.get('transaction')
+    if (type(signature_status) is not dict
+            or set(signature_status) != {'slot', 'confirmationStatus', 'err'}
+            or signature_status.get('confirmationStatus') != 'finalized'
+            or signature_status.get('err') is not None
+            or type(transaction) is not dict
+            or set(transaction) != {'slot', 'meta', 'signatures'}
+            or type(transaction.get('meta')) is not dict
+            or set(transaction['meta']) != {'err'}
+            or transaction['meta'].get('err') is not None
+            or transaction.get('signatures') != [receipt.get('signature')]):
+        raise ValueError('scrubbed finalized signature receipt required')
+    slot = execute.base.integer(signature_status.get('slot'), 1)
+    if type(transaction.get('slot')) is not int or transaction['slot'] != slot:
+        raise ValueError('finality receipt transaction slot mismatch')
+    signature = receipt.get('signature')
+    proxy.decode_base58_signature(signature)
+    expected = {
+        'schema': 'part5-v3-ambiguous-finality-receipt-v1',
+        'signature': signature,
+        'signature_status': {'slot': slot, 'confirmationStatus': 'finalized', 'err': None},
+        'transaction': {'slot': slot, 'meta': {'err': None},
+                        'signatures': [signature]},
+    }
+    path = control / 'finality-receipt.json'
+    raw = (json.dumps(expected, sort_keys=True, separators=(',', ':'),
+                      allow_nan=False) + '\n').encode()
+    _write_new_bytes(path, raw)
+    directory_fd = os.open(control, os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0))
+    try:
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)
+    info = path.lstat()
+    if info.st_nlink != 1:
+        raise ValueError('finality receipt must have one link')
+    return str(path), _sha(raw)
 
 
 def _finalized_accounts(rpc, report, minimum_slot, program, sizes, deadline):
@@ -522,6 +584,8 @@ def run(config: dict, config_sha256: str, config_path: str) -> int:
         'proxy_script_sha256': config['proxy_script_sha256'],
         'context_sha256': config['context_sha256'],
         'replay_full_wire_sha256': config['replay_full_wire_sha256'],
+        'finality_receipt_path': str(control / 'finality-receipt.json'),
+        'finality_receipt_sha256': None,
         'proxy_receipt_verified': False, 'expected_transport_failure': False,
         'restart_identity_verified': False, 'signature_finalized_success': False,
         'five_account_reconciliation_verified': False,
@@ -661,13 +725,17 @@ def run(config: dict, config_sha256: str, config_path: str) -> int:
             raise ValueError('same-ledger restart genesis mismatch')
         status.update({'restart_identity_verified': True, 'loaded_program_after': reloaded})
 
-        signature_slot, signature_sha = _wait_finalized_signature(
-            rpc, receipt['signature'], deadline)
+        finality_receipt = _wait_finalized_signature(rpc, receipt['signature'], deadline)
+        finality_receipt_path, finality_receipt_sha256 = _persist_finality_receipt(
+            control, finality_receipt)
+        signature_slot = finality_receipt['signature_status']['slot']
         if pre_submit_report['finalized_slot'] > signature_slot:
             raise ValueError('pre-submit snapshot slot is later than the submitted transaction')
         status.update({'signature_finalized_success': True,
-                       'signature_sha256': signature_sha,
-                       'signature_finalized_slot': signature_slot})
+                       'signature_sha256': _sha(receipt['signature'].encode()),
+                       'signature_finalized_slot': signature_slot,
+                       'finality_receipt_path': finality_receipt_path,
+                       'finality_receipt_sha256': finality_receipt_sha256})
         minimum_slot, after = _finalized_accounts(
             rpc, staged, signature_slot, original['program'], sizes, deadline)
         account_hashes = reconcile_final_accounts(

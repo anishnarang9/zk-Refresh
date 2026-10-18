@@ -126,12 +126,51 @@ class AmbiguousRestartTests(unittest.TestCase):
             return replies.pop(0)
 
         with patch.object(m.time, 'sleep'):
-            slot, signature_sha = m._wait_finalized_signature(
+            receipt = m._wait_finalized_signature(
                 rpc, signature, m.time.monotonic() + 1)
-        self.assertEqual(slot, 21)
-        self.assertEqual(signature_sha, sha(signature.encode()))
+        self.assertEqual(receipt, {
+            'schema': 'part5-v3-ambiguous-finality-receipt-v1',
+            'signature': signature,
+            'signature_status': {'slot': 21, 'confirmationStatus': 'finalized',
+                                 'err': None},
+            'transaction': {'slot': 21, 'meta': {'err': None},
+                            'signatures': [signature]},
+        })
         self.assertEqual([name for name, _ in calls], [
             'getSignatureStatuses', 'getSignatureStatuses', 'getTransaction'])
+
+        with tempfile.TemporaryDirectory() as directory:
+            path, receipt_sha = m._persist_finality_receipt(Path(directory), receipt)
+            saved = Path(path)
+            raw = saved.read_bytes()
+            self.assertEqual(receipt_sha, sha(raw))
+            self.assertEqual(json.loads(raw), receipt)
+            info = saved.stat()
+            self.assertEqual(info.st_mode & 0o777, 0o600)
+            self.assertEqual(info.st_uid, __import__('os').getuid())
+            self.assertEqual(info.st_nlink, 1)
+            with self.assertRaises(FileExistsError):
+                m._persist_finality_receipt(Path(directory), receipt)
+
+    def test_finality_receipt_rejects_unpinned_or_unscrubbed_shapes(self):
+        signature = m.proxy.encode_base58(bytes(range(64)))
+        receipt = {
+            'schema': 'part5-v3-ambiguous-finality-receipt-v1',
+            'signature': signature,
+            'signature_status': {'slot': 21, 'confirmationStatus': 'finalized',
+                                 'err': None},
+            'transaction': {'slot': 21, 'meta': {'err': None},
+                            'signatures': [signature]},
+        }
+        for changed in (
+            {**receipt, 'signature_status': {**receipt['signature_status'], 'slot': 22}},
+            {**receipt, 'transaction': {**receipt['transaction'], 'wire': 'raw-wire'}},
+            {**receipt, 'transaction': {**receipt['transaction'],
+                                        'signatures': [signature, 'extra']}},
+        ):
+            with tempfile.TemporaryDirectory() as directory:
+                with self.subTest(changed=changed), self.assertRaises(ValueError):
+                    m._persist_finality_receipt(Path(directory), changed)
 
     def test_supervisor_deadline_stays_inside_outer_limit(self):
         self.assertGreater(m.SUPERVISOR_BUDGET_SECONDS, 0)
