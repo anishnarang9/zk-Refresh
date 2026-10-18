@@ -130,6 +130,26 @@ class CampaignCostReconciliationTests(unittest.TestCase):
         self.assertEqual(report[1]['status'], 'incomplete')
         self.assertIsNone(report[1]['component_sum_savings_fraction'])
 
+    def test_exact_component_tie_is_not_a_break_even_win(self):
+        for all_tied in (False, True):
+            with self.subTest(all_tied=all_tied):
+                pairs = [{'target_count': count, 'repetition': repetition, 'status': 'matched',
+                          'full_session_wall_seconds': 100.0,
+                          'anchor_session_wall_seconds': 100.0 if count == 0 or all_tied else 90.0}
+                         for repetition in (1, 2, 3, 4) for count in tool.COUNTS]
+                clones = {(count, repetition, mode): 1.0
+                          for repetition in (1, 2, 3, 4) for count in tool.COUNTS
+                          for mode in ('full', 'anchor')}
+                with mock.patch.object(tool, 'verify_completed_matrix', return_value='a' * 64), \
+                     mock.patch.object(tool, 'shared_steps', return_value={
+                         'by_count_seconds': {count: 10.0 for count in tool.COUNTS}}), \
+                     mock.patch.object(tool, 'clone_costs', return_value=clones), \
+                     mock.patch.object(tool, 'one_time_costs', return_value={}):
+                    report = tool.reconcile({'manifest_sha256': 'b' * 64}, {
+                        'schema': 'part5-v3-campaign-economics-report-v1', 'pairs': pairs})
+                self.assertEqual(report['first_sampled_break_even_by_repetition'],
+                                 {str(r): None if all_tied else 1 for r in (1, 2, 3, 4)})
+
     def test_missing_clone_cost_never_becomes_a_zero_cost_trial(self):
         rows = [{'target_count': 0, 'repetition': 1, 'status': 'matched',
                  'full_session_wall_seconds': 50.0, 'anchor_session_wall_seconds': 45.0}]

@@ -231,8 +231,8 @@ def reconcile(validated, economics):
     for repetition in (1, 2, 3, 4):
         rows = [row for row in pairs if row['repetition'] == repetition]
         crossing[str(repetition)] = (next((row['target_count'] for row in rows
-            if row['status'] == 'derived' and row['anchor_component_sum_seconds']
-               <= row['full_component_sum_seconds']), None)
+            if row['status'] == 'derived'
+               and row['full_minus_anchor_component_sum_seconds'] > 0), None)
             if len(rows) == 5 and all(row['status'] == 'derived' for row in rows)
             else None)
     return {'schema': 'part5-v3-campaign-observed-component-costs-v1',

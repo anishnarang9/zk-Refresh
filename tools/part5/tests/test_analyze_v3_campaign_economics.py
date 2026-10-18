@@ -412,7 +412,7 @@ class CampaignEconomicsTests(unittest.TestCase):
                          0.175)
         self.assertEqual(report['break_even']['per_repetition'], [5, 5, 5, 5])
         self.assertEqual(report['break_even']['basis'],
-                         'session-only first sampled k where Anchor outer wall <= Full outer wall')
+                         'session-only first sampled k with positive Full-minus-Anchor outer wall')
         self.assertFalse(report['cpu']['complete_tree_savings_claimed'])
         self.assertFalse(report['whole_application_benefit_established'])
         self.assertEqual(report['whole_application_savings_fraction'], None)
@@ -420,6 +420,25 @@ class CampaignEconomicsTests(unittest.TestCase):
         self.assertEqual(
             report['common_cost_accounting']['session_report_values'][
                 'preexisting_ledger_clone_charged'], [False])
+
+    def test_exact_wall_tie_is_not_a_break_even_win(self):
+        for all_tied in (False, True):
+            with self.subTest(all_tied=all_tied):
+                manifest = self.full_manifest()
+                for entry in manifest['sessions']:
+                    count = entry['target_count']
+                    if entry['mode'] not in ('full', 'anchor') or (count != 0 and not all_tied):
+                        continue
+                    path = Path(entry['outer_report'])
+                    outer = json.loads(path.read_text())
+                    outer['duration_seconds'] = max(10.0 + 2.0 * count, 14.0 + 0.5 * count)
+                    path.write_text(json.dumps(outer))
+                report = aggregate(manifest, self.root)
+                self.assertTrue(report['grid_complete'])
+                self.assertEqual(report['break_even']['per_repetition'],
+                                 [None] * 4 if all_tied else [5] * 4)
+                self.assertEqual(report['break_even']['per_repetition_status'],
+                                 ['not_crossed_through_k10'] * 4 if all_tied else ['crossed'] * 4)
 
     def test_mode_specific_uncensored_runner_caps_do_not_break_pairing(self):
         manifest = self.full_manifest()

@@ -691,8 +691,7 @@ def aggregate(manifest, base_dir='.'):
             break_even_status.append('incomplete')
             continue
         crossing = next((row['target_count'] for row in sequence
-                         if row['anchor_session_wall_seconds']
-                         <= row['full_session_wall_seconds']), None)
+                         if row['full_minus_anchor_session_wall_seconds'] > 0), None)
         break_even_values.append(crossing)
         break_even_status.append('crossed' if crossing is not None
                                   else 'not_crossed_through_k10')
@@ -781,7 +780,7 @@ def aggregate(manifest, base_dir='.'):
         'three_mode_groups': three_mode_groups,
         'by_update_count': by_update_count,
         'break_even': {
-            'basis': ('session-only first sampled k where Anchor outer wall <= Full outer wall'),
+            'basis': ('session-only first sampled k with positive Full-minus-Anchor outer wall'),
             'per_repetition': break_even_values,
             'per_repetition_status': break_even_status,
             'crossing_repetitions_by_sampled_k': crossing_counts,
