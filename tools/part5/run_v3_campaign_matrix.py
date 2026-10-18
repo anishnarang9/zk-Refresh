@@ -47,6 +47,7 @@ ECONOMICS_INPUT_SCHEMA = 'part5-v3-campaign-economics-input-v1'
 CAMPAIGN_SECONDS = 36 * 60 * 60
 MAX_RSS_BYTES = 4 * 1024 * 1024 * 1024
 MAX_STORAGE_BYTES = 512 * 1024 * 1024
+TRAINING_012_ANCHOR_K10_MAX_STORAGE_BYTES = 1024 * 1024 * 1024
 LEGACY_SESSION_SHA256 = 'c389c64314eb0f944f08d90bb71868940f3137e1aded0badf24891aedf7eec33'
 
 from tools.part5 import run_v3_campaign_session as session
@@ -161,7 +162,7 @@ def economics_input_manifest(planned_slots):
     return {'schema': ECONOMICS_INPUT_SCHEMA, 'sessions': sessions}
 
 
-def validate_caps(raw, campaign_seconds):
+def validate_caps(raw, campaign_seconds, *, campaign_id=None):
     counts = {str(count) for count in session.COUNTS}
     if not isinstance(raw, dict) or set(raw) != counts:
         raise ValueError('explicit limits for each registered target count required')
@@ -178,9 +179,12 @@ def validate_caps(raw, campaign_seconds):
                 raise ValueError(f'explicit runtime, RSS and storage caps required for {mode} k={count}')
             runtime, rss, storage = (limit['runtime_seconds'], limit['rss_bytes'],
                                      limit['storage_bytes'])
+            storage_ceiling = (TRAINING_012_ANCHOR_K10_MAX_STORAGE_BYTES
+                               if campaign_id == 'training-012' and count == 10
+                               and mode == 'anchor' else MAX_STORAGE_BYTES)
             if (type(runtime) is not int or runtime < 1 or runtime > campaign_seconds
                     or type(rss) is not int or not 1 <= rss <= MAX_RSS_BYTES
-                    or type(storage) is not int or not 1 <= storage <= MAX_STORAGE_BYTES):
+                    or type(storage) is not int or not 1 <= storage <= storage_ceiling):
                 raise ValueError(f'bounded positive limits required for {mode} k={count}')
             if count == 1 and mode == 'anchor' and runtime < 2400:
                 raise ValueError('Anchor k=1 requires an explicit runtime cap of at least 2400 seconds')
@@ -216,7 +220,8 @@ def validate_manifest(manifest_path, *, allow_legacy_inspection=False):
         raise ValueError('safe explicit campaign_id required')
     if manifest.get('campaign_runtime_seconds') != CAMPAIGN_SECONDS:
         raise ValueError('registered 36-hour campaign runtime envelope required')
-    limits = validate_caps(manifest.get('limits'), CAMPAIGN_SECONDS)
+    limits = validate_caps(manifest.get('limits'), CAMPAIGN_SECONDS,
+                           campaign_id=campaign_id)
     output_root = Path(manifest.get('output_root', ''))
     if (not output_root.is_absolute() or output_root.parent != ARTIFACTS
             or output_root.name != f'v3-matrix-{campaign_id}'

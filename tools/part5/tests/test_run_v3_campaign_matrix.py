@@ -34,6 +34,33 @@ class CampaignMatrixTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'bounded positive limits'):
             matrix.validate_caps(limits, matrix.CAMPAIGN_SECONDS)
 
+    def test_training_012_only_allows_one_gib_for_anchor_k10(self):
+        limits = {
+            str(count): {
+                mode: {'runtime_seconds': 2400,
+                       'rss_bytes': 4294967296,
+                       'storage_bytes': 512 * 1024 * 1024}
+                for mode in matrix.session.MODES
+            }
+            for count in matrix.session.COUNTS
+        }
+        limits['10']['anchor']['storage_bytes'] = 1024 * 1024 * 1024
+        with self.assertRaisesRegex(ValueError, 'bounded positive limits'):
+            matrix.validate_caps(limits, matrix.CAMPAIGN_SECONDS,
+                                 campaign_id='training-011')
+        self.assertEqual(matrix.validate_caps(
+            limits, matrix.CAMPAIGN_SECONDS, campaign_id='training-012')
+            ['10']['anchor']['storage_bytes'], 1024 * 1024 * 1024)
+        limits['10']['anchor']['storage_bytes'] += 1
+        with self.assertRaisesRegex(ValueError, 'bounded positive limits'):
+            matrix.validate_caps(limits, matrix.CAMPAIGN_SECONDS,
+                                 campaign_id='training-012')
+        limits['10']['anchor']['storage_bytes'] = 1024 * 1024 * 1024
+        limits['10']['full']['storage_bytes'] += 1
+        with self.assertRaisesRegex(ValueError, 'bounded positive limits'):
+            matrix.validate_caps(limits, matrix.CAMPAIGN_SECONDS,
+                                 campaign_id='training-012')
+
     def test_schedule_uses_registered_order_for_each_count_and_repetition(self):
         slots = matrix.slot_specs()
 
