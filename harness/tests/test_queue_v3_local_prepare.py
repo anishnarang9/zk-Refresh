@@ -1,6 +1,7 @@
 import base64
 import importlib.util
 import contextlib
+import errno
 import io
 import json
 import os
@@ -73,6 +74,44 @@ class PrepareTests(unittest.TestCase):
             with self.assertRaises(ValueError): m.validator_argv('/v', ledger, '/e', program, program)
             ledger.mkdir()
             with self.assertRaises(ValueError): m.validator_argv('/v', ledger, '/e', program, mint)
+
+    def test_port_wait_retries_transient_address_in_use(self):
+        with patch.object(m, '_ports_free_once', side_effect=[
+                OSError(errno.EADDRINUSE, 'busy'), None]) as probe, \
+                patch.object(m.time, 'sleep') as sleep:
+            m.ports_free(timeout_seconds=1)
+        self.assertEqual(probe.call_count, 2)
+        sleep.assert_called_once()
+
+    def test_port_wait_deadline_and_nonretryable_error(self):
+        with patch.object(m, '_ports_free_once', side_effect=OSError(errno.EADDRINUSE, 'busy')), \
+                patch.object(m.time, 'monotonic', side_effect=[0, 1]), \
+                contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaisesRegex(TimeoutError, 'local port readiness timed out'):
+                m.ports_free(timeout_seconds=0.5)
+        detail = io.StringIO()
+        with patch.object(m, '_ports_free_once', side_effect=OSError(errno.EACCES, 'denied')) as probe, \
+                contextlib.redirect_stderr(detail):
+            with self.assertRaises(OSError) as error:
+                m.ports_free(timeout_seconds=1)
+        self.assertEqual(error.exception.errno, errno.EACCES)
+        self.assertEqual(probe.call_count, 1)
+        self.assertIn('local port readiness failed', detail.getvalue())
+
+    def test_port_probe_reports_port_and_closes_failed_socket(self):
+        sockets = []
+        class Sock:
+            def __init__(self): self.closed = False
+            def bind(self, address): raise OSError(errno.EADDRINUSE, 'busy')
+            def close(self): self.closed = True
+        def create(*args):
+            sock = Sock(); sockets.append(sock); return sock
+        with patch.object(m.socket, 'socket', side_effect=create):
+            with self.assertRaises(OSError) as error:
+                m._ports_free_once()
+        self.assertEqual(error.exception.errno, errno.EADDRINUSE)
+        self.assertIn('18999/tcp', str(error.exception))
+        self.assertTrue(all(sock.closed for sock in sockets))
 
     def test_discovery_and_finalized_batch_require_same_link_and_genesis(self):
         program, _, pd, elf, accounts = self.fixture()

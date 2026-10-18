@@ -234,7 +234,7 @@ def run(config, config_sha256):
         control.mkdir(mode=0o700); output.mkdir(mode=0o700)
         for sig in (signal.SIGINT, signal.SIGTERM):
             handlers[sig] = signal.signal(sig, interrupted)
-        base.ports_free()
+        base.ports_free(timeout_seconds=base.PORT_WAIT_SECONDS)
         argv = stage.resume_argv(original['validator'], str(ledger))
         base.write_new(control / 'invocation.json', {'validator_argv': argv,
             'runner': config['runner'], 'runner_sha256': config['runner_sha256'],

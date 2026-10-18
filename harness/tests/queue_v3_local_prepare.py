@@ -8,9 +8,11 @@ ELF bytes. The protected ledger is retained for a separately reviewed later gate
 """
 import argparse
 import base64
+import errno
 import hashlib
 import importlib.util
 import json
+import math
 import os
 from pathlib import Path
 import signal
@@ -29,6 +31,7 @@ LOADER = 'BPFLoaderUpgradeab1e11111111111111111111111'
 RPC = 'http://127.0.0.1:18999/'
 ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 LIMITS = {'runtime_seconds': 180, 'rss_bytes': 4294967296, 'storage_growth_bytes': 268435456}
+PORT_WAIT_SECONDS = 35.0
 MAX_RESPONSE = 8 * 1024 * 1024
 
 
@@ -246,16 +249,44 @@ def validator_argv(validator, ledger, elf, program, mint):
             '--reset', '--mint', mint, '--bpf-program', program, str(elf)]
 
 
-def ports_free():
+def _ports_free_once():
     held = []
     try:
         for port in [18999, 19000, 19001, 18901] + list(range(19002, 19029)):
             for kind in (socket.SOCK_STREAM, socket.SOCK_DGRAM):
                 sock = socket.socket(socket.AF_INET, kind); held.append(sock)
-                sock.bind(('127.0.0.1', port))
+                try:
+                    sock.bind(('127.0.0.1', port))
+                except OSError as error:
+                    protocol = 'tcp' if kind == socket.SOCK_STREAM else 'udp'
+                    raise OSError(error.errno, f'127.0.0.1:{port}/{protocol}: '
+                                  f'{error.strerror or error}') from error
     finally:
         for sock in held:
             sock.close()
+
+
+def ports_free(*, timeout_seconds=0.0):
+    """Check fixed local ports, optionally waiting inside the bounded child."""
+    if (type(timeout_seconds) not in (int, float) or not math.isfinite(timeout_seconds)
+            or not 0 <= timeout_seconds <= PORT_WAIT_SECONDS):
+        raise ValueError('bounded local-port wait required')
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        try:
+            _ports_free_once()
+            return
+        except OSError as error:
+            if error.errno != errno.EADDRINUSE or timeout_seconds == 0:
+                if timeout_seconds:
+                    print(f'local port readiness failed: {error}', file=sys.stderr)
+                raise
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                message = f'local port readiness timed out after {timeout_seconds}s: {error}'
+                print(message, file=sys.stderr)
+                raise TimeoutError(message) from error
+            time.sleep(min(0.25, remaining))
 
 
 def cleanup(proc):
@@ -348,7 +379,7 @@ def run(config, config_sha256):
         control.mkdir(mode=0o700); runtime.mkdir(mode=0o700)
         for signum in (signal.SIGINT, signal.SIGTERM):
             handlers[signum] = signal.signal(signum, interrupted)
-        ports_free()
+        ports_free(timeout_seconds=PORT_WAIT_SECONDS)
         for name in ('validator.stdout.log', 'validator.stderr.log'):
             fd = os.open(control / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             logs.append(os.fdopen(fd, 'wb'))

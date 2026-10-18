@@ -602,7 +602,7 @@ def run(config: dict, config_sha256: str, config_path: str) -> int:
         output.mkdir(mode=0o700)
         for sig in (signal.SIGINT, signal.SIGTERM):
             handlers[sig] = signal.signal(sig, interrupted)
-        execute.base.ports_free()
+        execute.base.ports_free(timeout_seconds=execute.base.PORT_WAIT_SECONDS)
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
             probe.bind(('127.0.0.1', config['proxy_port']))
         argv = execute.stage.resume_argv(original['validator'], ledger)

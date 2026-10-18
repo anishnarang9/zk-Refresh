@@ -13,7 +13,7 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from harness.tests.queue_v3_clone_ledger import inventory, stale_admin_socket
-from harness.tests.queue_v3_local_prepare import ports_free
+from harness.tests.queue_v3_local_prepare import PORT_WAIT_SECONDS, ports_free
 
 
 def pinned(path, expected):
@@ -25,7 +25,7 @@ def pinned(path, expected):
 
 def clone(stage_config, config_sha, stage_report, report_sha, stage_status,
           status_sha, stage_monitor, monitor_sha, monitor_owner, destination):
-    ports_free()
+    ports_free(timeout_seconds=PORT_WAIT_SECONDS)
     config = pinned(stage_config, config_sha)
     report = pinned(stage_report, report_sha)
     status = pinned(stage_status, status_sha)

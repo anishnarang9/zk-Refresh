@@ -367,7 +367,7 @@ def run(config, config_sha256, config_path):
         output.mkdir(mode=0o700)
         for sig in (signal.SIGINT, signal.SIGTERM):
             handlers[sig] = signal.signal(sig, interrupted)
-        execute.base.ports_free()
+        execute.base.ports_free(timeout_seconds=execute.base.PORT_WAIT_SECONDS)
         argv = execute.stage.resume_argv(prepared['validator'], config['ledger'])
         execute.base.write_new(control / 'invocation.json', {
             'validator_argv': argv, 'runner': config['runner'],

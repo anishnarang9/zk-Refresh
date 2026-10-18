@@ -83,8 +83,8 @@ def inventory(root):
 
 def clone(source, destination, transition_report, transition_sha, transition_status,
           status_sha, transition_monitor, monitor_sha):
-    from harness.tests.queue_v3_local_prepare import ports_free
-    ports_free()
+    from harness.tests.queue_v3_local_prepare import PORT_WAIT_SECONDS, ports_free
+    ports_free(timeout_seconds=PORT_WAIT_SECONDS)
     def pinned(path, expected):
         data = Path(path).read_bytes()
         if hashlib.sha256(data).hexdigest() != expected:
