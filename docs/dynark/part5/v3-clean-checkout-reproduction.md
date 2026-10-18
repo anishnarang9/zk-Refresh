@@ -1,6 +1,6 @@
 # Clean-checkout reproduction status and build steps
 
-This partial guide separates two goals: checking the evidence for the specific Training-010 run, and running a new campaign from the pinned source. A new run creates new keys, state, binary hashes, and receipts; it cannot recreate Training-010's receipt hashes. The Training-010 matrix was still in progress in the registered snapshot, and the heldout runbook says its acceptance steps have not run. Neither is a completed application acceptance result. The missing setup package and initial R0 preparation inputs below still prevent a clean-checkout rerun.
+This partial guide separates two goals: checking the evidence for the specific Training-010 run, and running a new campaign from the pinned source. A new run creates new keys, state, binary hashes, and receipts; it cannot recreate Training-010's receipt hashes. The Training-010 matrix was still in progress in the registered snapshot, and the heldout runbook says its acceptance steps have not run. Neither is a completed application acceptance result. The missing setup/package evidence and prior-public-key inventory below still prevent a full clean-checkout rerun; the initial R0 prepare config can now be constructed from source using the bounded commands below.
 
 ## Source and runtime pins
 
@@ -107,18 +107,11 @@ install -m 700 "$SETUP_TARGET/release/$SETUP_NAME" "$SETUP_COPY"
 shasum -a 256 "$SETUP_COPY"
 ```
 
-The application also needs its loaded SBF ELF. The program README documents this build command; it builds an artifact and does not deploy it. The freeze tool currently expects the resulting file under this exact private path.
-
-```bash
-SBF_OUT="$PART5/application-v3-sbf-build-002/elf"
-test ! -e "$SBF_OUT"
-mkdir -m 700 -p "$SBF_OUT"
-cargo build-sbf --manifest-path "$ROOT/program/Cargo.toml" --sbf-out-dir "$SBF_OUT"
-test -s "$SBF_OUT/zk_fresh_program.so"
-shasum -a 256 "$SBF_OUT/zk_fresh_program.so"
-```
-
-Use the `cargo-build-sbf` subcommand installed with the pinned Solana/Agave toolchain. The command is documented in `program/README.md`; the toolchain installation itself is not pinned in the repository.
+The application also needs its loaded SBF ELF. The freeze tool currently hardcodes
+`artifacts/dynark/part5/application-v3-sbf-build-002/elf/zk_fresh_program.so`.
+The clean-checkout recipe below creates that path only after checking it is absent
+and runs the exact recorded `cargo-build-sbf` plan through `session_runner.py`.
+The toolchain installation itself is not pinned in the repository.
 
 ## Fresh private inputs and a new campaign
 
@@ -207,13 +200,176 @@ the current proof runner cannot admit a newly generated setup under its pins.
 A new package needs a versioned source update to accept new provenance receipts,
 or the original setup/VK and reports in the evidence capsule.
 
-The initial R0 campaign preparation also lacks a complete from-zero input
-command. `harness/tests/queue_v3_local_prepare.py` accepts only an existing
-`--config` and its hash; `tools/part5/create_v3_campaign_stage_config.py` starts
-from a prior prepare config/status/monitor. Training-010 consumes the ignored
-`application-v3-campaign-prepare-config-002.json`, status, and ledger. The repo
-does not construct that initial R0 config/fixture, so it cannot be recreated
-from source commands listed in the current runbook.
+The initial R0 config constructor was added in commit `afd4767` at
+`tools/part5/create_v3_campaign_prepare_config.py`. It verifies a fresh
+`queue_v3_build_prep` plan against current program-source and external Cargo
+configuration pins, hashes the ELF and validator, validates fresh disjoint
+runtime/control paths and public keys, then writes the existing
+`queue_v3_local_prepare.py` schema with exclusive creation and mode `0600`.
+Training-010's ignored `application-v3-campaign-prepare-config-002.json`,
+status, and ledger remain private historical artifacts. The commands below
+create new values; they do not recover those files or their hashes.
+
+### Create a fresh bounded R0 prepare
+
+Run this in a clean checkout with its repository paths and selected Python,
+Cargo, and Solana/Agave installations available. Checkpoint every output path:
+these commands require them absent and deliberately do not replace files. They
+have not been run while preparing this guide. This produces only a local
+validator/ELF identity and ledger; it does not initialize application accounts,
+execute a request, or provide a devnet deployment.
+
+```bash
+set -euo pipefail
+umask 077
+ROOT="$(git rev-parse --show-toplevel)"
+PART5="$ROOT/artifacts/dynark/part5"
+RESULTS="$ROOT/results/dynark/part5"
+PYTHON="${PYTHON:-python3}"
+SESSION_RUNNER="$RESULTS/session_runner.py"
+mkdir -m 700 -p "$PART5" "$RESULTS"
+
+sha256_file() { shasum -a 256 "$1" | awk '{print $1}'; }
+require_absent() {
+  if [ -e "$1" ] || [ -L "$1" ]; then
+    printf 'Expected fresh path is already present: %s\n' "$1" >&2
+    return 1
+  fi
+}
+resolve_exe() {
+  "$PYTHON" -B - "$1" <<'PY'
+import pathlib, shutil, sys
+found = shutil.which(sys.argv[1])
+if found is None:
+    raise SystemExit(f"required executable not found: {sys.argv[1]}")
+print(pathlib.Path(found).resolve())
+PY
+}
+
+BUILDER="$(resolve_exe cargo-build-sbf)"
+VALIDATOR="$(resolve_exe solana-test-validator)"
+KEYGEN="$(resolve_exe solana-keygen)"
+BUILD_PLAN="$PART5/v3-build-prep-clean-checkout.json"
+SBF_BUILD="$PART5/application-v3-sbf-build-002"
+SBF_OUT="$SBF_BUILD/elf"
+BUILD_PRIVATE="$RESULTS/v3-clean-sbf-build-private"
+BUILD_MONITOR="$RESULTS/v3-clean-sbf-build-monitor.json"
+require_absent "$BUILD_PLAN"
+require_absent "$SBF_BUILD"
+require_absent "$BUILD_PRIVATE"
+require_absent "$BUILD_MONITOR"
+
+# This only writes a source/tool-pinned plan; it does not build the program.
+"$PYTHON" -B -m harness.tests.queue_v3_build_prep --repo "$ROOT" \
+  --builder "$BUILDER" --builder-sha256 "$(sha256_file "$BUILDER")" \
+  --build-output "$SBF_BUILD" > "$BUILD_PLAN"
+test -s "$BUILD_PLAN"
+
+# Revalidate the whole build plan immediately before launching its argv. The
+# parent here is the bounded runner. The checked build output must still be
+# absent during validation, so create its SBF directory only afterward.
+"$PYTHON" -B "$SESSION_RUNNER" \
+  --owner part5-v3-clean-checkout-sbf-build --cwd "$ROOT" \
+  --private-output "$BUILD_PRIVATE" --report "$BUILD_MONITOR" \
+  --runtime-seconds 180 --rss-bytes 4294967296 --storage-bytes 536870912 \
+  --storage-path "$PART5" --poll-seconds 0.2 -- \
+  "$PYTHON" -B -c '
+import json, os, sys
+from pathlib import Path
+from harness.tests import queue_v3_build_prep
+plan = json.loads(Path(sys.argv[1]).read_text())
+repo = Path(plan["cwd"])
+queue_v3_build_prep.check_build_plan(repo, plan)
+sbf = Path(plan["argv"][plan["argv"].index("--sbf-out-dir") + 1])
+sbf.mkdir(parents=True, mode=0o700, exist_ok=False)
+env = os.environ.copy()
+for name in plan["environment_remove"]:
+    env.pop(name, None)
+env.update(plan["environment_required"])
+os.chdir(repo)
+os.execve(plan["argv"][0], plan["argv"], env)
+' "$BUILD_PLAN"
+"$PYTHON" -B - "$BUILD_MONITOR" <<'PY'
+import json, pathlib, sys
+r = json.loads(pathlib.Path(sys.argv[1]).read_bytes())
+assert r['owner'] == 'part5-v3-clean-checkout-sbf-build'
+assert r['passed'] is True and r['exit_code'] == 0 and r['stop_reason'] is None
+assert r['cleanup_remaining_owned_processes'] == 0 and not r['cleanup_status_unknown']
+PY
+test -s "$SBF_OUT/zk_fresh_program.so"
+sha256_file "$SBF_OUT/zk_fresh_program.so"
+
+# Generate fresh local identifiers. Keep these keypair files private; the
+# prepare step passes only their public keys to the local validator.
+PROGRAM_KEYPAIR="$PART5/application-v3-program-keypair-clean.json"
+MINT_KEYPAIR="$PART5/application-v3-mint-keypair-clean.json"
+PREP_CONFIG="$PART5/application-v3-campaign-prepare-config-clean.json"
+PREP_RUNTIME="$PART5/application-v3-campaign-runtime-clean"
+PREP_CONTROL="$PART5/application-v3-campaign-prepare-control-clean"
+require_absent "$PROGRAM_KEYPAIR"
+require_absent "$MINT_KEYPAIR"
+require_absent "$PREP_CONFIG"
+require_absent "$PREP_RUNTIME"
+require_absent "$PREP_CONTROL"
+"$KEYGEN" new --no-bip39-passphrase --silent --outfile "$PROGRAM_KEYPAIR"
+"$KEYGEN" new --no-bip39-passphrase --silent --outfile "$MINT_KEYPAIR"
+chmod 600 "$PROGRAM_KEYPAIR" "$MINT_KEYPAIR"
+PROGRAM="$("$KEYGEN" pubkey "$PROGRAM_KEYPAIR")"
+MINT="$("$KEYGEN" pubkey "$MINT_KEYPAIR")"
+
+# The constructor hashes the build plan, ELF, validator, and all current
+# program/Cargo source pins before writing the config with O_EXCL.
+"$PYTHON" -B -m tools.part5.create_v3_campaign_prepare_config \
+  --build-plan "$BUILD_PLAN" --elf "$SBF_OUT/zk_fresh_program.so" \
+  --validator "$VALIDATOR" --program "$PROGRAM" --mint "$MINT" \
+  --runtime-output "$PREP_RUNTIME" --control-output "$PREP_CONTROL" \
+  --output "$PREP_CONFIG"
+PREP_CONFIG_SHA="$(sha256_file "$PREP_CONFIG")"
+PREP_PRIVATE="$RESULTS/v3-clean-r0-prepare-private"
+PREP_MONITOR="$RESULTS/v3-clean-r0-prepare-monitor.json"
+PREP_STATUS="$PREP_CONTROL/status.json"
+require_absent "$PREP_PRIVATE"
+require_absent "$PREP_MONITOR"
+
+# The current prepare harness sends SIGINT to its validator in cleanup. It
+# writes evidence and exits 1 after reaping that process; preserve and inspect
+# both reports instead of treating that expected return code as a proof result.
+set +e
+"$PYTHON" -B "$SESSION_RUNNER" \
+  --owner part5-v3-clean-checkout-r0-prepare --cwd "$ROOT" \
+  --private-output "$PREP_PRIVATE" --report "$PREP_MONITOR" \
+  --runtime-seconds 180 --rss-bytes 4294967296 --storage-bytes 268435456 \
+  --storage-path "$PREP_RUNTIME" --storage-path "$PREP_CONTROL" \
+  --poll-seconds 0.2 -- env P5_V3_PREPARE_SCOPE=local-validator-prepare \
+  "$PYTHON" -B "$ROOT/harness/tests/queue_v3_local_prepare.py" \
+  --config "$PREP_CONFIG" --config-sha256 "$PREP_CONFIG_SHA"
+PREP_RUNNER_RC=$?
+set -e
+test "$PREP_RUNNER_RC" -eq 1
+"$PYTHON" -B - "$PREP_MONITOR" "$PREP_STATUS" <<'PY'
+import json, pathlib, sys
+outer, inner = (json.loads(pathlib.Path(p).read_bytes()) for p in sys.argv[1:])
+assert outer['owner'] == 'part5-v3-clean-checkout-r0-prepare'
+assert outer['passed'] is False and outer['exit_code'] == 1
+assert outer['stop_reason'] is None and outer['runner_error_type'] is None
+assert outer['cleanup_remaining_owned_processes'] == 0 and not outer['cleanup_status_unknown']
+assert inner['status'] == 'failed' and inner['application_effect'] is False and inner['devnet'] is False
+assert inner['loaded_program']['elf_match'] is True
+assert inner['cleanup']['reaped'] is True and inner['cleanup']['exit_code'] == -2
+assert inner['cleanup']['graceful'] is False and inner['ledger_reuse_requires_review'] is True
+PY
+```
+
+The expected prepare result is intentionally not described as a graceful
+validator shutdown: the process is reaped after SIGINT (`exit_code: -2`), while
+the prepare harness records `graceful: false`, status `failed`, and returns 1;
+the outer monitor therefore records `passed: false`, exit 1, no stop reason,
+and no remaining owned processes. `freeze_v3_campaign_cohort.py` permits this
+specific failed prepare shape only with `reaped: true` and
+`ledger_reuse_requires_review: true`; review the retained ledger before reuse.
+This fresh R0 constructor closes only the missing config-generation step. The
+fixed setup-suite/package-check identity and absent prior-public-key inventory
+described above still block a full from-zero campaign.
 
 After a new bounded prepare run produces a fresh `PREPARE_STATUS`, and after local `artifacts/dynark/part5` contains a reviewed prior-public-key inventory, use the documented freeze and cohort CLIs. The freeze source requires at least one earlier PEM/DER public-key input (`freeze_v3_campaign_cohort.py:129-130`); the clean checkout has none, and no public inventory seed is packaged. Choose new output names; do not replace the Training-010 freeze or reuse its private cohort. These are application input-generation commands, not acceptance or a matrix run:
 
