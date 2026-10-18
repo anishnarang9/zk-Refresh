@@ -2299,7 +2299,387 @@ def _verify_case_run_provenance(case_bundle, variant, globals_, freeze_sha,
              and negative_step.get('monitor_sha256') == outer_ref['sha256']
              and negative_step.get('monitor_owner') == outer.get('owner'),
              'disabled-config journal evidence must join the exact clone and sidecar')
+    _verify_ambiguous_restart_journal(case_bundle, steps, variant,
+        globals_['frozen_files']['loaded_elf']['sha256'])
     return canonical
+
+
+def _verify_ambiguous_account_transition(stage, pre, final, request_address):
+    """Derive the source/head refresh and one Execute directly from account bytes."""
+    lengths = (381, 374, 280, 2249, 2090)
+    magics = (b'DYNCONF3', b'DYNISS03', b'DYNHEAD3', b'DYNREQ03', b'DYNQUE03')
+    for accounts in (stage, pre, final):
+        _require(type(accounts) is dict and set(accounts) == set(ACCOUNT_NAMES)
+                 and all(type(accounts[name]) is bytes and len(accounts[name]) == size
+                         and accounts[name][:8] == magic
+                         for name, size, magic in zip(ACCOUNT_NAMES, lengths, magics)),
+                 'ambiguous restart requires canonical five-account snapshots')
+    config, issuer, head = (stage[name] for name in ACCOUNT_NAMES[:3])
+    observed = int.from_bytes(pre['issuer'][213:221], 'big', signed=True)
+    committed = int.from_bytes(pre['head'][272:280], 'big', signed=True)
+    sequence = int.from_bytes(issuer[173:181], 'big') + 1
+    publication = int.from_bytes(head[104:112], 'big') + 1
+    _require(sequence < 2**64 and publication < 2**64
+             and observed > int.from_bytes(issuer[213:221], 'big', signed=True)
+             and observed <= committed <= observed + 240
+             and committed >= int.from_bytes(head[272:280], 'big', signed=True)
+             and observed + 240 < 2**63
+             and stage['request'][183] == 1
+             and stage['queue'][40:] == bytes(len(stage['queue']) - 40),
+             'ambiguous restart must start finalized with an empty queue and advance source time')
+    root = config[332:364]
+    source = hashlib.sha256(b'part5-v3-local-execute-source-training-v1' + root
+        + issuer[40:72] + issuer[317:349] + issuer[181:213]
+        + sequence.to_bytes(8, 'big') + observed.to_bytes(8, 'big', signed=True)).digest()
+    envelope = hashlib.sha256(b'part5-v3-local-execute-head-training-v1' + root
+        + head[112:144] + source + observed.to_bytes(8, 'big', signed=True)).digest()
+    next_issuer, next_head = bytearray(issuer), bytearray(head)
+    for start, end, raw in (
+        (173,181,sequence.to_bytes(8,'big')), (181,213,source),
+        (213,221,observed.to_bytes(8,'big',signed=True)),
+        (221,229,(observed+240).to_bytes(8,'big',signed=True)), (229,261,root),
+        (261,269,config[364:372]), (269,277,sequence.to_bytes(8,'big')),
+        (277,309,source), (349,357,config[372:380]), (366,374,issuer[358:366])):
+        next_issuer[start:end] = raw
+    for start, end, raw in (
+        (104,112,publication.to_bytes(8,'big')), (112,144,envelope),
+        (144,176,head[112:144]), (176,208,root), (208,216,config[364:372]),
+        (216,224,sequence.to_bytes(8,'big')), (224,256,source),
+        (256,264,config[372:380]), (264,272,issuer[358:366]),
+        (272,280,committed.to_bytes(8,'big',signed=True))):
+        next_head[start:end] = raw
+    _require(pre == {**stage, 'issuer': bytes(next_issuer), 'head': bytes(next_head)},
+             'ambiguous pre-submit bytes must match exactly one staged source/head refresh')
+    _require(all(final[name] == pre[name] for name in ACCOUNT_NAMES[:3]),
+             'ambiguous Execute must preserve pre-submit config, issuer and head')
+    _verify_single_effect_bytes(pre['request'], pre['queue'], final['request'],
+                                final['queue'], request_address)
+
+
+def _verify_ambiguous_restart_journal(case_bundle, steps, variant, frozen_elf):
+    names = ('positive_full:ambiguous-restart-clone', 'positive_full:ambiguous-restart')
+    _require(all(type(steps.get(name)) is dict and steps[name].get('status') == 'passed'
+                 for name in names), 'case run journal requires ambiguous restart')
+    walls = [steps[name].get('wall_seconds') for name in names]
+    _require(all(type(wall) in (int, float) and math.isfinite(wall) and wall >= 0
+                 for wall in walls)
+             and type(case_bundle.get('ambiguous_restart_wall_seconds')) in (int, float)
+             and case_bundle['ambiguous_restart_wall_seconds'] == sum(float(w) for w in walls),
+             'ambiguous restart wall cost must match its two journal steps')
+    ref = case_bundle.get('ambiguous_restart')
+    sidecar, _ = _json(ref, cap=65536)
+    _require(type(sidecar) is dict, 'ambiguous restart sidecar object required')
+    config, _ = _json(sidecar.get('config'), cap=65536)
+    _require(type(config) is dict, 'ambiguous restart supervisor config object required')
+    supervisor_rel = 'harness/tests/queue_v3_local_ambiguous_restart.py'
+    supervisor_sha = _sha((ROOT / supervisor_rel).read_bytes())
+    clone, run = (steps[name] for name in names)
+    outer = _outer(sidecar.get('outer'), 'ambiguous restart', expected_exit=0)
+    _require(clone.get('inputs') == {
+                'stage_report_sha256': sidecar.get('stage_report_sha256'),
+                'label': 'ambiguous-restart-r0',
+                'r0_source_receipt_sha256': sidecar.get('r0_source_receipt_sha256'),
+                'full_proof_receipt_sha256': sidecar.get('full_proof_receipt_sha256'),
+                'replay_proof_receipt_sha256': sidecar.get('replay_proof_receipt_sha256'),
+                'full_wire_sha256': sidecar.get('full_wire', {}).get('sha256'),
+                'replay_full_wire_sha256': sidecar.get('replay_full_wire', {}).get('sha256')}
+             and clone.get('receipt') == sidecar.get('clone_receipt', {}).get('path')
+             and clone.get('receipt_sha256') == sidecar.get('clone_receipt', {}).get('sha256')
+             and run.get('inputs') == {
+                'variant': variant,
+                'stage_report_sha256': sidecar.get('stage_report_sha256'),
+                'stage_plan_sha256': sidecar.get('stage_plan_sha256'),
+                'r0_source_receipt_sha256': sidecar.get('r0_source_receipt_sha256'),
+                'full_proof_receipt_sha256': sidecar.get('full_proof_receipt_sha256'),
+                'replay_proof_receipt_sha256': sidecar.get('replay_proof_receipt_sha256'),
+                'full_wire_sha256': sidecar.get('full_wire', {}).get('sha256'),
+                'replay_full_wire_sha256': sidecar.get('replay_full_wire', {}).get('sha256'),
+                'clone_receipt_sha256': sidecar.get('clone_receipt', {}).get('sha256'),
+                'frozen_elf_sha256': frozen_elf,
+                'supervisor_script_sha256': supervisor_sha,
+                'proxy_script_sha256': config.get('proxy_script_sha256'),
+                'proxy_port': config.get('proxy_port')}
+             and run.get('sidecar') == ref['path']
+             and run.get('sidecar_sha256') == ref['sha256']
+             and run.get('monitor') == sidecar['outer']['path']
+             and run.get('monitor_sha256') == sidecar['outer']['sha256']
+             and run.get('monitor_owner') == outer.get('owner')
+             and type(outer.get('duration_seconds')) in (int, float)
+             and math.isfinite(outer['duration_seconds'])
+             and run['wall_seconds'] >= outer['duration_seconds'],
+             'ambiguous restart journal must join the exact clone, proof, sidecar and monitor')
+
+
+def _ambiguous_signature_bytes(text):
+    alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+    _require(type(text) is str and 64 <= len(text) <= 88
+             and all(character in alphabet for character in text),
+             'canonical ambiguous transaction signature required')
+    value = 0
+    for character in text:
+        value = value * 58 + alphabet.index(character)
+    body = value.to_bytes((value.bit_length() + 7) // 8, 'big') if value else b''
+    decoded = bytes(len(text) - len(text.lstrip('1'))) + body
+    _require(len(decoded) == 64, '64-byte ambiguous transaction signature required')
+    return decoded
+
+
+def _read_ambiguous_runner_stderr(control):
+    path = control / 'runner.stderr.log'
+    _require(path.is_absolute() and path.resolve(strict=True) == path,
+             'canonical ambiguous runner stderr path required')
+    before = path.lstat()
+    _require(stat.S_ISREG(before.st_mode) and before.st_uid == os.getuid()
+             and before.st_nlink == 1 and stat.S_IMODE(before.st_mode) == 0o600
+             and 0 < before.st_size <= 65536,
+             'bounded owner-only ambiguous runner stderr required')
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
+    with os.fdopen(fd, 'rb') as stream:
+        _require(_identity(os.fstat(stream.fileno())) == _identity(before),
+                 'ambiguous runner stderr changed at open')
+        raw = stream.read(65537)
+        _require(_identity(os.fstat(stream.fileno())) == _identity(before)
+                 and len(raw) == before.st_size
+                 and _identity(path.lstat()) == _identity(before),
+                 'ambiguous runner stderr changed while reading')
+    _require(b'RPC sendTransaction transport failed' in raw,
+             'ambiguous runner stderr must show the expected transport failure')
+    return _sha(raw)
+
+
+def _verify_ambiguous_restart(ref, variant, globals_, slot, full_bundle,
+                               clone_destinations):
+    sidecar, sidecar_sha = _json(ref, cap=65536)
+    keys = {'schema', 'variant', 'stage_report_sha256', 'stage_plan_sha256',
+            'r0_source_receipt_sha256', 'full_proof_receipt_sha256',
+            'replay_proof_receipt_sha256', 'clone_receipt', 'full_wire',
+            'replay_full_wire', 'config', 'status', 'outer', 'proxy_receipt',
+            'finality_receipt', 'pre_submit_report', 'pre_submit_accounts', 'final_accounts'}
+    stage, stage_bundle = slot['stage'], slot['stage_bundle']
+    wires = full_bundle['result']['wires']
+    _require(type(sidecar) is dict and set(sidecar) == keys
+             and sidecar.get('schema') == 'credential-v3-heldout-ambiguous-restart-v1'
+             and sidecar.get('variant') == variant
+             and sidecar.get('stage_report_sha256') == stage['report_sha256']
+             and sidecar.get('stage_plan_sha256') == stage['plan_sha256']
+             and sidecar.get('r0_source_receipt_sha256') == slot['r0_sha256']
+             and sidecar.get('full_proof_receipt_sha256') == _pin_sha(full_bundle['proof']['receipt'])
+             and sidecar.get('replay_proof_receipt_sha256') == _pin_sha(full_bundle['replay_proof']['receipt'])
+             and sidecar.get('full_wire') == wires['full']
+             and sidecar.get('replay_full_wire') == wires['replay_full'],
+             'ambiguous restart sidecar must pin A stage, R0 source and both Full proofs')
+    for role in ('full_wire', 'replay_full_wire'):
+        _verify_wire(sidecar[role], slot['r0']['selected_root'], slot['r0']['action_hash'])
+    _verify_fresh_replay_wires(sidecar['full_wire'], sidecar['replay_full_wire'])
+    config, config_sha = _json(sidecar['config'], cap=65536)
+    status, _ = _json(sidecar['status'], cap=65536)
+    outer = _outer(sidecar['outer'], 'ambiguous restart', expected_exit=0)
+    required = {'schema', 'scope', 'outer_limits_required', 'proxy_script',
+        'proxy_script_sha256', 'proxy_port', 'expected_program', 'expected_genesis',
+        'expected_elf_sha256', 'prior_monitor_owner', 'execute_output', 'control_output',
+        'prior_stage_config', 'prior_stage_config_sha256', 'prior_stage_status',
+        'prior_stage_status_sha256', 'prior_stage_monitor', 'prior_stage_monitor_sha256',
+        'stage_root', 'stage_report_sha256', 'stage_plan_sha256', 'ledger',
+        'heldout_r0_clone_report', 'heldout_r0_clone_report_sha256', 'runner',
+        'runner_sha256', 'context', 'context_sha256', 'full_wire', 'full_wire_sha256',
+        'replay_full_wire', 'replay_full_wire_sha256'}
+    limits = {'runtime_seconds': 180, 'rss_bytes': 4294967296,
+              'storage_growth_bytes': 268435456}
+    _require(type(config) is dict and set(config) == required
+             and config.get('schema') == 'part5-v3-local-ambiguous-restart-supervisor-v1'
+             and config.get('scope') == 'part5-v3-local-ambiguous-restart'
+             and config.get('outer_limits_required') == limits
+             and _declared_limits_match(limits, outer.get('limits'))
+             and type(outer.get('exit_code')) is int
+             and math.isfinite(outer['duration_seconds'])
+             and outer['duration_seconds'] <= limits['runtime_seconds']
+             and outer.get('owner') == f'heldout-v{variant:02d}-positive_full-ambiguous-restart'
+             and config.get('prior_monitor_owner') == stage['monitor_owner']
+             and config.get('stage_plan_sha256') == stage['plan_sha256']
+             and config.get('expected_program') == stage['report']['program']
+             and config.get('expected_genesis') == stage['report']['genesis']
+             and config.get('expected_elf_sha256') == globals_['freeze']['identities']['loaded_elf']
+             and type(config.get('proxy_port')) is int and 1024 <= config['proxy_port'] <= 65535
+             and config['proxy_port'] not in {18999, 19000, 19001, 18901, *range(19002,19029)},
+             'ambiguous restart exact bounded supervisor contract required')
+    for role in ('full_wire', 'replay_full_wire'):
+        _require(config.get(role) == sidecar[role]['path']
+                 and config.get(role + '_sha256') == sidecar[role]['sha256'],
+                 'ambiguous restart supervisor wire pin mismatch')
+    frozen = {row['path']: row['artifact']
+              for row in globals_['frozen_bundles']['registry']}
+    supervisor_path = ROOT / 'harness/tests/queue_v3_local_ambiguous_restart.py'
+    supervisor_ref = frozen.get(supervisor_path.relative_to(ROOT).as_posix())
+    _require(type(supervisor_ref) is dict and supervisor_ref.get('path') == str(supervisor_path),
+             'ambiguous restart supervisor must belong to frozen source')
+    _artifact(supervisor_ref)
+    for path, digest in ((config.get('runner'), config.get('runner_sha256')),
+                          (config.get('proxy_script'), config.get('proxy_script_sha256'))):
+        _require(type(path) is str and Path(path).is_absolute(),
+                 'ambiguous restart source path required')
+        relative = Path(path).relative_to(ROOT).as_posix()
+        _require(frozen.get(relative) == {'path': path, 'sha256': digest},
+                 'ambiguous restart runner/proxy differs from frozen source')
+        _artifact({'path': path, 'sha256': digest})
+    _require(config['runner'] == str(ROOT / QUEUE_RUNNER_REL)
+             and config['proxy_script'] == str(ROOT / 'harness/tests/queue_v3_ambiguous_rpc_proxy.py'),
+             'ambiguous restart must use the frozen Rust runner and proxy')
+    context, _ = _json({'path': config['context'], 'sha256': config['context_sha256']}, cap=8192)
+    _require(context == slot['case_stage_context']
+             and config['context_sha256'] == slot['case_stage_context_sha256']
+             and config['context'] == stage['config']['context'],
+             'ambiguous restart context must match A R0')
+    clone = _verify_r0_clone({'receipt': sidecar['clone_receipt']}, config, stage_bundle, stage)
+    _require(clone['destination'] not in clone_destinations,
+             'ambiguous restart requires a separate R0 clone')
+    clone_destinations.add(clone['destination'])
+    output = _private_directory(config['execute_output'], 'ambiguous restart output')
+    control = _private_directory(config['control_output'], 'ambiguous restart control')
+    _require(output != control and output not in control.parents and control not in output.parents
+             and Path(sidecar['status']['path']) == control / 'status.json'
+             and Path(sidecar['proxy_receipt']['path']) == control / 'proxy-receipt.json'
+             and Path(sidecar['finality_receipt']['path']) == control / 'finality-receipt.json'
+             and Path(sidecar['pre_submit_report']['path']) == output / 'pre-submit-report.json',
+             'ambiguous restart evidence paths must match supervisor outputs')
+    _require(type(status) is dict and status.get('schema') == 1
+             and status.get('scope') == config['scope'] and status.get('status') == 'passed'
+             and status.get('error_type') is None and status.get('heldout_acceptance') is True
+             and status.get('config_sha256') == config_sha
+             and status.get('outer_limits_required') == limits
+             and status.get('proof_mode') == 'Full'
+             and status.get('effect_outcome') == 'reconciled_by_deterministic_transition'
+             and type(status.get('effect_count')) is int and status['effect_count'] == 1
+             and type(status.get('queue_appends')) is int and status['queue_appends'] == 1
+             and all(status.get(name) is True for name in (
+                'proxy_receipt_verified', 'expected_transport_failure', 'restart_identity_verified',
+                'signature_finalized_success', 'five_account_reconciliation_verified',
+                'prepositive_snapshot_saved_by_runner', 'cleanup_verified',
+                'request_consumed', 'application_effect'))
+             and type(status.get('runner_exit_code')) is int and status['runner_exit_code'] != 0
+             and status.get('ledger_path_sha256') == _sha(config['ledger'].encode()),
+             'ambiguous restart successful reviewed status required')
+    runner_stderr_sha = _read_ambiguous_runner_stderr(control)
+    for name in ('expected_program', 'expected_genesis', 'expected_elf_sha256',
+                 'stage_report_sha256', 'stage_plan_sha256', 'heldout_r0_clone_report_sha256',
+                 'runner_sha256', 'proxy_script_sha256', 'context_sha256',
+                 'full_wire_sha256', 'replay_full_wire_sha256'):
+        _require(status.get(name) == config[name], 'ambiguous restart status pin mismatch: ' + name)
+    for name in ('proxy_cleanup', 'first_validator_cleanup', 'final_validator_cleanup'):
+        cleanup = status.get(name)
+        _require(type(cleanup) is dict and cleanup.get('spawned') is True
+                 and cleanup.get('reaped') is True
+                 and ((cleanup.get('graceful') is True and cleanup.get('exit_code') == 0)
+                      or (name != 'proxy_cleanup' and cleanup.get('graceful') is False
+                          and cleanup.get('exit_code') == -signal.SIGINT)),
+                 'ambiguous restart reviewed proxy/validator shutdown required')
+    for prefix in ('first', 'final'):
+        cleanup = status[prefix + '_validator_cleanup']
+        mode = 'clean_zero' if cleanup['exit_code'] == 0 else 'interrupted_sigint'
+        _require(status.get(prefix + '_validator_stop_mode') == mode,
+                 'ambiguous restart validator stop mode must match recorded cleanup')
+    genesis_sha = status.get('ledger_genesis_sha256_before_stop')
+    _require(_is_sha(genesis_sha)
+             and status.get('ledger_genesis_sha256_after_stop') == genesis_sha,
+             'ambiguous restart must retain the same ledger genesis across stop')
+    _artifact({'path': str(clone['destination'] / 'genesis.bin'), 'sha256': genesis_sha},
+              cap=16 * 1024 * 1024)
+    for name in ('loaded_program_before', 'loaded_program_after'):
+        loaded = status.get(name)
+        _require(type(loaded) is dict and loaded.get('elf_match') is True
+                 and all(loaded.get(key) == value for key, value in stage['runtime_identity'].items()),
+                 'ambiguous restart must retain the frozen loaded program identity')
+    proxy_receipt, proxy_sha = _json(sidecar['proxy_receipt'], cap=4096)
+    proxy_keys = {'schema', 'status', 'target_wire_sha256', 'transaction_sha256', 'signature',
+        'matching_submissions', 'duplicate_matching_submissions', 'duplicate_rejected',
+        'forward_attempted', 'forwarded', 'response_dropped'}
+    _require(type(proxy_receipt) is dict and set(proxy_receipt) == proxy_keys
+             and proxy_receipt.get('schema') == 'queue-v3-ambiguous-rpc-proxy-receipt-v1'
+             and proxy_receipt.get('status') == 'response_dropped'
+             and proxy_receipt.get('target_wire_sha256') == sidecar['full_wire']['sha256']
+             and all(type(proxy_receipt.get(name)) is int and proxy_receipt[name] == value
+                     for name, value in (('matching_submissions',1), ('duplicate_matching_submissions',0),
+                                         ('forward_attempted',1), ('forwarded',1)))
+             and proxy_receipt.get('duplicate_rejected') is False
+             and proxy_receipt.get('response_dropped') is True
+             and _is_sha(proxy_receipt.get('transaction_sha256'))
+             and type(proxy_receipt.get('signature')) is str
+             and len(_ambiguous_signature_bytes(proxy_receipt['signature'])) == 64
+             and status.get('proxy_receipt_sha256') == proxy_sha
+             and status.get('transaction_sha256') == proxy_receipt['transaction_sha256']
+             and status.get('signature_sha256') == _sha(proxy_receipt['signature'].encode())
+             and status.get('matching_submissions') == 1 and status.get('retry_count') == 0
+             and status.get('proxy_status') == 'response_dropped',
+             'ambiguous restart requires exactly one forwarded transaction with dropped response')
+    finality, finality_sha = _json(sidecar['finality_receipt'], cap=4096)
+    signature_status = finality.get('signature_status') if type(finality) is dict else None
+    transaction = finality.get('transaction') if type(finality) is dict else None
+    _require(type(finality) is dict
+             and set(finality) == {'schema', 'signature', 'signature_status', 'transaction'}
+             and finality.get('schema') == 'part5-v3-ambiguous-finality-receipt-v1'
+             and finality.get('signature') == proxy_receipt['signature']
+             and type(signature_status) is dict
+             and set(signature_status) == {'slot', 'confirmationStatus', 'err'}
+             and type(signature_status.get('slot')) is int and signature_status['slot'] > 0
+             and signature_status.get('confirmationStatus') == 'finalized'
+             and signature_status.get('err') is None
+             and type(transaction) is dict
+             and set(transaction) == {'slot', 'meta', 'signatures'}
+             and type(transaction.get('slot')) is int
+             and transaction['slot'] == signature_status['slot']
+             and type(transaction.get('meta')) is dict and transaction['meta'] == {'err': None}
+             and transaction.get('signatures') == [proxy_receipt['signature']]
+             and status.get('signature_finalized_slot') == signature_status['slot']
+             and status.get('finality_receipt_path') == sidecar['finality_receipt']['path']
+             and status.get('finality_receipt_sha256') == finality_sha,
+             'ambiguous restart finality receipt must record successful matching finalized RPC observations')
+    report, report_sha = _json(sidecar['pre_submit_report'], cap=65536)
+    snapshots = {}
+    for label, prefix in (('pre_submit', 'pre-submit'), ('final', 'final')):
+        refs = sidecar[label + '_accounts']
+        _require(type(refs) is dict and set(refs) == set(ACCOUNT_NAMES),
+                 'ambiguous restart requires exact five-account maps')
+        snapshots[label] = {}
+        for name in ACCOUNT_NAMES:
+            _require(type(refs[name]) is dict
+                     and refs[name].get('path') == str(output / f'{prefix}-{name}.bin'),
+                     'ambiguous restart account path mismatch')
+            _, _, snapshots[label][name] = _artifact(refs[name], cap=4096)
+    pre_hashes = [_sha(snapshots['pre_submit'][name]) for name in ACCOUNT_NAMES]
+    final_hashes = [_sha(snapshots['final'][name]) for name in ACCOUNT_NAMES]
+    _require(type(report) is dict and report.get('schema') == 'part5-v3-ambiguous-pre-submit-v1'
+             and report.get('training_only') is True and report.get('application_effect') is False
+             and report.get('request_consumed') is False
+             and report.get('stage_report_sha256') == stage['report_sha256']
+             and report.get('stage_plan_sha256') == stage['plan_sha256']
+             and report.get('wire_sha256') == sidecar['full_wire']['sha256']
+             and report.get('program') == config['expected_program']
+             and report.get('genesis') == config['expected_genesis']
+             and report.get('addresses') == {name: stage['report'][name] for name in ACCOUNT_NAMES}
+             and report.get('account_sha256') == pre_hashes
+             and report.get('loaded_program', {}).get('elf_match') is True
+             and all(report.get('loaded_program', {}).get(key) == value
+                     for key, value in stage['runtime_identity'].items())
+             and status.get('pre_submit_report_sha256') == report_sha
+             and status.get('pre_submit_account_sha256') == pre_hashes
+             and status.get('initial_account_sha256') == [_sha(stage['accounts'][n]) for n in ACCOUNT_NAMES]
+             and status.get('final_account_sha256') == final_hashes
+             and status.get('final_account_paths') == [sidecar['final_accounts'][n]['path'] for n in ACCOUNT_NAMES],
+             'ambiguous restart direct Rust pre-submit and saved final files must match reports')
+    slots = [stage['report']['finalized_slot'], status.get('initial_finalized_slot'),
+             report.get('finalized_slot'), status.get('signature_finalized_slot'),
+             status.get('finalized_accounts_slot')]
+    _require(all(type(value) is int and value > 0 for value in slots)
+             and slots == sorted(slots)
+             and status.get('pre_submit_finalized_slot') == report['finalized_slot'],
+             'ambiguous restart finalized slots must preserve pre-submit/transaction ordering')
+    _verify_ambiguous_account_transition(stage['accounts'], snapshots['pre_submit'],
+        snapshots['final'], _b58decode(stage['report']['request']))
+    return {'sidecar_sha256': sidecar_sha, 'clone_receipt_sha256': clone['receipt_sha256'],
+            'pre_submit_report_sha256': report_sha, 'final_account_sha256': final_hashes,
+            'runtime_identity': stage['runtime_identity'], 'effect_count': 1,
+            'runner_stderr_sha256': runner_stderr_sha,
+            'finality_receipt_sha256': finality_sha,
+            'signature_finalization_evidence': 'pinned local RPC observation'}
 
 
 def _verify_disabled_config_negative(ref, variant, globals_, slot, full_bundle,
@@ -3211,6 +3591,7 @@ def verify_manifest(manifest_path):
                 'proof_input_paths': proof_input_paths,
                 'proof_source_hashes': proof_source_hashes,
                 'packet_template': packet_template,
+                'frozen_bundles': manifest['frozen_bundles'],
                 'frozen_hashes': frozen_hashes,
                 'frozen_paths': frozen_paths}
     seen_variants, seen_requests, seen_finalized_requests, output_cases = (
@@ -3319,6 +3700,8 @@ def verify_manifest(manifest_path):
             slots[slot] = {'stage_bundle': stage_bundle, 'stage': stage,
                            'transition_bundle': transition_bundle,
                            'transition': transition, 'r0': r0, 'r0_sha256': r0_sha,
+                           'case_stage_context': stage_context,
+                           'case_stage_context_sha256': stage_context_sha,
                            'r1': r1, 'r1_sha256': r1_sha,
                            'r1_input': r1_input}
         _require(len({slots[slot]['stage']['request_sha256'] for slot in ('A', 'B', 'C')}) == 3,
@@ -3340,6 +3723,9 @@ def verify_manifest(manifest_path):
         disabled_negative = _verify_disabled_config_negative(
             case_bundle.get('disabled_config_negative'), variant, globals_,
             slots['A'], branches['full'], clone_destinations)
+        ambiguous_restart = _verify_ambiguous_restart(
+            case_bundle.get('ambiguous_restart'), variant, globals_,
+            slots['A'], branches['full'], clone_destinations)
         request_ids = _validate_request_triads(branch_results,
                                               seen_finalized_requests, seen_requests)
         for branch_result in branch_results.values():
@@ -3358,6 +3744,8 @@ def verify_manifest(manifest_path):
                                  'R1': branch_results['anchor']['current_head_evidence'],
                                  'R2': branch_results['own_revocation']['current_head_evidence'],
                              },
+                             'ambiguous_restart': ambiguous_restart,
+                             'ambiguous_restart_wall_seconds': case_bundle['ambiguous_restart_wall_seconds'],
                              'disabled_config_negative': disabled_negative,
                              'disabled_config_negative_wall_seconds':
                                  case_bundle['disabled_config_negative_wall_seconds'],
@@ -3383,7 +3771,8 @@ def verify_manifest(manifest_path):
                    'openssl_issuances': 4, 'application_branches': 32,
                    'distinct_requests': 24,
                    'loaded_disabled_config_negatives': 8,
-                   'loaded_disabled_issuer_negatives': 8},
+                   'loaded_disabled_issuer_negatives': 8,
+                   'loaded_ambiguous_restarts': 8},
         'cases': output_cases,
     }
 

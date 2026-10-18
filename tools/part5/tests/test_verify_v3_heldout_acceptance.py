@@ -1108,6 +1108,328 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'identical six public'):
             verifier._verify_fresh_replay_wires(ref(first), ref(second))
 
+    def _ambiguous_journal_fixture(self):
+        def save(name, value):
+            path = self.root / name
+            path.write_text(json.dumps(value, sort_keys=True) + '\n')
+            path.chmod(0o600)
+            return {'path': str(path), 'sha256': verifier._sha(path.read_bytes())}
+        outer = {'schema': 1, 'passed': True, 'exit_code': 0, 'stop_reason': None,
+                 'runner_error_type': None, 'cleanup_remaining_owned_processes': 0,
+                 'cleanup_status_unknown': False, 'duration_seconds': 2.5,
+                 'sample_count': 3, 'owner': 'heldout-v02-positive_full-ambiguous-restart'}
+        config = {'proxy_script_sha256': 'd' * 64, 'proxy_port': 19502}
+        sidecar = {'variant': 2, 'stage_report_sha256': '1' * 64,
+                   'stage_plan_sha256': '2' * 64, 'r0_source_receipt_sha256': '3' * 64,
+                   'full_proof_receipt_sha256': '4' * 64,
+                   'replay_proof_receipt_sha256': '5' * 64,
+                   'clone_receipt': {'path': str(self.root / 'ambiguous-clone.json'), 'sha256': '6' * 64},
+                   'full_wire': {'sha256': '7' * 64}, 'replay_full_wire': {'sha256': '8' * 64},
+                   'outer': save('ambiguous-outer.json', outer),
+                   'config': save('ambiguous-config.json', config)}
+        common = {name: sidecar[name] for name in ('stage_report_sha256',
+                  'r0_source_receipt_sha256', 'full_proof_receipt_sha256',
+                  'replay_proof_receipt_sha256')}
+        common.update(full_wire_sha256='7' * 64, replay_full_wire_sha256='8' * 64)
+        clone = {'status': 'passed', 'wall_seconds': 1.25,
+                 'inputs': dict(common, label='ambiguous-restart-r0'),
+                 'receipt': sidecar['clone_receipt']['path'], 'receipt_sha256': '6' * 64}
+        ref = save('ambiguous-sidecar.json', sidecar)
+        run = {'status': 'passed', 'wall_seconds': 2.5,
+               'inputs': dict(common, variant=2, stage_plan_sha256='2' * 64,
+                   clone_receipt_sha256='6' * 64, frozen_elf_sha256='e' * 64,
+                   supervisor_script_sha256=verifier._sha((verifier.ROOT /
+                       'harness/tests/queue_v3_local_ambiguous_restart.py').read_bytes()),
+                   proxy_script_sha256='d' * 64, proxy_port=19502),
+               'sidecar': ref['path'], 'sidecar_sha256': ref['sha256'],
+               'monitor': sidecar['outer']['path'], 'monitor_sha256': sidecar['outer']['sha256'],
+               'monitor_owner': outer['owner']}
+        return ({'ambiguous_restart': ref, 'ambiguous_restart_wall_seconds': 3.75},
+                {'positive_full:ambiguous-restart-clone': clone,
+                 'positive_full:ambiguous-restart': run})
+
+    def test_ambiguous_restart_sidecar_pins_files_and_rejects_semantic_tampering(self):
+        from harness.tests.queue_v3_local_ambiguous_restart import expected_reconciled_accounts
+        def save(path, value):
+            path = self.root / path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(value if type(value) is bytes else
+                             (json.dumps(value, sort_keys=True) + '\n').encode())
+            path.chmod(0o600)
+            return {'path': str(path), 'sha256': verifier._sha(path.read_bytes())}
+        stage_accounts = {name: bytearray(size) for name, size in zip(verifier.ACCOUNT_NAMES,
+                          (381, 374, 280, 2249, 2090))}
+        for name, magic in zip(verifier.ACCOUNT_NAMES,
+                (b'DYNCONF3', b'DYNISS03', b'DYNHEAD3', b'DYNREQ03', b'DYNQUE03')):
+            stage_accounts[name][:8] = magic
+        stage_accounts['config'][332:364] = b'R' * 32
+        stage_accounts['request'][183] = 1
+        stage_accounts = {name: bytes(raw) for name, raw in stage_accounts.items()}
+        request = b'Q' * 32
+        final = dict(zip(verifier.ACCOUNT_NAMES, expected_reconciled_accounts(
+            list(stage_accounts.values()), {'root': b'R' * 32, 'request': request,
+                                           'observed_at': 20, 'head_committed_at': 21})))
+        pre = {**final, 'request': stage_accounts['request'], 'queue': stage_accounts['queue']}
+        identity = {'program': 'program', 'programdata': 'programdata', 'elf_sha256': 'e'*64,
+                    'program_account_sha256': 'a'*64, 'programdata_account_sha256': 'b'*64,
+                    'genesis': 'genesis'}
+        loaded = dict(identity, elf_match=True)
+        report = {name: verifier._base58(bytes([index+1])*32)
+                  for index, name in enumerate(verifier.ACCOUNT_NAMES)}
+        report.update(program='program', genesis='genesis', finalized_slot=1,
+                      request=verifier._base58(request))
+        context = {'root': (b'R'*32).hex()}
+        context_ref = save(Path('context.json'), context)
+        limits = {'runtime_seconds': 180, 'rss_bytes': 4294967296,
+                  'storage_growth_bytes': 268435456}
+        source_refs = {role: save(Path(rel), b'frozen source') for role, rel in (
+            ('runner', verifier.QUEUE_RUNNER_REL),
+            ('proxy', 'harness/tests/queue_v3_ambiguous_rpc_proxy.py'),
+            ('supervisor', 'harness/tests/queue_v3_local_ambiguous_restart.py'))}
+        full_wire = save(Path('wire.bin'), b'p'*192+b'a'*256)
+        replay_wire = save(Path('replay.bin'), b'p'*192+b'b'*256)
+        proof = save(Path('proof.json'), {})
+        replay_proof = save(Path('replay-proof.json'), {'fresh': True})
+        clone = save(Path('clone.json'), {})
+        config = {'schema': 'part5-v3-local-ambiguous-restart-supervisor-v1',
+            'scope': 'part5-v3-local-ambiguous-restart', 'outer_limits_required': limits,
+            'proxy_script': source_refs['proxy']['path'], 'proxy_script_sha256': source_refs['proxy']['sha256'],
+            'proxy_port': 19502, 'expected_program': 'program', 'expected_genesis': 'genesis',
+            'expected_elf_sha256': 'e'*64, 'prior_monitor_owner': 'stage-owner',
+            'execute_output': str(self.root/'output'), 'control_output': str(self.root/'control'),
+            'prior_stage_config': str(self.root/'stage-config.json'), 'prior_stage_config_sha256': '1'*64,
+            'prior_stage_status': str(self.root/'stage-status.json'), 'prior_stage_status_sha256': '2'*64,
+            'prior_stage_monitor': str(self.root/'stage-monitor.json'), 'prior_stage_monitor_sha256': '3'*64,
+            'stage_root': str(self.root/'stage'), 'stage_report_sha256': '4'*64,
+            'stage_plan_sha256': '5'*64, 'ledger': str(self.root/'ledger'),
+            'heldout_r0_clone_report': clone['path'], 'heldout_r0_clone_report_sha256': clone['sha256'],
+            'runner': source_refs['runner']['path'], 'runner_sha256': source_refs['runner']['sha256'],
+            'context': context_ref['path'], 'context_sha256': context_ref['sha256'],
+            'full_wire': full_wire['path'], 'full_wire_sha256': full_wire['sha256'],
+            'replay_full_wire': replay_wire['path'], 'replay_full_wire_sha256': replay_wire['sha256']}
+        config_ref = save(Path('config.json'), config)
+        outer = {'schema': 1, 'passed': True, 'exit_code': 0, 'stop_reason': None,
+                 'runner_error_type': None, 'cleanup_remaining_owned_processes': 0,
+                 'cleanup_status_unknown': False, 'duration_seconds': 2.5, 'sample_count': 3,
+                 'owner': 'heldout-v02-positive_full-ambiguous-restart',
+                 'limits': {'runtime_seconds': 180, 'owned_tree_rss_bytes': 4294967296,
+                            'storage_growth_bytes': 268435456, 'poll_seconds': 0.2}}
+        proxy = {'schema': 'queue-v3-ambiguous-rpc-proxy-receipt-v1', 'status': 'response_dropped',
+                 'target_wire_sha256': full_wire['sha256'], 'transaction_sha256': 'c'*64,
+                 'signature': '1'*64, 'matching_submissions': 1, 'duplicate_matching_submissions': 0,
+                 'duplicate_rejected': False, 'forward_attempted': 1, 'forwarded': 1,
+                 'response_dropped': True}
+        proxy_ref = save(Path('control/proxy-receipt.json'), proxy)
+        finality = {'schema': 'part5-v3-ambiguous-finality-receipt-v1',
+                    'signature': proxy['signature'],
+                    'signature_status': {'slot': 4, 'confirmationStatus': 'finalized', 'err': None},
+                    'transaction': {'slot': 4, 'meta': {'err': None}, 'signatures': [proxy['signature']]}}
+        finality_ref = save(Path('control/finality-receipt.json'), finality)
+        pre_hashes = [verifier._sha(pre[n]) for n in verifier.ACCOUNT_NAMES]
+        pre_report = {'schema': 'part5-v3-ambiguous-pre-submit-v1', 'training_only': True,
+                      'application_effect': False, 'request_consumed': False, 'finalized_slot': 3,
+                      'stage_report_sha256': '4'*64, 'stage_plan_sha256': '5'*64,
+                      'wire_sha256': full_wire['sha256'], 'program': 'program', 'genesis': 'genesis',
+                      'addresses': {n: report[n] for n in verifier.ACCOUNT_NAMES},
+                      'account_sha256': pre_hashes, 'loaded_program': loaded}
+        pre_report_ref = save(Path('output/pre-submit-report.json'), pre_report)
+        pre_refs = {n: save(Path(f'output/pre-submit-{n}.bin'), pre[n]) for n in verifier.ACCOUNT_NAMES}
+        final_refs = {n: save(Path(f'output/final-{n}.bin'), final[n]) for n in verifier.ACCOUNT_NAMES}
+        status = {name: True for name in ('heldout_acceptance', 'proxy_receipt_verified',
+            'expected_transport_failure', 'restart_identity_verified', 'signature_finalized_success',
+            'five_account_reconciliation_verified', 'prepositive_snapshot_saved_by_runner',
+            'cleanup_verified', 'request_consumed', 'application_effect')}
+        status.update({name: config[name] for name in ('expected_program', 'expected_genesis',
+            'expected_elf_sha256', 'stage_report_sha256', 'stage_plan_sha256',
+            'heldout_r0_clone_report_sha256', 'runner_sha256', 'proxy_script_sha256',
+            'context_sha256', 'full_wire_sha256', 'replay_full_wire_sha256')})
+        status.update(schema=1, scope=config['scope'], status='passed', config_sha256=config_ref['sha256'],
+            outer_limits_required=limits, proof_mode='Full', effect_outcome='reconciled_by_deterministic_transition',
+            effect_count=1, queue_appends=1, runner_exit_code=101,
+            ledger_path_sha256=verifier._sha(config['ledger'].encode()),
+            loaded_program_before=loaded, loaded_program_after=loaded, proxy_receipt_sha256=proxy_ref['sha256'],
+            transaction_sha256=proxy['transaction_sha256'], signature_sha256=verifier._sha(proxy['signature'].encode()),
+            matching_submissions=1, retry_count=0, proxy_status='response_dropped',
+            pre_submit_report_sha256=pre_report_ref['sha256'], pre_submit_account_sha256=pre_hashes,
+            initial_account_sha256=[verifier._sha(stage_accounts[n]) for n in verifier.ACCOUNT_NAMES],
+            final_account_sha256=[final_refs[n]['sha256'] for n in verifier.ACCOUNT_NAMES],
+            final_account_paths=[final_refs[n]['path'] for n in verifier.ACCOUNT_NAMES],
+            finality_receipt_path=finality_ref['path'], finality_receipt_sha256=finality_ref['sha256'],
+            initial_finalized_slot=2, pre_submit_finalized_slot=3, signature_finalized_slot=4,
+            finalized_accounts_slot=5)
+        for name in ('proxy_cleanup', 'first_validator_cleanup', 'final_validator_cleanup'):
+            status[name] = {'spawned': True, 'reaped': True, 'graceful': True, 'exit_code': 0}
+        genesis = save(Path('ledger/genesis.bin'), b'pinned genesis')
+        status.update(first_validator_stop_mode='clean_zero', final_validator_stop_mode='clean_zero',
+                      ledger_genesis_sha256_before_stop=genesis['sha256'],
+                      ledger_genesis_sha256_after_stop=genesis['sha256'])
+        save(Path('control/runner.stderr.log'), b'Error: RPC sendTransaction transport failed\n')
+        status_ref = save(Path('control/status.json'), status)
+        sidecar = {'schema': 'credential-v3-heldout-ambiguous-restart-v1', 'variant': 2,
+            'stage_report_sha256': '4'*64, 'stage_plan_sha256': '5'*64, 'r0_source_receipt_sha256': '6'*64,
+            'full_proof_receipt_sha256': proof['sha256'], 'replay_proof_receipt_sha256': replay_proof['sha256'],
+            'clone_receipt': clone, 'full_wire': full_wire, 'replay_full_wire': replay_wire,
+            'config': config_ref, 'status': status_ref, 'outer': save(Path('outer.json'), outer),
+            'proxy_receipt': proxy_ref, 'finality_receipt': finality_ref, 'pre_submit_report': pre_report_ref,
+            'pre_submit_accounts': pre_refs, 'final_accounts': final_refs}
+        slot = {'stage': {'report': report, 'report_sha256': '4'*64, 'plan_sha256': '5'*64,
+                         'monitor_owner': 'stage-owner', 'runtime_identity': identity,
+                         'accounts': stage_accounts, 'config': {'context': context_ref['path']}},
+                'stage_bundle': {}, 'r0_sha256': '6'*64,
+                'r0': {'selected_root': context['root'], 'action_hash': '7'*64},
+                'case_stage_context': context, 'case_stage_context_sha256': context_ref['sha256']}
+        bundle = {'result': {'wires': {'full': full_wire, 'replay_full': replay_wire}},
+                  'proof': {'receipt': proof}, 'replay_proof': {'receipt': replay_proof}}
+        globals_ = {'freeze': {'identities': {'loaded_elf': 'e'*64}}, 'frozen_bundles': {'registry': [
+            {'path': str(Path(ref['path']).relative_to(self.root)), 'artifact': ref}
+            for ref in source_refs.values()]}}
+        def verify(value):
+            return verifier._verify_ambiguous_restart(save(Path('sidecar.json'), value), 2,
+                globals_, slot, bundle, set())
+        with mock.patch.object(verifier, 'ROOT', self.root), \
+             mock.patch.object(verifier, '_verify_wire'), \
+             mock.patch.object(verifier, '_private_directory', side_effect=lambda path, label: Path(path)), \
+             mock.patch.object(verifier, '_verify_r0_clone', return_value={
+                 'destination': self.root/'ledger', 'receipt_sha256': clone['sha256']}):
+            result = verify(sidecar)
+            self.assertEqual(result['effect_count'], 1)
+            self.assertEqual(result['signature_finalization_evidence'], 'pinned local RPC observation')
+            stderr_path = self.root / 'control/runner.stderr.log'
+            for raw in (b'unrelated failure', b'x' * 65537):
+                stderr_path.write_bytes(raw)
+                with self.assertRaisesRegex(ValueError, 'stderr'):
+                    verify(sidecar)
+            stderr_path.write_bytes(b'Error: RPC sendTransaction transport failed\n')
+            stderr_path.chmod(0o644)
+            with self.assertRaisesRegex(ValueError, 'owner-only'):
+                verify(sidecar)
+            stderr_path.chmod(0o600)
+            for field, value in (('signature_sha256', 'f'*64), ('signature_finalized_slot', 2),
+                    ('effect_count', 2), ('final_account_sha256', ['f'*64]*5),
+                    ('first_validator_stop_mode', 'interrupted_sigint'),
+                    ('ledger_genesis_sha256_after_stop', 'f'*64)):
+                with self.subTest(status_field=field):
+                    altered = dict(status, **{field: value})
+                    changed = dict(sidecar, status=save(Path('control/status.json'), altered))
+                    with self.assertRaises(ValueError):
+                        verify(changed)
+            sidecar['status'] = save(Path('control/status.json'), status)
+            changed = dict(sidecar, proxy_receipt=save(Path('control/proxy-receipt.json'),
+                                                       dict(proxy, forwarded=2)))
+            with self.assertRaises(ValueError):
+                verify(changed)
+            sidecar['proxy_receipt'] = save(Path('control/proxy-receipt.json'), proxy)
+            for field, value in (('signature', '2'*64), ('confirmationStatus', 'confirmed'),
+                    ('status_err', 'failure'), ('status_slot', 5), ('transaction_slot', 5),
+                    ('transaction_err', 'failure'), ('signatures', ['2'*64]), ('extra', True)):
+                with self.subTest(finality_field=field):
+                    altered = json.loads(json.dumps(finality))
+                    if field in ('signature', 'extra'):
+                        altered[field] = value
+                    elif field in ('confirmationStatus', 'status_err', 'status_slot'):
+                        key = {'status_err': 'err', 'status_slot': 'slot'}.get(field, field)
+                        altered['signature_status'][key] = value
+                    elif field == 'transaction_err':
+                        altered['transaction']['meta']['err'] = value
+                    else:
+                        key = 'slot' if field == 'transaction_slot' else field
+                        altered['transaction'][key] = value
+                    altered_ref = save(Path('control/finality-receipt.json'), altered)
+                    altered_status = dict(status, finality_receipt_sha256=altered_ref['sha256'])
+                    changed = dict(sidecar, finality_receipt=altered_ref,
+                                   status=save(Path('control/status.json'), altered_status))
+                    with self.assertRaisesRegex(ValueError, 'finality receipt'):
+                        verify(changed)
+            sidecar['finality_receipt'] = save(Path('control/finality-receipt.json'), finality)
+            sidecar['status'] = save(Path('control/status.json'), status)
+            missing_finality = dict(sidecar)
+            del missing_finality['finality_receipt']
+            with self.assertRaisesRegex(ValueError, 'sidecar must pin'):
+                verify(missing_finality)
+            changed = dict(sidecar, unexpected=True)
+            with self.assertRaisesRegex(ValueError, 'sidecar must pin'):
+                verify(changed)
+            for name in ('first_validator_cleanup', 'final_validator_cleanup'):
+                status[name] = {'spawned': True, 'reaped': True, 'graceful': False, 'exit_code': -2}
+                status[name.replace('_cleanup', '_stop_mode')] = 'interrupted_sigint'
+            sidecar['status'] = save(Path('control/status.json'), status)
+            self.assertEqual(verify(sidecar)['effect_count'], 1)
+            status['first_validator_cleanup']['exit_code'] = -9
+            sidecar['status'] = save(Path('control/status.json'), status)
+            with self.assertRaisesRegex(ValueError, 'shutdown'):
+                verify(sidecar)
+
+    def test_ambiguous_restart_journal_rejects_missing_or_repointed_evidence(self):
+        case, steps = self._ambiguous_journal_fixture()
+        verifier._verify_ambiguous_restart_journal(case, steps, 2, 'e' * 64)
+        for mutation in ('missing', 'owner', 'wire', 'proof', 'clone', 'sidecar', 'wall', 'elf'):
+            broken = json.loads(json.dumps(steps))
+            with self.subTest(mutation=mutation):
+                run = broken['positive_full:ambiguous-restart']
+                if mutation == 'missing':
+                    del broken['positive_full:ambiguous-restart']
+                elif mutation == 'owner':
+                    run['monitor_owner'] = 'wrong'
+                elif mutation == 'wire':
+                    run['inputs']['replay_full_wire_sha256'] = 'f' * 64
+                elif mutation == 'proof':
+                    run['inputs']['replay_proof_receipt_sha256'] = 'f' * 64
+                elif mutation == 'clone':
+                    broken['positive_full:ambiguous-restart-clone']['receipt_sha256'] = 'f' * 64
+                elif mutation == 'sidecar':
+                    run['sidecar_sha256'] = 'f' * 64
+                elif mutation == 'wall':
+                    run['wall_seconds'] = float('nan')
+                elif mutation == 'elf':
+                    run['inputs']['frozen_elf_sha256'] = 'f' * 64
+                with self.assertRaises(ValueError):
+                    verifier._verify_ambiguous_restart_journal(case, broken, 2, 'e' * 64)
+        with self.assertRaises(ValueError):
+            verifier._verify_ambiguous_restart_journal(
+                dict(case, ambiguous_restart_wall_seconds=True), steps, 2, 'e' * 64)
+
+    def test_ambiguous_restart_journal_allows_job_overhead_above_outer_duration(self):
+        case, steps = self._ambiguous_journal_fixture()
+        steps['positive_full:ambiguous-restart']['wall_seconds'] = 3.0
+        case['ambiguous_restart_wall_seconds'] = 4.25
+        verifier._verify_ambiguous_restart_journal(case, steps, 2, 'e' * 64)
+        steps['positive_full:ambiguous-restart']['wall_seconds'] = 2.0
+        case['ambiguous_restart_wall_seconds'] = 3.25
+        with self.assertRaisesRegex(ValueError, 'exact clone, proof, sidecar and monitor'):
+            verifier._verify_ambiguous_restart_journal(case, steps, 2, 'e' * 64)
+
+    def test_ambiguous_restart_account_bytes_reject_extra_effects_or_policy_changes(self):
+        from harness.tests.queue_v3_local_ambiguous_restart import expected_reconciled_accounts
+        stage = {name: bytearray(size) for name, size in zip(verifier.ACCOUNT_NAMES,
+                    (381, 374, 280, 2249, 2090))}
+        for name, magic in zip(verifier.ACCOUNT_NAMES,
+                (b'DYNCONF3', b'DYNISS03', b'DYNHEAD3', b'DYNREQ03', b'DYNQUE03')):
+            stage[name][:8] = magic
+        stage['config'][332:364] = b'R' * 32
+        stage['issuer'][213:221] = (10).to_bytes(8, 'big', signed=True)
+        stage['head'][272:280] = (10).to_bytes(8, 'big', signed=True)
+        stage['request'][183] = 1
+        stage = {name: bytes(raw) for name, raw in stage.items()}
+        request = b'Q' * 32
+        after = expected_reconciled_accounts(list(stage.values()), {
+            'root': b'R' * 32, 'request': request, 'observed_at': 20, 'head_committed_at': 21})
+        final = dict(zip(verifier.ACCOUNT_NAMES, after))
+        pre = {**final, 'request': stage['request'], 'queue': stage['queue']}
+        verifier._verify_ambiguous_account_transition(stage, pre, final, request)
+        for label, name, offset in (('pre', 'config', 380), ('pre', 'issuer', 172),
+                ('pre', 'issuer', 181), ('pre', 'head', 112), ('pre', 'request', 183),
+                ('final', 'config', 380), ('final', 'issuer', 172), ('final', 'head', 112),
+                ('final', 'request', 183), ('final', 'queue', 41), ('final', 'queue', 74)):
+            with self.subTest(label=label, name=name, offset=offset):
+                changed = dict(pre if label == 'pre' else final)
+                raw = bytearray(changed[name]); raw[offset] ^= 1; changed[name] = bytes(raw)
+                with self.assertRaises(ValueError):
+                    verifier._verify_ambiguous_account_transition(stage,
+                        changed if label == 'pre' else pre,
+                        changed if label == 'final' else final, request)
+        with self.assertRaises(ValueError):
+            verifier._verify_ambiguous_account_transition(stage, pre, final, b'Z' * 32)
+
     def test_case_run_manifest_and_journal_must_join_frozen_evidence(self):
         globals_ = {name: {'pinned': name} for name in (
             'frozen_files', 'frozen_bundles', 'source_files', 'proof_inputs',
@@ -1172,12 +1494,14 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
                            'monitor': str(outer_path),
                            'monitor_sha256': outer_sha,
                            'monitor_owner': 'heldout-v02-positive_full-disabled-config-negative'}}}
+        ambiguous_case, ambiguous_steps = self._ambiguous_journal_fixture()
+        journal['steps'].update(ambiguous_steps)
         journal_raw = (json.dumps(journal, sort_keys=True) + '\n').encode()
         journal_path.write_bytes(journal_raw)
         journal_path.chmod(0o600)
         ref = lambda path: {'path': str(path),
                             'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
-        case = {'run_manifest': ref(run_path), 'run_journal': ref(journal_path),
+        case = {**ambiguous_case, 'run_manifest': ref(run_path), 'run_journal': ref(journal_path),
                 'disabled_config_negative_wall_seconds': 3.75,
                 'disabled_config_negative': ref(sidecar_path)}
         verifier._verify_case_run_provenance(case, 2, globals_, 'a' * 64, 'b' * 64)
