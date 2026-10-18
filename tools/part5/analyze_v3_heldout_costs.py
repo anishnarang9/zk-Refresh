@@ -144,6 +144,8 @@ def _step_names():
         'positive_full:r0-clone', 'positive_full:execute',
         'positive_full:disabled-config-clone',
         'positive_full:disabled-config-negative',
+        'positive_full:ambiguous-restart-clone',
+        'positive_full:ambiguous-restart',
         'unrelated_compare:unrelated_full:clone',
         'unrelated_compare:unrelated_full:effect',
         'unrelated_compare:anchor:clone', 'unrelated_compare:anchor:effect',
@@ -212,6 +214,14 @@ def _check_summary(case, journal, durations):
             or not _close(case['disabled_config_negative_wall_seconds'],
                           disabled_negative_seconds)):
         raise ValueError('disabled-config audit cost disagrees with journal')
+
+    ambiguous_restart_seconds = sum(durations[name] for name in (
+        'positive_full:ambiguous-restart-clone',
+        'positive_full:ambiguous-restart'))
+    if (not _number(case.get('ambiguous_restart_wall_seconds'))
+            or not _close(case['ambiguous_restart_wall_seconds'],
+                          ambiguous_restart_seconds)):
+        raise ValueError('ambiguous-restart audit cost disagrees with journal')
 
     stage_transition = case.get('shared_stage_transition_wall_seconds')
     if type(stage_transition) is not dict or set(stage_transition) != {'stage', 'transition'}:
@@ -1051,6 +1061,11 @@ def analyze(manifest_ref, acceptance_ref):
                 'clone': durations['positive_full:disabled-config-clone'],
                 'negative_effect': durations['positive_full:disabled-config-negative'],
             },
+            'ambiguous_restart_wall_seconds': case['ambiguous_restart_wall_seconds'],
+            'ambiguous_restart_components_seconds': {
+                'clone': durations['positive_full:ambiguous-restart-clone'],
+                'reconciliation': durations['positive_full:ambiguous-restart'],
+            },
             'pair_view_one_time_seconds': pair_view,
             'full_A_fresh_replay_test_only_seconds': durations[
                 'positive_full:proof-full-fresh-replay'],
@@ -1086,6 +1101,8 @@ def analyze(manifest_ref, acceptance_ref):
                 'B_plus_pair_view_wall_savings_fraction')}
     summary['disabled_config_negative_wall_seconds'] = _summary(
         output_rows, 'disabled_config_negative_wall_seconds')
+    summary['ambiguous_restart_wall_seconds'] = _summary(
+        output_rows, 'ambiguous_restart_wall_seconds')
     summary['anchor_preparation_seconds'] = {
         slot: {
             field: _summary([
@@ -1139,6 +1156,9 @@ def analyze(manifest_ref, acceptance_ref):
         'disabled_config_negative_accounting': (
             'A:disabled-config-clone plus A:disabled-config-negative are reported per case '
             'and in the summary as separate audit overhead; excluded from matched B totals.'),
+        'ambiguous_restart_accounting': (
+            'A:ambiguous-restart-clone plus A:ambiguous-restart are reported per case '
+            'and in the summary as separate recovery audit overhead; excluded from matched B totals.'),
         'transaction_metric_accounting': (
             'Transaction bytes, compute units, and fee lamports are direct fields from the '
             'unique successful effect event in the pinned application report. They are '

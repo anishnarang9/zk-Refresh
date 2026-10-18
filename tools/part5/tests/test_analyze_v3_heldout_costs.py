@@ -94,6 +94,8 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         names.extend(('positive_full:r0-clone', 'positive_full:execute',
                       'positive_full:disabled-config-clone',
                       'positive_full:disabled-config-negative',
+                      'positive_full:ambiguous-restart-clone',
+                      'positive_full:ambiguous-restart',
                       'unrelated_compare:unrelated_full:clone',
                       'unrelated_compare:unrelated_full:effect',
                       'unrelated_compare:anchor:clone',
@@ -112,6 +114,8 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
             'positive_full:r0-clone', 'positive_full:execute',
             'positive_full:disabled-config-clone',
             'positive_full:disabled-config-negative',
+            'positive_full:ambiguous-restart-clone',
+            'positive_full:ambiguous-restart',
             'unrelated_compare:prepare', 'unrelated_compare:stage',
             'unrelated_compare:transition', 'unrelated_compare:source-R0',
             'unrelated_compare:source-R1', 'unrelated_compare:proof-full',
@@ -127,7 +131,7 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
             'own_revocation:r2-active-witness',
         }
         self.assertEqual(analyzer._step_names(), expected)
-        self.assertEqual(len(expected), 32)
+        self.assertEqual(len(expected), 34)
 
     def make_inputs(self):
         manifest_cases, acceptance_cases = [], []
@@ -529,10 +533,14 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
                 'run_manifest': run_manifest_ref,
                 'run_journal': journal_ref,
                 'disabled_config_negative': disabled_negative_sidecar,
+                'ambiguous_restart': disabled_negative_sidecar,
                 'all_step_wall_seconds': all_steps,
                 'disabled_config_negative_wall_seconds': (
                     steps['positive_full:disabled-config-clone']['wall_seconds']
                     + steps['positive_full:disabled-config-negative']['wall_seconds']),
+                'ambiguous_restart_wall_seconds': (
+                    steps['positive_full:ambiguous-restart-clone']['wall_seconds']
+                    + steps['positive_full:ambiguous-restart']['wall_seconds']),
                 'shared_costs': journal['costs'],
                 'branch_wall_components': branch_components,
                 'branch_wall_seconds': {name: row['total_seconds']
@@ -665,6 +673,9 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         self.assertEqual(pair['full_B_seconds'], 38.0)
         self.assertEqual(pair['anchor_B_seconds'], 43.0)
         self.assertEqual(pair['disabled_config_negative_wall_seconds'], 2.0)
+        self.assertEqual(pair['ambiguous_restart_wall_seconds'], 2.0)
+        self.assertEqual(result['summary']['ambiguous_restart_wall_seconds'], {
+            'median': 2.0, 'min': 2.0, 'max': 2.0, 'spread': 0.0, 'n': 8})
         self.assertEqual(result['summary']['disabled_config_negative_wall_seconds'], {
             'median': 2.0, 'min': 2.0, 'max': 2.0, 'spread': 0.0, 'n': 8})
         self.assertIn('excluded from matched B totals',
@@ -921,7 +932,7 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         # accepted session_runner schema variant that omits these optional keys.
         result = analyzer.analyze(self.manifest, self.acceptance)
         self.assertEqual(result['resource_observations']['monitor_report_count'],
-                         8 * (23 + 5 * 6 + 4))
+                         8 * (25 + 5 * 6 + 4))
 
     def test_rejects_manifest_pin_mismatch(self):
         with self.assertRaisesRegex(ValueError, 'manifest pin'):
@@ -1061,6 +1072,17 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         self.manifest['sha256'] = sha(path.read_bytes())
         self._repin_acceptance_manifest()
         with self.assertRaisesRegex(ValueError, 'disabled-config audit cost'):
+            analyzer.analyze(self.manifest, self.acceptance)
+
+    def test_rejects_ambiguous_restart_cost_not_joined_to_journal(self):
+        path = Path(self.manifest['path'])
+        manifest = json.loads(path.read_text())
+        manifest['cases'][0]['ambiguous_restart_wall_seconds'] += 0.5
+        path.write_text(json.dumps(manifest, sort_keys=True) + '\n')
+        path.chmod(0o600)
+        self.manifest['sha256'] = sha(path.read_bytes())
+        self._repin_acceptance_manifest()
+        with self.assertRaisesRegex(ValueError, 'ambiguous-restart audit cost'):
             analyzer.analyze(self.manifest, self.acceptance)
 
     def test_each_negative_snapshot_group_must_match_its_report_refs(self):
