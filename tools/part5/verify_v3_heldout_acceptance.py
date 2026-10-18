@@ -23,8 +23,8 @@ import stat
 import sys
 import time
 
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -35,7 +35,10 @@ from tools.part5.prepare_v3_heldout_context import (
     COHORT_SCHEMA, CASE_SCHEMA, _base58, _b58decode,
 )
 from tools.part5.prepare_v3_revocation_cohort import membership_for_pair
-from tools.part5.credential_profile import ProfileError, admit_certificate, parse_tbs, public_bindings
+from tools.part5.credential_profile import (
+    SHA256_RSA_ALGORITHM, ProfileError, admit_certificate, parse_tbs,
+    public_bindings, tlv, verify_rsa,
+)
 from tools.part5.registry_v3_vectors import h as poseidon_parent, leaf as poseidon_leaf
 from harness.tests.queue_v3_clone_ledger import inventory as ledger_inventory
 from harness.tests.queue_v3_clone_ledger import stale_admin_socket
@@ -260,6 +263,23 @@ def _verify_cohort_import(cohort_root, by_variant, key_rows_by_identity,
             raw, wrong_issuer.public_key().public_numbers().n,
             wrong_issuer_expected_error)
 
+        ineligible_tbs = bytearray(parsed['tbs'])
+        not_before_offset = parsed['offsets']['not_before']
+        ineligible_tbs[not_before_offset:not_before_offset + 13] = b'991231000000Z'
+        ineligible_tbs = bytes(ineligible_tbs)
+        ineligible_signature = issuer.sign(
+            ineligible_tbs, padding.PKCS1v15(), hashes.SHA256())
+        verify_rsa(issuer.public_key().public_numbers().n,
+                   ineligible_tbs, ineligible_signature)
+        ineligible_der = tlv(
+            0x30, ineligible_tbs + SHA256_RSA_ALGORITHM
+            + tlv(0x03, b'\x00' + ineligible_signature))
+        _require(len(ineligible_der) == len(raw),
+                 'same-length signed ineligible-profile DER required')
+        ineligible_error = _expect_profile_rejection(
+            ineligible_der, issuer.public_key().public_numbers().n,
+            'UTCTime 2000-2049 required')
+
         tbs_start = raw.find(parsed['tbs'])
         _require(tbs_start >= 0 and raw.count(parsed['tbs']) == 1,
                  'unique imported TBS required for same-length mutation')
@@ -298,6 +318,12 @@ def _verify_cohort_import(cohort_root, by_variant, key_rows_by_identity,
                 'der_sha256': _sha(tampered),
                 'error_category': tampered_error,
             },
+            'ineligible_profile_der': {
+                'label': 'not_before_before_profile_window',
+                'der_sha256': _sha(ineligible_der),
+                'issuer_signature_verified': True,
+                'error_category': ineligible_error,
+            },
         })
         certificate_evidence.append({
             'variant': variant,
@@ -333,6 +359,7 @@ def _verify_cohort_import(cohort_root, by_variant, key_rows_by_identity,
                 'malformed_der_rejections': len(negative_certificate_evidence),
                 'wrong_issuer_key_rejections': len(negative_certificate_evidence),
                 'tampered_signed_organization_rejections': len(negative_certificate_evidence),
+                'ineligible_profile_der_rejections': len(negative_certificate_evidence),
             },
             'certificates': negative_certificate_evidence,
         },

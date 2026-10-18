@@ -266,6 +266,7 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
             'malformed_der_rejections': 8,
             'wrong_issuer_key_rejections': 8,
             'tampered_signed_organization_rejections': 8,
+            'ineligible_profile_der_rejections': 8,
         })
         self.assertEqual([row['variant'] for row in negative['certificates']], list(range(8)))
         for row in negative['certificates']:
@@ -275,6 +276,11 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
             self.assertEqual(row['tampered_signed_organization']['error_category'],
                              'rsa_signature_verification_failed')
             self.assertTrue(row['tampered_signed_organization']['structurally_parseable'])
+            ineligible = row['ineligible_profile_der']
+            self.assertEqual(ineligible['label'], 'not_before_before_profile_window')
+            self.assertTrue(ineligible['issuer_signature_verified'])
+            self.assertEqual(ineligible['error_category'], 'utctime_2000-2049_required')
+            self.assertNotEqual(ineligible['der_sha256'], row['credential_sha256'])
             self.assertNotEqual(row['malformed_der']['der_sha256'], row['credential_sha256'])
             self.assertNotEqual(row['tampered_signed_organization']['der_sha256'],
                                 row['credential_sha256'])
