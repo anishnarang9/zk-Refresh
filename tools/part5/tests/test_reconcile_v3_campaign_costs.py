@@ -1,9 +1,20 @@
 import unittest
+from pathlib import Path
+import subprocess
+import sys
 
 from tools.part5 import reconcile_v3_campaign_costs as tool
 
 
 class CampaignCostReconciliationTests(unittest.TestCase):
+    def test_direct_script_help_from_repository_root(self):
+        script = Path(tool.__file__).resolve()
+        completed = subprocess.run(
+            [sys.executable, '-B', str(script), '--help'],
+            cwd=script.parents[2], capture_output=True, text=True, check=False)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn('--matrix-manifest', completed.stdout)
+
     def test_common_signed_history_changes_total_fraction_but_not_comparison(self):
         rows = [
             {'target_count': 1, 'repetition': 1, 'status': 'matched',

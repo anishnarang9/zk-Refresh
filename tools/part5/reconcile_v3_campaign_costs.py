@@ -11,6 +11,11 @@ import json
 import math
 import os
 from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from tools.part5 import run_v3_campaign_matrix as matrix
 
