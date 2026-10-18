@@ -386,16 +386,45 @@ ROOT="$PWD"
 FREEZE_DIR="$ROOT/results/dynark/part5/v3-heldout-freeze-001"
 FREEZE="$FREEZE_DIR/freeze.json"
 INVENTORY="$FREEZE_DIR/prior-key-inventory.json"
-COHORT_ROOT="$ROOT/artifacts/dynark/part5/v3-heldout-cohort-001"
+PRIVATE_ROOT="$ROOT/artifacts/dynark/part5/v3-heldout-private-001"
+COHORT_ROOT="$PRIVATE_ROOT/v3-heldout-cohort-001"
 FREEZE_SHA="$(shasum -a 256 "$FREEZE" | awk '{print $1}')"
 INVENTORY_SHA="$(shasum -a 256 "$INVENTORY" | awk '{print $1}')"
 
-python3 -B tools/part5/build_v3_heldout_cohort.py \
+test ! -e "$PRIVATE_ROOT" && test ! -L "$PRIVATE_ROOT"
+git check-ignore -q "$PRIVATE_ROOT"
+mkdir -m 700 "$PRIVATE_ROOT"
+python3 -B - "$PRIVATE_ROOT" \
   --freeze "$FREEZE" --freeze-sha256 "$FREEZE_SHA" \
   --prior-key-inventory "$INVENTORY" \
   --prior-key-inventory-sha256 "$INVENTORY_SHA" \
-  --output "$COHORT_ROOT"
+  --output "$COHORT_ROOT" <<'PY'
+import os
+import runpy
+import stat
+import sys
+import tempfile
+from pathlib import Path
+
+private_root = Path(sys.argv[1])
+info = private_root.lstat()
+if (not private_root.is_absolute() or private_root.resolve(strict=True) != private_root
+        or not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid()
+        or stat.S_IMODE(info.st_mode) != 0o700):
+    raise SystemExit('owner0700 ignored private root required')
+with tempfile.TemporaryDirectory(prefix='v3-openssl-', dir=private_root) as directory:
+    tempfile.tempdir = directory
+    os.environ['TMPDIR'] = directory
+    sys.argv = ['build_v3_heldout_cohort.py', *sys.argv[2:]]
+    runpy.run_module('tools.part5.build_v3_heldout_cohort', run_name='__main__')
+PY
 ```
+
+The private root satisfies the cohort builder's owner0700 parent check. It also
+keeps OpenSSL working PEMs under an ignored owner-only temporary directory;
+the wrapper removes those working files on normal exit. A hard interruption
+can leave a partial private cohort or temporary directory requiring inspection
+before choosing fresh output paths.
 
 Build the eight run manifests from the existing base prepare config `artifacts/dynark/part5/application-v3-campaign-prepare-config-002.json` (SHA-256 `b5bb168545a3dfef91fa2b0430bf19912ffbbe6080c6b94041315256934d2853`) and packet template `artifacts/dynark/part5/v3-full-r1-proof-training-001/packet-003.json` (SHA-256 `f74da66ef9a12c03a028ed52bee8cb4de2ddf0958abbecb0b7e528b22065512b`). These are pinned construction inputs, not held-out run evidence. The manifest builder requires `--runner` to resolve exactly to the replacement stable Rust executable `artifacts/dynark/part5/v3-heldout-queue-runner-002` described above; the build step must run before freezing because this file is included in the frozen registry bundle. The builder verifies the file and embeds its path and SHA-256 in each manifest. Other pinned inputs are the bounded supervisor `results/dynark/part5/session_runner.py` (`77fc4107089d14039af8726051e174a9b6508e09c13b07e2ac1bcc083eec5429`), Node `/Users/anishnarang/.nvm/versions/node/v24.10.0/bin/node` (`9e759d34d97af8a71b75854d20af297794611155406997f06d796b5e0f6d573b`), exporter `program/target/debug/examples/export_v3_request_fixture` (`d5b10820153334b5cb5996ad2f26aad95a033741e0883f69019ebf79fb051700`), and the adapter above (`5e364d7ea4d2321a1135e697ed7cf3233abaa832d371bff2f4dfdf2ea5ff6521`). The builder verifies and embeds their hashes and emits `case-00.json` through `case-07.json`:
 
@@ -405,7 +434,7 @@ ROOT="$PWD"
 FREEZE_DIR="$ROOT/results/dynark/part5/v3-heldout-freeze-001"
 ADAPTER="$ROOT/crates/dynark-solana-adapter/target/debug/build/dynark-solana-adapter/3a4659842a713e9a/out/v3_request_bound_host-3a4659842a713e9a"
 FREEZE="$FREEZE_DIR/freeze.json"
-COHORT_ROOT="$ROOT/artifacts/dynark/part5/v3-heldout-cohort-001"
+COHORT_ROOT="$ROOT/artifacts/dynark/part5/v3-heldout-private-001/v3-heldout-cohort-001"
 BASE_PREPARE_CONFIG="$ROOT/artifacts/dynark/part5/application-v3-campaign-prepare-config-002.json"
 PACKET_TEMPLATE="$ROOT/artifacts/dynark/part5/v3-full-r1-proof-training-001/packet-003.json"
 # Set after the held-out Rust queue_v3 runner has been built and pinned.
