@@ -87,6 +87,14 @@ def _bundle(paths):
             for name in sorted(paths)]
 
 
+def _frozen_identities(boundary):
+    identities = boundary.get('identities') if type(boundary) is dict else None
+    if (type(identities) is not dict or set(identities) != keygen.IDENTITY_ROLES
+            or not all(keygen._hash(value) for value in identities.values())):
+        raise ValueError('exact frozen identity map required')
+    return identities
+
+
 def build(freeze_receipt, cohort_root, base_prepare_config, packet_template,
           adapter_binary, bounded_supervisor, node, exporter, runner, output_dir):
     if Path(runner) != ROOT / freeze_tool.RUNNER_BINARY:
@@ -99,6 +107,7 @@ def build(freeze_receipt, cohort_root, base_prepare_config, packet_template,
         raise ValueError('fresh direct Part 5 artifact directory required')
     freeze = _ref(freeze_receipt, 65536)
     boundary = json.loads(_read(freeze_receipt, 65536))
+    identities = _frozen_identities(boundary)
     cohort_root = Path(cohort_root)
     cohort = _ref(cohort_root / 'cohort-receipt.json', 65536)
     issued = json.loads(_read(cohort['path'], 65536))
@@ -110,7 +119,7 @@ def build(freeze_receipt, cohort_root, base_prepare_config, packet_template,
     roles = dict(ROLE_PATHS, ordinary_adapter=Path(adapter_binary))
     frozen_files = {name: _ref(path) for name, path in roles.items()}
     if (set(frozen_files) != set(case_runner.ROLE_NAMES)
-            or any(ref['sha256'] != boundary['identities'].get(name)
+            or any(ref['sha256'] != identities.get(name)
                    for name, ref in frozen_files.items())):
         raise ValueError('direct product roles changed after freeze')
     bundles = {
@@ -120,7 +129,7 @@ def build(freeze_receipt, cohort_root, base_prepare_config, packet_template,
     for name, paths in (('registry', freeze_tool.REGISTRY_FILES),
                         ('client', freeze_tool.CLIENT_FILES)):
         actual, _ = freeze_tool.prior_freeze.bundle(paths)
-        if actual != boundary['identities'][name]:
+        if actual != identities[name]:
             raise ValueError('frozen source bundle changed')
     proof_inputs = {
         'packet_template': _ref(packet_template, 262144),
@@ -142,7 +151,7 @@ def build(freeze_receipt, cohort_root, base_prepare_config, packet_template,
                                         64 * 1024 * 1024):
         raise ValueError('request exporter binary changed after freeze')
     current_source = build_prep.source_manifest(ROOT)
-    if digest(json.dumps(current_source, sort_keys=True).encode()) != boundary['identities']['application_source']:
+    if digest(json.dumps(current_source, sort_keys=True).encode()) != identities['application_source']:
         raise ValueError('application sources changed after freeze')
     application_source_files = {
         name: _ref(ROOT / name, 1024 * 1024)

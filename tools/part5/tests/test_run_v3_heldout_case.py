@@ -108,6 +108,25 @@ def test_manifest_builder_rejects_non_queue_runner_path(tmp_path):
         raise AssertionError('manifest builder accepted Python as the queue test runner')
 
 
+def test_manifest_builder_requires_exact_well_formed_freeze_identity_map():
+    identities = {role: 'a' * 64
+                  for role in manifest_builder.keygen.IDENTITY_ROLES}
+    assert manifest_builder._frozen_identities({'identities': identities}) == identities
+
+    for invalid in (
+        {**identities, 'unexpected': 'b' * 64},
+        {role: value for role, value in identities.items()
+         if role != 'circuit'},
+        {**identities, 'circuit': 'not-a-sha256'},
+    ):
+        try:
+            manifest_builder._frozen_identities({'identities': invalid})
+        except ValueError as error:
+            assert 'exact frozen identity map' in str(error)
+        else:
+            raise AssertionError('manifest builder accepted an inexact freeze identity map')
+
+
 def test_journal_records_one_running_step_and_resumes_only_matching_pins(tmp_path):
     journal = runner.RunJournal(tmp_path / 'journal.json', manifest_sha256='a' * 64)
     with journal:
