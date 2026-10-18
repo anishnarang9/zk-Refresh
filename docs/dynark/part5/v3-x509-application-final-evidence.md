@@ -118,11 +118,15 @@ Training-008 stopped after exactly three ordered receipts, all for repetition 1 
 
 Training-009 replaces the incomplete Training-008 run. Its manifest was added and pushed in commit `499a82f2c5b49af79cfd00a73881a9586cd3e99f`, and the remote branch matched that commit when checked. The same commit includes the matrix-driver fix that forwards `effect_execute` in every session argv; the pinned driver source SHA-256 is `a24b7035bbc73032a96a38358a3e68fd0ef9eaa9d7381be781300317faa13ce8`. Relative to Training-008, the manifest changes only `campaign_id` and `output_root`. The Training-009 input's raw SHA-256 is `f5ff9b2ec6faa81da5a46e289f7174b0b7d73d4eb9e5713159a74120d0e679b4`; its canonical JSON and materialized input manifest have SHA-256 `75e2a9e22211d1ccc5899975cf60ff9c60db2cb8e0c3819785789e7b47688d5d`, and the materialized plan SHA-256 is `d281ba8efd59a43e3db2882bb53dd60d3b2bd7aff90864cd7a00454a27380ba9`. Pinned-interpreter preflight validated the 60-slot plan, with `effect_execute` SHA-256 `df6fd4ff07bab02fffc8f05c3c58e2e744432a37b23c0ee25bb4addcc2fd430e` forwarded in all session argv. The campaign started at `2026-10-18T02:02:25.635344+00:00` with a 36-hour envelope. PID `47786` was live at the latest check; its first `r1-k0-full` session had begun and displayed the helper arguments. No Training-009 slot receipt exists yet. This confirms registration, pinned preflight, and launch only; no matrix outcome, economics, or held-out result is established.
 
+**Training-009 progress snapshot (2026-10-18 02:29 UTC):** The manifest-pinned slot verifier passed the contiguous first three receipts, all at repetition 1 and `k = 0`: Full sequence 1 SHA-256 `0e407c1590f20583dbad829d4b0cb838d0ebee0e0617835a004cd88233a7ce6d` (outer 108.575 seconds), Anchor sequence 2 SHA-256 `e4f461feec2171ca3c7ec9daa77b5fde2acb52d58d35f4e89fdddaeb5aa77d95` (outer 1267.729 seconds), and coalesced Full sequence 3 SHA-256 `403db0f706442f62ca34777540a26a3732757a347e4201c3024a5f4d94168511` (outer 109.867 seconds). Each outer report records exit 0 without censoring or a stop reason, and each session records `effect_verified=true`. The nested effect supervisor status is `failed` with application-stage exit 1 after reviewed validator SIGINT cleanup; the complete-tree CPU metric remains unqualified. The driver had advanced beyond the three receipts. A read-only pin audit found all 38 materialized input refs and all 38 freeze-identity file pins matched current bytes, including the four cohort source hashes. Three of 60 slots do not establish the registered economics, a break-even point, or held-out acceptance.
+
 ### Post-snapshot negative-coverage status (source revision `2a79c60`)
 
 This inventory describes source and planned coverage after the dated evidence snapshots above; it does not record execution. Planned loaded-ELF held-out case A covers wrong issuer/policy public words, wrong action, malformed proof, read-only request, missing final account, System Program in the issuer slot, and replay. The planned loaded B and C branches reject old-root proofs after unrelated and own revocation, respectively; C's attempted active-current-root witness is rejected by the witness/relation checks before submission. The loaded harness and held-out verifier source include the missing-final-account and System-Program-as-issuer scenarios, but this does not establish a runner build or a held-out case run. The report's earlier signed-history receipts are local training evidence for stale-root and own-revocation behavior, not held-out evidence.
 
 Local DER admission negatives have source/fixture validation coverage only; they are not loaded application transactions. Disabled issuer/config, expired status, queue-capacity (fixture available), account-order, and ambiguous-restart cases remain host-only or test/mock coverage at this revision, not demonstrated loaded-ELF held-out rejections. **Held-out negative execution: none established.** The required `v3-heldout-queue-runner-002` is absent; no held-out freeze, cohort, case fragment, assembled manifest, or verifier report exists. Do not infer case execution, a build, or a freeze from this inventory.
+
+**Source-only follow-up (2026-10-18):** A separate held-out A R0 clone, loaded-ELF disabled-config Execute negative, three five-account finalized snapshots, and independent sidecar/verifier checks are now wired into the case runner. The negative's clone and session wall time are recorded outside the matched Full/Anchor branch totals. Focused Python tests and Rust formatting checks passed, but the Rust runner has not been compiled and this negative has not run against a validator. Training-009 owns the sole heavyweight-job slot; no held-out acceptance claim follows from this source change.
 
 ### Cost interpretation rules
 
@@ -362,7 +366,8 @@ for TEST in \
   root_pinned_queue_v3_campaign_effect \
   root_pinned_queue_v3_execute \
   root_pinned_queue_v3_unrelated_transition \
-  root_pinned_queue_v3_branch; do
+  root_pinned_queue_v3_branch \
+  root_pinned_queue_v3_disabled_config_negative; do
   grep -Fqx "$TEST: test" "$LISTING"
 done
 
