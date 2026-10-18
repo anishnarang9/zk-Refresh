@@ -1,5 +1,6 @@
 import hashlib
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import subprocess
 import sys
@@ -26,6 +27,19 @@ def _json_bytes(document):
     return (json.dumps(document, sort_keys=True, indent=2) + '\n').encode()
 
 
+def _rewrite_sequence(root, update):
+    sequence_path = root / 'sequence-receipt.json'
+    sequence = json.loads(sequence_path.read_bytes())
+    update(sequence)
+    sequence_raw = _json_bytes(sequence)
+    sequence_path.write_bytes(sequence_raw)
+
+    index_path = root / 'index.json'
+    index = json.loads(index_path.read_bytes())
+    index['sequence_receipt']['sha256'] = _sha(sequence_raw)
+    index_path.write_bytes(_json_bytes(index))
+
+
 def _bundle(root):
     root.mkdir()
     slot_dir = root / 'slot-receipts'
@@ -34,6 +48,7 @@ def _bundle(root):
     slot_index = []
     sequence_rows = []
     sequence = 0
+    campaign_start = datetime(2026, 10, 18, tzinfo=timezone.utc)
     for repetition, order in enumerate(ORDERS, 1):
         for target_count in COUNTS:
             for position, mode in enumerate(order, 1):
@@ -58,6 +73,7 @@ def _bundle(root):
                 digest = _sha(raw)
                 filename = f'slot-{sequence:04d}.json'
                 (slot_dir / filename).write_bytes(raw)
+                outer_start = campaign_start + timedelta(seconds=2 * (sequence - 1))
                 slot_index.append({
                     'sequence': sequence,
                     'repetition': repetition,
@@ -77,8 +93,8 @@ def _bundle(root):
                     'registered_order': list(order),
                     'registered_order_position': position,
                     'clone_preparation_wall_seconds': 1.25,
-                    'outer_started_at_utc': '2026-10-18T00:00:00+00:00',
-                    'outer_ended_at_utc': '2026-10-18T00:00:01+00:00',
+                    'outer_started_at_utc': outer_start.isoformat(),
+                    'outer_ended_at_utc': (outer_start + timedelta(seconds=1)).isoformat(),
                 })
                 previous = digest
 
@@ -91,7 +107,7 @@ def _bundle(root):
         'sequence_count': 60,
         'passed': True,
         'campaign_started_at_utc': '2026-10-18T00:00:00+00:00',
-        'campaign_completed_at_utc': '2026-10-18T00:01:00+00:00',
+        'campaign_completed_at_utc': '2026-10-18T00:02:00+00:00',
         'cross_session_order_verified': True,
         'sequence': sequence_rows,
         'final_slot_receipt_sha256': previous,
@@ -218,6 +234,104 @@ class PublicCampaignReceiptVerificationTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, 'registered grid'):
                 tool.verify_bundle(root)
+
+    def test_rejects_slot_ending_before_it_starts(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = _bundle(Path(temporary) / 'bundle')
+
+            def invert_first_slot(sequence):
+                sequence['sequence'][0]['outer_started_at_utc'] = '2026-10-18T00:00:02+00:00'
+                sequence['sequence'][0]['outer_ended_at_utc'] = '2026-10-18T00:00:01+00:00'
+
+            _rewrite_sequence(root, invert_first_slot)
+
+            with self.assertRaisesRegex(ValueError, 'ends before it starts'):
+                tool.verify_bundle(root)
+
+    def test_rejects_overlapping_or_backward_slot_timeline(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = _bundle(Path(temporary) / 'bundle')
+
+            def overlap_second_slot(sequence):
+                sequence['sequence'][1]['outer_started_at_utc'] = '2026-10-18T00:00:00+00:00'
+
+            _rewrite_sequence(root, overlap_second_slot)
+
+            with self.assertRaisesRegex(ValueError, 'overlaps or precedes previous slot'):
+                tool.verify_bundle(root)
+
+    def test_accepts_adjacent_slots_with_equal_boundary_timestamp(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = _bundle(Path(temporary) / 'bundle')
+
+            def make_slots_adjacent(sequence):
+                sequence['sequence'][1]['outer_started_at_utc'] = (
+                    sequence['sequence'][0]['outer_ended_at_utc'])
+
+            _rewrite_sequence(root, make_slots_adjacent)
+
+            self.assertEqual(tool.verify_bundle(root)['slot_count'], 60)
+
+    def test_rejects_timestamp_without_explicit_timezone(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = _bundle(Path(temporary) / 'bundle')
+
+            def remove_timezone(sequence):
+                sequence['sequence'][0]['outer_started_at_utc'] = '2026-10-18T00:00:00'
+
+            _rewrite_sequence(root, remove_timezone)
+
+            with self.assertRaisesRegex(ValueError, 'explicit UTC timestamp'):
+                tool.verify_bundle(root)
+
+    def test_rejects_timestamp_with_non_utc_offset(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = _bundle(Path(temporary) / 'bundle')
+
+            def add_non_utc_offset(sequence):
+                sequence['sequence'][0]['outer_started_at_utc'] = '2026-10-18T01:00:00+01:00'
+
+            _rewrite_sequence(root, add_non_utc_offset)
+
+            with self.assertRaisesRegex(ValueError, 'explicit UTC timestamp'):
+                tool.verify_bundle(root)
+
+    def test_rejects_slot_outside_campaign_interval(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = _bundle(Path(temporary) / 'bundle')
+
+            def finish_before_last_slot(sequence):
+                sequence['campaign_completed_at_utc'] = '2026-10-18T00:01:00+00:00'
+
+            _rewrite_sequence(root, finish_before_last_slot)
+
+            with self.assertRaisesRegex(ValueError, 'outside campaign interval'):
+                tool.verify_bundle(root)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = _bundle(Path(temporary) / 'bundle')
+
+            def start_after_first_slot(sequence):
+                sequence['campaign_started_at_utc'] = '2026-10-18T00:00:01+00:00'
+
+            _rewrite_sequence(root, start_after_first_slot)
+
+            with self.assertRaisesRegex(ValueError, 'outside campaign interval'):
+                tool.verify_bundle(root)
+
+    def test_rejects_malformed_timestamp_without_exposing_bundle_path(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = _bundle(Path(temporary) / 'bundle')
+
+            def corrupt_timestamp(sequence):
+                sequence['sequence'][0]['outer_started_at_utc'] = '2026-99-18T00:00:00Z'
+
+            _rewrite_sequence(root, corrupt_timestamp)
+
+            with self.assertRaises(ValueError) as raised:
+                tool.verify_bundle(root)
+            self.assertIn('explicit UTC timestamp', str(raised.exception))
+            self.assertNotIn(str(root), str(raised.exception))
 
     def test_cli_prints_receipt_chain_scope(self):
         with tempfile.TemporaryDirectory() as temporary:

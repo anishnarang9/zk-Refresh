@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Independently verify a public 60-slot campaign receipt chain."""
 import argparse
+from datetime import datetime
 import hashlib
 import json
 import math
@@ -22,6 +23,8 @@ ORDERS = (
     ('coalesced-full', 'anchor', 'full'),
 )
 HEX_SHA256 = re.compile(r'[0-9a-f]{64}')
+UTC_TIMESTAMP = re.compile(
+    r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|\+00:00)')
 CAMPAIGN_ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,63}')
 MAX_INDEX_BYTES = 128 * 1024
 MAX_SEQUENCE_BYTES = 1024 * 1024
@@ -161,8 +164,17 @@ def _require_seconds(value, description):
 
 
 def _require_timestamp(value, description):
-    if type(value) is not str or not value or len(value) > 128:
-        raise ValueError(f'{description} must be a nonempty timestamp string')
+    if (type(value) is not str or len(value) > 128
+            or UTC_TIMESTAMP.fullmatch(value) is None):
+        raise ValueError(f'{description} must be an explicit UTC timestamp')
+    try:
+        parsed = datetime.fromisoformat(
+            value[:-1] + '+00:00' if value.endswith('Z') else value)
+    except ValueError as error:
+        raise ValueError(f'{description} must be an explicit UTC timestamp') from error
+    if parsed.utcoffset() is None or parsed.utcoffset().total_seconds() != 0:
+        raise ValueError(f'{description} must be an explicit UTC timestamp')
+    return parsed
 
 
 def _registered_slots():
@@ -247,8 +259,12 @@ def verify_bundle(bundle_dir):
         raise ValueError('sequence receipt is not marked passed')
     if sequence.get('cross_session_order_verified') is not True:
         raise ValueError('sequence receipt does not attest registered cross-session order')
-    for field in ('campaign_started_at_utc', 'campaign_completed_at_utc'):
-        _require_timestamp(sequence.get(field), field)
+    campaign_start = _require_timestamp(sequence.get('campaign_started_at_utc'),
+                                        'campaign_started_at_utc')
+    campaign_end = _require_timestamp(sequence.get('campaign_completed_at_utc'),
+                                      'campaign_completed_at_utc')
+    if campaign_start > campaign_end:
+        raise ValueError('campaign interval ends before it starts')
     expected_orders = [list(order) for order in ORDERS]
     if sequence.get('registered_orders') != expected_orders:
         raise ValueError('sequence registered orders differ from matrix order')
@@ -273,6 +289,7 @@ def verify_bundle(bundle_dir):
         raise ValueError('exactly 60 indexed slot receipts are required')
 
     previous_sha = None
+    previous_outer_end = None
     for expected, row, reference in zip(registered, rows, index_slots):
         _require_fields(row, SEQUENCE_ROW_FIELDS, 'sequence row')
         _require_fields(reference, INDEX_SLOT_FIELDS, 'slot index entry')
@@ -318,10 +335,19 @@ def verify_bundle(bundle_dir):
         for field in ('clone_report_sha256', 'outer_report_sha256',
                       'session_report_sha256'):
             _require_hash(receipt.get(field), field)
-        for field in ('outer_started_at_utc', 'outer_ended_at_utc'):
-            _require_timestamp(row.get(field), field)
+        outer_start = _require_timestamp(row.get('outer_started_at_utc'),
+                                         'outer_started_at_utc')
+        outer_end = _require_timestamp(row.get('outer_ended_at_utc'),
+                                       'outer_ended_at_utc')
+        if outer_start > outer_end:
+            raise ValueError('slot outer interval ends before it starts')
+        if outer_start < campaign_start or outer_end > campaign_end:
+            raise ValueError('slot outer interval falls outside campaign interval')
+        if previous_outer_end is not None and previous_outer_end > outer_start:
+            raise ValueError('slot outer interval overlaps or precedes previous slot')
 
         previous_sha = receipt_sha
+        previous_outer_end = outer_end
 
     final_sha = _require_hash(
         sequence.get('final_slot_receipt_sha256'), 'final slot receipt hash')
