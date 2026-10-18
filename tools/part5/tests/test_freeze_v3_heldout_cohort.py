@@ -240,6 +240,24 @@ class HeldoutFreezeTests(unittest.TestCase):
                         return_value=self.application_manifest):
             return tool.freeze(self.prepare_path, self.adapter, self.output)
 
+    def test_freeze_pins_explicit_proof_binary_hash_and_keeps_boundary_schema(self):
+        proof_binary = self.root / 'isolated-proof-runner'
+        proof_binary.write_bytes(b'corrected proof runner')
+        proof_binary.chmod(0o700)
+        with mock.patch('harness.tests.queue_v3_build_prep.source_manifest',
+                        return_value=self.application_manifest):
+            receipt = tool.freeze(self.prepare_path, self.adapter, self.output,
+                                  proof_binary=proof_binary)
+
+        boundary = json.loads(self.freeze_path.read_text())
+        self.assertEqual(boundary['identities']['proof_runner'], hashlib.sha256(
+            proof_binary.read_bytes()).hexdigest())
+        self.assertEqual(set(boundary), {
+            'schema', 'frozen_at_unix_ns', 'issuance_tool_sha256',
+            'key_generation_tool_sha256', 'identities', 'forbidden_public_key_sha256'})
+        self.assertEqual(receipt['identities']['proof_runner'],
+                         boundary['identities']['proof_runner'])
+
     def test_freeze_pins_all_product_inputs_and_publishes_prior_inventory_first(self):
         receipt = self._freeze()
         boundary = json.loads(self.freeze_path.read_text())

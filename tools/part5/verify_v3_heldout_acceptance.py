@@ -137,6 +137,20 @@ def _artifact(ref, *, cap=MAX_ARTIFACT):
     return path, actual, b''.join(chunks) if chunks is not None else None
 
 
+def _validate_proof_runner_reference(frozen_ref, proof_ref, identities):
+    expected = identities.get('proof_runner') if type(identities) is dict else None
+    _require(type(frozen_ref) is dict and set(frozen_ref) == {'path', 'sha256'}
+             and type(proof_ref) is dict and set(proof_ref) == {'path', 'sha256'}
+             and type(frozen_ref.get('path')) is str
+             and Path(frozen_ref['path']).is_absolute()
+             and frozen_ref.get('path') == proof_ref.get('path')
+             and _is_sha(expected)
+             and frozen_ref.get('sha256') == expected
+             and proof_ref.get('sha256') == expected,
+             'proof runner reference mismatch')
+    return {'path': frozen_ref['path'], 'sha256': expected}
+
+
 def _identity(info):
     return (info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_nlink,
             info.st_size, info.st_mtime_ns, info.st_ctime_ns)
@@ -1866,10 +1880,13 @@ def _verify_frozen_identity(freeze, manifest):
             'loaded_elf': 'artifacts/dynark/part5/application-v3-sbf-build-002/elf/zk_fresh_program.so',
         }.get(role)
         if role in ('profile', 'r1cs', 'witness_executable', 'setup_manifest',
-                    'ordinary_vk', 'proof_runner', 'signer_interface', 'loaded_elf'):
+                    'ordinary_vk', 'signer_interface', 'loaded_elf'):
             _require(Path(ref['path']) == ROOT / relative,
                      f'frozen {role} must be rehashed from its live product path')
         observed[role] = actual
+    proof_inputs = manifest.get('proof_inputs')
+    proof_ref = proof_inputs.get('proof_runner') if type(proof_inputs) is dict else None
+    _validate_proof_runner_reference(direct['proof_runner'], proof_ref, identities)
     _require(type(setup) is dict
              and setup.get('schema') == 'credential-v3-bounded-setup-v1'
              and setup.get('identity', {}).get('circuit') == identities['circuit'],

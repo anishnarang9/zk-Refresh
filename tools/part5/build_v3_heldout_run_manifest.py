@@ -162,9 +162,16 @@ def _frozen_identities(boundary):
     return identities
 
 
+def _proof_runner_ref(path, identities):
+    reference = _ref(path, 128 * 1024 * 1024)
+    if reference['sha256'] != identities.get('proof_runner'):
+        raise ValueError('proof binary differs from frozen proof runner identity')
+    return reference
+
+
 def build(freeze_receipt, cohort_root, base_prepare_config, packet_template,
           adapter_binary, bounded_supervisor, node, exporter, runner, output_dir,
-          cohort_observation):
+          cohort_observation, proof_binary=None):
     if Path(runner) != ROOT / freeze_tool.RUNNER_BINARY:
         raise ValueError('frozen heldout queue runner binary path required')
     output_dir = Path(output_dir)
@@ -176,6 +183,9 @@ def build(freeze_receipt, cohort_root, base_prepare_config, packet_template,
     freeze = _ref(freeze_receipt, 65536)
     boundary = json.loads(_read(freeze_receipt, 65536))
     identities = _frozen_identities(boundary)
+    selected_proof_binary = (Path(proof_binary) if proof_binary is not None
+                             else ROLE_PATHS['proof_runner'])
+    proof_runner = _proof_runner_ref(selected_proof_binary, identities)
     cohort_root = Path(cohort_root)
     cohort = _ref(cohort_root / 'cohort-receipt.json', 65536)
     issued = json.loads(_read(cohort['path'], 65536))
@@ -187,7 +197,8 @@ def build(freeze_receipt, cohort_root, base_prepare_config, packet_template,
     observation = _ref(cohort_observation, 65536)
     validate_cohort_observation(observation, freeze['sha256'], cohort['sha256'],
                                 issued.get('prior_key_inventory_sha256'), cohort_root)
-    roles = dict(ROLE_PATHS, ordinary_adapter=Path(adapter_binary))
+    roles = dict(ROLE_PATHS, ordinary_adapter=Path(adapter_binary),
+                 proof_runner=Path(proof_runner['path']))
     frozen_files = {name: _ref(path) for name, path in roles.items()}
     if (set(frozen_files) != set(case_runner.ROLE_NAMES)
             or any(ref['sha256'] != identities.get(name)
@@ -274,6 +285,7 @@ def main():
                  'node', 'exporter', 'runner', 'output_dir',
                  'cohort_observation'):
         parser.add_argument('--' + name.replace('_', '-'), required=True, type=Path)
+    parser.add_argument('--proof-binary', type=Path)
     args = parser.parse_args()
     try:
         result = build(**vars(args))

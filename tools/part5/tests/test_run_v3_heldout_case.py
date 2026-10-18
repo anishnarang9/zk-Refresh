@@ -128,6 +128,41 @@ def test_manifest_builder_requires_exact_well_formed_freeze_identity_map():
             raise AssertionError('manifest builder accepted an inexact freeze identity map')
 
 
+def test_manifest_builder_proof_binary_ref_must_match_frozen_identity(tmp_path):
+    proof_binary = tmp_path / 'v3-proof-runner-training-010'
+    proof_binary.write_bytes(b'corrected proof runner')
+    proof_binary.chmod(0o700)
+    proof_sha = hashlib.sha256(proof_binary.read_bytes()).hexdigest()
+    identities = {'proof_runner': proof_sha}
+
+    assert manifest_builder._proof_runner_ref(proof_binary, identities) == {
+        'path': str(proof_binary), 'sha256': proof_sha}
+
+    with pytest.raises(ValueError, match='frozen proof runner identity'):
+        manifest_builder._proof_runner_ref(proof_binary, {'proof_runner': '0' * 64})
+
+
+def test_case_manifest_requires_same_explicit_proof_runner_path_and_hash(tmp_path):
+    proof_binary = tmp_path / 'v3-proof-runner-training-010'
+    proof_binary.write_bytes(b'corrected proof runner')
+    proof_binary.chmod(0o700)
+    proof_sha = hashlib.sha256(proof_binary.read_bytes()).hexdigest()
+    direct_ref = {'path': str(proof_binary), 'sha256': proof_sha}
+
+    assert runner.validate_proof_runner_reference(
+        direct_ref, dict(direct_ref), proof_sha) == direct_ref
+
+    other_binary = tmp_path / 'another-runner'
+    other_binary.write_bytes(proof_binary.read_bytes())
+    other_binary.chmod(0o700)
+    with pytest.raises(ValueError, match='same frozen proof runner reference'):
+        runner.validate_proof_runner_reference(
+            direct_ref, {'path': str(other_binary), 'sha256': proof_sha}, proof_sha)
+    with pytest.raises(ValueError, match='same frozen proof runner reference'):
+        runner.validate_proof_runner_reference(
+            direct_ref, {**direct_ref, 'sha256': '0' * 64}, proof_sha)
+
+
 def test_journal_records_one_running_step_and_resumes_only_matching_pins(tmp_path):
     journal = runner.RunJournal(tmp_path / 'journal.json', manifest_sha256='a' * 64)
     with journal:

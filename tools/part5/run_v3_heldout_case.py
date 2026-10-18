@@ -173,6 +173,20 @@ def _read(path, expected=None, cap=16 * 1024 * 1024, *, executable=False):
     return raw
 
 
+def validate_proof_runner_reference(frozen_ref, proof_ref, expected_hash):
+    if (type(frozen_ref) is not dict or set(frozen_ref) != {'path', 'sha256'}
+            or type(proof_ref) is not dict or set(proof_ref) != {'path', 'sha256'}
+            or not isinstance(frozen_ref.get('path'), str)
+            or not isinstance(proof_ref.get('path'), str)
+            or not _hash(expected_hash)
+            or frozen_ref['path'] != proof_ref['path']
+            or frozen_ref.get('sha256') != expected_hash
+            or proof_ref.get('sha256') != expected_hash):
+        raise ValueError('same frozen proof runner reference required')
+    _read(frozen_ref['path'], expected_hash, 128 * 1024 * 1024)
+    return {'path': frozen_ref['path'], 'sha256': expected_hash}
+
+
 def _json(path, expected=None, cap=65536):
     return json.loads(_read(path, expected, cap))
 
@@ -520,7 +534,8 @@ def validate_manifest(manifest):
         if (type(ref) is not dict or not _hash(ref.get('sha256'))
                 or identities.get(role) != ref['sha256']):
             raise ValueError('frozen identity and direct-role pins differ')
-        if role in FROZEN_PATHS and Path(ref['path']) != REPO / FROZEN_PATHS[role]:
+        if (role in FROZEN_PATHS and role != 'proof_runner'
+                and Path(ref['path']) != REPO / FROZEN_PATHS[role]):
             raise ValueError(f'{role} must use its frozen product path')
         _read(ref['path'], ref['sha256'],
               FROZEN_ROLE_CAPS.get(role, 128 * 1024 * 1024))
@@ -630,6 +645,8 @@ def validate_manifest(manifest):
             raise ValueError(f'{role} differs from frozen client source bundle')
     if source_files['request_fixture_bridge']['sha256'] != roles['signer_interface']['sha256']:
         raise ValueError('request fixture bridge differs from frozen signer interface')
+    validate_proof_runner_reference(
+        roles['proof_runner'], proof_inputs['proof_runner'], identities['proof_runner'])
     if (Path(source_files['exporter']['path']) != Path(proof_inputs['exporter']['path'])
             or source_files['exporter']['sha256'] != proof_inputs['exporter']['sha256']
             or proof_inputs['adapter_binary']['sha256'] != roles['ordinary_adapter']['sha256']

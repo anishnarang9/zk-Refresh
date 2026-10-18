@@ -226,9 +226,11 @@ def _publish_pair(output, freeze_raw, inventory_raw):
         raise
 
 
-def freeze(prepare_status, adapter_binary, output_dir):
+def freeze(prepare_status, adapter_binary, output_dir, proof_binary=None):
     """Validate the current product and publish its prior-key census and freeze."""
     output = _fresh_output(output_dir)
+    proof_binary = Path(proof_binary) if proof_binary is not None else (
+        PROOF / 'target/release/credential-v3-bounded-proof-qualification-v1')
     prepare_raw, prepared = _prepare_status(prepare_status)
     setup_path = SETUP / 'setup-manifest.json'
     setup_raw = prior_freeze.read_input(setup_path, 65536)
@@ -257,7 +259,7 @@ def freeze(prepare_status, adapter_binary, output_dir):
         'witness_executable': COMPILE / 'credential_js/credential.wasm',
         'setup_manifest': setup_path,
         'ordinary_vk': SETUP / 'ordinary.vk',
-        'proof_runner': PROOF / 'target/release/credential-v3-bounded-proof-qualification-v1',
+        'proof_runner': proof_binary,
         'signer_interface': ROOT / 'tools/part5/prepare_v3_request_fixture.py',
         'ordinary_adapter': Path(adapter_binary),
         'loaded_elf': LOADED_ELF,
@@ -334,10 +336,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--prepare-status', required=True, type=Path)
     parser.add_argument('--adapter-binary', required=True, type=Path)
+    parser.add_argument('--proof-binary', type=Path,
+                        default=PROOF / 'target/release/credential-v3-bounded-proof-qualification-v1')
     parser.add_argument('--output-dir', required=True, type=Path)
     args = parser.parse_args()
     try:
-        receipt = freeze(args.prepare_status, args.adapter_binary, args.output_dir)
+        receipt = freeze(args.prepare_status, args.adapter_binary, args.output_dir,
+                         proof_binary=args.proof_binary)
     except Exception:
         raise SystemExit('v3 heldout preissuance freeze rejected') from None
     print(json.dumps(receipt, sort_keys=True))

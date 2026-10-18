@@ -757,6 +757,31 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name).resolve()
 
+    def test_proof_runner_manifest_reference_matches_frozen_path_and_hash(self):
+        proof_binary = self.root / 'artifacts/dynark/part5/v3-proof-runner-training-010'
+        proof_binary.parent.mkdir(parents=True, mode=0o700)
+        proof_binary.write_bytes(b'corrected proof runner')
+        proof_binary.chmod(0o700)
+        proof_sha = hashlib.sha256(proof_binary.read_bytes()).hexdigest()
+        frozen_ref = {'path': str(proof_binary), 'sha256': proof_sha}
+        proof_ref = dict(frozen_ref)
+
+        self.assertEqual(verifier._validate_proof_runner_reference(
+            frozen_ref, proof_ref, {'proof_runner': proof_sha}), frozen_ref)
+        self.assertEqual(verifier._artifact(proof_ref)[1], proof_sha)
+
+        alternate_path = self.root / 'alternate-proof-runner'
+        alternate_path.write_bytes(proof_binary.read_bytes())
+        alternate_path.chmod(0o700)
+        with self.assertRaisesRegex(ValueError, 'proof runner reference mismatch'):
+            verifier._validate_proof_runner_reference(
+                frozen_ref, {'path': str(alternate_path), 'sha256': proof_sha},
+                {'proof_runner': proof_sha})
+        with self.assertRaisesRegex(ValueError, 'proof runner reference mismatch'):
+            verifier._validate_proof_runner_reference(
+                frozen_ref, {**proof_ref, 'sha256': '0' * 64},
+                {'proof_runner': proof_sha})
+
     def _parent_observation_fixture(self):
         private = self.root / 'artifacts' / 'dynark' / 'part5' / 'v3-heldout-private-001'
         private.mkdir(parents=True, mode=0o700)
