@@ -31,7 +31,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.part5.generate_v3_heldout_keys import FREEZE_SCHEMA, IDENTITY_ROLES
-from tools.part5.prepare_v3_heldout_context import COHORT_SCHEMA, CASE_SCHEMA, _base58
+from tools.part5.prepare_v3_heldout_context import (
+    COHORT_SCHEMA, CASE_SCHEMA, _base58, _b58decode,
+)
 from tools.part5.prepare_v3_revocation_cohort import membership_for_pair
 from tools.part5.credential_profile import ProfileError, admit_certificate, parse_tbs, public_bindings
 from tools.part5.registry_v3_vectors import h as poseidon_parent, leaf as poseidon_leaf
@@ -864,6 +866,40 @@ def _config_root_version(config):
     return int.from_bytes(config[364:372], 'big')
 
 
+def _verify_single_effect_bytes(before_request, before_queue, after_request,
+                                after_queue, request_address):
+    """Independently require one exact v3 request consume and queue append."""
+    _require(type(before_request) is bytes and len(before_request) == 2249
+             and before_request[:8] == b'DYNREQ03' and before_request[183] == 1
+             and type(after_request) is bytes and len(after_request) == 2249,
+             'finalized R1 request must be a canonical Finalized v3 request')
+    expected_request = bytearray(before_request)
+    expected_request[183] = 2  # RequestState::Consumed in application_v3.rs
+    _require(after_request == bytes(expected_request),
+             'Execute must exactly consume the request')
+
+    _require(type(before_queue) is bytes and len(before_queue) == 2090
+             and before_queue[:8] == b'DYNQUE03'
+             and type(after_queue) is bytes and len(after_queue) == 2090
+             and type(request_address) is bytes and len(request_address) == 32,
+             'finalized R1 queue and request PDA bytes required')
+    count = int.from_bytes(before_queue[40:42], 'big')
+    _require(count < 64 and 42 + count * 32 <= len(before_queue)
+             and before_queue[42 + count * 32:] == bytes(len(before_queue) - 42 - count * 32),
+             'finalized R1 queue must have canonical bounded encoding')
+    entries = [before_queue[42 + index * 32:74 + index * 32]
+               for index in range(count)]
+    _require(len(set(entries)) == count,
+             'finalized R1 queue must have canonical bounded encoding')
+    _require(request_address not in entries,
+             'request PDA must not already be present in the R1 queue')
+    expected_queue = bytearray(before_queue)
+    expected_queue[40:42] = (count + 1).to_bytes(2, 'big')
+    expected_queue[42 + count * 32:74 + count * 32] = request_address
+    _require(after_queue == bytes(expected_queue),
+             'Execute must append the request PDA exactly once')
+
+
 def _outer(ref, label, *, expected_exit=1):
     outer, _ = _json(ref, cap=65536)
     expected_passed = expected_exit == 0
@@ -1573,6 +1609,7 @@ def _verify_full_transactions(transactions, pre_execute_rejection_accounts):
         ('v3-execute-readonly-request', 711),
         ('v3-execute-missing-final-account', 709),
         ('v3-execute-system-program-as-issuer', 710),
+        ('v3-execute-wrong-account-order', 701),
         ('v3-valid-full-execute', None),
         ('v3-replay-new-transaction', 707),
     ]
@@ -2039,6 +2076,11 @@ def _verify_branch(branch, bundle, case, globals_, slot_data, clone_destinations
 
     if branch != 'full':
         accounts = _accounts(result_bundle, report, f'{branch} result')
+        if branch == 'anchor':
+            _verify_single_effect_bytes(
+                transition['accounts']['request'], transition['accounts']['queue'],
+                accounts['request'], accounts['queue'],
+                _b58decode(stage['report'].get('request')))
     runtime_identity = _verify_report_runtime_identity(
         report, status, config, globals_['freeze']['identities']['loaded_elf'],
         expected_program=stage['report']['program'],

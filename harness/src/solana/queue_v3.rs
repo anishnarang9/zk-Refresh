@@ -1402,6 +1402,17 @@ pub fn execute_from_env() -> Result<()> {
         Some(zk_fresh_program::application_v3::AppError::Owner as u64),
         &mut events,
     )?;
+    let mut wrong_account_order = p.execute(&wire)?;
+    wrong_account_order.accounts.swap(1, 2);
+    transport::send(
+        &rpc,
+        &admin,
+        None,
+        wrong_account_order,
+        "v3-execute-wrong-account-order",
+        Some(zk_fresh_program::application_v3::AppError::State as u64),
+        &mut events,
+    )?;
     let rooted = transport::wait_finalized(&rpc, &events)?;
     let (_, rejected) = finalized_accounts(&rpc, &p, rooted)?;
     ensure!(

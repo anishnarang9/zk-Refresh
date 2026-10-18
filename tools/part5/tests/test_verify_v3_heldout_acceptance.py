@@ -21,6 +21,81 @@ from tools.part5.credential_profile import admit_certificate, public_bindings
 
 
 class HeldoutAcceptanceVerifierTests(unittest.TestCase):
+    def test_anchor_effect_bytes_require_one_request_consume_and_exact_pda_append(self):
+        before_request = bytearray(2249)
+        before_request[:8] = b'DYNREQ03'
+        before_request[183] = 1
+        before_queue = bytearray(2090)
+        before_queue[:8] = b'DYNQUE03'
+        before_queue[8:40] = bytes([3]) * 32
+        before_queue[40:42] = (1).to_bytes(2, 'big')
+        before_queue[42:74] = bytes([4]) * 32
+        request_key = bytes([5]) * 32
+        after_request = bytearray(before_request)
+        after_request[183] = 2
+        after_queue = bytearray(before_queue)
+        after_queue[40:42] = (2).to_bytes(2, 'big')
+        after_queue[74:106] = request_key
+
+        verifier._verify_single_effect_bytes(
+            bytes(before_request), bytes(before_queue), bytes(after_request),
+            bytes(after_queue), request_key)
+
+        extra_request_change = bytearray(after_request)
+        extra_request_change[200] ^= 1
+        with self.assertRaisesRegex(ValueError, 'exactly consume the request'):
+            verifier._verify_single_effect_bytes(
+                bytes(before_request), bytes(before_queue), bytes(extra_request_change),
+                bytes(after_queue), request_key)
+
+        extra_queue_change = bytearray(after_queue)
+        extra_queue_change[110] ^= 1
+        with self.assertRaisesRegex(ValueError, 'append the request PDA exactly once'):
+            verifier._verify_single_effect_bytes(
+                bytes(before_request), bytes(before_queue), bytes(after_request),
+                bytes(extra_queue_change), request_key)
+
+    def test_anchor_effect_bytes_reject_wrong_or_duplicate_request_pda(self):
+        before_request = bytearray(2249)
+        before_request[:8] = b'DYNREQ03'
+        before_request[183] = 1
+        before_queue = bytearray(2090)
+        before_queue[:8] = b'DYNQUE03'
+        before_queue[40:42] = (1).to_bytes(2, 'big')
+        before_queue[42:74] = bytes([4]) * 32
+        request_key = bytes([5]) * 32
+        after_request = bytearray(before_request)
+        after_request[183] = 2
+        after_queue = bytearray(before_queue)
+        after_queue[40:42] = (2).to_bytes(2, 'big')
+        after_queue[74:106] = bytes([6]) * 32
+        with self.assertRaisesRegex(ValueError, 'append the request PDA exactly once'):
+            verifier._verify_single_effect_bytes(
+                bytes(before_request), bytes(before_queue), bytes(after_request),
+                bytes(after_queue), request_key)
+
+        duplicate_before_queue = bytearray(before_queue)
+        duplicate_before_queue[40:42] = (1).to_bytes(2, 'big')
+        duplicate_before_queue[42:74] = request_key
+        duplicate_after_queue = bytearray(duplicate_before_queue)
+        duplicate_after_queue[40:42] = (2).to_bytes(2, 'big')
+        duplicate_after_queue[74:106] = request_key
+        with self.assertRaisesRegex(ValueError, 'must not already be present'):
+            verifier._verify_single_effect_bytes(
+                bytes(before_request), bytes(duplicate_before_queue),
+                bytes(after_request), bytes(duplicate_after_queue), request_key)
+
+        duplicate_other_queue = bytearray(before_queue)
+        duplicate_other_queue[40:42] = (2).to_bytes(2, 'big')
+        duplicate_other_queue[74:106] = duplicate_other_queue[42:74]
+        duplicate_other_after = bytearray(duplicate_other_queue)
+        duplicate_other_after[40:42] = (3).to_bytes(2, 'big')
+        duplicate_other_after[106:138] = request_key
+        with self.assertRaisesRegex(ValueError, 'canonical bounded encoding'):
+            verifier._verify_single_effect_bytes(
+                bytes(before_request), bytes(duplicate_other_queue),
+                bytes(after_request), bytes(duplicate_other_after), request_key)
+
     def test_config_root_version_uses_program_big_endian_encoding(self):
         config = bytearray(381)
         config[:8] = b'DYNCONF3'
@@ -766,6 +841,8 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
              'err': {'InstructionError': [1, {'Custom': 709}]}},
             {'scenario': 'v3-execute-system-program-as-issuer', 'customError': 710,
              'err': {'InstructionError': [1, {'Custom': 710}]}},
+            {'scenario': 'v3-execute-wrong-account-order', 'customError': 701,
+             'err': {'InstructionError': [1, {'Custom': 701}]}},
             {'scenario': 'v3-valid-full-execute', 'customError': None,
              'err': None},
             {'scenario': 'v3-replay-new-transaction', 'customError': 707,
@@ -792,6 +869,10 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Full A transaction error mismatch'):
             verifier._verify_full_transactions(rows, snapshots)
         rows[8]['err'] = {'InstructionError': [1, {'Custom': 710}]}
+        rows[9]['err'] = {'InstructionError': [1, {'Custom': 709}]}
+        with self.assertRaisesRegex(ValueError, 'Full A transaction error mismatch'):
+            verifier._verify_full_transactions(rows, snapshots)
+        rows[9]['err'] = {'InstructionError': [1, {'Custom': 701}]}
         snapshots['after_sha256'][0] = 'f' * 64
         with self.assertRaisesRegex(ValueError, 'preserve all five accounts'):
             verifier._verify_full_transactions(rows, snapshots)
