@@ -74,11 +74,12 @@ def validate_proxy_receipt(receipt: object, expected_wire_sha256: str) -> dict:
     return receipt
 
 
-def expected_transport_failure(return_code: int, stderr: bytes, receipt: dict,
-                               expected_wire_sha256: str) -> bool:
+def expected_transport_failure(return_code: int, stdout: bytes, stderr: bytes,
+                               receipt: dict, expected_wire_sha256: str) -> bool:
     if type(return_code) is not int or return_code == 0:
         raise ValueError('Rust runner must fail after the ambiguous submission')
-    if not isinstance(stderr, bytes) or TRANSPORT_FAILURE not in stderr:
+    if (not isinstance(stdout, bytes) or not isinstance(stderr, bytes)
+            or (TRANSPORT_FAILURE not in stdout and TRANSPORT_FAILURE not in stderr)):
         raise ValueError('Rust runner did not report the expected sendTransaction transport failure')
     validate_proxy_receipt(receipt, expected_wire_sha256)
     return True
@@ -675,12 +676,11 @@ def run(config: dict, config_sha256: str, config_path: str) -> int:
         runner = subprocess.Popen(runner_argv, cwd=REPO, env=env, stdin=subprocess.DEVNULL,
             stdout=streams[4], stderr=streams[5], start_new_session=False)
         return_code = _wait_child(runner, validator, deadline)
-        stderr = (control / 'runner.stderr.log').read_bytes()
-        if len(stderr) > 65536:
-            raise ValueError('Rust runner error log exceeds private cap')
+        stdout, _ = execute.stage.snapshot_generated(control / 'runner.stdout.log', 65536)
+        stderr, _ = execute.stage.snapshot_generated(control / 'runner.stderr.log', 65536)
         receipt, receipt_sha = _read_private_json(receipt_path, 4096)
         receipt = validate_proxy_receipt(receipt, wire_sha)
-        expected_transport_failure(return_code, stderr, receipt, wire_sha)
+        expected_transport_failure(return_code, stdout, stderr, receipt, wire_sha)
         status.update({
             'proxy_receipt_verified': True,
             'proxy_receipt_sha256': receipt_sha,

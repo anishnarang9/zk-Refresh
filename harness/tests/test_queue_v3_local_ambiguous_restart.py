@@ -61,11 +61,17 @@ class AmbiguousRestartTests(unittest.TestCase):
             'response_dropped': True,
         }
         self.assertTrue(m.expected_transport_failure(
-            1, b'RPC sendTransaction transport failed', receipt, 'a' * 64))
-        for code, stderr in ((0, b''), (1, b'assertion failed'),
-                             (1, b'RPC getLatestBlockhash transport failed')):
-            with self.subTest(code=code, stderr=stderr), self.assertRaises(ValueError):
-                m.expected_transport_failure(code, stderr, receipt, 'a' * 64)
+            1, b'RPC sendTransaction transport failed', b'', receipt, 'a' * 64))
+        self.assertTrue(m.expected_transport_failure(
+            1, b'', b'RPC sendTransaction transport failed', receipt, 'a' * 64))
+        for code, stdout, stderr in (
+            (0, b'RPC sendTransaction transport failed', b''),
+            (1, b'assertion failed', b''),
+            (1, b'RPC getLatestBlockhash transport failed', b''),
+            (1, b'assertion failed', b'unrelated stderr failure'),
+        ):
+            with self.subTest(code=code, stdout=stdout, stderr=stderr), self.assertRaises(ValueError):
+                m.expected_transport_failure(code, stdout, stderr, receipt, 'a' * 64)
 
     def test_reconciliation_accepts_only_exact_single_consume_and_queue_append(self):
         before, after, context = self._account_fixture()
