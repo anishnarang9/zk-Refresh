@@ -47,6 +47,7 @@ class CampaignTotalSummaryTests(unittest.TestCase):
             'training_only': True,
             'directly_timed_whole_application_session': False,
             'matrix_manifest_sha256': 'a' * 64,
+            'sequence_receipt_sha256': 'c' * 64,
             'economics_report_sha256': 'b' * 64,
             'pairs': total_pairs,
             'one_time': {'development_setup_seconds': 500.0,
@@ -76,6 +77,7 @@ class CampaignTotalSummaryTests(unittest.TestCase):
             'training_only': True,
             'directly_timed_whole_application_session': False,
             'matrix_manifest_sha256': 'a' * 64,
+            'sequence_receipt_sha256': 'c' * 64,
             'economics_report_sha256': 'b' * 64,
             'pairs': total_pairs,
             'one_time': {'development_setup_seconds': 500.0,
@@ -131,6 +133,24 @@ class CampaignTotalSummaryTests(unittest.TestCase):
         self.assertEqual(report['one_time_costs']['charged_per_request'], False)
         self.assertFalse(report['cpu']['complete_tree_cpu_qualified'])
         self.assertFalse(report['extrapolation_used'])
+
+    def test_carries_sequence_receipt_pin_into_source_hashes(self):
+        economics, reconciler = self.fixtures()
+        report = tool.summarize(reconciler, economics)
+
+        self.assertEqual(report['source_hashes']['sequence_receipt_sha256'], 'c' * 64)
+
+    def test_requires_valid_sequence_receipt_pin(self):
+        economics, reconciler = self.fixtures()
+        for pin in (None, 'z' * 64, 'c' * 63):
+            with self.subTest(pin=pin):
+                candidate = dict(reconciler)
+                if pin is None:
+                    candidate.pop('sequence_receipt_sha256')
+                else:
+                    candidate['sequence_receipt_sha256'] = pin
+                with self.assertRaisesRegex(ValueError, 'reconciler evidence hashes required'):
+                    tool.summarize(candidate, economics)
 
     def test_reports_available_effect_transaction_metrics_from_economics(self):
         economics, reconciler = self.fixtures()

@@ -140,6 +140,7 @@ def summarize(reconciliation, economics):
             or reconciliation.get('directly_timed_whole_application_session') is not False):
         raise ValueError('pinned training component reconciliation required')
     if (not _sha256(reconciliation.get('matrix_manifest_sha256'))
+            or not _sha256(reconciliation.get('sequence_receipt_sha256'))
             or not _sha256(reconciliation.get('economics_report_sha256'))):
         raise ValueError('reconciler evidence hashes required')
     if (not isinstance(economics, dict) or economics.get('schema') != ECONOMICS_SCHEMA
@@ -293,6 +294,7 @@ def summarize(reconciliation, economics):
         'training_only': True,
         'source_hashes': {
             'matrix_manifest_sha256': reconciliation['matrix_manifest_sha256'],
+            'sequence_receipt_sha256': reconciliation['sequence_receipt_sha256'],
             'economics_report_sha256': reconciliation['economics_report_sha256'],
         },
         'accounting': (
