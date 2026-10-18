@@ -1013,10 +1013,112 @@ def _verify_disabled_config_snapshot_bytes(stage, eligible, before, after):
             }
 
 
+def _verify_disabled_issuer_snapshot_bytes(config_disabled, eligible, before, after,
+                                           eligible_clock):
+    """Check config re-enable, issuer disable, and failed Execute byte effects."""
+    lengths = {'config': 381, 'issuer': 374, 'head': 280,
+               'request': 2249, 'queue': 2090}
+    for label, accounts in (('config-disabled', config_disabled),
+                            ('issuer-eligible', eligible),
+                            ('issuer-before', before), ('issuer-after', after)):
+        _require(type(accounts) is dict and set(accounts) == set(ACCOUNT_NAMES)
+                 and all(type(accounts[name]) is bytes
+                         and len(accounts[name]) == lengths[name]
+                         for name in ACCOUNT_NAMES),
+                 f'{label} five canonical accounts required')
+    disabled_config = config_disabled['config']
+    enabled_config = eligible['config']
+    prior_epoch = int.from_bytes(disabled_config[372:380], 'big')
+    expected_config = bytearray(disabled_config)
+    if prior_epoch < (1 << 64) - 1:
+        expected_config[372:380] = (prior_epoch + 1).to_bytes(8, 'big')
+    expected_config[380] = 1
+    _require(disabled_config[:8] == b'DYNCONF3'
+             and disabled_config[380] == 0
+             and prior_epoch < (1 << 64) - 1
+             and enabled_config == bytes(expected_config)
+             and eligible['request'] == config_disabled['request']
+             and eligible['queue'] == config_disabled['queue'],
+             'issuer test requires re-enabled config and unchanged request/queue')
+    active_issuer = eligible['issuer']
+    inactive_issuer = before['issuer']
+    prior_issuer = config_disabled['issuer']
+    active_head = eligible['head']
+    prior_head = config_disabled['head']
+    epoch_before = int.from_bytes(active_issuer[358:366], 'big')
+    source_sequence = int.from_bytes(active_issuer[173:181], 'big')
+    prior_source_sequence = int.from_bytes(prior_issuer[173:181], 'big')
+    source_digest = active_issuer[181:213]
+    observed_at = int.from_bytes(active_issuer[213:221], 'big', signed=True)
+    expires_at = int.from_bytes(active_issuer[221:229], 'big', signed=True)
+    prior_observed_at = int.from_bytes(prior_issuer[213:221], 'big', signed=True)
+    head_sequence = int.from_bytes(active_head[104:112], 'big')
+    prior_head_sequence = int.from_bytes(prior_head[104:112], 'big')
+    head_committed_at = int.from_bytes(active_head[272:280], 'big', signed=True)
+    _require(type(eligible_clock) is int and eligible_clock >= 0
+             and prior_source_sequence < (1 << 64) - 1
+             and source_sequence == prior_source_sequence + 1
+             and source_digest != bytes(32)
+             and source_digest != prior_issuer[181:213]
+             and 0 <= prior_observed_at < observed_at <= eligible_clock <= expires_at
+             and expires_at - observed_at == 240
+             and active_issuer[:173] == prior_issuer[:173]
+             and active_issuer[309:349] == prior_issuer[309:349]
+             and active_issuer[229:261] == enabled_config[332:364]
+             and active_issuer[261:269] == enabled_config[364:372]
+             and active_issuer[269:277] == active_issuer[173:181]
+             and active_issuer[277:309] == source_digest
+             and active_issuer[358:366] == prior_issuer[358:366]
+             and active_head[:8] == prior_head[:8] == b'DYNHEAD3'
+             and active_head[8:104] == prior_head[8:104]
+             and active_head[8:40] == active_issuer[8:40]
+             and active_head[72:104] == enabled_config[72:104]
+             and 0 < prior_head_sequence < (1 << 64) - 1
+             and prior_head[112:144] != bytes(32)
+             and (prior_head_sequence == 1)
+                 == (prior_head[144:176] == bytes(32))
+             and prior_head[112:144] != prior_head[144:176]
+             and int.from_bytes(prior_head[216:224], 'big') > 0
+             and prior_head[224:256] != bytes(32)
+             and int.from_bytes(prior_head[272:280], 'big', signed=True) >= 0
+             and head_sequence == prior_head_sequence + 1
+             and active_head[112:144] != bytes(32)
+             and active_head[112:144] != prior_head[112:144]
+             and active_head[144:176] == prior_head[112:144]
+             and active_head[176:208] == enabled_config[332:364]
+             and active_head[208:216] == enabled_config[364:372]
+             and active_head[216:224] == active_issuer[173:181]
+             and active_head[224:256] == source_digest
+             and active_head[256:264] == enabled_config[372:380]
+             and active_head[264:272] == active_issuer[358:366]
+             and observed_at <= head_committed_at <= eligible_clock,
+             'issuer eligibility requires a fresh, bound source and head')
+    expected_issuer = bytearray(active_issuer)
+    expected_issuer[172] = 0
+    expected_issuer[357] = 0
+    if epoch_before < (1 << 64) - 1:
+        expected_issuer[358:366] = (epoch_before + 1).to_bytes(8, 'big')
+    _require(active_issuer[:8] == b'DYNISS03'
+             and active_issuer[172] == 1 and active_issuer[357] == 1
+             and int.from_bytes(active_issuer[349:357], 'big') == prior_epoch + 1
+             and int.from_bytes(active_issuer[366:374], 'big') == epoch_before
+             and epoch_before < (1 << 64) - 1
+             and inactive_issuer == bytes(expected_issuer)
+             and all(before[name] == eligible[name]
+                     for name in ACCOUNT_NAMES if name != 'issuer'),
+             'issuer disable changed unexpected account bytes')
+    _require(after == before,
+             'failed issuer Execute changed a finalized account')
+    return {'issuer_eligibility_epoch_before': epoch_before,
+            'issuer_eligibility_epoch_after': epoch_before + 1,
+            'issuer_account_sha256': {
+                name: _sha(before[name]) for name in ACCOUNT_NAMES}}
+
+
 def _verify_disabled_config_report(report, variant, stage_report, stage_accounts,
                                    frozen_elf_sha256, expected, refs, snapshots):
     _require(type(report) is dict
-             and report.get('schema') == 'part5-v3-disabled-config-negative-report-v1'
+             and report.get('schema') == 'part5-v3-disabled-config-negative-report-v2'
              and report.get('variant') == variant
              and report.get('request_slot') == 'A'
              and report.get('passed') is True
@@ -1029,16 +1131,26 @@ def _verify_disabled_config_report(report, variant, stage_report, stage_accounts
              and report.get('refresh_and_bind_succeeded') is True
              and report.get('disable_changed_only_enabled_and_epoch') is True
              and report.get('accounts_unchanged_after_rejection') is True
+             and report.get('issuer_disabled') is True
+             and report.get('issuer_execute_rejected') is True
+             and report.get('issuer_disable_changed_only_enabled_epoch_status') is True
+             and report.get('issuer_accounts_unchanged_after_rejection') is True
              and report.get('expected_custom_error') == 713
              and report.get('addresses') == {
                  name: stage_report.get(name) for name in ACCOUNT_NAMES},
              'disabled-config report must bind frozen A stage, proof, clone, and ELF')
-    _require(type(refs) is dict and set(refs) == {'eligible', 'before', 'after'}
+    groups = ('eligible', 'before', 'after', 'issuer_eligible',
+              'issuer_before', 'issuer_after')
+    _require(type(refs) is dict and set(refs) == set(groups)
              and type(snapshots) is dict and set(snapshots) == set(refs),
-             'disabled-config three pinned account snapshots required')
+             'disabled-config and issuer six pinned account snapshots required')
     snapshot_result = _verify_disabled_config_snapshot_bytes(
         stage_accounts, snapshots['eligible'], snapshots['before'], snapshots['after'])
-    for label in ('eligible', 'before', 'after'):
+    issuer_snapshot_result = _verify_disabled_issuer_snapshot_bytes(
+        snapshots['after'], snapshots['issuer_eligible'],
+        snapshots['issuer_before'], snapshots['issuer_after'],
+        report.get('issuer_eligible_clock'))
+    for label in groups:
         account_refs = refs[label]
         _require(type(account_refs) is dict and set(account_refs) == set(ACCOUNT_NAMES),
                  'disabled-config exact five account references required')
@@ -1053,17 +1165,23 @@ def _verify_disabled_config_report(report, variant, stage_report, stage_accounts
         ('v3-disabled-negative-refresh-head', None),
         ('v3-disabled-negative-disable-config', None),
         ('v3-disabled-negative-valid-full-execute', 713),
+        ('v3-disabled-negative-reenable-config', None),
+        ('v3-disabled-negative-refresh-issuer-source', None),
+        ('v3-disabled-negative-rebind-issuer-head', None),
+        ('v3-disabled-negative-disable-issuer', None),
+        ('v3-disabled-negative-valid-full-execute-issuer', 713),
     ]
     txs = report.get('transactions')
     _txs(txs, expected_txs, 'disabled-config')
     _require(all(type(row.get('signature')) is str and row['signature']
                  and type(row.get('slot')) is int and row['slot'] > 0
                  for row in txs)
-             and len({row['signature'] for row in txs}) == 4
+             and len({row['signature'] for row in txs}) == 9
              and [row['slot'] for row in txs] == sorted(row['slot'] for row in txs),
              'disabled-config ordered signed transactions required')
-    _require(all(txs[index]['err'] is None for index in range(3))
+    _require(all(txs[index]['err'] is None for index in (0, 1, 2, 4, 5, 6, 7))
              and txs[3].get('err') == {'InstructionError': [1, {'Custom': 713}]}
+             and txs[8].get('err') == {'InstructionError': [1, {'Custom': 713}]}
              and report.get('refresh_transaction') == {
                  key: txs[0][key] for key in ('signature', 'slot')}
              and report.get('bind_transaction') == {
@@ -1074,21 +1192,49 @@ def _verify_disabled_config_report(report, variant, stage_report, stage_accounts
              and report.get('execute_transaction') == {
                  **{key: txs[3][key] for key in ('signature', 'slot')},
                  'custom_error': 713,
-                 'finalized_slot': report.get('rejected_finalized_slot')},
-             'disabled-config valid Full Execute must fail with Policy 713')
+                 'finalized_slot': report.get('rejected_finalized_slot')}
+             and type(report.get('reenable_transaction')) is dict
+             and set(report['reenable_transaction']) == {
+                 'signature', 'slot', 'finalized_slot'}
+             and all(report['reenable_transaction'].get(key) == txs[4][key]
+                     for key in ('signature', 'slot'))
+             and report.get('issuer_refresh_transaction') == {
+                 key: txs[5][key] for key in ('signature', 'slot')}
+             and report.get('issuer_bind_transaction') == {
+                 **{key: txs[6][key] for key in ('signature', 'slot')},
+                 'finalized_slot': report.get('issuer_eligible_finalized_slot')}
+             and report.get('issuer_disable_transaction') == {
+                 **{key: txs[7][key] for key in ('signature', 'slot')},
+                 'finalized_slot': report.get('issuer_disabled_finalized_slot')}
+             and report.get('issuer_execute_transaction') == {
+                 **{key: txs[8][key] for key in ('signature', 'slot')},
+                 'custom_error': 713,
+                 'finalized_slot': report.get('issuer_rejected_finalized_slot')},
+             'disabled-config and issuer valid Full Executes must fail with Policy 713')
     slots = [report.get(name) for name in (
         'source_finalized_slot', 'eligible_finalized_slot',
-        'disabled_finalized_slot', 'rejected_finalized_slot')]
+        'disabled_finalized_slot', 'rejected_finalized_slot',
+        'issuer_eligible_finalized_slot', 'issuer_disabled_finalized_slot',
+        'issuer_rejected_finalized_slot')]
     _require(all(type(slot) is int and slot > 0 for slot in slots)
              and type(stage_report.get('finalized_slot')) is int
              and slots[0] >= stage_report['finalized_slot']
              and slots == sorted(slots)
              and slots[1] >= txs[1]['slot']
              and slots[2] >= txs[2]['slot']
-             and slots[3] >= txs[3]['slot'],
+             and slots[3] >= txs[3]['slot']
+             and type(report['reenable_transaction']['finalized_slot']) is int
+             and slots[3] <= report['reenable_transaction']['finalized_slot']
+             and report['reenable_transaction']['finalized_slot'] >= txs[4]['slot']
+             and slots[4] >= txs[6]['slot']
+             and slots[5] >= txs[7]['slot']
+             and slots[6] >= txs[8]['slot'],
              'disabled-config finalized transaction order required')
     return {'verified': True, 'rejected_custom_error': 713,
-            'finalized_slot': slots[3], **snapshot_result}
+            'finalized_slot': slots[3],
+            'issuer_rejected_custom_error': 713,
+            'issuer_finalized_slot': slots[6],
+            **snapshot_result, **issuer_snapshot_result}
 
 
 def _verify_single_effect_bytes(before_request, before_queue, after_request,
@@ -2163,12 +2309,14 @@ def _verify_disabled_config_negative(ref, variant, globals_, slot, full_bundle,
                      'stage_plan_sha256', 'r0_source_receipt_sha256',
                      'full_proof_receipt_sha256', 'clone_receipt', 'full_wire',
                      'config', 'rust_config', 'status', 'outer', 'report',
-                     'eligible_accounts', 'before_accounts', 'after_accounts'}
+                     'eligible_accounts', 'before_accounts', 'after_accounts',
+                     'issuer_eligible_accounts', 'issuer_before_accounts',
+                     'issuer_after_accounts'}
     stage = slot['stage']
     stage_bundle = slot['stage_bundle']
     full_wire = full_bundle['result']['wires']['full']
     _require(type(sidecar) is dict and set(sidecar) == expected_keys
-             and sidecar.get('schema') == 'credential-v3-heldout-disabled-config-negative-v1'
+             and sidecar.get('schema') == 'credential-v3-heldout-disabled-config-negative-v2'
              and sidecar.get('variant') == variant
              and sidecar.get('stage_report_sha256') == stage['report_sha256']
              and sidecar.get('stage_plan_sha256') == stage['plan_sha256']
@@ -2219,6 +2367,9 @@ def _verify_disabled_config_negative(ref, variant, globals_, slot, full_bundle,
              and status.get('config_disabled') is True
              and status.get('execute_rejected') is True
              and status.get('accounts_unchanged') is True
+             and status.get('issuer_disabled') is True
+             and status.get('issuer_execute_rejected') is True
+             and status.get('issuer_accounts_unchanged') is True
              and status.get('ledger_reuse_requires_review') is True
              and status.get('report_path') == sidecar['report']['path']
              and status.get('report_sha256') == report_sha
@@ -2288,7 +2439,8 @@ def _verify_disabled_config_negative(ref, variant, globals_, slot, full_bundle,
              'disabled-config report/output paths differ from Rust input')
     refs = {}
     snapshots = {}
-    for label in ('eligible', 'before', 'after'):
+    for label in ('eligible', 'before', 'after', 'issuer_eligible',
+                  'issuer_before', 'issuer_after'):
         account_refs = sidecar[f'{label}_accounts']
         _require(type(account_refs) is dict and set(account_refs) == set(ACCOUNT_NAMES),
                  'disabled-config exact five account references required')
@@ -3230,7 +3382,8 @@ def verify_manifest(manifest_path):
         'counts': {'variants': 8, 'issuers': 4, 'layouts': 8,
                    'openssl_issuances': 4, 'application_branches': 32,
                    'distinct_requests': 24,
-                   'loaded_disabled_config_negatives': 8},
+                   'loaded_disabled_config_negatives': 8,
+                   'loaded_disabled_issuer_negatives': 8},
         'cases': output_cases,
     }
 

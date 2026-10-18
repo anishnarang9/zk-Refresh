@@ -17,6 +17,15 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name).resolve()
         self.manifest, self.acceptance = self.make_inputs()
+        first_case = json.loads(Path(self.manifest['path']).read_text())['cases'][0]
+        self.negative_sidecar_path = Path(
+            first_case['disabled_config_negative']['path'])
+        self.original_negative_sidecar = json.loads(
+            self.negative_sidecar_path.read_text())
+        self.original_negative_status = json.loads(Path(
+            self.original_negative_sidecar['status']['path']).read_text())
+        self.original_negative_report = json.loads(Path(
+            self.original_negative_sidecar['report']['path']).read_text())
 
     def write_json(self, name, value):
         path = self.root / name
@@ -30,6 +39,44 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         path.write_bytes(raw)
         path.chmod(0o600)
         return {'path': str(path), 'sha256': sha(raw)}
+
+    def _write_pinned_json(self, ref, value):
+        path = Path(ref['path'])
+        path.write_text(json.dumps(value, sort_keys=True) + '\n')
+        path.chmod(0o600)
+        return {'path': str(path), 'sha256': sha(path.read_bytes())}
+
+    def _rewrite_negative_sidecar(self, sidecar, *, status_changes=None,
+                                   report_changes=None):
+        report = json.loads(json.dumps(self.original_negative_report))
+        report.update(report_changes or {})
+        sidecar['report'] = self._write_pinned_json(sidecar['report'], report)
+
+        status = json.loads(json.dumps(self.original_negative_status))
+        status['report_path'] = sidecar['report']['path']
+        status['report_sha256'] = sidecar['report']['sha256']
+        status.update(status_changes or {})
+        sidecar['status'] = self._write_pinned_json(sidecar['status'], status)
+        self._write_pinned_json(
+            {'path': str(self.negative_sidecar_path)}, sidecar)
+
+        manifest_path = Path(self.manifest['path'])
+        manifest = json.loads(manifest_path.read_text())
+        case = manifest['cases'][0]
+        case['disabled_config_negative']['sha256'] = sha(
+            self.negative_sidecar_path.read_bytes())
+        journal_ref = case['run_journal']
+        journal_path = Path(journal_ref['path'])
+        journal = json.loads(journal_path.read_text())
+        journal['steps']['positive_full:disabled-config-negative'].update({
+            'sidecar': case['disabled_config_negative']['path'],
+            'sidecar_sha256': case['disabled_config_negative']['sha256'],
+        })
+        journal_ref['sha256'] = self._write_pinned_json(
+            journal_ref, journal)['sha256']
+        self.manifest['sha256'] = self._write_pinned_json(
+            self.manifest, manifest)['sha256']
+        self._repin_acceptance_manifest()
 
     @staticmethod
     def step_names():
@@ -191,10 +238,82 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
                     'sampled_peak_owned_tree_rss_bytes': 1200 + variant,
                     'sampled_peak_storage_growth_bytes': 2200 + variant,
                 })
+            clone_ref = self.write_json(
+                f'disabled-config-clone-{variant}.json', {'schema': 'clone-v1'})
+            full_wire_ref = self.write_bytes(
+                f'disabled-config-full-wire-{variant}.bin', b'full-wire')
+            config_ref = self.write_json(
+                f'disabled-config-wrapper-{variant}.json', {'schema': 'wrapper-v1'})
+            rust_config_ref = self.write_json(
+                f'disabled-config-rust-{variant}.json', {'schema': 'rust-config-v1'})
+            group_refs = {}
+            report_groups = {}
+            for group in ('eligible', 'before', 'after', 'issuer_eligible',
+                          'issuer_before', 'issuer_after'):
+                refs = {}
+                for name in ('config', 'issuer', 'head', 'request', 'queue'):
+                    snapshot = ('config-disabled' if group in ('before', 'after')
+                                else 'issuer-disabled' if group in
+                                ('issuer_before', 'issuer_after') else group)
+                    refs[name] = self.write_bytes(
+                        f'disabled-{variant}-{group}-{name}.bin',
+                        f'{variant}:{snapshot}:{name}'.encode())
+                group_refs[group + '_accounts'] = refs
+                report_groups[group + '_accounts'] = [
+                    {'name': name, **ref} for name, ref in refs.items()]
+                report_groups[group + '_sha256'] = [
+                    refs[name]['sha256'] for name in refs]
+            disabled_report = {
+                'schema': 'part5-v3-disabled-config-negative-report-v2',
+                'passed': True, 'variant': variant,
+                'stage_report_sha256': '1' * 64,
+                'stage_plan_sha256': '2' * 64,
+                'full_wire_sha256': full_wire_ref['sha256'],
+                'clone_receipt_sha256': clone_ref['sha256'],
+                'config_disabled': True, 'execute_rejected': True,
+                'refresh_and_bind_succeeded': True,
+                'disable_changed_only_enabled_and_epoch': True,
+                'accounts_unchanged_after_rejection': True,
+                'issuer_disabled': True, 'issuer_execute_rejected': True,
+                'issuer_disable_changed_only_enabled_epoch_status': True,
+                'issuer_accounts_unchanged_after_rejection': True,
+                'expected_custom_error': 713,
+                'issuer_eligible_clock': 111,
+                **report_groups,
+            }
+            disabled_report_ref = self.write_json(
+                f'disabled-config-report-{variant}.json', disabled_report)
+            disabled_status_ref = self.write_json(
+                f'disabled-config-status-{variant}.json', {
+                    'scope': 'part5-v3-disabled-config-negative',
+                    'status': 'failed', 'error_type': None,
+                    'config_sha256': config_ref['sha256'],
+                    'rust_config_path': rust_config_ref['path'],
+                    'rust_config_sha256': rust_config_ref['sha256'],
+                    'config_disabled': True, 'execute_rejected': True,
+                    'accounts_unchanged': True,
+                    'issuer_disabled': True, 'issuer_execute_rejected': True,
+                    'issuer_accounts_unchanged': True,
+                    'effect_verified': True, 'application_effect': False,
+                    'report_path': disabled_report_ref['path'],
+                    'report_sha256': disabled_report_ref['sha256'],
+                })
             disabled_negative_sidecar = self.write_json(
                 f'disabled-config-negative-sidecar-{variant}.json', {
-                    'schema': 'credential-v3-heldout-disabled-config-negative-v1',
+                    'schema': 'credential-v3-heldout-disabled-config-negative-v2',
+                    'variant': variant,
+                    'stage_report_sha256': '1' * 64,
+                    'stage_plan_sha256': '2' * 64,
+                    'r0_source_receipt_sha256': '3' * 64,
+                    'full_proof_receipt_sha256': '4' * 64,
+                    'clone_receipt': clone_ref,
+                    'full_wire': full_wire_ref,
+                    'config': config_ref,
+                    'rust_config': rust_config_ref,
+                    'status': disabled_status_ref,
                     'outer': disabled_negative_outer,
+                    'report': disabled_report_ref,
+                    **group_refs,
                 })
             steps['positive_full:disabled-config-negative'].update({
                 'sidecar': disabled_negative_sidecar['path'],
@@ -943,6 +1062,53 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         self._repin_acceptance_manifest()
         with self.assertRaisesRegex(ValueError, 'disabled-config audit cost'):
             analyzer.analyze(self.manifest, self.acceptance)
+
+    def test_each_negative_snapshot_group_must_match_its_report_refs(self):
+        for group in analyzer.DISABLED_CONFIG_ACCOUNT_GROUPS:
+            with self.subTest(group=group):
+                sidecar = json.loads(json.dumps(self.original_negative_sidecar))
+                other_group = ('after_accounts' if group == 'eligible_accounts'
+                               else 'eligible_accounts')
+                sidecar[group]['request'] = sidecar[other_group]['request']
+                self._rewrite_negative_sidecar(sidecar)
+                with self.assertRaisesRegex(ValueError, 'account refs differ'):
+                    analyzer.analyze(self.manifest, self.acceptance)
+
+    def test_disabled_config_and_issuer_status_fields_must_all_be_true(self):
+        fields = (
+            'config_disabled', 'execute_rejected', 'accounts_unchanged',
+            'issuer_disabled', 'issuer_execute_rejected',
+            'issuer_accounts_unchanged', 'effect_verified')
+        for field in fields:
+            with self.subTest(field=field):
+                sidecar = json.loads(json.dumps(self.original_negative_sidecar))
+                self._rewrite_negative_sidecar(
+                    sidecar, status_changes={field: False})
+                with self.assertRaisesRegex(ValueError, 'status fields'):
+                    analyzer.analyze(self.manifest, self.acceptance)
+
+    def test_disabled_negative_status_must_pin_report_bytes(self):
+        sidecar = json.loads(json.dumps(self.original_negative_sidecar))
+        self._rewrite_negative_sidecar(
+            sidecar, status_changes={'report_sha256': 'f' * 64})
+        with self.assertRaisesRegex(ValueError, 'status fields'):
+            analyzer.analyze(self.manifest, self.acceptance)
+
+    def test_disabled_config_and_issuer_report_fields_must_all_be_true(self):
+        fields = (
+            'config_disabled', 'execute_rejected', 'refresh_and_bind_succeeded',
+            'disable_changed_only_enabled_and_epoch',
+            'accounts_unchanged_after_rejection', 'issuer_disabled',
+            'issuer_execute_rejected',
+            'issuer_disable_changed_only_enabled_epoch_status',
+            'issuer_accounts_unchanged_after_rejection')
+        for field in fields:
+            with self.subTest(field=field):
+                sidecar = json.loads(json.dumps(self.original_negative_sidecar))
+                self._rewrite_negative_sidecar(
+                    sidecar, report_changes={field: False})
+                with self.assertRaisesRegex(ValueError, 'report fields'):
+                    analyzer.analyze(self.manifest, self.acceptance)
 
     def test_disabled_config_monitor_must_match_journal_owner_and_sidecar(self):
         manifest_path = Path(self.manifest['path'])

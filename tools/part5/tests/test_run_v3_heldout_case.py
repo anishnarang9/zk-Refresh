@@ -479,7 +479,10 @@ def test_disabled_config_sidecar_reuse_requires_every_pinned_snapshot(tmp_path):
         'status': ref, 'outer': ref, 'report': ref,
         'eligible_accounts': {name: ref for name in runner.NEGATIVE_ACCOUNT_NAMES},
         'before_accounts': {name: ref for name in runner.NEGATIVE_ACCOUNT_NAMES},
-        'after_accounts': {name: ref for name in runner.NEGATIVE_ACCOUNT_NAMES}}
+        'after_accounts': {name: ref for name in runner.NEGATIVE_ACCOUNT_NAMES},
+        'issuer_eligible_accounts': {name: ref for name in runner.NEGATIVE_ACCOUNT_NAMES},
+        'issuer_before_accounts': {name: ref for name in runner.NEGATIVE_ACCOUNT_NAMES},
+        'issuer_after_accounts': {name: ref for name in runner.NEGATIVE_ACCOUNT_NAMES}}
     sidecar_path = tmp_path / 'sidecar.json'
     sidecar_path.write_text(json.dumps(sidecar, sort_keys=True))
     sidecar_path.chmod(0o600)
@@ -487,7 +490,7 @@ def test_disabled_config_sidecar_reuse_requires_every_pinned_snapshot(tmp_path):
     assert runner.HeldoutCaseRunner._disabled_config_sidecar_verified(
         sidecar_path, sidecar_sha)
     bad = json.loads(sidecar_path.read_text())
-    bad['after_accounts']['request']['sha256'] = '0' * 64
+    bad['issuer_after_accounts']['request']['sha256'] = '0' * 64
     sidecar_path.write_text(json.dumps(bad, sort_keys=True))
     assert not runner.HeldoutCaseRunner._disabled_config_sidecar_verified(
         sidecar_path, hashlib.sha256(sidecar_path.read_bytes()).hexdigest())
@@ -536,9 +539,9 @@ def test_disabled_config_negative_wall_cost_is_separate_from_matched_branches():
         })
 
 
-def test_disabled_config_supervisor_binds_all_three_five_account_snapshots(tmp_path):
+def test_disabled_config_supervisor_binds_all_six_five_account_snapshots(tmp_path):
     report = {}
-    for group in ('eligible', 'before', 'after'):
+    for group in disabled_negative.SNAPSHOT_GROUPS:
         rows, hashes = [], []
         for name in disabled_negative.ACCOUNT_NAMES:
             path = tmp_path / group / f'{name}.bin'
@@ -546,6 +549,8 @@ def test_disabled_config_supervisor_binds_all_three_five_account_snapshots(tmp_p
             payload = f'{group}:{name}'.encode()
             if group == 'after':
                 payload = f'before:{name}'.encode()
+            if group == 'issuer_after':
+                payload = f'issuer_before:{name}'.encode()
             path.write_bytes(payload)
             path.chmod(0o600)
             sha = hashlib.sha256(payload).hexdigest()
@@ -554,7 +559,7 @@ def test_disabled_config_supervisor_binds_all_three_five_account_snapshots(tmp_p
         report[group + '_accounts'] = rows
         report[group + '_sha256'] = hashes
     assert disabled_negative._check_snapshots(report, tmp_path)
-    report['after_accounts'][0]['sha256'] = '0' * 64
+    report['issuer_after_accounts'][0]['sha256'] = '0' * 64
     with pytest.raises(ValueError, match='snapshot ref mismatch'):
         disabled_negative._check_snapshots(report, tmp_path)
 

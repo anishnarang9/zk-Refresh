@@ -20,7 +20,114 @@ from tools.part5.prepare_v3_revocation_cohort import membership_for_pair
 from tools.part5.credential_profile import admit_certificate, public_bindings
 
 
+def issuer_negative_snapshots(disabled_config, enabled_config):
+    disabled = dict(disabled_config)
+    active = dict(disabled)
+    active['config'] = enabled_config
+    prior_config_epoch = int.from_bytes(disabled['config'][372:380], 'big') - 1
+    root = enabled_config[332:364]
+    root_version = enabled_config[364:372]
+    prior_issuer = bytearray(disabled['issuer'])
+    prior_issuer[:8] = b'DYNISS03'
+    prior_issuer[8:40] = b'K' * 32
+    prior_issuer[172] = 1
+    prior_issuer[173:181] = (1).to_bytes(8, 'big')
+    prior_issuer[181:213] = b'S' * 32
+    prior_issuer[213:221] = (100).to_bytes(8, 'big', signed=True)
+    prior_issuer[221:229] = (340).to_bytes(8, 'big', signed=True)
+    prior_issuer[229:261] = root
+    prior_issuer[261:269] = root_version
+    prior_issuer[269:277] = (1).to_bytes(8, 'big')
+    prior_issuer[277:309] = b'S' * 32
+    prior_issuer[309:317] = (1).to_bytes(8, 'big')
+    prior_issuer[317:349] = b'E' * 32
+    prior_issuer[349:357] = prior_config_epoch.to_bytes(8, 'big')
+    prior_issuer[357] = 1
+    prior_issuer[358:366] = (2).to_bytes(8, 'big')
+    prior_issuer[366:374] = (2).to_bytes(8, 'big')
+    disabled['issuer'] = bytes(prior_issuer)
+    prior_head = bytearray(disabled['head'])
+    prior_head[:8] = b'DYNHEAD3'
+    prior_head[8:40] = prior_issuer[8:40]
+    prior_head[72:104] = enabled_config[72:104]
+    prior_head[104:112] = (1).to_bytes(8, 'big')
+    prior_head[112:144] = b'P' * 32
+    prior_head[144:176] = bytes(32)
+    prior_head[176:208] = root
+    prior_head[208:216] = root_version
+    prior_head[216:224] = (1).to_bytes(8, 'big')
+    prior_head[224:256] = b'S' * 32
+    prior_head[256:264] = prior_config_epoch.to_bytes(8, 'big')
+    prior_head[264:272] = (2).to_bytes(8, 'big')
+    prior_head[272:280] = (100).to_bytes(8, 'big', signed=True)
+    disabled['head'] = bytes(prior_head)
+    issuer = bytearray(prior_issuer)
+    issuer[173:181] = (2).to_bytes(8, 'big')
+    issuer[181:213] = b'D' * 32
+    issuer[213:221] = (110).to_bytes(8, 'big', signed=True)
+    issuer[221:229] = (350).to_bytes(8, 'big', signed=True)
+    issuer[269:277] = (2).to_bytes(8, 'big')
+    issuer[277:309] = b'D' * 32
+    issuer[349:357] = enabled_config[372:380]
+    active['issuer'] = bytes(issuer)
+    head = bytearray(prior_head)
+    head[104:112] = (2).to_bytes(8, 'big')
+    head[112:144] = b'Q' * 32
+    head[144:176] = b'P' * 32
+    head[216:224] = (2).to_bytes(8, 'big')
+    head[224:256] = b'D' * 32
+    head[256:264] = enabled_config[372:380]
+    head[272:280] = (110).to_bytes(8, 'big', signed=True)
+    active['head'] = bytes(head)
+    before = dict(active)
+    issuer[172] = 0
+    issuer[357] = 0
+    issuer[358:366] = (3).to_bytes(8, 'big')
+    before['issuer'] = bytes(issuer)
+    return disabled, active, before
+
+
 class HeldoutAcceptanceVerifierTests(unittest.TestCase):
+    def test_disabled_issuer_snapshots_isolate_second_policy_rejection(self):
+        disabled_config = {
+            name: bytes([index + 1]) * size
+            for index, (name, size) in enumerate((
+                ('config', 381), ('issuer', 374), ('head', 280),
+                ('request', 2249), ('queue', 2090)))
+        }
+        config = bytearray(disabled_config['config'])
+        config[:8] = b'DYNCONF3'
+        config[372:380] = (8).to_bytes(8, 'big')
+        config[380] = 0
+        disabled_config['config'] = bytes(config)
+        eligible = dict(disabled_config)
+        config[372:380] = (9).to_bytes(8, 'big')
+        config[380] = 1
+        disabled_config, eligible, before = issuer_negative_snapshots(
+            disabled_config, bytes(config))
+        result = verifier._verify_disabled_issuer_snapshot_bytes(
+            disabled_config, eligible, before, dict(before), 111)
+        self.assertEqual(result['issuer_eligibility_epoch_before'], 2)
+        self.assertEqual(result['issuer_eligibility_epoch_after'], 3)
+        with self.assertRaisesRegex(ValueError, 'issuer eligibility'):
+            verifier._verify_disabled_issuer_snapshot_bytes(
+                disabled_config, eligible, before, dict(before), 400)
+        zero_head_eligible = dict(eligible)
+        zero_head_before = dict(before)
+        zero_head = bytearray(eligible['head'])
+        zero_head[112:144] = bytes(32)
+        zero_head_eligible['head'] = bytes(zero_head)
+        zero_head_before['head'] = bytes(zero_head)
+        with self.assertRaisesRegex(ValueError, 'issuer eligibility'):
+            verifier._verify_disabled_issuer_snapshot_bytes(
+                disabled_config, zero_head_eligible, zero_head_before,
+                dict(zero_head_before), 111)
+        altered = dict(before)
+        altered['queue'] = b'X' * 2090
+        with self.assertRaisesRegex(ValueError, 'failed issuer Execute changed'):
+            verifier._verify_disabled_issuer_snapshot_bytes(
+                disabled_config, eligible, before, altered, 111)
+
     def test_disabled_config_snapshots_isolate_policy_rejection(self):
         stage = {
             name: bytes([index + 1]) * size
@@ -130,7 +237,27 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         active[372:380] = (3).to_bytes(8, 'big')
         active[380] = 0
         before['config'] = bytes(active)
-        snapshots = {'eligible': eligible, 'before': before, 'after': dict(before)}
+        issuer_eligible = dict(before)
+        active[372:380] = (4).to_bytes(8, 'big')
+        active[380] = 1
+        before, issuer_eligible, issuer_before = issuer_negative_snapshots(
+            before, bytes(active))
+        eligible['issuer'] = before['issuer']
+        eligible['head'] = before['head']
+        snapshots = {'eligible': eligible, 'before': before, 'after': dict(before),
+                     'issuer_eligible': issuer_eligible,
+                     'issuer_before': issuer_before, 'issuer_after': dict(issuer_before)}
+        invalid_eligible = dict(issuer_eligible)
+        invalid_before = dict(issuer_before)
+        for group in (invalid_eligible, invalid_before):
+            invalid_issuer = bytearray(group['issuer'])
+            invalid_issuer[213:221] = (200).to_bytes(8, 'big', signed=True)
+            invalid_issuer[221:229] = (100).to_bytes(8, 'big', signed=True)
+            group['issuer'] = bytes(invalid_issuer)
+        with self.assertRaisesRegex(ValueError, 'issuer eligibility'):
+            verifier._verify_disabled_issuer_snapshot_bytes(
+                snapshots['after'], invalid_eligible, invalid_before,
+                dict(invalid_before), 111)
         refs = {label: {name: {'path': str(self.root / f'{label}-{name}.bin'),
                                'sha256': hashlib.sha256(data).hexdigest()}
                         for name, data in accounts.items()}
@@ -138,15 +265,20 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         scenarios = ('v3-disabled-negative-refresh-source',
                      'v3-disabled-negative-refresh-head',
                      'v3-disabled-negative-disable-config',
-                     'v3-disabled-negative-valid-full-execute')
+                     'v3-disabled-negative-valid-full-execute',
+                     'v3-disabled-negative-reenable-config',
+                     'v3-disabled-negative-refresh-issuer-source',
+                     'v3-disabled-negative-rebind-issuer-head',
+                     'v3-disabled-negative-disable-issuer',
+                     'v3-disabled-negative-valid-full-execute-issuer')
         txs = [{'scenario': scenario, 'signature': f'sig-{i}',
-                'slot': 41 + i, 'customError': 713 if i == 3 else None,
+                'slot': 41 + i, 'customError': 713 if i in (3, 8) else None,
                 'err': {'InstructionError': [1, {'Custom': 713}]}
-                       if i == 3 else None}
+                       if i in (3, 8) else None}
                for i, scenario in enumerate(scenarios)]
         stage_report = {'program': 'P', 'genesis': 'G', 'finalized_slot': 40,
                         **{name: f'address-{name}' for name in names}}
-        report = {'schema': 'part5-v3-disabled-config-negative-report-v1',
+        report = {'schema': 'part5-v3-disabled-config-negative-report-v2',
                   'variant': 3, 'request_slot': 'A', 'passed': True,
                   'program': 'P', 'genesis': 'G', 'loaded_elf_sha256': 'e' * 64,
                   'stage_report_sha256': 'a' * 64,
@@ -157,12 +289,20 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
                   'refresh_and_bind_succeeded': True,
                   'disable_changed_only_enabled_and_epoch': True,
                   'accounts_unchanged_after_rejection': True,
+                  'issuer_disabled': True,
+                  'issuer_execute_rejected': True,
+                  'issuer_disable_changed_only_enabled_epoch_status': True,
+                  'issuer_accounts_unchanged_after_rejection': True,
                   'expected_custom_error': 713,
                   'addresses': {name: f'address-{name}' for name in names},
                   'source_finalized_slot': 40,
                   'eligible_finalized_slot': 42,
                   'disabled_finalized_slot': 43,
                   'rejected_finalized_slot': 44,
+                  'issuer_eligible_finalized_slot': 47,
+                  'issuer_disabled_finalized_slot': 48,
+                  'issuer_rejected_finalized_slot': 49,
+                  'issuer_eligible_clock': 111,
                   'refresh_transaction': {'signature': 'sig-0', 'slot': 41},
                   'bind_transaction': {'signature': 'sig-1', 'slot': 42},
                   'disable_transaction': {'signature': 'sig-2', 'slot': 43,
@@ -170,6 +310,16 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
                   'execute_transaction': {'signature': 'sig-3', 'slot': 44,
                                           'custom_error': 713,
                                           'finalized_slot': 44},
+                  'reenable_transaction': {'signature': 'sig-4', 'slot': 45,
+                                            'finalized_slot': 45},
+                  'issuer_refresh_transaction': {'signature': 'sig-5', 'slot': 46},
+                  'issuer_bind_transaction': {'signature': 'sig-6', 'slot': 47,
+                                              'finalized_slot': 47},
+                  'issuer_disable_transaction': {'signature': 'sig-7', 'slot': 48,
+                                                 'finalized_slot': 48},
+                  'issuer_execute_transaction': {'signature': 'sig-8', 'slot': 49,
+                                                 'custom_error': 713,
+                                                 'finalized_slot': 49},
                   'transactions': txs}
         for label, accounts in snapshots.items():
             report[f'{label}_sha256'] = [hashlib.sha256(accounts[name]).hexdigest()
@@ -195,6 +345,27 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
             verifier._verify_disabled_config_report(
                 altered, 3, stage_report, stage_accounts, 'e' * 64,
                 expected, refs, snapshots)
+        altered = json.loads(json.dumps(report))
+        altered['issuer_execute_transaction']['custom_error'] = 714
+        with self.assertRaisesRegex(ValueError, 'Policy 713'):
+            verifier._verify_disabled_config_report(
+                altered, 3, stage_report, stage_accounts, 'e' * 64,
+                expected, refs, snapshots)
+        altered = json.loads(json.dumps(report))
+        altered['issuer_after_sha256'][1] = 'f' * 64
+        with self.assertRaisesRegex(ValueError, 'snapshot hash'):
+            verifier._verify_disabled_config_report(
+                altered, 3, stage_report, stage_accounts, 'e' * 64,
+                expected, refs, snapshots)
+        altered_snapshots = dict(snapshots)
+        altered_snapshots['issuer_before'] = dict(issuer_before)
+        issuer_bytes = bytearray(issuer_before['issuer'])
+        issuer_bytes[170] ^= 1
+        altered_snapshots['issuer_before']['issuer'] = bytes(issuer_bytes)
+        with self.assertRaisesRegex(ValueError, 'issuer disable'):
+            verifier._verify_disabled_config_report(
+                report, 3, stage_report, stage_accounts, 'e' * 64,
+                expected, refs, altered_snapshots)
 
     def test_disabled_config_negative_joins_pinned_sidecar_and_rejects_wrong_outer_owner(self):
         names = ('config', 'issuer', 'head', 'request', 'queue')
@@ -244,7 +415,16 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         disabled_config[372:380] = (8).to_bytes(8, 'big')
         disabled_config[380] = 0
         before['config'] = bytes(disabled_config)
-        snapshots = {'eligible': eligible, 'before': before, 'after': dict(before)}
+        issuer_eligible = dict(before)
+        disabled_config[372:380] = (9).to_bytes(8, 'big')
+        disabled_config[380] = 1
+        before, issuer_eligible, issuer_before = issuer_negative_snapshots(
+            before, bytes(disabled_config))
+        eligible['issuer'] = before['issuer']
+        eligible['head'] = before['head']
+        snapshots = {'eligible': eligible, 'before': before, 'after': dict(before),
+                     'issuer_eligible': issuer_eligible,
+                     'issuer_before': issuer_before, 'issuer_after': dict(issuer_before)}
 
         for index, name in enumerate(names):
             (stage_root / f'{name}.bin').write_bytes(stage_accounts[name])
@@ -357,16 +537,21 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
                     output / label / f'{name}.bin', accounts[name])
         transactions = [
             {'scenario': scenario, 'signature': f'sig-{index}', 'slot': 41 + index,
-             'customError': 713 if index == 3 else None,
+             'customError': 713 if index in (3, 8) else None,
              'err': {'InstructionError': [1, {'Custom': 713}]}
-                    if index == 3 else None}
+                    if index in (3, 8) else None}
             for index, scenario in enumerate((
                 'v3-disabled-negative-refresh-source',
                 'v3-disabled-negative-refresh-head',
                 'v3-disabled-negative-disable-config',
-                'v3-disabled-negative-valid-full-execute'))]
+                'v3-disabled-negative-valid-full-execute',
+                'v3-disabled-negative-reenable-config',
+                'v3-disabled-negative-refresh-issuer-source',
+                'v3-disabled-negative-rebind-issuer-head',
+                'v3-disabled-negative-disable-issuer',
+                'v3-disabled-negative-valid-full-execute-issuer'))]
         report = {
-            'schema': 'part5-v3-disabled-config-negative-report-v1',
+            'schema': 'part5-v3-disabled-config-negative-report-v2',
             'variant': variant, 'request_slot': request_slot, 'passed': True,
             'program': program, 'genesis': genesis, 'loaded_elf_sha256': elf_sha,
             'stage_report_sha256': stage_report_ref['sha256'],
@@ -377,16 +562,34 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
             'refresh_and_bind_succeeded': True,
             'disable_changed_only_enabled_and_epoch': True,
             'accounts_unchanged_after_rejection': True,
+            'issuer_disabled': True,
+            'issuer_execute_rejected': True,
+            'issuer_disable_changed_only_enabled_epoch_status': True,
+            'issuer_accounts_unchanged_after_rejection': True,
             'expected_custom_error': 713,
             'addresses': {name: stage_report[name] for name in names},
             'source_finalized_slot': 40, 'eligible_finalized_slot': 42,
             'disabled_finalized_slot': 43, 'rejected_finalized_slot': 44,
+            'issuer_eligible_finalized_slot': 47,
+            'issuer_disabled_finalized_slot': 48,
+            'issuer_rejected_finalized_slot': 49,
+            'issuer_eligible_clock': 111,
             'refresh_transaction': {'signature': 'sig-0', 'slot': 41},
             'bind_transaction': {'signature': 'sig-1', 'slot': 42},
             'disable_transaction': {'signature': 'sig-2', 'slot': 43,
                                     'finalized_slot': 43},
             'execute_transaction': {'signature': 'sig-3', 'slot': 44,
                                     'custom_error': 713, 'finalized_slot': 44},
+            'reenable_transaction': {'signature': 'sig-4', 'slot': 45,
+                                     'finalized_slot': 45},
+            'issuer_refresh_transaction': {'signature': 'sig-5', 'slot': 46},
+            'issuer_bind_transaction': {'signature': 'sig-6', 'slot': 47,
+                                        'finalized_slot': 47},
+            'issuer_disable_transaction': {'signature': 'sig-7', 'slot': 48,
+                                           'finalized_slot': 48},
+            'issuer_execute_transaction': {'signature': 'sig-8', 'slot': 49,
+                                           'custom_error': 713,
+                                           'finalized_slot': 49},
             'transactions': transactions}
         for label, accounts in snapshots.items():
             report[f'{label}_sha256'] = [
@@ -400,7 +603,10 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
             'scope': 'part5-v3-disabled-config-negative', 'status': 'failed',
             'error_type': None, 'effect_verified': True, 'application_effect': False,
             'config_disabled': True, 'execute_rejected': True,
-            'accounts_unchanged': True, 'ledger_reuse_requires_review': True,
+            'accounts_unchanged': True, 'issuer_disabled': True,
+            'issuer_execute_rejected': True,
+            'issuer_accounts_unchanged': True,
+            'ledger_reuse_requires_review': True,
             'report_path': report_ref['path'], 'report_sha256': report_ref['sha256'],
             'config_sha256': wrapper_ref['sha256'],
             'rust_config_path': str(rust_config_path),
@@ -423,7 +629,7 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
                                          {'fixture': 'full proof receipt'})
 
         sidecar = {
-            'schema': 'credential-v3-heldout-disabled-config-negative-v1',
+            'schema': 'credential-v3-heldout-disabled-config-negative-v2',
             'variant': variant,
             'stage_report_sha256': stage_report_ref['sha256'],
             'stage_plan_sha256': stage_plan_sha,
@@ -433,7 +639,10 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
             'config': wrapper_ref, 'rust_config': rust_config_ref,
             'status': status_ref, 'outer': outer_ref, 'report': report_ref,
             'eligible_accounts': rows['eligible'],
-            'before_accounts': rows['before'], 'after_accounts': rows['after']}
+            'before_accounts': rows['before'], 'after_accounts': rows['after'],
+            'issuer_eligible_accounts': rows['issuer_eligible'],
+            'issuer_before_accounts': rows['issuer_before'],
+            'issuer_after_accounts': rows['issuer_after']}
         sidecar_path = self.root / 'negative' / 'sidecar.json'
         sidecar_ref = write_json(sidecar_path, sidecar)
         slot = {

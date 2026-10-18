@@ -29,6 +29,18 @@ VARIANTS = set(range(8))
 BRANCHES = {'full', 'unrelated_full', 'anchor', 'own_revocation'}
 HEX64 = re.compile(r'[0-9a-f]{64}\Z')
 MAX_JSON = 16 * 1024 * 1024
+DISABLED_CONFIG_SIDECAR_SCHEMA = 'credential-v3-heldout-disabled-config-negative-v2'
+DISABLED_CONFIG_REPORT_SCHEMA = 'part5-v3-disabled-config-negative-report-v2'
+DISABLED_CONFIG_SIDECAR_KEYS = {
+    'schema', 'variant', 'stage_report_sha256', 'stage_plan_sha256',
+    'r0_source_receipt_sha256', 'full_proof_receipt_sha256', 'clone_receipt',
+    'full_wire', 'config', 'rust_config', 'status', 'outer', 'report',
+    'eligible_accounts', 'before_accounts', 'after_accounts',
+    'issuer_eligible_accounts', 'issuer_before_accounts', 'issuer_after_accounts'}
+NEGATIVE_ACCOUNT_NAMES = ('config', 'issuer', 'head', 'request', 'queue')
+DISABLED_CONFIG_ACCOUNT_GROUPS = (
+    'eligible_accounts', 'before_accounts', 'after_accounts',
+    'issuer_eligible_accounts', 'issuer_before_accounts', 'issuer_after_accounts')
 
 
 def _sha(raw):
@@ -259,19 +271,113 @@ def _verify_disabled_config_audit(case, journal):
             or step.get('sidecar_sha256') != sidecar_ref.get('sha256')):
         raise ValueError('disabled-config sidecar differs from journal step result')
     sidecar, _ = _load_input_ref(sidecar_ref, 'disabled-config negative sidecar')
-    if (sidecar.get('schema') != 'credential-v3-heldout-disabled-config-negative-v1'
-            or type(sidecar.get('outer')) is not dict
-            or set(sidecar['outer']) != {'path', 'sha256'}):
-        raise ValueError('pinned disabled-config outer monitor reference required')
+    if (set(sidecar) != DISABLED_CONFIG_SIDECAR_KEYS
+            or sidecar.get('schema') != DISABLED_CONFIG_SIDECAR_SCHEMA
+            or type(sidecar.get('variant')) is not int
+            or sidecar['variant'] != case.get('variant')
+            or any(type(sidecar.get(field)) is not str
+                   or HEX64.fullmatch(sidecar[field]) is None
+                   for field in ('stage_report_sha256', 'stage_plan_sha256',
+                                 'r0_source_receipt_sha256',
+                                 'full_proof_receipt_sha256'))):
+        raise ValueError('pinned v2 disabled-config and issuer sidecar required')
+    artifact_fields = ('clone_receipt', 'full_wire', 'config', 'rust_config',
+                       'status', 'outer', 'report')
+    artifact_refs = {}
+    for field in artifact_fields:
+        ref = sidecar[field]
+        if (type(ref) is not dict or set(ref) != {'path', 'sha256'}
+                or type(ref.get('path')) is not str
+                or not Path(ref['path']).is_absolute()
+                or type(ref.get('sha256')) is not str
+                or HEX64.fullmatch(ref['sha256']) is None):
+            raise ValueError(f'pinned disabled-config {field} artifact reference required')
+        artifact_refs[field] = ref
+    for field in ('clone_receipt', 'config', 'rust_config'):
+        _load_input_ref(artifact_refs[field], f'disabled-config {field}')
+    _read_ref(artifact_refs['full_wire'], cap=32 * 1024 * 1024)
+
     monitor_ref = {'path': step.get('monitor'), 'sha256': step.get('monitor_sha256')}
-    if monitor_ref != sidecar['outer']:
+    if monitor_ref != artifact_refs['outer']:
         raise ValueError('disabled-config journal monitor differs from sidecar outer ref')
     owner = step.get('monitor_owner')
     if type(owner) is not str or not owner:
         raise ValueError('disabled-config journal monitor owner required')
-    outer, _ = _load_input_ref(sidecar['outer'], 'disabled-config outer monitor')
+    outer, _ = _load_input_ref(artifact_refs['outer'], 'disabled-config outer monitor')
     if outer.get('owner') != owner:
         raise ValueError('disabled-config outer monitor owner differs from journal')
+
+    status, _ = _load_input_ref(artifact_refs['status'], 'disabled-config status')
+    report, report_sha = _load_input_ref(artifact_refs['report'], 'disabled-config report')
+    status_true_fields = (
+        'config_disabled', 'execute_rejected', 'accounts_unchanged',
+        'issuer_disabled', 'issuer_execute_rejected',
+        'issuer_accounts_unchanged', 'effect_verified')
+    if (status.get('scope') != 'part5-v3-disabled-config-negative'
+            or status.get('status') != 'failed'
+            or status.get('error_type') is not None
+            or status.get('application_effect') is not False
+            or any(status.get(field) is not True for field in status_true_fields)
+            or status.get('config_sha256') != artifact_refs['config']['sha256']
+            or status.get('rust_config_path') != artifact_refs['rust_config']['path']
+            or status.get('rust_config_sha256') != artifact_refs['rust_config']['sha256']
+            or status.get('report_path') != artifact_refs['report']['path']
+            or status.get('report_sha256') != report_sha):
+        raise ValueError('disabled-config and issuer status fields do not bind to sidecar')
+
+    report_true_fields = (
+        'config_disabled', 'execute_rejected', 'refresh_and_bind_succeeded',
+        'disable_changed_only_enabled_and_epoch',
+        'accounts_unchanged_after_rejection', 'issuer_disabled',
+        'issuer_execute_rejected',
+        'issuer_disable_changed_only_enabled_epoch_status',
+        'issuer_accounts_unchanged_after_rejection')
+    if (report.get('schema') != DISABLED_CONFIG_REPORT_SCHEMA
+            or report.get('passed') is not True
+            or type(report.get('variant')) is not int
+            or report.get('variant') != sidecar['variant']
+            or report.get('stage_report_sha256') != sidecar['stage_report_sha256']
+            or report.get('stage_plan_sha256') != sidecar['stage_plan_sha256']
+            or report.get('full_wire_sha256') != artifact_refs['full_wire']['sha256']
+            or report.get('clone_receipt_sha256') != artifact_refs['clone_receipt']['sha256']
+            or type(report.get('expected_custom_error')) is not int
+            or report['expected_custom_error'] != 713
+            or type(report.get('issuer_eligible_clock')) is not int
+            or report['issuer_eligible_clock'] < 0
+            or any(report.get(field) is not True for field in report_true_fields)):
+        raise ValueError('disabled-config and issuer report fields do not bind to sidecar')
+
+    group_hashes = {}
+    for sidecar_group in DISABLED_CONFIG_ACCOUNT_GROUPS:
+        refs = sidecar[sidecar_group]
+        report_group = sidecar_group.removesuffix('_accounts')
+        rows = report.get(report_group + '_accounts')
+        hashes = report.get(report_group + '_sha256')
+        if (type(refs) is not dict or set(refs) != set(NEGATIVE_ACCOUNT_NAMES)
+                or type(rows) is not list or len(rows) != len(NEGATIVE_ACCOUNT_NAMES)
+                or type(hashes) is not list or len(hashes) != len(NEGATIVE_ACCOUNT_NAMES)):
+            raise ValueError(f'pinned {report_group} account snapshot group required')
+        ordered_hashes = []
+        for name, row, expected_hash in zip(NEGATIVE_ACCOUNT_NAMES, rows, hashes):
+            ref = refs[name]
+            if (type(ref) is not dict or set(ref) != {'path', 'sha256'}
+                    or type(ref.get('path')) is not str
+                    or not Path(ref['path']).is_absolute()
+                    or type(ref.get('sha256')) is not str
+                    or HEX64.fullmatch(ref['sha256']) is None
+                    or type(row) is not dict
+                    or set(row) != {'name', 'path', 'sha256'}
+                    or row.get('name') != name
+                    or row.get('path') != ref['path']
+                    or row.get('sha256') != ref['sha256']
+                    or expected_hash != ref['sha256']):
+                raise ValueError(f'{report_group} account refs differ from sidecar/report')
+            _read_ref(ref, cap=4096)
+            ordered_hashes.append(ref['sha256'])
+        group_hashes[report_group] = ordered_hashes
+    if (group_hashes['before'] != group_hashes['after']
+            or group_hashes['issuer_before'] != group_hashes['issuer_after']):
+        raise ValueError('config and issuer rejected Execute snapshots must remain unchanged')
 
 
 def _outer(ref, owner=None, expected_exit=None):

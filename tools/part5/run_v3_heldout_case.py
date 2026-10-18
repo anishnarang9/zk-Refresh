@@ -27,14 +27,15 @@ LIMITS = {'runtime_seconds': 180, 'rss_bytes': 4294967296,
           'storage_growth_bytes': 268435456}
 JOURNAL_SCHEMA = 'credential-v3-heldout-case-run-journal-v1'
 RUN_SCHEMA = 'credential-v3-heldout-case-run-v1'
-DISABLED_CONFIG_REPORT_SCHEMA = 'part5-v3-disabled-config-negative-report-v1'
-DISABLED_CONFIG_SIDECAR_SCHEMA = 'credential-v3-heldout-disabled-config-negative-v1'
+DISABLED_CONFIG_REPORT_SCHEMA = 'part5-v3-disabled-config-negative-report-v2'
+DISABLED_CONFIG_SIDECAR_SCHEMA = 'credential-v3-heldout-disabled-config-negative-v2'
 NEGATIVE_ACCOUNT_NAMES = ('config', 'issuer', 'head', 'request', 'queue')
 DISABLED_CONFIG_SIDECAR_KEYS = {
     'schema', 'variant', 'stage_report_sha256', 'stage_plan_sha256',
     'r0_source_receipt_sha256', 'full_proof_receipt_sha256', 'clone_receipt',
     'full_wire', 'config', 'rust_config', 'status', 'outer', 'report',
-    'eligible_accounts', 'before_accounts', 'after_accounts'}
+    'eligible_accounts', 'before_accounts', 'after_accounts',
+    'issuer_eligible_accounts', 'issuer_before_accounts', 'issuer_after_accounts'}
 ROLE_NAMES = ('profile', 'r1cs', 'witness_executable', 'setup_manifest',
               'ordinary_vk', 'proof_runner', 'signer_interface',
               'ordinary_adapter', 'loaded_elf')
@@ -1213,6 +1214,9 @@ class HeldoutCaseRunner:
                 or status.get('config_disabled') is not True
                 or status.get('execute_rejected') is not True
                 or status.get('accounts_unchanged') is not True
+                or status.get('issuer_disabled') is not True
+                or status.get('issuer_execute_rejected') is not True
+                or status.get('issuer_accounts_unchanged') is not True
                 or status.get('effect_verified') is not True
                 or status.get('application_effect') is not False
                 or status.get('report_path') != str(report_path)
@@ -1231,10 +1235,15 @@ class HeldoutCaseRunner:
                 or report.get('clone_receipt_sha256') != clone['receipt_sha256']
                 or report.get('config_disabled') is not True
                 or report.get('execute_rejected') is not True
+                or report.get('issuer_disabled') is not True
+                or report.get('issuer_execute_rejected') is not True
+                or report.get('issuer_disable_changed_only_enabled_epoch_status') is not True
+                or report.get('issuer_accounts_unchanged_after_rejection') is not True
                 or report.get('expected_custom_error') != 713):
             raise ValueError('pinned loaded-ELF disabled-config rejection required')
         accounts = {group: self._disabled_account_bundle(report, output, group)
-                    for group in ('eligible', 'before', 'after')}
+                    for group in ('eligible', 'before', 'after',
+                                  'issuer_eligible', 'issuer_before', 'issuer_after')}
         sidecar = {'schema': DISABLED_CONFIG_SIDECAR_SCHEMA,
             'variant': self.variant,
             'stage_report_sha256': stage['report_sha256'],
@@ -1592,7 +1601,9 @@ class HeldoutCaseRunner:
                         or not _hash(ref.get('sha256'))):
                     return False
                 _read(ref['path'], ref['sha256'], 32 * 1024 * 1024)
-            for group in ('eligible_accounts', 'before_accounts', 'after_accounts'):
+            for group in ('eligible_accounts', 'before_accounts', 'after_accounts',
+                          'issuer_eligible_accounts', 'issuer_before_accounts',
+                          'issuer_after_accounts'):
                 rows = sidecar[group]
                 if type(rows) is not dict or set(rows) != set(NEGATIVE_ACCOUNT_NAMES):
                     return False
