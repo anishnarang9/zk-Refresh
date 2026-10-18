@@ -27,7 +27,7 @@ PREFLIGHT_SCHEMA = 'credential-v3-heldout-freeze-preflight-v2'
 PACKAGE_PINS_PATH = ROOT / packet_v2.PACKAGE_PINS_RELATIVE
 OUTPUT_PINS_SCHEMA = 'part5-v3-fresh-package-output-pins-v2'
 SETUP_SCHEMA = 'credential-v3-bounded-setup-v2'
-PREPARE_SCOPE = 'part5-v3-local-prepare-v2'
+PREPARE_SCOPE = 'part5-v3-local-prepare'
 IDENTITY_ROLES = (
     'setup_manifest', 'package', 'package_pins', 'proof_binary',
     'proof_source', 'input_preparer', 'client', 'adapter',

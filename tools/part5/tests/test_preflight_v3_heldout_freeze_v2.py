@@ -40,7 +40,7 @@ class HeldoutFreezeV2PreflightTests(unittest.TestCase):
         self.prepare = {
             'schema': 1,
             'status': 'passed',
-            'scope': 'part5-v3-local-prepare-v2',
+            'scope': 'part5-v3-local-prepare',
             'application_effect': False,
             'devnet': False,
             'source_manifest_sha256': self.source_sha,
@@ -61,7 +61,6 @@ class HeldoutFreezeV2PreflightTests(unittest.TestCase):
             },
             'cleanup': {'spawned': True, 'reaped': True, 'graceful': True,
                         'exit_code': 0},
-            'error_type': None,
             'prepared_application_accounts': False,
             'ledger_reuse_requires_review': False,
         }
