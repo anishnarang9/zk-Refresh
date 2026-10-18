@@ -20,15 +20,22 @@ class CampaignCostReconciliationTests(unittest.TestCase):
         previous = None
         for index in range(1, 61):
             path = root / f'slot-{index}.json'
-            receipt = {'sequence': index}
+            receipt = {'sequence': index, 'clone_preparation_wall_seconds': 1.0}
             path.write_text(json.dumps(receipt), encoding='utf-8')
+            outer_path = root / f'outer-{index}.json'
+            outer_path.write_text(json.dumps({
+                'started_at_utc': f'start-{index}',
+                'ended_at_utc': f'end-{index}'}), encoding='utf-8')
             digest = hashlib.sha256(path.read_bytes()).hexdigest()
             slot = {'sequence': index, 'identity_sha256': f'{index:064x}'}
             planned.append(slot)
-            paths_by_sequence[index] = {'slot_receipt': path}
+            paths_by_sequence[index] = {'slot_receipt': path,
+                                        'outer_report': outer_path}
             sequence.append({'sequence': index, 'slot_identity_sha256': slot['identity_sha256'],
                              'slot_receipt_sha256': digest,
                              'previous_slot_receipt_sha256': previous,
+                             'clone_preparation_wall_seconds': 1.0,
+                             'outer_started_at_utc': f'start-{index}',
                              'outer_ended_at_utc': f'end-{index}'})
             previous = digest
         sequence_path = root / 'sequence-receipt.json'
@@ -79,6 +86,18 @@ class CampaignCostReconciliationTests(unittest.TestCase):
                         'pairs': []})
                 self.assertEqual(report['sequence_receipt_sha256'], expected_sha)
                 values['verify_actual_sequence'].assert_called_once()
+
+    def test_reconcile_rejects_sequence_timestamp_not_in_current_outer_report(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            validated, planned, paths, _ = self._matrix_fixture(root)
+            paths[20]['outer_report'].write_text(json.dumps({
+                'started_at_utc': 'different-start',
+                'ended_at_utc': 'end-20'}), encoding='utf-8')
+            values = self._matrix_patches(planned, paths)
+            with mock.patch.multiple(tool.matrix, **values):
+                with self.assertRaisesRegex(ValueError, 'sequence entry differs'):
+                    tool.verify_completed_matrix(validated)
 
     def test_common_cost_uses_only_exact_r0_to_rk_transition(self):
         transitions = {1: 11.0, 2: 22.0, 5: 55.0, 10: 110.0}

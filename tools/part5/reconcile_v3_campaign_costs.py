@@ -153,13 +153,19 @@ def verify_completed_matrix(validated):
         # absent. Reconciliation must remain read-only, so reject before calling it.
         if not receipt_path.is_file() or receipt_path.is_symlink():
             raise ValueError('all 60 current matrix slot receipts are required')
-        receipt_sha, _ = matrix.verify_existing_slot(
+        receipt_sha, receipt = matrix.verify_existing_slot(
             planned_slot, validated, paths,
             actual_slot.get('previous_slot_receipt_sha256'), previous_end_utc)
         if (receipt_sha != actual_slot.get('slot_receipt_sha256')
                 or matrix.sha256(receipt_path) != actual_slot.get('slot_receipt_sha256')):
             raise ValueError('current slot receipt differs from completed sequence')
-        previous_end_utc = actual_slot.get('outer_ended_at_utc')
+        outer = matrix.read_json(paths['outer_report'])
+        if (actual_slot.get('clone_preparation_wall_seconds')
+                != receipt.get('clone_preparation_wall_seconds')
+                or actual_slot.get('outer_started_at_utc') != outer.get('started_at_utc')
+                or actual_slot.get('outer_ended_at_utc') != outer.get('ended_at_utc')):
+            raise ValueError('sequence entry differs from current slot reports')
+        previous_end_utc = outer['ended_at_utc']
     if matrix.sha256(sequence_path) != sequence_receipt_sha256:
         raise ValueError('sequence receipt changed during reconciliation')
     return sequence_receipt_sha256
