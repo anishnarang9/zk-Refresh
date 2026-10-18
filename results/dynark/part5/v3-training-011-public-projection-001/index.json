@@ -1,0 +1,24 @@
+{
+  "campaign_id": "training-011",
+  "public_files": {
+    "matrix_manifest": {
+      "path": "matrix-manifest.json",
+      "sha256": "d7fa35b2d54c4f19299bcfe326fd4ca4a04c0cfb0b00810d4dad98b5aba2903d"
+    },
+    "matrix_plan": {
+      "path": "matrix-plan.json",
+      "sha256": "8add8eae9313d6258ec7ed04d2acb2c8febfdfee754eaa9e26ba833ae2b52245"
+    }
+  },
+  "schema": "part5-v3-campaign-public-projection-index-v1",
+  "source_inputs": {
+    "matrix_manifest": {
+      "canonical_sha256": "0b7f6340a34d43e1c1680c1f306a993b36a409e13fc427d24e207df4fa676a96",
+      "sha256": "0b7f6340a34d43e1c1680c1f306a993b36a409e13fc427d24e207df4fa676a96"
+    },
+    "matrix_plan": {
+      "manifest_canonical_sha256": "0b7f6340a34d43e1c1680c1f306a993b36a409e13fc427d24e207df4fa676a96",
+      "sha256": "e2b93eaaf756332da274f6407acb4f0d65af63ccab6608ae964a2529663b66ee"
+    }
+  }
+}
