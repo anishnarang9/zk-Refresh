@@ -15,6 +15,7 @@ acceptance report; it does not run a proof or validator.
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -974,6 +975,122 @@ def _config_root_version(config):
     return int.from_bytes(config[364:372], 'big')
 
 
+def _verify_disabled_config_snapshot_bytes(stage, eligible, before, after):
+    """Join a separate enabled R0 clone to a failed disabled-config Execute."""
+    lengths = {'config': 381, 'issuer': 374, 'head': 280,
+               'request': 2249, 'queue': 2090}
+    for label, accounts in (('stage', stage), ('eligible', eligible),
+                            ('before', before), ('after', after)):
+        _require(type(accounts) is dict and set(accounts) == set(ACCOUNT_NAMES)
+                 and all(type(accounts[name]) is bytes
+                         and len(accounts[name]) == lengths[name]
+                         for name in ACCOUNT_NAMES),
+                 f'disabled-config {label} five canonical accounts required')
+    _require(stage['config'] == eligible['config']
+             and stage['request'] == eligible['request']
+             and stage['queue'] == eligible['queue'],
+             'disabled-config clone must retain the staged request, queue, and config')
+    active = eligible['config']
+    disabled = before['config']
+    _require(active[:8] == disabled[:8] == b'DYNCONF3'
+             and active[380] == 1 and disabled[380] == 0,
+             'disabled-config enabled-to-disabled transition required')
+    epoch_before = int.from_bytes(active[372:380], 'big')
+    epoch_after = int.from_bytes(disabled[372:380], 'big')
+    expected = bytearray(active)
+    expected[372:380] = ((epoch_before + 1) % (1 << 64)).to_bytes(8, 'big')
+    expected[380] = 0
+    _require(epoch_before < (1 << 64) - 1 and epoch_after == epoch_before + 1
+             and disabled == bytes(expected)
+             and all(before[name] == eligible[name] for name in ACCOUNT_NAMES[1:]),
+             'disabled-config disable transition changed unexpected account bytes')
+    _require(after == before,
+             'disabled-config failed Execute changed a finalized account')
+    return {'eligibility_epoch_before': epoch_before,
+            'eligibility_epoch_after': epoch_after,
+            'account_sha256': {
+                name: _sha(before[name]) for name in ACCOUNT_NAMES},
+            }
+
+
+def _verify_disabled_config_report(report, variant, stage_report, stage_accounts,
+                                   frozen_elf_sha256, expected, refs, snapshots):
+    _require(type(report) is dict
+             and report.get('schema') == 'part5-v3-disabled-config-negative-report-v1'
+             and report.get('variant') == variant
+             and report.get('request_slot') == 'A'
+             and report.get('passed') is True
+             and report.get('program') == stage_report.get('program')
+             and report.get('genesis') == stage_report.get('genesis')
+             and report.get('loaded_elf_sha256') == frozen_elf_sha256
+             and all(report.get(name) == value for name, value in expected.items())
+             and report.get('config_disabled') is True
+             and report.get('execute_rejected') is True
+             and report.get('refresh_and_bind_succeeded') is True
+             and report.get('disable_changed_only_enabled_and_epoch') is True
+             and report.get('accounts_unchanged_after_rejection') is True
+             and report.get('expected_custom_error') == 713
+             and report.get('addresses') == {
+                 name: stage_report.get(name) for name in ACCOUNT_NAMES},
+             'disabled-config report must bind frozen A stage, proof, clone, and ELF')
+    _require(type(refs) is dict and set(refs) == {'eligible', 'before', 'after'}
+             and type(snapshots) is dict and set(snapshots) == set(refs),
+             'disabled-config three pinned account snapshots required')
+    snapshot_result = _verify_disabled_config_snapshot_bytes(
+        stage_accounts, snapshots['eligible'], snapshots['before'], snapshots['after'])
+    for label in ('eligible', 'before', 'after'):
+        account_refs = refs[label]
+        _require(type(account_refs) is dict and set(account_refs) == set(ACCOUNT_NAMES),
+                 'disabled-config exact five account references required')
+        expected_rows = [{'name': name, **account_refs[name]}
+                         for name in ACCOUNT_NAMES]
+        expected_hashes = [_sha(snapshots[label][name]) for name in ACCOUNT_NAMES]
+        _require(report.get(f'{label}_accounts') == expected_rows
+                 and report.get(f'{label}_sha256') == expected_hashes,
+                 f'disabled-config {label} snapshot hash or file reference mismatch')
+    expected_txs = [
+        ('v3-disabled-negative-refresh-source', None),
+        ('v3-disabled-negative-refresh-head', None),
+        ('v3-disabled-negative-disable-config', None),
+        ('v3-disabled-negative-valid-full-execute', 713),
+    ]
+    txs = report.get('transactions')
+    _txs(txs, expected_txs, 'disabled-config')
+    _require(all(type(row.get('signature')) is str and row['signature']
+                 and type(row.get('slot')) is int and row['slot'] > 0
+                 for row in txs)
+             and len({row['signature'] for row in txs}) == 4
+             and [row['slot'] for row in txs] == sorted(row['slot'] for row in txs),
+             'disabled-config ordered signed transactions required')
+    _require(all(txs[index]['err'] is None for index in range(3))
+             and txs[3].get('err') == {'InstructionError': [1, {'Custom': 713}]}
+             and report.get('refresh_transaction') == {
+                 key: txs[0][key] for key in ('signature', 'slot')}
+             and report.get('bind_transaction') == {
+                 key: txs[1][key] for key in ('signature', 'slot')}
+             and report.get('disable_transaction') == {
+                 **{key: txs[2][key] for key in ('signature', 'slot')},
+                 'finalized_slot': report.get('disabled_finalized_slot')}
+             and report.get('execute_transaction') == {
+                 **{key: txs[3][key] for key in ('signature', 'slot')},
+                 'custom_error': 713,
+                 'finalized_slot': report.get('rejected_finalized_slot')},
+             'disabled-config valid Full Execute must fail with Policy 713')
+    slots = [report.get(name) for name in (
+        'source_finalized_slot', 'eligible_finalized_slot',
+        'disabled_finalized_slot', 'rejected_finalized_slot')]
+    _require(all(type(slot) is int and slot > 0 for slot in slots)
+             and type(stage_report.get('finalized_slot')) is int
+             and slots[0] >= stage_report['finalized_slot']
+             and slots == sorted(slots)
+             and slots[1] >= txs[1]['slot']
+             and slots[2] >= txs[2]['slot']
+             and slots[3] >= txs[3]['slot'],
+             'disabled-config finalized transaction order required')
+    return {'verified': True, 'rejected_custom_error': 713,
+            'finalized_slot': slots[3], **snapshot_result}
+
+
 def _verify_single_effect_bytes(before_request, before_queue, after_request,
                                 after_queue, request_address):
     """Independently require one exact v3 request consume and queue append."""
@@ -1474,14 +1591,13 @@ def _verify_r0_clone(bundle, execution_config, stage_bundle, stage):
              and receipt.get('application_effect') is False
              and type(receipt.get('excluded_stale_admin_socket')) is bool,
              'independently pinned byte-identical stopped R0 clone receipt required')
-    source_rows, clone_rows = ledger_inventory(source), ledger_inventory(destination)
+    source_rows = ledger_inventory(source)
     tree_sha = _sha(json.dumps(source_rows, separators=(',', ':')).encode())
-    _require(source_rows == clone_rows
-             and receipt.get('entry_count') == len(clone_rows)
+    _require(receipt.get('entry_count') == len(source_rows)
              and receipt.get('tree_sha256') == tree_sha
              and receipt.get('excluded_stale_admin_socket') == stale_admin_socket(source),
-             'R0 source and execution clone inventories differ')
-    return receipt_sha
+             'R0 source inventory differs from the pre-execution clone receipt')
+    return {'destination': destination, 'receipt_sha256': receipt_sha}
 
 
 def _verify_r1_clone(bundle, branch_config, transition_bundle, transition):
@@ -1525,14 +1641,12 @@ def _verify_r1_clone(bundle, branch_config, transition_bundle, transition):
              and type(receipt.get('excluded_stale_admin_socket')) is bool,
              'byte-identical stopped R1 clone receipt required')
     source_rows = ledger_inventory(transition_source)
-    clone_rows = ledger_inventory(destination)
-    _require(source_rows == clone_rows
-             and receipt.get('entry_count') == len(clone_rows)
+    _require(receipt.get('entry_count') == len(source_rows)
              and receipt.get('tree_sha256')
                 == _sha(json.dumps(source_rows, separators=(',', ':')).encode())
              and receipt.get('excluded_stale_admin_socket')
                 == stale_admin_socket(transition_source),
-             'R1 transition source and execution clone inventories differ')
+             'R1 transition source differs from the pre-execution clone receipt')
     return {'receipt_sha256': receipt_sha, 'source': str(transition_source),
             'destination': str(destination), 'tree_sha256': receipt['tree_sha256']}
 
@@ -1994,7 +2108,209 @@ def _verify_case_run_provenance(case_bundle, variant, globals_, freeze_sha,
              and type(steps.get('positive_full:proof-full-fresh-replay')) is dict
              and steps['positive_full:proof-full-fresh-replay'].get('status') == 'passed',
              'case run journal must bind its canonical manifest and fresh replay proof')
+    _require(all(type(steps.get(name)) is dict
+                 and steps[name].get('status') == 'passed'
+                 for name in ('positive_full:disabled-config-clone',
+                              'positive_full:disabled-config-negative')),
+             'case run journal requires completed disabled-config negative')
+    negative_walls = [steps[name].get('wall_seconds') for name in (
+        'positive_full:disabled-config-clone',
+        'positive_full:disabled-config-negative')]
+    _require(all(type(wall) in (int, float) and math.isfinite(wall) and wall >= 0
+                 for wall in negative_walls)
+             and case_bundle.get('disabled_config_negative_wall_seconds')
+                == sum(float(wall) for wall in negative_walls),
+             'disabled-config wall cost must match its two journal steps')
+    sidecar_ref = case_bundle.get('disabled_config_negative')
+    sidecar, _ = _json(sidecar_ref, cap=65536)
+    outer_ref = sidecar.get('outer') if type(sidecar) is dict else None
+    _require(type(outer_ref) is dict and set(outer_ref) == {'path', 'sha256'},
+             'disabled-config journal evidence must pin its outer monitor')
+    outer, _ = _json(outer_ref, cap=65536)
+    clone_step = steps['positive_full:disabled-config-clone']
+    negative_step = steps['positive_full:disabled-config-negative']
+    _require(type(sidecar) is dict
+             and type(sidecar.get('clone_receipt')) is dict
+             and type(sidecar.get('full_wire')) is dict
+             and clone_step.get('inputs') == {
+                 'stage_report_sha256': sidecar.get('stage_report_sha256'),
+                 'label': 'disabled-config-r0'}
+             and clone_step.get('receipt') == sidecar.get('clone_receipt', {}).get('path')
+             and clone_step.get('receipt_sha256')
+                == sidecar.get('clone_receipt', {}).get('sha256')
+             and negative_step.get('inputs') == {
+                 'variant': variant,
+                 'stage_report_sha256': sidecar.get('stage_report_sha256'),
+                 'stage_plan_sha256': sidecar.get('stage_plan_sha256'),
+                 'source_receipt_sha256': sidecar.get('r0_source_receipt_sha256'),
+                 'proof_receipt_sha256': sidecar.get('full_proof_receipt_sha256'),
+                 'full_wire_sha256': sidecar.get('full_wire', {}).get('sha256'),
+                 'clone_receipt_sha256': sidecar.get('clone_receipt', {}).get('sha256'),
+                 'frozen_elf_sha256': globals_['frozen_files']['loaded_elf']['sha256']}
+             and negative_step.get('sidecar') == sidecar_ref['path']
+             and negative_step.get('sidecar_sha256') == sidecar_ref['sha256']
+             and negative_step.get('monitor') == outer_ref['path']
+             and negative_step.get('monitor_sha256') == outer_ref['sha256']
+             and negative_step.get('monitor_owner') == outer.get('owner'),
+             'disabled-config journal evidence must join the exact clone and sidecar')
     return canonical
+
+
+def _verify_disabled_config_negative(ref, variant, globals_, slot, full_bundle,
+                                     clone_destinations):
+    sidecar, sidecar_sha = _json(ref, cap=65536)
+    expected_keys = {'schema', 'variant', 'stage_report_sha256',
+                     'stage_plan_sha256', 'r0_source_receipt_sha256',
+                     'full_proof_receipt_sha256', 'clone_receipt', 'full_wire',
+                     'config', 'rust_config', 'status', 'outer', 'report',
+                     'eligible_accounts', 'before_accounts', 'after_accounts'}
+    stage = slot['stage']
+    stage_bundle = slot['stage_bundle']
+    full_wire = full_bundle['result']['wires']['full']
+    _require(type(sidecar) is dict and set(sidecar) == expected_keys
+             and sidecar.get('schema') == 'credential-v3-heldout-disabled-config-negative-v1'
+             and sidecar.get('variant') == variant
+             and sidecar.get('stage_report_sha256') == stage['report_sha256']
+             and sidecar.get('stage_plan_sha256') == stage['plan_sha256']
+             and sidecar.get('r0_source_receipt_sha256') == slot['r0_sha256']
+             and sidecar.get('full_proof_receipt_sha256')
+                == _pin_sha(full_bundle['proof']['receipt'])
+             and sidecar.get('full_wire') == full_wire,
+             'disabled-config sidecar must bind the exact A source and Full proof')
+    _verify_wire(sidecar['full_wire'], slot['r0']['selected_root'],
+                 slot['r0']['action_hash'])
+    wrapper, wrapper_sha = _json(sidecar['config'], cap=65536)
+    rust_config, rust_sha = _json(sidecar['rust_config'], cap=65536)
+    status, _ = _json(sidecar['status'], cap=65536)
+    report, report_sha = _json(sidecar['report'], cap=65536)
+    outer = _outer(sidecar['outer'], 'disabled-config', expected_exit=1)
+    _require(outer.get('owner')
+             == f'heldout-v{variant:02d}-positive_full-disabled-config-negative',
+             'disabled-config outer owner must match this heldout A case')
+    wrapper_keys = {'schema', 'scope', 'variant', 'request_slot',
+                    'prior_stage_config', 'prior_stage_config_sha256',
+                    'prior_stage_status', 'prior_stage_status_sha256',
+                    'prior_stage_monitor', 'prior_stage_monitor_sha256',
+                    'prior_monitor_owner', 'stage_root', 'stage_report_sha256',
+                    'stage_plan_sha256', 'ledger', 'heldout_r0_clone_report',
+                    'heldout_r0_clone_report_sha256', 'expected_genesis',
+                    'runner', 'runner_sha256', 'full_wire', 'full_wire_sha256',
+                    'expected_program', 'expected_elf_sha256', 'output_dir',
+                    'control_output', 'rust_config_path', 'rust_config_sha256',
+                    'outer_limits_required'}
+    _require(type(wrapper) is dict and set(wrapper) == wrapper_keys
+             and wrapper.get('schema')
+                == 'credential-v3-disabled-config-negative-supervisor-v1'
+             and wrapper.get('scope') == 'part5-v3-disabled-config-negative'
+             and wrapper.get('variant') == variant
+             and wrapper.get('request_slot') == 'A'
+             and wrapper.get('rust_config_path') == sidecar['rust_config']['path']
+             and wrapper.get('rust_config_sha256') == rust_sha
+             and wrapper.get('outer_limits_required') is not None
+             and _declared_limits_match(wrapper['outer_limits_required'],
+                                        outer.get('limits')),
+             'disabled-config supervisor config and bounded outer mismatch')
+    _require(type(status) is dict
+             and status.get('scope') == 'part5-v3-disabled-config-negative'
+             and status.get('status') == 'failed'
+             and status.get('error_type') is None
+             and status.get('effect_verified') is True
+             and status.get('application_effect') is False
+             and status.get('config_disabled') is True
+             and status.get('execute_rejected') is True
+             and status.get('accounts_unchanged') is True
+             and status.get('ledger_reuse_requires_review') is True
+             and status.get('report_path') == sidecar['report']['path']
+             and status.get('report_sha256') == report_sha
+             and status.get('config_sha256') == wrapper_sha
+             and status.get('rust_config_path') == sidecar['rust_config']['path']
+             and status.get('rust_config_sha256') == rust_sha
+             and _reviewed_validator_sigint(status.get('validator_cleanup'))
+             and _reviewed_runner_exit(status.get('runner_cleanup')),
+             'disabled-config reviewed loaded runtime status required')
+    frozen_elf = globals_['freeze']['identities']['loaded_elf']
+    runtime = status.get('loaded_program')
+    _require(type(runtime) is dict
+             and all(runtime.get(name) == value
+                     for name, value in stage['runtime_identity'].items())
+             and runtime.get('elf_sha256') == frozen_elf
+             and runtime.get('elf_match') is True,
+             'disabled-config runtime differs from frozen A stage')
+    rust_keys = {'schema', 'variant', 'request_slot', 'stage_root',
+                 'stage_report', 'stage_report_sha256', 'stage_plan',
+                 'stage_plan_sha256', 'ledger', 'heldout_r0_clone_report',
+                 'heldout_r0_clone_report_sha256', 'full_wire',
+                 'full_wire_sha256', 'expected_program', 'expected_genesis',
+                 'expected_elf_sha256', 'output_dir', 'control_output',
+                 'runner', 'runner_sha256'}
+    _require(type(rust_config) is dict and set(rust_config) == rust_keys
+             and rust_config.get('schema') == 'part5-v3-disabled-config-negative-config-v1'
+             and rust_config.get('variant') == variant
+             and rust_config.get('request_slot') == 'A'
+             and rust_config.get('stage_root') == stage['config']['stage_output']
+             and rust_config.get('stage_report') == stage_bundle['report']['path']
+             and rust_config.get('stage_report_sha256') == stage['report_sha256']
+             and rust_config.get('stage_plan') == stage_bundle['plan']['path']
+             and rust_config.get('stage_plan_sha256') == stage['plan_sha256']
+             and rust_config.get('heldout_r0_clone_report')
+                == sidecar['clone_receipt']['path']
+             and rust_config.get('heldout_r0_clone_report_sha256')
+                == sidecar['clone_receipt']['sha256']
+             and rust_config.get('full_wire') == sidecar['full_wire']['path']
+             and rust_config.get('full_wire_sha256') == sidecar['full_wire']['sha256']
+             and rust_config.get('expected_program') == stage['report']['program']
+             and rust_config.get('expected_genesis') == stage['report']['genesis']
+             and rust_config.get('expected_elf_sha256') == frozen_elf
+             and rust_config.get('runner') == wrapper.get('runner')
+             and rust_config.get('runner_sha256') == wrapper.get('runner_sha256'),
+             'disabled-config Rust input must pin A stage, clone, wire, and ELF')
+    _require(wrapper.get('ledger') == rust_config['ledger']
+             and wrapper.get('heldout_r0_clone_report')
+                == rust_config['heldout_r0_clone_report']
+             and wrapper.get('heldout_r0_clone_report_sha256')
+                == rust_config['heldout_r0_clone_report_sha256']
+             and wrapper.get('full_wire') == rust_config['full_wire']
+             and wrapper.get('full_wire_sha256') == rust_config['full_wire_sha256']
+             and wrapper.get('expected_genesis') == rust_config['expected_genesis'],
+             'disabled-config supervisor and Rust input disagree')
+    clone = _verify_r0_clone({'receipt': sidecar['clone_receipt']},
+                             wrapper, stage_bundle, stage)
+    destination = clone['destination']
+    _require(destination == _private_directory(rust_config['ledger'],
+                                               'disabled-config clone')
+             and destination not in clone_destinations,
+             'disabled-config requires a separate stopped R0 clone')
+    clone_destinations.add(destination)
+    output = _private_directory(rust_config['output_dir'],
+                                'disabled-config output')
+    _require(Path(sidecar['report']['path']) == output / 'disabled-config-negative-report.json'
+             and rust_config.get('control_output') == wrapper.get('control_output'),
+             'disabled-config report/output paths differ from Rust input')
+    refs = {}
+    snapshots = {}
+    for label in ('eligible', 'before', 'after'):
+        account_refs = sidecar[f'{label}_accounts']
+        _require(type(account_refs) is dict and set(account_refs) == set(ACCOUNT_NAMES),
+                 'disabled-config exact five account references required')
+        refs[label] = account_refs
+        snapshots[label] = {}
+        for name in ACCOUNT_NAMES:
+            account_ref = account_refs[name]
+            _require(type(account_ref) is dict
+                     and account_ref.get('path') == str(output / label / f'{name}.bin'),
+                     'disabled-config account file must be under its output directory')
+            _, _, snapshots[label][name] = _artifact(account_ref, cap=16384)
+    result = _verify_disabled_config_report(
+        report, variant, stage['report'], stage['accounts'], frozen_elf,
+        {'stage_report_sha256': stage['report_sha256'],
+         'stage_plan_sha256': stage['plan_sha256'],
+         'full_wire_sha256': full_wire['sha256'],
+         'clone_receipt_sha256': sidecar['clone_receipt']['sha256']},
+        refs, snapshots)
+    return {'sidecar_sha256': sidecar_sha,
+            'report_sha256': report_sha,
+            'clone_receipt_sha256': clone['receipt_sha256'],
+            'runtime_identity': stage['runtime_identity'], **result}
 
 
 def _verify_branch(branch, bundle, case, globals_, slot_data, clone_destinations):
@@ -2178,9 +2494,10 @@ def _verify_branch(branch, bundle, case, globals_, slot_data, clone_destinations
             current_root = case['roots']['R2']
         clone = _verify_r1_clone(bundle['r1_clone'], config,
                                  transition_bundle, transition)
-        _require(clone['destination'] not in clone_destinations,
+        clone_destination = Path(clone['destination'])
+        _require(clone_destination not in clone_destinations,
                  'each R1 outcome requires a distinct fresh ledger clone')
-        clone_destinations.add(clone['destination'])
+        clone_destinations.add(clone_destination)
         request_identity = r1['finalized_request_sha256']
 
     if branch != 'full':
@@ -2868,6 +3185,9 @@ def verify_manifest(manifest_path):
             'own_revocation': _verify_branch('own_revocation', branches['own_revocation'],
                                    case, globals_, slots['C'], clone_destinations),
         }
+        disabled_negative = _verify_disabled_config_negative(
+            case_bundle.get('disabled_config_negative'), variant, globals_,
+            slots['A'], branches['full'], clone_destinations)
         request_ids = _validate_request_triads(branch_results,
                                               seen_finalized_requests, seen_requests)
         for branch_result in branch_results.values():
@@ -2886,6 +3206,9 @@ def verify_manifest(manifest_path):
                                  'R1': branch_results['anchor']['current_head_evidence'],
                                  'R2': branch_results['own_revocation']['current_head_evidence'],
                              },
+                             'disabled_config_negative': disabled_negative,
+                             'disabled_config_negative_wall_seconds':
+                                 case_bundle['disabled_config_negative_wall_seconds'],
                              'branches': branch_results})
     _require(seen_variants == set(range(8)), 'all eight heldout variants are required')
     return {
@@ -2906,7 +3229,8 @@ def verify_manifest(manifest_path):
         'source_files': source_hashes,
         'counts': {'variants': 8, 'issuers': 4, 'layouts': 8,
                    'openssl_issuances': 4, 'application_branches': 32,
-                   'distinct_requests': 24},
+                   'distinct_requests': 24,
+                   'loaded_disabled_config_negatives': 8},
         'cases': output_cases,
     }
 

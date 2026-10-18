@@ -45,6 +45,8 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
             names.extend(f'{req}:proof-{mode}' for mode in modes)
         names.append('positive_full:proof-full-fresh-replay')
         names.extend(('positive_full:r0-clone', 'positive_full:execute',
+                      'positive_full:disabled-config-clone',
+                      'positive_full:disabled-config-negative',
                       'unrelated_compare:unrelated_full:clone',
                       'unrelated_compare:unrelated_full:effect',
                       'unrelated_compare:anchor:clone',
@@ -61,6 +63,8 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
             'positive_full:source-R1', 'positive_full:proof-full',
             'positive_full:proof-full-fresh-replay',
             'positive_full:r0-clone', 'positive_full:execute',
+            'positive_full:disabled-config-clone',
+            'positive_full:disabled-config-negative',
             'unrelated_compare:prepare', 'unrelated_compare:stage',
             'unrelated_compare:transition', 'unrelated_compare:source-R0',
             'unrelated_compare:source-R1', 'unrelated_compare:proof-full',
@@ -76,7 +80,7 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
             'own_revocation:r2-active-witness',
         }
         self.assertEqual(analyzer._step_names(), expected)
-        self.assertEqual(len(expected), 30)
+        self.assertEqual(len(expected), 32)
 
     def make_inputs(self):
         manifest_cases, acceptance_cases = [], []
@@ -162,6 +166,39 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
                 'sample_count': 2,
                 'sampled_peak_owned_tree_rss_bytes': 900 + variant,
                 'sampled_peak_storage_growth_bytes': 1900 + variant,
+            })
+            disabled_clone_owner = (
+                f'heldout-v{variant:02d}-positive_full-clone-disabled-config-r0')
+            disabled_negative_owner = (
+                f'heldout-v{variant:02d}-positive_full-disabled-config-negative')
+            disabled_clone_outer = self.write_json(
+                f'outer-{variant}-disabled-config-clone.json', {
+                    'schema': 1, 'passed': False, 'exit_code': 1,
+                    'stop_reason': None, 'runner_error_type': None,
+                    'cleanup_remaining_owned_processes': 0,
+                    'cleanup_status_unknown': False, 'duration_seconds': 0.2,
+                    'sample_count': 2, 'owner': disabled_clone_owner,
+                    'sampled_peak_owned_tree_rss_bytes': 1100 + variant,
+                    'sampled_peak_storage_growth_bytes': 2100 + variant,
+                })
+            disabled_negative_outer = self.write_json(
+                f'outer-{variant}-disabled-config-negative.json', {
+                    'schema': 1, 'passed': False, 'exit_code': 1,
+                    'stop_reason': None, 'runner_error_type': None,
+                    'cleanup_remaining_owned_processes': 0,
+                    'cleanup_status_unknown': False, 'duration_seconds': 0.3,
+                    'sample_count': 2, 'owner': disabled_negative_owner,
+                    'sampled_peak_owned_tree_rss_bytes': 1200 + variant,
+                    'sampled_peak_storage_growth_bytes': 2200 + variant,
+                })
+            disabled_negative_sidecar = self.write_json(
+                f'disabled-config-negative-sidecar-{variant}.json', {
+                    'schema': 'credential-v3-heldout-disabled-config-negative-v1',
+                    'outer': disabled_negative_outer,
+                })
+            steps['positive_full:disabled-config-negative'].update({
+                'sidecar': disabled_negative_sidecar['path'],
+                'sidecar_sha256': disabled_negative_sidecar['sha256'],
             })
             generator_outer = self.write_json(
                 f'outer-{variant}-r2-generator.json', {
@@ -298,6 +335,15 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
                 steps[step]['monitor'] = ref['path']
                 steps[step]['monitor_sha256'] = ref['sha256']
                 monitor_for_step[step] = ref
+            for step, ref, owner in (
+                    ('positive_full:disabled-config-clone', disabled_clone_outer,
+                     disabled_clone_owner),
+                    ('positive_full:disabled-config-negative', disabled_negative_outer,
+                     disabled_negative_owner)):
+                steps[step]['monitor'] = ref['path']
+                steps[step]['monitor_sha256'] = ref['sha256']
+                steps[step]['monitor_owner'] = owner
+                monitor_for_step[step] = ref
             steps['own_revocation:r2-active-witness'].update({
                 'generator_monitor': generator_outer['path'],
                 'generator_monitor_sha256': generator_outer['sha256'],
@@ -363,7 +409,11 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
                 'stage': stages,
                 'run_manifest': run_manifest_ref,
                 'run_journal': journal_ref,
+                'disabled_config_negative': disabled_negative_sidecar,
                 'all_step_wall_seconds': all_steps,
+                'disabled_config_negative_wall_seconds': (
+                    steps['positive_full:disabled-config-clone']['wall_seconds']
+                    + steps['positive_full:disabled-config-negative']['wall_seconds']),
                 'shared_costs': journal['costs'],
                 'branch_wall_components': branch_components,
                 'branch_wall_seconds': {name: row['total_seconds']
@@ -495,6 +545,11 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         self.assertEqual(pair['shared_B_seconds'], 15.0)
         self.assertEqual(pair['full_B_seconds'], 38.0)
         self.assertEqual(pair['anchor_B_seconds'], 43.0)
+        self.assertEqual(pair['disabled_config_negative_wall_seconds'], 2.0)
+        self.assertEqual(result['summary']['disabled_config_negative_wall_seconds'], {
+            'median': 2.0, 'min': 2.0, 'max': 2.0, 'spread': 0.0, 'n': 8})
+        self.assertIn('excluded from matched B totals',
+                      result['disabled_config_negative_accounting'])
         self.assertFalse(result['claims']['independent_production_freshness'])
         self.assertIn('charge it once to each B mode', result['pair_view_accounting'])
         self.assertEqual(pair['effect_transaction_metrics']['unrelated_full'], {
@@ -747,7 +802,7 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         # accepted session_runner schema variant that omits these optional keys.
         result = analyzer.analyze(self.manifest, self.acceptance)
         self.assertEqual(result['resource_observations']['monitor_report_count'],
-                         8 * (23 + 5 * 6 + 2))
+                         8 * (23 + 5 * 6 + 4))
 
     def test_rejects_manifest_pin_mismatch(self):
         with self.assertRaisesRegex(ValueError, 'manifest pin'):
@@ -876,6 +931,35 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         self.manifest['sha256'] = sha(mpath.read_bytes())
         self._repin_acceptance_manifest()
         with self.assertRaisesRegex(ValueError, 'journal timing summaries'):
+            analyzer.analyze(self.manifest, self.acceptance)
+
+    def test_rejects_disabled_config_audit_cost_not_joined_to_journal(self):
+        path = Path(self.manifest['path'])
+        manifest = json.loads(path.read_text())
+        manifest['cases'][0]['disabled_config_negative_wall_seconds'] += 0.5
+        path.write_text(json.dumps(manifest, sort_keys=True) + '\n')
+        path.chmod(0o600)
+        self.manifest['sha256'] = sha(path.read_bytes())
+        self._repin_acceptance_manifest()
+        with self.assertRaisesRegex(ValueError, 'disabled-config audit cost'):
+            analyzer.analyze(self.manifest, self.acceptance)
+
+    def test_disabled_config_monitor_must_match_journal_owner_and_sidecar(self):
+        manifest_path = Path(self.manifest['path'])
+        manifest = json.loads(manifest_path.read_text())
+        journal_ref = manifest['cases'][0]['run_journal']
+        journal_path = Path(journal_ref['path'])
+        journal = json.loads(journal_path.read_text())
+        journal['steps']['positive_full:disabled-config-negative'][
+            'monitor_owner'] = 'wrong-owner'
+        journal_path.write_text(json.dumps(journal, sort_keys=True) + '\n')
+        journal_path.chmod(0o600)
+        journal_ref['sha256'] = sha(journal_path.read_bytes())
+        manifest_path.write_text(json.dumps(manifest, sort_keys=True) + '\n')
+        manifest_path.chmod(0o600)
+        self.manifest['sha256'] = sha(manifest_path.read_bytes())
+        self._repin_acceptance_manifest()
+        with self.assertRaisesRegex(ValueError, 'monitor owner differs'):
             analyzer.analyze(self.manifest, self.acceptance)
 
     def test_rejects_mismatched_b_request_identity(self):

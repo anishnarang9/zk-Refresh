@@ -40,6 +40,7 @@ class HeldoutFreezePinClosureTests(unittest.TestCase):
             'harness/src/solana/queue_v3.rs',
             'harness/src/solana/queue_v3/branch.rs',
             'harness/src/solana/queue_v3/campaign.rs',
+            'harness/src/solana/queue_v3/disabled_config.rs',
             'harness/src/lib.rs',
             'harness/src/main.rs',
             'harness/src/solana.rs',

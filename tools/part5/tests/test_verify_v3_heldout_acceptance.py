@@ -21,6 +21,444 @@ from tools.part5.credential_profile import admit_certificate, public_bindings
 
 
 class HeldoutAcceptanceVerifierTests(unittest.TestCase):
+    def test_disabled_config_snapshots_isolate_policy_rejection(self):
+        stage = {
+            name: bytes([index + 1]) * size
+            for index, (name, size) in enumerate((
+                ('config', 381), ('issuer', 374), ('head', 280),
+                ('request', 2249), ('queue', 2090)))
+        }
+        config = bytearray(stage['config'])
+        config[:8] = b'DYNCONF3'
+        config[372:380] = (7).to_bytes(8, 'big')
+        config[380] = 1
+        stage['config'] = bytes(config)
+        eligible = dict(stage)
+        eligible['issuer'] = b'I' * 374
+        eligible['head'] = b'H' * 280
+        disabled = dict(eligible)
+        config[372:380] = (8).to_bytes(8, 'big')
+        config[380] = 0
+        disabled['config'] = bytes(config)
+        result = verifier._verify_disabled_config_snapshot_bytes(
+            stage, eligible, disabled, dict(disabled))
+        self.assertEqual(result['eligibility_epoch_before'], 7)
+        self.assertEqual(result['eligibility_epoch_after'], 8)
+
+        enabled = dict(disabled)
+        enabled['config'] = eligible['config']
+        with self.assertRaisesRegex(ValueError, 'enabled-to-disabled transition'):
+            verifier._verify_disabled_config_snapshot_bytes(
+                stage, eligible, enabled, dict(enabled))
+
+        changed_request = dict(disabled)
+        changed_request['request'] = b'X' * 2249
+        with self.assertRaisesRegex(ValueError, 'failed Execute changed'):
+            verifier._verify_disabled_config_snapshot_bytes(
+                stage, eligible, disabled, changed_request)
+
+        wrong_clone = dict(eligible)
+        wrong_clone['request'] = b'Y' * 2249
+        with self.assertRaisesRegex(ValueError, 'staged request'):
+            verifier._verify_disabled_config_snapshot_bytes(
+                stage, wrong_clone, disabled, dict(disabled))
+
+    def test_r0_clone_verifier_returns_distinct_destination(self):
+        source = self.root / 'stage-ledger'
+        source.mkdir(mode=0o700)
+        clone_root = self.root / 'clone'
+        clone_root.mkdir(mode=0o700)
+        destination = clone_root / 'ledger'
+        destination.mkdir(mode=0o700)
+        stage = {'config': {'ledger': str(source), 'stage_output': str(self.root)},
+                 'config_sha256': 'a' * 64, 'status_sha256': 'b' * 64,
+                 'monitor_sha256': 'c' * 64, 'report_sha256': 'd' * 64}
+        bundle = {'config': {'path': str(self.root / 'stage-config.json')},
+                  'status': {'path': str(self.root / 'stage-status.json')},
+                  'monitor': {'path': str(self.root / 'stage-monitor.json')}}
+        report = {'schema': 'part5-v3-heldout-r0-ledger-clone-v1',
+                  'heldout_acceptance': False,
+                  'stage_report_sha256': stage['report_sha256'],
+                  'stage_status_sha256': stage['status_sha256'],
+                  'stage_monitor_sha256': stage['monitor_sha256'],
+                  'source': str(source), 'destination': str(destination),
+                  'source_stable': True, 'copy_identical': True,
+                  'loaded_identity_rechecked_after_restart': False,
+                  'application_effect': False,
+                  'excluded_stale_admin_socket': False,
+                  'entry_count': 0,
+                  'tree_sha256': hashlib.sha256(b'[]').hexdigest()}
+        receipt_path = clone_root / 'clone-report.json'
+        receipt_raw = (json.dumps(report, sort_keys=True) + '\n').encode()
+        receipt_path.write_bytes(receipt_raw)
+        receipt_path.chmod(0o600)
+        receipt_sha = hashlib.sha256(receipt_raw).hexdigest()
+        execution_config = {
+            'ledger': str(destination),
+            'heldout_r0_clone_report': str(receipt_path),
+            'heldout_r0_clone_report_sha256': receipt_sha,
+            'prior_stage_config': bundle['config']['path'],
+            'prior_stage_config_sha256': stage['config_sha256'],
+            'prior_stage_status': bundle['status']['path'],
+            'prior_stage_status_sha256': stage['status_sha256'],
+            'prior_stage_monitor': bundle['monitor']['path'],
+            'prior_stage_monitor_sha256': stage['monitor_sha256'],
+            'stage_root': stage['config']['stage_output'],
+            'stage_report_sha256': stage['report_sha256']}
+        inventories = lambda path: [] if Path(path) == source else [
+            ['post-execute-ledger-change', 'file', 1, 'f' * 64]]
+        with mock.patch.object(verifier, 'ledger_inventory', side_effect=inventories), \
+                mock.patch.object(verifier, 'stale_admin_socket', return_value=False):
+            result = verifier._verify_r0_clone(
+                {'receipt': {'path': str(receipt_path), 'sha256': receipt_sha}},
+                execution_config, bundle, stage)
+        self.assertEqual(result['destination'], destination)
+        self.assertEqual(result['receipt_sha256'], receipt_sha)
+
+    def test_disabled_config_report_requires_real_policy_denial_and_snapshot_pins(self):
+        names = ('config', 'issuer', 'head', 'request', 'queue')
+        sizes = (381, 374, 280, 2249, 2090)
+        stage_accounts = {name: bytes([i + 1]) * size
+                          for i, (name, size) in enumerate(zip(names, sizes))}
+        active = bytearray(stage_accounts['config'])
+        active[:8] = b'DYNCONF3'
+        active[372:380] = (2).to_bytes(8, 'big')
+        active[380] = 1
+        stage_accounts['config'] = bytes(active)
+        eligible = dict(stage_accounts)
+        before = dict(eligible)
+        active[372:380] = (3).to_bytes(8, 'big')
+        active[380] = 0
+        before['config'] = bytes(active)
+        snapshots = {'eligible': eligible, 'before': before, 'after': dict(before)}
+        refs = {label: {name: {'path': str(self.root / f'{label}-{name}.bin'),
+                               'sha256': hashlib.sha256(data).hexdigest()}
+                        for name, data in accounts.items()}
+                for label, accounts in snapshots.items()}
+        scenarios = ('v3-disabled-negative-refresh-source',
+                     'v3-disabled-negative-refresh-head',
+                     'v3-disabled-negative-disable-config',
+                     'v3-disabled-negative-valid-full-execute')
+        txs = [{'scenario': scenario, 'signature': f'sig-{i}',
+                'slot': 41 + i, 'customError': 713 if i == 3 else None,
+                'err': {'InstructionError': [1, {'Custom': 713}]}
+                       if i == 3 else None}
+               for i, scenario in enumerate(scenarios)]
+        stage_report = {'program': 'P', 'genesis': 'G', 'finalized_slot': 40,
+                        **{name: f'address-{name}' for name in names}}
+        report = {'schema': 'part5-v3-disabled-config-negative-report-v1',
+                  'variant': 3, 'request_slot': 'A', 'passed': True,
+                  'program': 'P', 'genesis': 'G', 'loaded_elf_sha256': 'e' * 64,
+                  'stage_report_sha256': 'a' * 64,
+                  'stage_plan_sha256': 'b' * 64,
+                  'full_wire_sha256': 'c' * 64,
+                  'clone_receipt_sha256': 'd' * 64,
+                  'config_disabled': True, 'execute_rejected': True,
+                  'refresh_and_bind_succeeded': True,
+                  'disable_changed_only_enabled_and_epoch': True,
+                  'accounts_unchanged_after_rejection': True,
+                  'expected_custom_error': 713,
+                  'addresses': {name: f'address-{name}' for name in names},
+                  'source_finalized_slot': 40,
+                  'eligible_finalized_slot': 42,
+                  'disabled_finalized_slot': 43,
+                  'rejected_finalized_slot': 44,
+                  'refresh_transaction': {'signature': 'sig-0', 'slot': 41},
+                  'bind_transaction': {'signature': 'sig-1', 'slot': 42},
+                  'disable_transaction': {'signature': 'sig-2', 'slot': 43,
+                                          'finalized_slot': 43},
+                  'execute_transaction': {'signature': 'sig-3', 'slot': 44,
+                                          'custom_error': 713,
+                                          'finalized_slot': 44},
+                  'transactions': txs}
+        for label, accounts in snapshots.items():
+            report[f'{label}_sha256'] = [hashlib.sha256(accounts[name]).hexdigest()
+                                         for name in names]
+            report[f'{label}_accounts'] = [
+                {'name': name, **refs[label][name]} for name in names]
+        expected = {'stage_report_sha256': 'a' * 64,
+                    'stage_plan_sha256': 'b' * 64,
+                    'full_wire_sha256': 'c' * 64,
+                    'clone_receipt_sha256': 'd' * 64}
+        verifier._verify_disabled_config_report(
+            report, 3, stage_report, stage_accounts, 'e' * 64,
+            expected, refs, snapshots)
+        altered = json.loads(json.dumps(report))
+        altered['execute_transaction']['custom_error'] = 714
+        with self.assertRaisesRegex(ValueError, 'Policy 713'):
+            verifier._verify_disabled_config_report(
+                altered, 3, stage_report, stage_accounts, 'e' * 64,
+                expected, refs, snapshots)
+        altered = json.loads(json.dumps(report))
+        altered['before_sha256'][4] = 'f' * 64
+        with self.assertRaisesRegex(ValueError, 'snapshot hash'):
+            verifier._verify_disabled_config_report(
+                altered, 3, stage_report, stage_accounts, 'e' * 64,
+                expected, refs, snapshots)
+
+    def test_disabled_config_negative_joins_pinned_sidecar_and_rejects_wrong_outer_owner(self):
+        names = ('config', 'issuer', 'head', 'request', 'queue')
+        sizes = (381, 374, 280, 2249, 2090)
+        program, genesis, elf_sha = 'program-id', 'genesis-hash', 'e' * 64
+        variant, request_slot = 3, 'A'
+
+        def write_json(path, value):
+            path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            raw = (json.dumps(value, sort_keys=True) + '\n').encode()
+            path.write_bytes(raw)
+            path.chmod(0o600)
+            return {'path': str(path), 'sha256': hashlib.sha256(raw).hexdigest()}
+
+        def write_bytes(path, raw):
+            path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            path.write_bytes(raw)
+            path.chmod(0o600)
+            return {'path': str(path), 'sha256': hashlib.sha256(raw).hexdigest()}
+
+        stage_root = self.root / 'stage'
+        stage_root.mkdir(mode=0o700)
+        source_ledger = self.root / 'source' / 'ledger'
+        source_ledger.mkdir(parents=True, mode=0o700)
+        clone_root = self.root / 'clone'
+        clone_root.mkdir(mode=0o700)
+        clone_ledger = clone_root / 'ledger'
+        clone_ledger.mkdir(mode=0o700)
+        output = self.root / 'negative-output'
+        output.mkdir(mode=0o700)
+        control = self.root / 'negative-control'
+        control.mkdir(mode=0o700)
+
+        stage_accounts = {
+            name: bytes([index + 1]) * size
+            for index, (name, size) in enumerate(zip(names, sizes))}
+        stage_config_bytes = bytearray(stage_accounts['config'])
+        stage_config_bytes[:8] = b'DYNCONF3'
+        stage_config_bytes[372:380] = (7).to_bytes(8, 'big')
+        stage_config_bytes[380] = 1
+        stage_accounts['config'] = bytes(stage_config_bytes)
+        eligible = dict(stage_accounts)
+        eligible['issuer'] = b'I' * sizes[1]
+        eligible['head'] = b'H' * sizes[2]
+        before = dict(eligible)
+        disabled_config = bytearray(eligible['config'])
+        disabled_config[372:380] = (8).to_bytes(8, 'big')
+        disabled_config[380] = 0
+        before['config'] = bytes(disabled_config)
+        snapshots = {'eligible': eligible, 'before': before, 'after': dict(before)}
+
+        for index, name in enumerate(names):
+            (stage_root / f'{name}.bin').write_bytes(stage_accounts[name])
+            (stage_root / f'{name}.bin').chmod(0o600)
+        stage_plan = {'fixture': 'plan'}
+        stage_plan_ref = write_json(stage_root / 'plan.json', stage_plan)
+        stage_report = {
+            'schema': 'part5-v3-local-stage-v1', 'passed': True,
+            'program': program, 'genesis': genesis, 'finalized_slot': 40,
+            **{name: f'address-{name}' for name in names}}
+        stage_report_ref = write_json(stage_root / 'stage-report.json', stage_report)
+        stage_config_path = self.root / 'stage-config.json'
+        stage_status_path = self.root / 'stage-status.json'
+        stage_monitor_path = self.root / 'stage-monitor.json'
+        stage_config_ref = write_json(stage_config_path, {'fixture': 'stage config'})
+        stage_status_ref = write_json(stage_status_path, {'fixture': 'stage status'})
+        stage_monitor_ref = write_json(stage_monitor_path, {'fixture': 'stage monitor'})
+        stage_plan_sha = stage_plan_ref['sha256']
+        clone_report = {
+            'schema': 'part5-v3-heldout-r0-ledger-clone-v1',
+            'heldout_acceptance': False,
+            'stage_report_sha256': stage_report_ref['sha256'],
+            'stage_status_sha256': stage_status_ref['sha256'],
+            'stage_monitor_sha256': stage_monitor_ref['sha256'],
+            'source': str(source_ledger), 'destination': str(clone_ledger),
+            'source_stable': True, 'copy_identical': True,
+            'loaded_identity_rechecked_after_restart': False,
+            'application_effect': False, 'excluded_stale_admin_socket': False,
+            'entry_count': 0,
+            'tree_sha256': hashlib.sha256(b'[]').hexdigest()}
+        clone_ref = write_json(clone_root / 'clone-report.json', clone_report)
+
+        root_hex, action_hex = '11' * 32, '22' * 32
+        wire = bytearray(448)
+        wire[:32] = bytes.fromhex(root_hex)
+        wire[128:160] = bytes.fromhex(action_hex)
+        full_wire_ref = write_bytes(self.root / 'full-wire.bin', bytes(wire))
+        runtime_identity = {
+            'program': program, 'programdata': 'programdata-id',
+            'elf_sha256': elf_sha, 'program_account_sha256': '1' * 64,
+            'programdata_account_sha256': '2' * 64, 'genesis': genesis}
+        stage = {
+            'report_sha256': stage_report_ref['sha256'],
+            'plan_sha256': stage_plan_sha,
+            'config_sha256': stage_config_ref['sha256'],
+            'status_sha256': stage_status_ref['sha256'],
+            'monitor_sha256': stage_monitor_ref['sha256'],
+            'config': {'stage_output': str(stage_root), 'ledger': str(source_ledger)},
+            'report': stage_report, 'accounts': stage_accounts,
+            'runtime_identity': runtime_identity}
+        stage_bundle = {
+            'report': stage_report_ref, 'plan': stage_plan_ref,
+            'config': stage_config_ref, 'status': stage_status_ref,
+            'monitor': stage_monitor_ref}
+
+        rust_config_path = self.root / 'negative' / 'rust-config.json'
+        wrapper_path = self.root / 'negative' / 'config.json'
+        rust_config = {
+            'schema': 'part5-v3-disabled-config-negative-config-v1',
+            'variant': variant, 'request_slot': request_slot,
+            'stage_root': str(stage_root), 'stage_report': stage_report_ref['path'],
+            'stage_report_sha256': stage_report_ref['sha256'],
+            'stage_plan': stage_plan_ref['path'], 'stage_plan_sha256': stage_plan_sha,
+            'ledger': str(clone_ledger),
+            'heldout_r0_clone_report': clone_ref['path'],
+            'heldout_r0_clone_report_sha256': clone_ref['sha256'],
+            'full_wire': full_wire_ref['path'],
+            'full_wire_sha256': full_wire_ref['sha256'],
+            'expected_program': program, 'expected_genesis': genesis,
+            'expected_elf_sha256': elf_sha, 'output_dir': str(output),
+            'control_output': str(control), 'runner': '/runner/queue_v3',
+            'runner_sha256': '3' * 64}
+        rust_config_ref = write_json(rust_config_path, rust_config)
+        wrapper = {
+            'schema': 'credential-v3-disabled-config-negative-supervisor-v1',
+            'scope': 'part5-v3-disabled-config-negative', 'variant': variant,
+            'request_slot': request_slot,
+            'prior_stage_config': stage_config_ref['path'],
+            'prior_stage_config_sha256': stage_config_ref['sha256'],
+            'prior_stage_status': stage_status_ref['path'],
+            'prior_stage_status_sha256': stage_status_ref['sha256'],
+            'prior_stage_monitor': stage_monitor_ref['path'],
+            'prior_stage_monitor_sha256': stage_monitor_ref['sha256'],
+            'prior_monitor_owner': 'heldout-v03-positive_full-stage',
+            'stage_root': str(stage_root),
+            'stage_report_sha256': stage_report_ref['sha256'],
+            'stage_plan_sha256': stage_plan_sha,
+            'ledger': str(clone_ledger),
+            'heldout_r0_clone_report': clone_ref['path'],
+            'heldout_r0_clone_report_sha256': clone_ref['sha256'],
+            'expected_genesis': genesis,
+            'runner': rust_config['runner'],
+            'runner_sha256': rust_config['runner_sha256'],
+            'full_wire': full_wire_ref['path'],
+            'full_wire_sha256': full_wire_ref['sha256'],
+            'expected_program': program, 'expected_elf_sha256': elf_sha,
+            'output_dir': str(output), 'control_output': str(control),
+            'rust_config_path': str(rust_config_path),
+            'rust_config_sha256': rust_config_ref['sha256'],
+            'outer_limits_required': {
+                'runtime_seconds': 180, 'rss_bytes': 4294967296,
+                'storage_growth_bytes': 268435456}}
+        wrapper_ref = write_json(wrapper_path, wrapper)
+
+        rows = {}
+        for label, accounts in snapshots.items():
+            rows[label] = {}
+            for name in names:
+                rows[label][name] = write_bytes(
+                    output / label / f'{name}.bin', accounts[name])
+        transactions = [
+            {'scenario': scenario, 'signature': f'sig-{index}', 'slot': 41 + index,
+             'customError': 713 if index == 3 else None,
+             'err': {'InstructionError': [1, {'Custom': 713}]}
+                    if index == 3 else None}
+            for index, scenario in enumerate((
+                'v3-disabled-negative-refresh-source',
+                'v3-disabled-negative-refresh-head',
+                'v3-disabled-negative-disable-config',
+                'v3-disabled-negative-valid-full-execute'))]
+        report = {
+            'schema': 'part5-v3-disabled-config-negative-report-v1',
+            'variant': variant, 'request_slot': request_slot, 'passed': True,
+            'program': program, 'genesis': genesis, 'loaded_elf_sha256': elf_sha,
+            'stage_report_sha256': stage_report_ref['sha256'],
+            'stage_plan_sha256': stage_plan_sha,
+            'full_wire_sha256': full_wire_ref['sha256'],
+            'clone_receipt_sha256': clone_ref['sha256'],
+            'config_disabled': True, 'execute_rejected': True,
+            'refresh_and_bind_succeeded': True,
+            'disable_changed_only_enabled_and_epoch': True,
+            'accounts_unchanged_after_rejection': True,
+            'expected_custom_error': 713,
+            'addresses': {name: stage_report[name] for name in names},
+            'source_finalized_slot': 40, 'eligible_finalized_slot': 42,
+            'disabled_finalized_slot': 43, 'rejected_finalized_slot': 44,
+            'refresh_transaction': {'signature': 'sig-0', 'slot': 41},
+            'bind_transaction': {'signature': 'sig-1', 'slot': 42},
+            'disable_transaction': {'signature': 'sig-2', 'slot': 43,
+                                    'finalized_slot': 43},
+            'execute_transaction': {'signature': 'sig-3', 'slot': 44,
+                                    'custom_error': 713, 'finalized_slot': 44},
+            'transactions': transactions}
+        for label, accounts in snapshots.items():
+            report[f'{label}_sha256'] = [
+                hashlib.sha256(accounts[name]).hexdigest() for name in names]
+            report[f'{label}_accounts'] = [
+                {'name': name, **rows[label][name]} for name in names]
+        report_ref = write_json(output / 'disabled-config-negative-report.json', report)
+
+        loaded_program = {**runtime_identity, 'elf_match': True}
+        status = {
+            'scope': 'part5-v3-disabled-config-negative', 'status': 'failed',
+            'error_type': None, 'effect_verified': True, 'application_effect': False,
+            'config_disabled': True, 'execute_rejected': True,
+            'accounts_unchanged': True, 'ledger_reuse_requires_review': True,
+            'report_path': report_ref['path'], 'report_sha256': report_ref['sha256'],
+            'config_sha256': wrapper_ref['sha256'],
+            'rust_config_path': str(rust_config_path),
+            'rust_config_sha256': rust_config_ref['sha256'],
+            'validator_cleanup': {'spawned': True, 'reaped': True,
+                                  'graceful': False, 'exit_code': -2},
+            'runner_cleanup': {'spawned': True, 'reaped': True, 'exit_code': 0},
+            'loaded_program': loaded_program}
+        status_ref = write_json(self.root / 'negative' / 'status.json', status)
+        outer = {
+            'schema': 1, 'owner': 'heldout-v03-positive_full-disabled-config-negative',
+            'passed': False, 'exit_code': 1, 'stop_reason': None,
+            'runner_error_type': None, 'cleanup_remaining_owned_processes': 0,
+            'cleanup_status_unknown': False, 'duration_seconds': 4.0,
+            'sample_count': 10,
+            'limits': {'runtime_seconds': 180, 'owned_tree_rss_bytes': 4294967296,
+                       'storage_growth_bytes': 268435456, 'poll_seconds': 0.2}}
+        outer_ref = write_json(self.root / 'negative' / 'outer.json', outer)
+        report_receipt_ref = write_json(self.root / 'full-proof-receipt.json',
+                                         {'fixture': 'full proof receipt'})
+
+        sidecar = {
+            'schema': 'credential-v3-heldout-disabled-config-negative-v1',
+            'variant': variant,
+            'stage_report_sha256': stage_report_ref['sha256'],
+            'stage_plan_sha256': stage_plan_sha,
+            'r0_source_receipt_sha256': '4' * 64,
+            'full_proof_receipt_sha256': report_receipt_ref['sha256'],
+            'clone_receipt': clone_ref, 'full_wire': full_wire_ref,
+            'config': wrapper_ref, 'rust_config': rust_config_ref,
+            'status': status_ref, 'outer': outer_ref, 'report': report_ref,
+            'eligible_accounts': rows['eligible'],
+            'before_accounts': rows['before'], 'after_accounts': rows['after']}
+        sidecar_path = self.root / 'negative' / 'sidecar.json'
+        sidecar_ref = write_json(sidecar_path, sidecar)
+        slot = {
+            'stage': stage, 'stage_bundle': stage_bundle,
+            'r0_sha256': sidecar['r0_source_receipt_sha256'],
+            'r0': {'selected_root': root_hex, 'action_hash': action_hex}}
+        full_bundle = {
+            'result': {'wires': {'full': full_wire_ref}},
+            'proof': {'receipt': report_receipt_ref}}
+        globals_ = {'freeze': {'identities': {'loaded_elf': elf_sha}}}
+
+        with mock.patch.object(verifier, 'ledger_inventory', return_value=[]), \
+                mock.patch.object(verifier, 'stale_admin_socket', return_value=False):
+            result = verifier._verify_disabled_config_negative(
+                sidecar_ref, variant, globals_, slot, full_bundle, set())
+            self.assertTrue(result['verified'])
+
+            bad_outer = dict(outer, owner='wrong-owner')
+            bad_outer_ref = write_json(self.root / 'negative' / 'outer.json', bad_outer)
+            sidecar['outer'] = bad_outer_ref
+            sidecar_ref = write_json(sidecar_path, sidecar)
+            with self.assertRaisesRegex(ValueError, 'outer owner'):
+                verifier._verify_disabled_config_negative(
+                    sidecar_ref, variant, globals_, slot, full_bundle, set())
+
     def test_anchor_effect_bytes_require_one_request_consume_and_exact_pda_append(self):
         before_request = bytearray(2249)
         before_request[:8] = b'DYNREQ03'
@@ -466,6 +904,7 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
             'frozen_files', 'frozen_bundles', 'source_files', 'proof_inputs',
             'application_source_manifest', 'application_source_files',
             'cohort_observation')}
+        globals_['frozen_files'] = {'loaded_elf': {'sha256': 'e' * 64}}
         runner_path = str(verifier.ROOT / verifier.QUEUE_RUNNER_REL)
         globals_['frozen_bundles'] = {'registry': [{
             'path': verifier.QUEUE_RUNNER_REL,
@@ -480,17 +919,97 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         run_path.chmod(0o600)
         canonical = hashlib.sha256((json.dumps(run, sort_keys=True,
             separators=(',', ':')) + '\n').encode()).hexdigest()
+        outer_path = self.root / 'disabled-outer.json'
+        outer_path.write_bytes((json.dumps({
+            'owner': 'heldout-v02-positive_full-disabled-config-negative'},
+            sort_keys=True) + '\n').encode())
+        outer_path.chmod(0o600)
+        outer_sha = hashlib.sha256(outer_path.read_bytes()).hexdigest()
+        sidecar_path = self.root / 'disabled-sidecar.json'
+        sidecar = {'variant': 2, 'stage_report_sha256': '1' * 64,
+                   'stage_plan_sha256': '2' * 64,
+                   'r0_source_receipt_sha256': '3' * 64,
+                   'full_proof_receipt_sha256': '4' * 64,
+                   'full_wire': {'sha256': '5' * 64},
+                   'outer': {'path': str(outer_path), 'sha256': outer_sha},
+                   'clone_receipt': {'path': str(self.root / 'disabled-clone.json'),
+                                     'sha256': '6' * 64}}
+        sidecar_raw = (json.dumps(sidecar, sort_keys=True) + '\n').encode()
+        sidecar_path.write_bytes(sidecar_raw)
+        sidecar_path.chmod(0o600)
+        sidecar_sha = hashlib.sha256(sidecar_raw).hexdigest()
         journal_path = self.root / 'run-journal.json'
         journal = {'schema': 'credential-v3-heldout-case-run-journal-v1',
                    'manifest_sha256': canonical, 'steps': {
-                       'positive_full:proof-full-fresh-replay': {'status': 'passed'}}}
+                       'positive_full:proof-full-fresh-replay': {'status': 'passed'},
+                       'positive_full:disabled-config-clone': {
+                           'status': 'passed', 'wall_seconds': 1.25,
+                           'inputs': {'stage_report_sha256': '1' * 64,
+                                      'label': 'disabled-config-r0'},
+                           'receipt': sidecar['clone_receipt']['path'],
+                           'receipt_sha256': sidecar['clone_receipt']['sha256']},
+                       'positive_full:disabled-config-negative': {
+                           'status': 'passed', 'wall_seconds': 2.5,
+                           'inputs': {'variant': 2,
+                                      'stage_report_sha256': '1' * 64,
+                                      'stage_plan_sha256': '2' * 64,
+                                      'source_receipt_sha256': '3' * 64,
+                                      'proof_receipt_sha256': '4' * 64,
+                                      'full_wire_sha256': '5' * 64,
+                                      'clone_receipt_sha256': '6' * 64,
+                                      'frozen_elf_sha256': 'e' * 64},
+                           'sidecar': str(sidecar_path),
+                           'sidecar_sha256': sidecar_sha,
+                           'monitor': str(outer_path),
+                           'monitor_sha256': outer_sha,
+                           'monitor_owner': 'heldout-v02-positive_full-disabled-config-negative'}}}
         journal_raw = (json.dumps(journal, sort_keys=True) + '\n').encode()
         journal_path.write_bytes(journal_raw)
         journal_path.chmod(0o600)
         ref = lambda path: {'path': str(path),
                             'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
-        case = {'run_manifest': ref(run_path), 'run_journal': ref(journal_path)}
+        case = {'run_manifest': ref(run_path), 'run_journal': ref(journal_path),
+                'disabled_config_negative_wall_seconds': 3.75,
+                'disabled_config_negative': ref(sidecar_path)}
         verifier._verify_case_run_provenance(case, 2, globals_, 'a' * 64, 'b' * 64)
+        wrong_monitor = json.loads(json.dumps(journal))
+        wrong_monitor['steps']['positive_full:disabled-config-negative'][
+            'monitor_sha256'] = 'f' * 64
+        journal_path.write_bytes((json.dumps(wrong_monitor, sort_keys=True) + '\n').encode())
+        case['run_journal'] = ref(journal_path)
+        with self.assertRaisesRegex(ValueError, 'disabled-config journal evidence'):
+            verifier._verify_case_run_provenance(case, 2, globals_, 'a' * 64, 'b' * 64)
+        wrong_monitor['steps']['positive_full:disabled-config-negative'][
+            'monitor_sha256'] = outer_sha
+        wrong_monitor['steps']['positive_full:disabled-config-negative'][
+            'monitor_owner'] = 'wrong-owner'
+        journal_path.write_bytes((json.dumps(wrong_monitor, sort_keys=True) + '\n').encode())
+        case['run_journal'] = ref(journal_path)
+        with self.assertRaisesRegex(ValueError, 'disabled-config journal evidence'):
+            verifier._verify_case_run_provenance(case, 2, globals_, 'a' * 64, 'b' * 64)
+        journal_path.write_bytes(journal_raw)
+        case['run_journal'] = ref(journal_path)
+        wrong_sidecar = json.loads(json.dumps(journal))
+        wrong_sidecar['steps']['positive_full:disabled-config-negative'][
+            'sidecar_sha256'] = 'f' * 64
+        journal_path.write_bytes((json.dumps(wrong_sidecar, sort_keys=True) + '\n').encode())
+        case['run_journal'] = ref(journal_path)
+        with self.assertRaisesRegex(ValueError, 'disabled-config journal evidence'):
+            verifier._verify_case_run_provenance(case, 2, globals_, 'a' * 64, 'b' * 64)
+        journal_path.write_bytes(journal_raw)
+        case['run_journal'] = ref(journal_path)
+        wrong_cost = dict(case, disabled_config_negative_wall_seconds=3.7)
+        with self.assertRaisesRegex(ValueError, 'disabled-config wall cost'):
+            verifier._verify_case_run_provenance(
+                wrong_cost, 2, globals_, 'a' * 64, 'b' * 64)
+        missing_negative = json.loads(json.dumps(journal))
+        del missing_negative['steps']['positive_full:disabled-config-negative']
+        journal_path.write_bytes((json.dumps(missing_negative, sort_keys=True) + '\n').encode())
+        case['run_journal'] = ref(journal_path)
+        with self.assertRaisesRegex(ValueError, 'disabled-config'):
+            verifier._verify_case_run_provenance(case, 2, globals_, 'a' * 64, 'b' * 64)
+        journal_path.write_bytes(journal_raw)
+        case['run_journal'] = ref(journal_path)
         altered = dict(run, cohort_observation={'pinned': 'other-observation'})
         run_path.write_bytes((json.dumps(altered, sort_keys=True, indent=2) + '\n').encode())
         case['run_manifest'] = ref(run_path)

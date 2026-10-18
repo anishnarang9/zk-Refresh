@@ -57,9 +57,11 @@ class HeldoutAcceptanceAssemblerTests(unittest.TestCase):
                            else {'result': {'report': self.ref}})
                     for name in ('full', 'unrelated_full', 'anchor',
                                  'own_revocation')},
+                'disabled_config_negative': self.ref,
                 'run_manifest': self.ref,
                 'run_journal': self.ref,
                 'all_step_wall_seconds': {'step': 1.0},
+                'disabled_config_negative_wall_seconds': 5.0,
                 'shared_costs': {'shared_stage_seconds': 2.0,
                                  'shared_transition_seconds': 3.0},
                 'branch_wall_components': branch_costs,
@@ -98,7 +100,9 @@ class HeldoutAcceptanceAssemblerTests(unittest.TestCase):
         self.assertEqual(manifest['cases'][1]['proof_order'],
                          {'unrelated_compare': ['anchor', 'full']})
         self.assertIn('all_step_wall_seconds', manifest['cases'][0])
+        self.assertEqual(manifest['cases'][0]['disabled_config_negative_wall_seconds'], 5.0)
         self.assertEqual(manifest['cases'][0]['run_manifest'], self.ref)
+        self.assertEqual(manifest['cases'][0]['disabled_config_negative'], self.ref)
 
     def test_own_revocation_requires_pinned_current_r2_witness_rejection(self):
         changed = json.loads(self.fragments[0].read_text())
@@ -136,6 +140,25 @@ class HeldoutAcceptanceAssemblerTests(unittest.TestCase):
         del changed['run_manifest']
         self.fragments[0].write_text(json.dumps(changed))
         with self.assertRaisesRegex(ValueError, 'complete normalized heldout case'):
+            self.assemble()
+
+    def test_disabled_config_negative_requires_pinned_sidecar_reference(self):
+        changed = json.loads(self.fragments[0].read_text())
+        del changed['disabled_config_negative']
+        self.fragments[0].write_text(json.dumps(changed))
+        with self.assertRaisesRegex(ValueError, 'complete normalized heldout case'):
+            self.assemble()
+
+        changed['disabled_config_negative'] = {
+            **self.ref, 'unexpected': True}
+        self.fragments[0].write_text(json.dumps(changed))
+        with self.assertRaisesRegex(ValueError, 'absolute pinned artifact reference'):
+            self.assemble()
+
+        changed['disabled_config_negative'] = {
+            'path': str(self.artifact), 'sha256': '0' * 64}
+        self.fragments[0].write_text(json.dumps(changed))
+        with self.assertRaisesRegex(ValueError, 'artifact reference pin mismatch'):
             self.assemble()
 
     def test_rejects_missing_cost_evidence(self):

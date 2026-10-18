@@ -14,6 +14,7 @@ if str(REPO) not in sys.path:
 from tools.part5 import assemble_v3_heldout_acceptance as assembler
 from tools.part5 import build_v3_heldout_run_manifest as manifest_builder
 from tools.part5 import verify_v3_heldout_acceptance as verifier
+from harness.tests import queue_v3_local_disabled_config_negative as disabled_negative
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / 'run_v3_heldout_case.py'
 spec = importlib.util.spec_from_file_location('run_v3_heldout_case', MODULE_PATH)
@@ -430,10 +431,13 @@ def test_case_fragment_shape_matches_assembler_and_verifier_contracts(tmp_path):
         'pair_receipt': {'path': '/unused/pair.json', 'sha256': 'c' * 64},
         'membership': {'path': '/unused/membership.json', 'sha256': 'd' * 64},
         **slots, 'branches': emitted_branches,
+        'disabled_config_negative': {'path': str(r2_rejection),
+            'sha256': hashlib.sha256(r2_rejection_raw).hexdigest()},
         'run_manifest': run_manifest_ref,
         'run_journal': {'path': str(journal_path),
                         'sha256': hashlib.sha256(journal_raw).hexdigest()},
         'all_step_wall_seconds': {'prepare': 1.0},
+        'disabled_config_negative_wall_seconds': 2.0,
         'shared_costs': {'shared_stage_seconds': 0.0,
                          'shared_transition_seconds': 0.0},
         'branch_wall_components': branch_components,
@@ -446,6 +450,7 @@ def test_case_fragment_shape_matches_assembler_and_verifier_contracts(tmp_path):
     normalized = assembler._case_from_fragment(fragment)
     assert set(normalized) == set(assembler.CASE_FIELDS)
     assert set(normalized['branches']) == set(verifier.BRANCHES)
+    assert normalized['disabled_config_negative'] == fragment['disabled_config_negative']
     for name, bundle in normalized['branches'].items():
         clone = 'r0_clone' if name == 'full' else 'r1_clone'
         expected = {'result', 'proof', clone}
@@ -459,6 +464,33 @@ def test_case_fragment_shape_matches_assembler_and_verifier_contracts(tmp_path):
         if name != 'full':
             expected_result.add('signed_history')
         assert set(bundle['result']) == expected_result
+
+
+def test_disabled_config_sidecar_reuse_requires_every_pinned_snapshot(tmp_path):
+    payload = b'heldout-negative-pin'
+    artifact = tmp_path / 'pin.bin'
+    artifact.write_bytes(payload)
+    artifact.chmod(0o600)
+    ref = {'path': str(artifact), 'sha256': hashlib.sha256(payload).hexdigest()}
+    sidecar = {'schema': runner.DISABLED_CONFIG_SIDECAR_SCHEMA, 'variant': 0,
+        'stage_report_sha256': 'a' * 64, 'stage_plan_sha256': 'b' * 64,
+        'r0_source_receipt_sha256': 'c' * 64, 'full_proof_receipt_sha256': 'd' * 64,
+        'clone_receipt': ref, 'full_wire': ref, 'config': ref, 'rust_config': ref,
+        'status': ref, 'outer': ref, 'report': ref,
+        'eligible_accounts': {name: ref for name in runner.NEGATIVE_ACCOUNT_NAMES},
+        'before_accounts': {name: ref for name in runner.NEGATIVE_ACCOUNT_NAMES},
+        'after_accounts': {name: ref for name in runner.NEGATIVE_ACCOUNT_NAMES}}
+    sidecar_path = tmp_path / 'sidecar.json'
+    sidecar_path.write_text(json.dumps(sidecar, sort_keys=True))
+    sidecar_path.chmod(0o600)
+    sidecar_sha = hashlib.sha256(sidecar_path.read_bytes()).hexdigest()
+    assert runner.HeldoutCaseRunner._disabled_config_sidecar_verified(
+        sidecar_path, sidecar_sha)
+    bad = json.loads(sidecar_path.read_text())
+    bad['after_accounts']['request']['sha256'] = '0' * 64
+    sidecar_path.write_text(json.dumps(bad, sort_keys=True))
+    assert not runner.HeldoutCaseRunner._disabled_config_sidecar_verified(
+        sidecar_path, hashlib.sha256(sidecar_path.read_bytes()).hexdigest())
 
 
 def test_acceptance_costs_include_full_branch_wall_and_shared_setup_wall():
@@ -489,6 +521,55 @@ def test_acceptance_costs_include_full_branch_wall_and_shared_setup_wall():
     assert costs['shared_stage_transition_wall_seconds'] == {
         'stage': {'A': 1.25, 'B': 1.5, 'C': 1.75},
         'transition': {'A': 2.5, 'B': 2.75, 'C': 3.0}}
+
+
+def test_disabled_config_negative_wall_cost_is_separate_from_matched_branches():
+    costs = runner.disabled_config_negative_wall_seconds({
+        'positive_full:disabled-config-clone': {'status': 'passed', 'wall_seconds': 2.5},
+        'positive_full:disabled-config-negative': {'status': 'passed', 'wall_seconds': 4.0},
+    })
+    assert costs == 6.5
+    with pytest.raises(ValueError, match='disabled-config journal wall time'):
+        runner.disabled_config_negative_wall_seconds({
+            'positive_full:disabled-config-clone': {'status': 'passed', 'wall_seconds': 2.5},
+            'positive_full:disabled-config-negative': {'status': 'failed', 'wall_seconds': 4.0},
+        })
+
+
+def test_disabled_config_supervisor_binds_all_three_five_account_snapshots(tmp_path):
+    report = {}
+    for group in ('eligible', 'before', 'after'):
+        rows, hashes = [], []
+        for name in disabled_negative.ACCOUNT_NAMES:
+            path = tmp_path / group / f'{name}.bin'
+            path.parent.mkdir(exist_ok=True)
+            payload = f'{group}:{name}'.encode()
+            if group == 'after':
+                payload = f'before:{name}'.encode()
+            path.write_bytes(payload)
+            path.chmod(0o600)
+            sha = hashlib.sha256(payload).hexdigest()
+            rows.append({'name': name, 'path': str(path), 'sha256': sha})
+            hashes.append(sha)
+        report[group + '_accounts'] = rows
+        report[group + '_sha256'] = hashes
+    assert disabled_negative._check_snapshots(report, tmp_path)
+    report['after_accounts'][0]['sha256'] = '0' * 64
+    with pytest.raises(ValueError, match='snapshot ref mismatch'):
+        disabled_negative._check_snapshots(report, tmp_path)
+
+
+def test_disabled_config_supervisor_passes_pinned_stage_context(tmp_path):
+    context = tmp_path / 'stage-context.json'
+    context.write_bytes(b'{"training_only":true}\n')
+    context.chmod(0o600)
+    expected = hashlib.sha256(context.read_bytes()).hexdigest()
+    stage = {'context': str(context), 'context_sha256': expected}
+    assert disabled_negative._context_env(stage) == {
+        'P5_V3_CONTEXT': str(context), 'P5_V3_CONTEXT_SHA256': expected}
+    context.write_bytes(b'{"training_only":false}\n')
+    with pytest.raises(ValueError, match='pinned staged training context'):
+        disabled_negative._context_env(stage)
 
 
 def test_reviewed_outer_accepts_actual_session_runner_sigint_schema():

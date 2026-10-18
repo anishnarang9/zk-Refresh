@@ -130,6 +130,8 @@ def _step_names():
     names.append('positive_full:proof-full-fresh-replay')
     names.extend((
         'positive_full:r0-clone', 'positive_full:execute',
+        'positive_full:disabled-config-clone',
+        'positive_full:disabled-config-negative',
         'unrelated_compare:unrelated_full:clone',
         'unrelated_compare:unrelated_full:effect',
         'unrelated_compare:anchor:clone', 'unrelated_compare:anchor:effect',
@@ -191,6 +193,14 @@ def _check_summary(case, journal, durations):
         if (not _number(value) or not _close(value, journal['costs'][key])):
             raise ValueError('journal timing summaries disagree with pinned journal')
 
+    disabled_negative_seconds = sum(durations[name] for name in (
+        'positive_full:disabled-config-clone',
+        'positive_full:disabled-config-negative'))
+    if (not _number(case.get('disabled_config_negative_wall_seconds'))
+            or not _close(case['disabled_config_negative_wall_seconds'],
+                          disabled_negative_seconds)):
+        raise ValueError('disabled-config audit cost disagrees with journal')
+
     stage_transition = case.get('shared_stage_transition_wall_seconds')
     if type(stage_transition) is not dict or set(stage_transition) != {'stage', 'transition'}:
         raise ValueError('journal timing summaries disagree with pinned journal')
@@ -238,6 +248,30 @@ def _check_summary(case, journal, durations):
                 or not _number(totals[branch])
                 or not _close(totals[branch], sum(values))):
             raise ValueError('branch cost summaries disagree with pinned journal')
+
+
+def _verify_disabled_config_audit(case, journal):
+    step_name = 'positive_full:disabled-config-negative'
+    step = journal['steps'][step_name]
+    sidecar_ref = case.get('disabled_config_negative')
+    if (type(sidecar_ref) is not dict or set(sidecar_ref) != {'path', 'sha256'}
+            or step.get('sidecar') != sidecar_ref.get('path')
+            or step.get('sidecar_sha256') != sidecar_ref.get('sha256')):
+        raise ValueError('disabled-config sidecar differs from journal step result')
+    sidecar, _ = _load_input_ref(sidecar_ref, 'disabled-config negative sidecar')
+    if (sidecar.get('schema') != 'credential-v3-heldout-disabled-config-negative-v1'
+            or type(sidecar.get('outer')) is not dict
+            or set(sidecar['outer']) != {'path', 'sha256'}):
+        raise ValueError('pinned disabled-config outer monitor reference required')
+    monitor_ref = {'path': step.get('monitor'), 'sha256': step.get('monitor_sha256')}
+    if monitor_ref != sidecar['outer']:
+        raise ValueError('disabled-config journal monitor differs from sidecar outer ref')
+    owner = step.get('monitor_owner')
+    if type(owner) is not str or not owner:
+        raise ValueError('disabled-config journal monitor owner required')
+    outer, _ = _load_input_ref(sidecar['outer'], 'disabled-config outer monitor')
+    if outer.get('owner') != owner:
+        raise ValueError('disabled-config outer monitor owner differs from journal')
 
 
 def _outer(ref, owner=None, expected_exit=None):
@@ -843,6 +877,7 @@ def analyze(manifest_ref, acceptance_ref):
         durations = _duration_map(journal, run_manifest_sha)
         _check_order(case, variant)
         _check_summary(case, journal, durations)
+        _verify_disabled_config_audit(case, journal)
         _verify_case_identity(report_case, case)
         _verify_current_head_evidence(report_case)
         _verify_b_request(report_case, case)
@@ -904,6 +939,12 @@ def analyze(manifest_ref, acceptance_ref):
         anchor_samples.extend(monitor_samples[step] for step in anchor_b_steps[5:])
         output_rows.append({
             'variant': variant,
+            'disabled_config_negative_wall_seconds': case[
+                'disabled_config_negative_wall_seconds'],
+            'disabled_config_negative_components_seconds': {
+                'clone': durations['positive_full:disabled-config-clone'],
+                'negative_effect': durations['positive_full:disabled-config-negative'],
+            },
             'pair_view_one_time_seconds': pair_view,
             'full_A_fresh_replay_test_only_seconds': durations[
                 'positive_full:proof-full-fresh-replay'],
@@ -937,6 +978,8 @@ def analyze(manifest_ref, acceptance_ref):
                 'full_B_plus_pair_view_seconds', 'anchor_B_plus_pair_view_seconds',
                 'B_total_wall_savings_fraction',
                 'B_plus_pair_view_wall_savings_fraction')}
+    summary['disabled_config_negative_wall_seconds'] = _summary(
+        output_rows, 'disabled_config_negative_wall_seconds')
     summary['anchor_preparation_seconds'] = {
         slot: {
             field: _summary([
@@ -987,6 +1030,9 @@ def analyze(manifest_ref, acceptance_ref):
                                  'the plus-pair-view totals charge it once to each B mode'),
         'fresh_replay_accounting': ('A:proof-full-fresh-replay is a test-only second '
                                     'Full proof bundle; reported per case and excluded from matched B totals'),
+        'disabled_config_negative_accounting': (
+            'A:disabled-config-clone plus A:disabled-config-negative are reported per case '
+            'and in the summary as separate audit overhead; excluded from matched B totals.'),
         'transaction_metric_accounting': (
             'Transaction bytes, compute units, and fee lamports are direct fields from the '
             'unique successful effect event in the pinned application report. They are '

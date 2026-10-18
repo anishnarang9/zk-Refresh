@@ -27,6 +27,14 @@ LIMITS = {'runtime_seconds': 180, 'rss_bytes': 4294967296,
           'storage_growth_bytes': 268435456}
 JOURNAL_SCHEMA = 'credential-v3-heldout-case-run-journal-v1'
 RUN_SCHEMA = 'credential-v3-heldout-case-run-v1'
+DISABLED_CONFIG_REPORT_SCHEMA = 'part5-v3-disabled-config-negative-report-v1'
+DISABLED_CONFIG_SIDECAR_SCHEMA = 'credential-v3-heldout-disabled-config-negative-v1'
+NEGATIVE_ACCOUNT_NAMES = ('config', 'issuer', 'head', 'request', 'queue')
+DISABLED_CONFIG_SIDECAR_KEYS = {
+    'schema', 'variant', 'stage_report_sha256', 'stage_plan_sha256',
+    'r0_source_receipt_sha256', 'full_proof_receipt_sha256', 'clone_receipt',
+    'full_wire', 'config', 'rust_config', 'status', 'outer', 'report',
+    'eligible_accounts', 'before_accounts', 'after_accounts'}
 ROLE_NAMES = ('profile', 'r1cs', 'witness_executable', 'setup_manifest',
               'ordinary_vk', 'proof_runner', 'signer_interface',
               'ordinary_adapter', 'loaded_elf')
@@ -319,6 +327,22 @@ def acceptance_wall_costs(steps):
             'branch_wall_seconds': {name: row['total_seconds']
                                     for name, row in components.items()},
             'shared_stage_transition_wall_seconds': shared}
+
+
+def disabled_config_negative_wall_seconds(steps):
+    """Report the independent A-clone negative cost outside matched branches."""
+    names = ('positive_full:disabled-config-clone',
+             'positive_full:disabled-config-negative')
+    total = 0.0
+    for name in names:
+        row = steps.get(name)
+        wall = row.get('wall_seconds') if type(row) is dict else None
+        if (type(row) is not dict or row.get('status') != 'passed'
+                or type(wall) not in (int, float) or not math.isfinite(wall)
+                or wall < 0):
+            raise ValueError(f'completed disabled-config journal wall time required for {name}')
+        total += float(wall)
+    return total
 
 
 def all_step_wall_seconds(journal_doc):
@@ -738,6 +762,7 @@ class HeldoutCaseRunner:
             'branch': REPO / 'harness/tests/queue_v3_local_branch.py',
             'r0_clone': REPO / 'harness/tests/queue_v3_clone_heldout_r0.py',
             'r1_clone': REPO / 'harness/tests/queue_v3_clone_ledger.py',
+            'disabled_config_negative': REPO / 'harness/tests/queue_v3_local_disabled_config_negative.py',
         }
 
     def _bounded_run(self, owner, command, output, report, *, runtime, storage_paths=(), env=None):
@@ -1049,8 +1074,8 @@ class HeldoutCaseRunner:
         path = Path(path)
         return {'path': str(path), 'sha256': digest(_read(path))}
 
-    def _clone_r0(self, request, root, stage):
-        clone_root = root / 'r0-clone'
+    def _clone_r0(self, request, root, stage, *, label='r0'):
+        clone_root = root / (label + '-clone')
         if not clone_root.exists():
             clone_root.mkdir(mode=0o700)
         destination = clone_root / 'ledger'
@@ -1062,18 +1087,19 @@ class HeldoutCaseRunner:
                 raise ValueError('existing R0 clone receipt is not this request')
             return {'root': str(clone_root), 'ledger': str(destination),
                     'receipt': str(receipt_path), 'receipt_sha256': digest(_read(receipt_path)),
-                    'monitor': str(root / 'r0-clone-monitor.json'),
-                    'monitor_sha256': digest(_read(root / 'r0-clone-monitor.json')),
-                    'monitor_owner': f'heldout-v{self.variant:02d}-{request}-clone-r0',
-                    'wall_seconds': _json(root / 'r0-clone-monitor.json')['duration_seconds']}
+                    'monitor': str(root / (label + '-clone-monitor.json')),
+                    'monitor_sha256': digest(_read(root / (label + '-clone-monitor.json'))),
+                    'monitor_owner': f'heldout-v{self.variant:02d}-{request}-clone-{label}',
+                    'wall_seconds': _json(root / (label + '-clone-monitor.json'))['duration_seconds']}
         command = [sys.executable, str(self.toolpaths['r0_clone']),
             '--stage-config', stage['config'], '--config-sha', stage['config_sha256'],
             '--stage-report', stage['report'], '--report-sha', stage['report_sha256'],
             '--stage-status', stage['status_path'], '--status-sha', stage['status_sha256'],
             '--stage-monitor', stage['monitor'], '--monitor-sha', stage['monitor_sha256'],
             '--monitor-owner', stage['monitor_owner'], '--destination', str(destination)]
-        monitor_dir, monitor_path = root / 'r0-clone-monitor', root / 'r0-clone-monitor.json'
-        owner = f'heldout-v{self.variant:02d}-{request}-clone-r0'
+        monitor_dir = root / (label + '-clone-monitor')
+        monitor_path = root / (label + '-clone-monitor.json')
+        owner = f'heldout-v{self.variant:02d}-{request}-clone-{label}'
         outer = self.bounded_run(owner, command, monitor_dir, monitor_path,
             runtime=LIMITS['runtime_seconds'], storage_paths=(clone_root,))
         receipt = _json(receipt_path)
@@ -1084,6 +1110,160 @@ class HeldoutCaseRunner:
                 'receipt': str(receipt_path), 'receipt_sha256': digest(_read(receipt_path)),
                 'monitor': str(monitor_path), 'monitor_sha256': digest(_read(monitor_path)),
                 'monitor_owner': owner, 'wall_seconds': outer['duration_seconds']}
+
+    def _disabled_account_bundle(self, report, output_dir, group):
+        rows = report.get(group + '_accounts')
+        if (type(rows) is not list or len(rows) != len(NEGATIVE_ACCOUNT_NAMES)
+                or [row.get('name') if type(row) is dict else None for row in rows]
+                    != list(NEGATIVE_ACCOUNT_NAMES)):
+            raise ValueError(f'pinned {group} account snapshot rows required')
+        refs = {}
+        for name, row in zip(NEGATIVE_ACCOUNT_NAMES, rows):
+            path = Path(output_dir) / group / (name + '.bin')
+            if row.get('path') != str(path) or not _hash(row.get('sha256')):
+                raise ValueError(f'pinned {group} {name} account output path required')
+            refs[name] = self._artifact(path)
+            if refs[name]['sha256'] != row['sha256']:
+                raise ValueError(f'{group} {name} account snapshot hash mismatch')
+        return refs
+
+    def _disabled_config_negative(self, request, root, stage, source, proof, clone):
+        negative_root = root / 'disabled-config-negative'
+        if not negative_root.exists():
+            negative_root.mkdir(mode=0o700)
+        else:
+            _private_dir(negative_root)
+        output, control = (self._art(request, 'disabled-config-negative'),
+                           self._art(request, 'disabled-config-negative-control'))
+        wire = proof['wires']['r0_full_wire']
+        stage_report = _json(Path(stage['report']), stage['report_sha256'])
+        rust_config = {'schema': 'part5-v3-disabled-config-negative-config-v1',
+            'variant': self.variant, 'request_slot': 'A',
+            'stage_root': stage['root'], 'stage_report': stage['report'],
+            'stage_report_sha256': stage['report_sha256'],
+            'stage_plan': stage['plan'], 'stage_plan_sha256': stage['plan_sha256'],
+            'ledger': clone['ledger'],
+            'heldout_r0_clone_report': clone['receipt'],
+            'heldout_r0_clone_report_sha256': clone['receipt_sha256'],
+            'full_wire': wire['path'], 'full_wire_sha256': wire['sha256'],
+            'expected_program': stage_report['program'],
+            'expected_genesis': stage_report['genesis'],
+            'expected_elf_sha256': self.manifest['frozen_files']['loaded_elf']['sha256'],
+            'output_dir': output, 'control_output': control,
+            'runner': self.manifest['runner'],
+            'runner_sha256': self.manifest['runner_sha256']}
+        rust_config_path = negative_root / 'rust-config.json'
+        rust_config_sha = self._write_config(rust_config_path, rust_config)
+        wrapper_config = {'schema': 'credential-v3-disabled-config-negative-supervisor-v1',
+            'scope': 'part5-v3-disabled-config-negative',
+            'variant': self.variant, 'request_slot': 'A',
+            'prior_stage_config': stage['config'],
+            'prior_stage_config_sha256': stage['config_sha256'],
+            'prior_stage_status': stage['status_path'],
+            'prior_stage_status_sha256': stage['status_sha256'],
+            'prior_stage_monitor': stage['monitor'],
+            'prior_stage_monitor_sha256': stage['monitor_sha256'],
+            'prior_monitor_owner': stage['monitor_owner'],
+            'stage_root': stage['root'],
+            'stage_report_sha256': stage['report_sha256'],
+            'stage_plan_sha256': stage['plan_sha256'],
+            'ledger': clone['ledger'],
+            'heldout_r0_clone_report': clone['receipt'],
+            'heldout_r0_clone_report_sha256': clone['receipt_sha256'],
+            'full_wire': wire['path'], 'full_wire_sha256': wire['sha256'],
+            'expected_program': stage_report['program'],
+            'expected_genesis': stage_report['genesis'],
+            'expected_elf_sha256': rust_config['expected_elf_sha256'],
+            'runner': self.manifest['runner'],
+            'runner_sha256': self.manifest['runner_sha256'],
+            'rust_config_path': str(rust_config_path),
+            'rust_config_sha256': rust_config_sha,
+            'output_dir': output, 'control_output': control,
+            'outer_limits_required': LIMITS}
+        wrapper_path = negative_root / 'supervisor-config.json'
+        wrapper_sha = self._write_config(wrapper_path, wrapper_config)
+        monitor_dir, monitor_path = (negative_root / 'monitor',
+                                     negative_root / 'outer.json')
+        owner = f'heldout-v{self.variant:02d}-{request}-disabled-config-negative'
+        status_path = Path(control) / 'status.json'
+        report_path = Path(output) / 'disabled-config-negative-report.json'
+        if status_path.exists() and report_path.exists() and monitor_path.exists():
+            outer, status, report = (_json(monitor_path), _json(status_path),
+                                     _json(report_path))
+        elif (Path(control).exists() or Path(output).exists()
+              or monitor_dir.exists() or monitor_path.exists()):
+            raise ValueError('partial disabled-config negative output requires manual review')
+        else:
+            outer = self.bounded_run(owner, [sys.executable,
+                str(self.toolpaths['disabled_config_negative']),
+                '--config', str(wrapper_path), '--config-sha256', wrapper_sha],
+                monitor_dir, monitor_path, runtime=LIMITS['runtime_seconds'],
+                storage_paths=(Path(output), Path(control)),
+                env={'P5_V3_DISABLED_CONFIG_NEGATIVE_SCOPE':
+                     'part5-v3-disabled-config-negative'})
+            status, report = _json(status_path), _json(report_path)
+        if (not reviewed_application_outer(outer)
+                or outer.get('exit_code') != 1
+                or status.get('scope') != 'part5-v3-disabled-config-negative'
+                or status.get('status') != 'failed'
+                or status.get('error_type') is not None
+                or status.get('config_sha256') != wrapper_sha
+                or status.get('rust_config_path') != str(rust_config_path)
+                or status.get('rust_config_sha256') != rust_config_sha
+                or status.get('config_disabled') is not True
+                or status.get('execute_rejected') is not True
+                or status.get('accounts_unchanged') is not True
+                or status.get('effect_verified') is not True
+                or status.get('application_effect') is not False
+                or status.get('report_path') != str(report_path)
+                or status.get('report_sha256') != digest(_read(report_path))
+                or not reviewed_validator_sigint(status.get('validator_cleanup'))
+                or not reviewed_runner_exit(status.get('runner_cleanup'))
+                or report.get('schema') != DISABLED_CONFIG_REPORT_SCHEMA
+                or report.get('passed') is not True
+                or report.get('variant') != self.variant
+                or report.get('program') != stage_report['program']
+                or report.get('genesis') != stage_report['genesis']
+                or report.get('loaded_elf_sha256') != rust_config['expected_elf_sha256']
+                or report.get('stage_report_sha256') != stage['report_sha256']
+                or report.get('stage_plan_sha256') != stage['plan_sha256']
+                or report.get('full_wire_sha256') != wire['sha256']
+                or report.get('clone_receipt_sha256') != clone['receipt_sha256']
+                or report.get('config_disabled') is not True
+                or report.get('execute_rejected') is not True
+                or report.get('expected_custom_error') != 713):
+            raise ValueError('pinned loaded-ELF disabled-config rejection required')
+        accounts = {group: self._disabled_account_bundle(report, output, group)
+                    for group in ('eligible', 'before', 'after')}
+        sidecar = {'schema': DISABLED_CONFIG_SIDECAR_SCHEMA,
+            'variant': self.variant,
+            'stage_report_sha256': stage['report_sha256'],
+            'stage_plan_sha256': stage['plan_sha256'],
+            'r0_source_receipt_sha256': source['receipt_sha256'],
+            'full_proof_receipt_sha256': proof['receipt_sha256'],
+            'clone_receipt': self._artifact(clone['receipt']),
+            'full_wire': self._artifact(wire['path']),
+            'config': self._artifact(wrapper_path),
+            'rust_config': self._artifact(rust_config_path),
+            'status': self._artifact(status_path),
+            'outer': self._artifact(monitor_path),
+            'report': self._artifact(report_path),
+            **{group + '_accounts': refs for group, refs in accounts.items()}}
+        if set(sidecar) != DISABLED_CONFIG_SIDECAR_KEYS:
+            raise ValueError('disabled-config sidecar schema mismatch')
+        sidecar_path = negative_root / 'sidecar.json'
+        raw = json.dumps(sidecar, sort_keys=True, indent=2).encode() + b'\n'
+        if sidecar_path.exists():
+            if _read(sidecar_path) != raw:
+                raise ValueError('saved disabled-config sidecar differs from evidence')
+        else:
+            _write_new(sidecar_path, raw)
+        return {'status': 'passed', 'sidecar': str(sidecar_path),
+            'sidecar_sha256': digest(_read(sidecar_path)),
+            'monitor': str(monitor_path),
+            'monitor_sha256': digest(_read(monitor_path)),
+            'monitor_owner': owner,
+            'wall_seconds': outer['duration_seconds']}
 
     def _clone_r1(self, request, label, root, transition):
         clone_root = root / (label + '-clone')
@@ -1394,6 +1574,41 @@ class HeldoutCaseRunner:
         return {'receipt': {'path': proof['receipt'], 'sha256': proof['receipt_sha256']},
                 'artifacts': receipt['artifacts']}
 
+    @staticmethod
+    def _disabled_config_sidecar_verified(path, expected_sha256):
+        try:
+            sidecar = _json(path, expected_sha256, 1024 * 1024)
+            if (type(sidecar) is not dict
+                    or set(sidecar) != DISABLED_CONFIG_SIDECAR_KEYS
+                    or sidecar.get('schema') != DISABLED_CONFIG_SIDECAR_SCHEMA
+                    or type(sidecar.get('variant')) is not int
+                    or not 0 <= sidecar['variant'] < 8):
+                return False
+            refs = ('clone_receipt', 'full_wire', 'config', 'rust_config',
+                    'status', 'outer', 'report')
+            for field in refs:
+                ref = sidecar[field]
+                if (type(ref) is not dict or set(ref) != {'path', 'sha256'}
+                        or not _hash(ref.get('sha256'))):
+                    return False
+                _read(ref['path'], ref['sha256'], 32 * 1024 * 1024)
+            for group in ('eligible_accounts', 'before_accounts', 'after_accounts'):
+                rows = sidecar[group]
+                if type(rows) is not dict or set(rows) != set(NEGATIVE_ACCOUNT_NAMES):
+                    return False
+                for ref in rows.values():
+                    if (type(ref) is not dict or set(ref) != {'path', 'sha256'}
+                            or not _hash(ref.get('sha256'))):
+                        return False
+                    _read(ref['path'], ref['sha256'], 4096)
+            for field in ('stage_report_sha256', 'stage_plan_sha256',
+                          'r0_source_receipt_sha256', 'full_proof_receipt_sha256'):
+                if not _hash(sidecar.get(field)):
+                    return False
+            return True
+        except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+            return False
+
     def _request_proof(self, req, mode, root, case_root, stage, transition,
                        r0_source, r1_source, *, label=None):
         name = f'{req}:proof-{mode}' + (('-' + label) if label else '')
@@ -1601,6 +1816,15 @@ class HeldoutCaseRunner:
                         job=lambda req=req, root=root, stage=stage: {
                             'status': 'passed', **self._clone_r0(req, root, stage)},
                         reuse=lambda saved: self._verify_record(saved, ('receipt',), ('receipt_sha256',)))
+                    disabled_clone = self.journal.run_step(
+                        'positive_full:disabled-config-clone',
+                        inputs={'stage_report_sha256': stage['report_sha256'],
+                                'label': 'disabled-config-r0'},
+                        job=lambda req=req, root=root, stage=stage: {
+                            'status': 'passed', **self._clone_r0(
+                                req, root, stage, label='disabled-config-r0')},
+                        reuse=lambda saved: self._verify_record(
+                            saved, ('receipt',), ('receipt_sha256',)))
                     full_proof = proofs['full']
                     effect = self.journal.run_step('positive_full:execute',
                         inputs={'stage_report_sha256': stage['report_sha256'],
@@ -1616,6 +1840,28 @@ class HeldoutCaseRunner:
                     effect['proof'] = self._proof_bundle(full_proof)
                     effect['replay_proof'] = self._proof_bundle(replay_proof)
                     effect['r0_clone'] = clone
+                    negative_inputs = {
+                        'variant': self.variant,
+                        'stage_report_sha256': stage['report_sha256'],
+                        'stage_plan_sha256': stage['plan_sha256'],
+                        'source_receipt_sha256': r0_source['receipt_sha256'],
+                        'proof_receipt_sha256': full_proof['receipt_sha256'],
+                        'full_wire_sha256': full_proof['wires']['r0_full_wire']['sha256'],
+                        'clone_receipt_sha256': disabled_clone['receipt_sha256'],
+                        'frozen_elf_sha256': self.manifest['frozen_files']['loaded_elf']['sha256']}
+                    disabled_negative = self.journal.run_step(
+                        'positive_full:disabled-config-negative', inputs=negative_inputs,
+                        job=lambda req=req, root=root, stage=stage, source=r0_source,
+                                   proof=full_proof, clone=disabled_clone: {
+                            **self._disabled_config_negative(
+                                req, root, stage, source, proof, clone)},
+                        reuse=lambda saved: self._verify_record(
+                            saved, ('sidecar',), ('sidecar_sha256',))
+                            and self._disabled_config_sidecar_verified(
+                                saved['sidecar'], saved['sidecar_sha256']))
+                    effect['disabled_config_negative'] = {
+                        'path': disabled_negative['sidecar'],
+                        'sha256': disabled_negative['sidecar_sha256']}
                     branch_results['full'] = {'stage': stage, 'transition': None,
                         'sources': {'R0': r0_source}, 'effect': effect, 'clone': clone}
                 elif req == 'unrelated_compare':
@@ -1718,6 +1964,8 @@ class HeldoutCaseRunner:
             journal_doc = self.journal._read()
             wall_costs = acceptance_wall_costs(journal_doc['steps'])
             all_wall_times = all_step_wall_seconds(journal_doc)
+            disabled_negative_wall = disabled_config_negative_wall_seconds(
+                journal_doc['steps'])
             fragment = {'schema': 'credential-v3-heldout-acceptance-case-fragment-v1',
                 'variant': self.variant,
                 'run_manifest': self.run_manifest_ref,
@@ -1726,8 +1974,12 @@ class HeldoutCaseRunner:
                 'pair_receipt': self._artifact(case_context / 'cohort-receipt.json'),
                 'membership': self._artifact(case_context / 'membership.json'),
                 'branches': branch_bundles,
+                'disabled_config_negative': {
+                    'path': branch_results['full']['effect']['disabled_config_negative']['path'],
+                    'sha256': branch_results['full']['effect']['disabled_config_negative']['sha256']},
                 **slots,
                 'shared_costs': journal_doc['costs'], **wall_costs,
+                'disabled_config_negative_wall_seconds': disabled_negative_wall,
                 'run_journal': self._artifact(self.journal.path),
                 'all_step_wall_seconds': all_wall_times,
                 'branch_order': branch_order,
