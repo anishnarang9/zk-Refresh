@@ -159,7 +159,7 @@ class DisabledConfigNegativeReportTests(unittest.TestCase):
 
         self.assertIs(check_report.call_args.args[2], config)
 
-    def test_run_uses_stage_config_for_runner_identity_pins(self):
+    def test_run_passes_pinned_elf_bytes_to_loaded_identity_check(self):
         config = {
             'prior_stage_config': '/unused/stage-config.json',
             'prior_stage_config_sha256': 'd' * 64,
@@ -215,15 +215,29 @@ class DisabledConfigNegativeReportTests(unittest.TestCase):
             'runner_sha256': config['runner_sha256'],
         }
         prepared = {'program': config['expected_program'],
+                    'validator': '/unused/validator',
+                    'elf': '/unused/program.so',
                     'elf_sha256': config['expected_elf_sha256']}
         stage_report = {'genesis': config['expected_genesis']}
+        elf_bytes = b'pinned ELF bytes'
 
-        class RunnerChecked(Exception):
+        class LoadedCheckReached(Exception):
             pass
 
         with tempfile.TemporaryDirectory() as tmp:
-            config_path = Path(tmp).resolve() / 'config.json'
+            root = Path(tmp).resolve()
+            config_path = root / 'config.json'
             config_path.write_bytes(encoded)
+            rpc = object()
+            validator = object()
+
+            def checked(path, digest, cap):
+                if path == config['runner']:
+                    return b'pinned runner'
+                if path == prepared['elf']:
+                    return elf_bytes
+                self.fail(f'unexpected checked input: {path}')
+
             with mock.patch.dict(supervisor.os.environ, {
                     'P5_V3_DISABLED_CONFIG_NEGATIVE_SCOPE': supervisor.SCOPE}), \
                     mock.patch.object(supervisor, '_validate_config'), \
@@ -241,13 +255,32 @@ class DisabledConfigNegativeReportTests(unittest.TestCase):
                     mock.patch.object(supervisor.execute.base, 'decode_json',
                                       return_value=rust_config), \
                     mock.patch.object(supervisor.execute.base, 'checked',
-                                      side_effect=RunnerChecked) as checked_runner:
-                with self.assertRaises(RunnerChecked):
-                    supervisor.run(config, hashlib.sha256(encoded).hexdigest(),
-                                   config_path)
+                                      side_effect=checked) as checked_input, \
+                    mock.patch.object(supervisor.execute.base, 'fresh_child',
+                                      side_effect=[root / 'output', root / 'control']), \
+                    mock.patch.object(supervisor.execute.base, 'ports_free'), \
+                    mock.patch.object(supervisor.execute.stage, 'resume_argv',
+                                      return_value=['validator']), \
+                    mock.patch.object(supervisor.execute.base, 'LocalRpc',
+                                      return_value=rpc), \
+                    mock.patch.object(supervisor.execute, 'wait_loaded_after_start',
+                                      side_effect=LoadedCheckReached) as wait_loaded, \
+                    mock.patch.object(supervisor.subprocess, 'Popen',
+                                      return_value=validator) as popen, \
+                    mock.patch.object(supervisor.execute.base, 'cleanup',
+                                      return_value={'reaped': True}):
+                supervisor.run(config, hashlib.sha256(encoded).hexdigest(),
+                               config_path)
 
-        checked_runner.assert_called_once_with(
-            config['runner'], config['runner_sha256'], 128 * 1024 * 1024)
+            status = json.loads((root / 'control' / 'status.json').read_text())
+            self.assertEqual(status['error_type'], 'LoadedCheckReached', status)
+        self.assertEqual(checked_input.call_args_list, [
+            mock.call(config['runner'], config['runner_sha256'], 128 * 1024 * 1024),
+            mock.call(prepared['elf'], prepared['elf_sha256'], 4 * 1024 * 1024),
+        ])
+        wait_loaded.assert_called_once_with(
+            rpc, validator, prepared['program'], elf_bytes, prepared['elf_sha256'])
+        popen.assert_called_once()
 
     def test_clone_receipt_checks_initial_clone_after_source_transition(self):
         with tempfile.TemporaryDirectory() as tmp:

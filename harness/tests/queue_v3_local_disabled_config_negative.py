@@ -336,6 +336,7 @@ def run(config, config_sha256, config_path):
             or config['expected_genesis'] != stage_report['genesis']):
         raise ValueError('disabled-config expected loader identity differs from stage')
     execute.base.checked(config['runner'], config['runner_sha256'], 128 * 1024 * 1024)
+    elf = execute.base.checked(prepared['elf'], prepared['elf_sha256'], 4 * 1024 * 1024)
     output = execute.base.fresh_child(config['output_dir'], REPO / 'artifacts/dynark/part5')
     control = execute.base.fresh_child(config['control_output'], REPO / 'artifacts/dynark/part5')
     if output == control:
@@ -386,7 +387,7 @@ def run(config, config_sha256, config_path):
             stdin=subprocess.DEVNULL, stdout=streams[0], stderr=streams[1])
         rpc = execute.base.LocalRpc()
         loaded = execute.wait_loaded_after_start(
-            rpc, validator, prepared['program'], prepared['elf'], prepared['elf_sha256'])
+            rpc, validator, prepared['program'], elf, prepared['elf_sha256'])
         execute.same_loaded(prior['loaded_program'], loaded)
         if (loaded.get('program') != config['expected_program']
                 or loaded.get('elf_sha256') != config['expected_elf_sha256']
