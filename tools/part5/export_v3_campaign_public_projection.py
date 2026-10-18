@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export a path-free public projection of the Training-010 matrix inputs."""
+"""Export a path-free public projection of registered training matrix inputs (010 or later)."""
 import argparse
 import hashlib
 import json
@@ -17,7 +17,6 @@ from tools.part5 import run_v3_campaign_matrix as matrix
 MANIFEST_PROJECTION_SCHEMA = 'part5-v3-campaign-public-manifest-v1'
 PLAN_PROJECTION_SCHEMA = 'part5-v3-campaign-public-plan-v1'
 INDEX_SCHEMA = 'part5-v3-campaign-public-projection-index-v1'
-CAMPAIGN_ID = 'training-010'
 MAX_MANIFEST_BYTES = 4 * 1024 * 1024
 MAX_PLAN_BYTES = 16 * 1024 * 1024
 HEX_SHA256 = re.compile(r'[0-9a-f]{64}')
@@ -81,12 +80,23 @@ def _pin_sha(pin, label):
     return _sha(pin['sha256'], f'{label} pin')
 
 
+def _campaign_id(value):
+    # Full export additionally validates the explicit registered manifest and
+    # every tool's exact path/hash through matrix.validate_manifest.
+    match = re.fullmatch(r'training-([0-9]{3,})', value) if isinstance(value, str) else None
+    if (match is None or int(match.group(1)) < 10
+            or value != f'training-{int(match.group(1)):03d}'):
+        raise ValueError('canonical training campaign ID 010 or later required')
+    return value
+
+
 def project_manifest(manifest, canonical_sha256):
     """Keep only campaign semantics and SHA pins; discard all source paths."""
     _fields(manifest, MANIFEST_FIELDS, 'matrix manifest')
-    if (manifest['schema'] != matrix.SCHEMA or manifest['campaign_id'] != CAMPAIGN_ID
+    campaign_id = _campaign_id(manifest['campaign_id'])
+    if (manifest['schema'] != matrix.SCHEMA
             or manifest['campaign_runtime_seconds'] != matrix.CAMPAIGN_SECONDS):
-        raise ValueError('Training-010 matrix manifest required')
+        raise ValueError('registered training matrix manifest required')
     canonical_sha256 = _sha(canonical_sha256, 'canonical matrix manifest')
 
     evidence = manifest['evidence']
@@ -114,10 +124,10 @@ def project_manifest(manifest, canonical_sha256):
             for name in ('config', 'report', 'status', 'monitor')
         }
 
-    tool_names = matrix.tool_names_for_campaign(CAMPAIGN_ID)
+    tool_names = matrix.tool_names_for_campaign(campaign_id)
     tools = manifest['tools']
     if type(tools) is not dict or set(tools) != set(tool_names):
-        raise ValueError('exact Training-010 tool pins required')
+        raise ValueError('exact per-campaign tool pins required')
     tool_pins = {name: {'sha256': _pin_sha(tools[name], f'tool {name}')}
                  for name in tool_names}
 
@@ -143,7 +153,7 @@ def project_manifest(manifest, canonical_sha256):
     return {
         'schema': MANIFEST_PROJECTION_SCHEMA,
         'source_schema': manifest['schema'],
-        'campaign_id': CAMPAIGN_ID,
+        'campaign_id': campaign_id,
         'campaign_runtime_seconds': manifest['campaign_runtime_seconds'],
         'matrix_manifest_canonical_sha256': canonical_sha256,
         'limits': projected_limits,
@@ -155,12 +165,12 @@ def project_manifest(manifest, canonical_sha256):
 def project_plan(plan):
     """Project a validated matrix plan without argv, owners, paths or env."""
     _fields(plan, PLAN_FIELDS, 'matrix plan')
+    campaign_id = _campaign_id(plan['campaign_id'])
     if (plan['schema'] != 'part5-v3-campaign-matrix-plan-v1'
-            or plan['campaign_id'] != CAMPAIGN_ID
             or plan['campaign_runtime_seconds'] != matrix.CAMPAIGN_SECONDS
             or type(plan['slot_count']) is not int or plan['slot_count'] != 60
             or type(plan['slots']) is not list or len(plan['slots']) != 60):
-        raise ValueError('complete Training-010 matrix plan required')
+        raise ValueError('complete registered training matrix plan required')
     manifest_sha256 = _sha(plan['manifest_sha256'], 'plan manifest binding')
     driver_sha256 = _sha(plan['driver_sha256'], 'plan driver')
     slots = []
@@ -217,7 +227,7 @@ def project_plan(plan):
         })
     return {
         'schema': PLAN_PROJECTION_SCHEMA,
-        'campaign_id': CAMPAIGN_ID,
+        'campaign_id': campaign_id,
         'matrix_manifest_canonical_sha256': manifest_sha256,
         'driver_sha256': driver_sha256,
         'campaign_runtime_seconds': plan['campaign_runtime_seconds'],
@@ -319,7 +329,7 @@ def export_public_projection(matrix_manifest, matrix_plan, output_dir):
     plan_public_raw = _canonical_bytes(public_plan)
     index = {
         'schema': INDEX_SCHEMA,
-        'campaign_id': CAMPAIGN_ID,
+        'campaign_id': public_manifest['campaign_id'],
         'source_inputs': {
             'matrix_manifest': {
                 'sha256': manifest_raw_sha256,

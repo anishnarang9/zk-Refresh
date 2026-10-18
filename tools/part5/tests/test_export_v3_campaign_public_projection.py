@@ -15,7 +15,7 @@ def sha(value):
     return hashlib.sha256(value.encode()).hexdigest()
 
 
-def synthetic_inputs():
+def synthetic_inputs(campaign_id='training-010'):
     counts = matrix.session.COUNTS
     modes = matrix.session.MODES
     limits = {
@@ -46,14 +46,15 @@ def synthetic_inputs():
             for count in (1, 2, 5, 10)
         },
     })
-    tool_names = matrix.tool_names_for_campaign('training-010')
+    tool_names = matrix.tool_names_for_campaign(campaign_id)
     tools = {
-        name: {'path': f'/Users/alice/private/{name}-SECRET.bin', 'sha256': sha(name)}
+        name: {'path': f'/Users/alice/private/{name}-SECRET.bin',
+               'sha256': sha(f'{campaign_id}-{name}')}
         for name in tool_names
     }
     manifest = {
         'schema': matrix.SCHEMA,
-        'campaign_id': 'training-010',
+        'campaign_id': campaign_id,
         'campaign_runtime_seconds': matrix.CAMPAIGN_SECONDS,
         'output_root': '/Users/alice/private/v3-matrix-training-010-SECRET',
         'limits': limits,
@@ -65,7 +66,7 @@ def synthetic_inputs():
         'manifest': manifest,
         'manifest_sha256': manifest_canonical_sha256,
         'driver_sha256': sha('matrix-driver'),
-        'campaign_id': 'training-010',
+        'campaign_id': campaign_id,
         'limits': limits,
         'tools_manifest': tools,
         'tool_pins': {name: pin['sha256'] for name, pin in tools.items()},
@@ -91,7 +92,7 @@ def synthetic_inputs():
         'schema': 'part5-v3-campaign-matrix-plan-v1',
         'manifest_sha256': manifest_canonical_sha256,
         'driver_sha256': validated['driver_sha256'],
-        'campaign_id': 'training-010',
+        'campaign_id': campaign_id,
         'campaign_runtime_seconds': matrix.CAMPAIGN_SECONDS,
         'slot_count': len(slots),
         'slots': slots,
@@ -122,6 +123,33 @@ class PublicCampaignProjectionTests(unittest.TestCase):
                           'clone_argv', 'output_root', 'owner', 'paths'):
             self.assertNotIn(forbidden, output)
 
+    def test_training011_projects_with_exact_campaign_tool_pins(self):
+        manifest, validated, plan = synthetic_inputs('training-011')
+        public_manifest = tool.project_manifest(manifest, validated['manifest_sha256'])
+        public_plan = tool.project_plan(plan)
+        self.assertEqual(public_manifest['campaign_id'], 'training-011')
+        self.assertEqual(public_plan['campaign_id'], 'training-011')
+        self.assertEqual(public_manifest['tool_pins'], {
+            name: {'sha256': pin['sha256']} for name, pin in manifest['tools'].items()})
+        self.assertNotIn('/Users/', json.dumps([public_manifest, public_plan]))
+        manifest['tools']['unexpected_private_tool'] = manifest['tools']['effect_execute']
+        with self.assertRaisesRegex(ValueError, 'tool pins'):
+            tool.project_manifest(manifest, validated['manifest_sha256'])
+        manifest['tools'].pop('unexpected_private_tool')
+        manifest['tools'].pop('effect_execute')
+        with self.assertRaisesRegex(ValueError, 'tool pins'):
+            tool.project_manifest(manifest, validated['manifest_sha256'])
+
+    def test_unregistered_campaign_id_formats_are_rejected(self):
+        for campaign in ('arbitrary', 'training-009', 'training-0011',
+                         'training-11', 'training-011-extra', '../training-011'):
+            manifest, validated, plan = synthetic_inputs(campaign)
+            with self.subTest(campaign=campaign):
+                with self.assertRaisesRegex(ValueError, 'campaign'):
+                    tool.project_manifest(manifest, validated['manifest_sha256'])
+                with self.assertRaisesRegex(ValueError, 'campaign'):
+                    tool.project_plan(plan)
+
     def test_projection_rejects_unknown_private_manifest_field(self):
         manifest, validated, _ = synthetic_inputs()
         manifest['access_token'] = 'TOKEN-SECRET'
@@ -135,7 +163,11 @@ class PublicCampaignProjectionTests(unittest.TestCase):
             tool.project_plan(plan)
 
     def test_cli_writes_portable_projection_and_raw_identity_index(self):
-        manifest, validated, plan = synthetic_inputs()
+        self.check_cli_projection('training-010')
+        self.check_cli_projection('training-011')
+
+    def check_cli_projection(self, campaign_id):
+        manifest, validated, plan = synthetic_inputs(campaign_id)
         manifest_raw = (json.dumps(manifest, sort_keys=True) + '\n').encode()
         plan_raw = (json.dumps(plan, sort_keys=True) + '\n').encode()
         with tempfile.TemporaryDirectory() as temporary:
@@ -156,6 +188,9 @@ class PublicCampaignProjectionTests(unittest.TestCase):
 
             index_raw = (output / 'index.json').read_bytes()
             index = json.loads(index_raw)
+            self.assertEqual(index['campaign_id'], campaign_id)
+            self.assertEqual(json.loads((output / 'matrix-manifest.json').read_bytes())['campaign_id'], campaign_id)
+            self.assertEqual(json.loads((output / 'matrix-plan.json').read_bytes())['campaign_id'], campaign_id)
             public_manifest_raw = (output / 'matrix-manifest.json').read_bytes()
             public_plan_raw = (output / 'matrix-plan.json').read_bytes()
             self.assertEqual(index['source_inputs']['matrix_manifest']['sha256'],
@@ -179,6 +214,17 @@ class PublicCampaignProjectionTests(unittest.TestCase):
                               'private-training010-plan.json'):
                 self.assertNotIn(forbidden, public_text)
             self.assertNotIn('/Users/', stdout.getvalue())
+
+    def test_export_requires_full_manifest_pin_validation_before_output(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary).resolve() / 'public'
+            with mock.patch.object(tool.matrix, 'validate_manifest',
+                                   side_effect=ValueError('changed tool pin')) as validate:
+                with self.assertRaisesRegex(ValueError, 'changed tool pin'):
+                    tool.export_public_projection('/private/manifest.json',
+                                                  '/private/plan.json', output)
+            validate.assert_called_once_with(Path('/private/manifest.json'))
+            self.assertFalse(output.exists())
 
     def test_export_refuses_plan_bound_to_different_manifest_without_output(self):
         manifest, validated, plan = synthetic_inputs()
