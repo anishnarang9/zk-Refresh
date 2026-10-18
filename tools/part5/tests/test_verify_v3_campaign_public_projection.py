@@ -59,6 +59,20 @@ def _rehash_public(index, root, kind):
     _write_json(root / 'index.json', index)
 
 
+def _set_public_storage_cap(root, target_count, mode, storage_bytes):
+    index = _read_json(root / 'index.json')
+    manifest = _read_json(root / 'matrix-manifest.json')
+    plan = _read_json(root / 'matrix-plan.json')
+    manifest['limits'][str(target_count)][mode]['storage_bytes'] = storage_bytes
+    for slot in plan['slots']:
+        if slot['target_count'] == target_count and slot['mode'] == mode:
+            slot['limits']['storage_bytes'] = storage_bytes
+    _write_json(root / 'matrix-manifest.json', manifest)
+    _write_json(root / 'matrix-plan.json', plan)
+    _rehash_public(index, root, 'matrix_manifest')
+    _rehash_public(index, root, 'matrix_plan')
+
+
 class PublicCampaignProjectionVerificationTests(unittest.TestCase):
     def setUp(self):
         self.assertIsNotNone(verifier, 'public projection verifier module is required')
@@ -189,6 +203,27 @@ class PublicCampaignProjectionVerificationTests(unittest.TestCase):
             result = verifier.verify_bundle(root)
             self.assertEqual(result['campaign_id'], 'training-011')
             self.assertEqual(result['slot_count'], 60)
+
+    def test_training012_allows_one_gib_only_for_k10_anchor(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = _public_bundle(Path(temporary).resolve(), 'training-012')
+            _set_public_storage_cap(root, 10, 'anchor', 1024**3)
+
+            result = verifier.verify_bundle(root)
+
+            self.assertEqual(result['campaign_id'], 'training-012')
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = _public_bundle(Path(temporary).resolve(), 'training-011')
+            _set_public_storage_cap(root, 10, 'anchor', 1024**3)
+            with self.assertRaisesRegex(ValueError, 'limits exceed registered bounds'):
+                verifier.verify_bundle(root)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = _public_bundle(Path(temporary).resolve(), 'training-012')
+            _set_public_storage_cap(root, 10, 'full', 1024**3)
+            with self.assertRaisesRegex(ValueError, 'limits exceed registered bounds'):
+                verifier.verify_bundle(root)
 
     def test_cli_prints_narrow_verification_scope(self):
         with tempfile.TemporaryDirectory() as temporary:

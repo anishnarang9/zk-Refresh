@@ -26,6 +26,7 @@ ORDERS = (
 CAMPAIGN_SECONDS = 129600
 MAX_RSS_BYTES = 4 * 1024**3
 MAX_STORAGE_BYTES = 512 * 1024**2
+TRAINING_012_ANCHOR_K10_MAX_STORAGE_BYTES = 1024 * 1024**2
 HEX_SHA256 = re.compile(r'[0-9a-f]{64}')
 CAMPAIGN_ID = re.compile(r'training-([0-9]{3,})')
 
@@ -210,7 +211,7 @@ def _check_index(index):
     return campaign_id, manifest_sha
 
 
-def _check_limits(limits):
+def _check_limits(limits, campaign_id):
     expected_counts = {str(count) for count in COUNTS}
     _require_fields(limits, expected_counts, 'manifest limits')
     for count in COUNTS:
@@ -222,9 +223,12 @@ def _check_limits(limits):
             runtime = cap['runtime_seconds']
             rss = cap['rss_bytes']
             storage = cap['storage_bytes']
+            storage_limit = MAX_STORAGE_BYTES
+            if campaign_id == 'training-012' and count == 10 and mode == 'anchor':
+                storage_limit = TRAINING_012_ANCHOR_K10_MAX_STORAGE_BYTES
             if (type(runtime) is not int or not 1 <= runtime <= CAMPAIGN_SECONDS
                     or type(rss) is not int or not 1 <= rss <= MAX_RSS_BYTES
-                    or type(storage) is not int or not 1 <= storage <= MAX_STORAGE_BYTES):
+                    or type(storage) is not int or not 1 <= storage <= storage_limit):
                 raise ValueError(f'limits exceed registered bounds for {mode} k={count}')
             if count == 1 and mode == 'anchor' and runtime < 2400:
                 raise ValueError('Anchor k=1 runtime is below its registered limit')
@@ -244,7 +248,7 @@ def _check_public_manifest(manifest, campaign_id, manifest_sha):
                     'public manifest canonical digest') != manifest_sha:
         raise ValueError('canonical manifest digest differs in public manifest')
 
-    _check_limits(manifest.get('limits'))
+    _check_limits(manifest.get('limits'), campaign_id)
 
     evidence = manifest.get('evidence')
     _require_fields(evidence, EVIDENCE_FIELDS, 'public evidence')
