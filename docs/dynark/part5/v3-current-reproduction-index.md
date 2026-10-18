@@ -1,0 +1,42 @@
+# Current v3 reproduction and evidence index
+
+**Read-only status snapshot: 2026-10-18 06:13 UTC.** This index points to the evidence for the bounded v3 X.509/RSA application work. The approved [2026-10-16 plan](../../superpowers/plans/2026-10-16-v3-x509-application-benefit.md) has two separate closeout gates: unseen in-profile credential correctness through the protected queue effect, and matched whole-session economics. Current training evidence does not close either gate as a whole. Training-011 is running; the 60-slot economics result and independent held-out acceptance are still missing. **Application benefit remains not established.**
+
+The declared profile bounds the supported certificates. This work does not establish arbitrary X.509 support, production issuer operations, production security, or devnet deployment.
+
+## Evidence already recorded
+
+- **Request construction and bridge, source-tested.** The [request-builder evidence](v3-request-builder-green-evidence.md) records focused positive, regression, and adversarial checks for the public request plan and canonical V3F1/V3F2 action. The [V3Q1 bridge evidence](v3-q1-bridge-green-evidence.md) records 7/7 focused and 3/3 regression tests for the private certificate-to-request input bridge. These are local construction and bridge results; neither alone establishes authorization.
+- **Loaded application, Full path.** The [loaded Full queue-effect record](v3-local-full-effect-2026-10-16.md) records a request-bound ordinary Groth16 proof accepted by the loaded v3 ELF, one finalized queue append with request consumption, and replay rejection. It is a controlled training credential result.
+- **Loaded application, signed-history Full/Anchor pair.** The [signed-history training record](v3-signed-history-k1-training-effect-2026-10-17.md) records matching Full and Anchor sessions that each produced one protected effect; the old R0 proof failed under R1, and own-leaf revocation at R2 rejected both old Full and R1 Anchor attempts without an effect. For this single controlled pair Anchor cost 1,129.440 seconds more than Full. It is not the registered campaign result or an unseen-credential result.
+
+These are separate evidence classes: source-level tests and loaded-ELF effect receipts. The relevant request-transport/bridge commits (`4128b52`, `998f87e`, `9bc5a72`) and loaded Full commits (`c38ec2f`, `bb65e6f`) are present on the local `origin/codex/engine-focus-oct14` tracking ref; the public-projection verifier is `8d7bfd6`. The cited test/effect records give the exact pins, cleanup state, and scope. Do not combine separate stage timings into a whole-session result.
+
+## Current Training-011 measurement
+
+The [registration record](v3-training-011-registration.md) fixes four repetitions × update counts `{0, 1, 2, 5, 10}` × Full, Anchor, and coalesced Full, for 60 ordered slots and a 36-hour ceiling. The selected update history is controlled synthetic training input, not observed issuer churn or user action-lifetime data. The [completion runbook](v3-campaign-training-011-runbook.md) is conditional on the active run ending and explicitly says not to launch a second process.
+
+At the snapshot above, a read-only process check found the matrix driver and the `r1-k0-anchor` worker active. The first slot, `r1-k0-full`, has a sequence-1 receipt, a passing session with `effect_verified=true`, and a passing uncensored outer report (105.922 seconds, exit 0). The next slot has no receipt yet. This is one verified slot of 60; it does not establish a completed matrix, break-even, or savings.
+
+The exact public design projection is [`index.json`](../../../results/dynark/part5/v3-training-011-public-projection-001/index.json), with its public [`matrix-manifest.json`](../../../results/dynark/part5/v3-training-011-public-projection-001/matrix-manifest.json) and [`matrix-plan.json`](../../../results/dynark/part5/v3-training-011-public-projection-001/matrix-plan.json). Its index SHA-256 is `57def2c1f1c2cb540226153899f055d8853824791456a24598df80f45bf0dd5c`. The [projection verifier](../../../tools/part5/verify_v3_campaign_public_projection.py) passed the inventory, byte pins, declared source-digest consistency, allowlist, and registered 60-slot plan. The private source manifest and plan were separately rehashed against the index in the [registration record](v3-training-011-registration.md). The verifier's scope is only the public inputs; it does not verify private session/effect reports or the running matrix.
+
+This read-only command is runnable now and checks only that public projection:
+
+```sh
+python3 -B tools/part5/verify_v3_campaign_public_projection.py \
+  results/dynark/part5/v3-training-011-public-projection-001
+```
+
+The campaign and later-stage source entry points are [`run_v3_campaign_matrix.py`](../../../tools/part5/run_v3_campaign_matrix.py), [`run_v3_campaign_session.py`](../../../tools/part5/run_v3_campaign_session.py), [`audit_v3_campaign_clock_drift.py`](../../../tools/part5/audit_v3_campaign_clock_drift.py), [`analyze_v3_campaign_economics.py`](../../../tools/part5/analyze_v3_campaign_economics.py), [`reconcile_v3_campaign_costs.py`](../../../tools/part5/reconcile_v3_campaign_costs.py), and [`summarize_v3_campaign_total.py`](../../../tools/part5/summarize_v3_campaign_total.py). Follow the linked runbook for their order: verify all 60 receipts and the sequence, pass the clock-drift audit, then produce economics and reconciliation. Those completion commands are not eligible while Training-011 is active.
+
+## Remaining evidence gates
+
+- **Training economics:** no complete 60-slot receipt chain, sequence receipt, clock-drift report, economics report, reconciliation, or 20-pair summary is established. Therefore sampled break-even, strict-positive savings, the registered 20% total-savings target, and resource/storage conclusions remain unevaluated. Training-010's sleep-interrupted partial run remains historical and separate.
+- **Held-out correctness and cost:** no fresh held-out freeze/cohort, eight-certificate case set, acceptance report, or held-out cost report is established. A training credential or training matrix cannot substitute for unseen credentials.
+- **Clean-checkout reproduction:** [`v3-clean-checkout-reproduction.md`](v3-clean-checkout-reproduction.md) is explicitly partial. It documents missing toolchain/runtime pins and the setup/package identity gap: the setup interface exists, but a fresh setup cannot pass the current proof runner's pinned package-check identities. Source hashes also do not name a reproducible source commit in that recipe. Do not call the application or campaign reproducible end-to-end from a clean checkout until those repin and setup/package gates are closed.
+
+The existing [final evidence draft](v3-x509-application-final-evidence.md) contains dated Training-010 and earlier campaign snapshots. For current status, use the Training-011 registration, this read-only progress snapshot, and the completion runbook; do not treat historical “in progress” entries for earlier campaigns as live status.
+
+## Private artifacts to regenerate or retain privately
+
+The tracked public projection is sufficient to inspect the registered design, not to replay a run. A fresh checkout must rebuild or regenerate the ignored runtime and measurement inputs, including the campaign Python environment, isolated proof and queue executables, adapter/exporter and SBF build, setup/VK package, private cohort credentials and keys, witnesses/WTNS and proofs, ledger clones, and per-slot journals/receipts under `artifacts/dynark/part5/`. In particular, the current run uses ignored `artifacts/dynark/part5/v3-campaign-python-002`, `v3-proof-runner-training-010`, and `v3-matrix-training-011/` outputs. Keep raw credentials, private keys, witnesses, proofs, signed envelopes, and ledger state in owner-only ignored paths. Regenerating these produces new identities and receipts; it will not recreate Training-011's bytes or historical results.
