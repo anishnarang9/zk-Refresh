@@ -119,6 +119,24 @@ class HeldoutProofTests(unittest.TestCase):
             tool.validate_source_pair(
                 self.r0, self.r0_sha, self.r1, self.r1_sha, self.freeze_sha)
 
+    def test_input_directory_guard_allows_output_writes_and_rejects_input_mutation(self):
+        stage = self.root / 'stage'
+        transition = self.root / 'transition'
+        stage.mkdir(mode=0o700)
+        transition.mkdir(mode=0o700)
+        output = self.root / 'output'
+        output.mkdir(mode=0o700)
+        inputs = (stage, transition, self.r0, self.r1)
+        identities = {path: tool._identity(path.lstat()) for path in inputs}
+
+        (output / 'work').mkdir(mode=0o700)
+        (output / 'supervisor').mkdir(mode=0o700)
+        tool._assert_input_directories_unchanged(identities)
+
+        (stage / 'unexpected-input').write_bytes(b'changed')
+        with self.assertRaisesRegex(ValueError, 'input directory changed'):
+            tool._assert_input_directories_unchanged(identities)
+
     def test_requires_exact_proof_counts_and_mode(self):
         stage_pins = {
             'program_id': 'program', 'genesis_hash': 'genesis',

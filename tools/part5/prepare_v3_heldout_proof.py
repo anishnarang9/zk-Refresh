@@ -76,6 +76,12 @@ def _identity(info):
             info.st_size, info.st_mtime_ns, info.st_ctime_ns)
 
 
+def _assert_input_directories_unchanged(identities):
+    for path, identity in identities.items():
+        if _identity(path.lstat()) != identity:
+            raise ValueError('heldout proof input directory changed')
+
+
 def _json(raw):
     def unique(items):
         output = {}
@@ -694,7 +700,7 @@ def _prepare(case_name, r0_source_root, r0_source_sha256, r1_source_root,
         setup_manifest, ordinary_vk, proof_runner, adapter_binary, witness_js,
         relation_checker, node, node_sha256, bounded_supervisor,
         bounded_supervisor_sha256)
-    identities = {output: _identity(output.lstat()), stage_root: _identity(stage_root.lstat()),
+    identities = {stage_root: _identity(stage_root.lstat()),
                   transition_root: _identity(transition_root.lstat()),
                   r0['root']: _identity(r0['root'].lstat()),
                   r1['root']: _identity(r1['root'].lstat())}
@@ -865,9 +871,7 @@ def _prepare(case_name, r0_source_root, r0_source_sha256, r1_source_root,
     }
     if time.time_ns() < freeze_at:
         raise ValueError('proof output predates heldout freeze')
-    for path, identity in identities.items():
-        if _identity(path.lstat()) != identity:
-            raise ValueError('heldout proof input directory changed')
+    _assert_input_directories_unchanged(identities)
     receipt_path = output / 'proof-receipt.json'
     receipt_raw = _write_json(receipt_path, receipt)
     return receipt
