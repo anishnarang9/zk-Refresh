@@ -8,6 +8,8 @@ from unittest.mock import patch
 
 from tools.part5 import bind_v3_campaign_completion as binder
 
+REGISTERED_CAMPAIGNS = binder.REGISTERED_CAMPAIGNS
+
 
 class CompletionTests(unittest.TestCase):
     def setUp(self):
@@ -30,6 +32,15 @@ class CompletionTests(unittest.TestCase):
         self.validated = {'output_root': self.root, 'campaign_id': 'training-011', 'manifest_sha256': 'a' * 64}
         reconciliation = {'economics_report_sha256': binder._read(self.args['economics_report'])[1]}
         self.write('reconciliation_report.json', reconciliation)
+        self.registrations = {
+            'training-011': {
+                'manifest_path': self.args['matrix_manifest'],
+                'manifest_raw_sha256': self.digest(self.docs['matrix_manifest']),
+                'manifest_canonical_sha256': 'a' * 64,
+                'output_root': self.root,
+                'actual_plan_sha256': None,
+            },
+        }
         mocks = [
             patch.object(binder.matrix, 'validate_manifest', return_value=self.validated),
             patch.object(binder.costs, 'verify_completed_matrix', return_value=self.digest({})),
@@ -39,10 +50,7 @@ class CompletionTests(unittest.TestCase):
             patch.object(binder.economics, 'aggregate', return_value={}),
             patch.object(binder.costs, 'reconcile', return_value={}),
             patch.object(binder.total, 'summarize', return_value=self.docs['total_summary']),
-            patch.object(binder, 'REGISTERED_MANIFEST_PATH', self.args['matrix_manifest']),
-            patch.object(binder, 'REGISTERED_MANIFEST_RAW_SHA256', self.digest(self.docs['matrix_manifest'])),
-            patch.object(binder, 'REGISTERED_MANIFEST_CANONICAL_SHA256', 'a' * 64),
-            patch.object(binder, 'REGISTERED_OUTPUT_ROOT', self.root),
+            patch.object(binder, 'REGISTERED_CAMPAIGNS', self.registrations),
         ]
         self.mocks = [mock.start() for mock in mocks]
         for mock in mocks:
@@ -76,15 +84,118 @@ class CompletionTests(unittest.TestCase):
         self.assertFalse(self.args['output'].exists())
 
     def test_rejects_unregistered_matrix_identity(self):
-        with patch.object(binder, 'REGISTERED_MANIFEST_RAW_SHA256', 'f' * 64):
-            with self.assertRaisesRegex(ValueError, 'registered Training-011 manifest'):
-                binder.bind(**self.args)
-        with patch.object(binder, 'REGISTERED_MANIFEST_PATH', self.root / 'other.json'):
-            with self.assertRaisesRegex(ValueError, 'registered Training-011 manifest'):
-                binder.bind(**self.args)
-        with patch.object(binder, 'REGISTERED_OUTPUT_ROOT', self.root / 'other-root'):
-            with self.assertRaisesRegex(ValueError, 'registered Training-011 campaign'):
-                binder.bind(**self.args)
+        original = dict(self.registrations['training-011'])
+        self.registrations['training-011'] = dict(original, manifest_raw_sha256='f' * 64)
+        with self.assertRaisesRegex(ValueError, 'registered.*manifest'):
+            binder.bind(**self.args)
+        self.registrations['training-011'] = dict(original, manifest_path=self.root / 'other.json')
+        with self.assertRaisesRegex(ValueError, 'registered.*manifest'):
+            binder.bind(**self.args)
+        self.registrations['training-011'] = dict(original, output_root=self.root / 'other-root')
+        with self.assertRaisesRegex(ValueError, 'registered.*campaign'):
+            binder.bind(**self.args)
+        self.assertFalse(self.args['output'].exists())
+
+    def test_training_012_exact_allowlist_is_accepted(self):
+        manifest = {'campaign_id': 'training-012'}
+        manifest_path = self.write('training-012.json', manifest)
+        plan_path = self.root / 'matrix-plan.json'
+        plan_path.write_bytes(self.raw({'schema': 'synthetic-plan'}))
+        actual_plan_sha = hashlib.sha256(plan_path.read_bytes()).hexdigest()
+        canonical_sha = 'b' * 64
+        self.registrations['training-012'] = {
+            'manifest_path': manifest_path,
+            'manifest_raw_sha256': self.digest(manifest),
+            'manifest_canonical_sha256': canonical_sha,
+            'output_root': self.root,
+            'actual_plan_sha256': actual_plan_sha,
+        }
+        self.validated.update(campaign_id='training-012', manifest_sha256=canonical_sha)
+        self.mocks[0].return_value = self.validated
+        self.args['matrix_manifest'] = manifest_path
+
+        receipt = binder.bind(**self.args)
+
+        self.assertEqual(receipt['campaign_id'], 'training-012')
+        self.assertEqual(receipt['matrix_manifest_canonical_sha256'], canonical_sha)
+
+    def test_training_012_registration_pins_are_exact(self):
+        with patch.object(binder, 'REGISTERED_CAMPAIGNS', REGISTERED_CAMPAIGNS):
+            registered_011 = REGISTERED_CAMPAIGNS['training-011']
+            self.assertEqual(registered_011['manifest_path'],
+                             binder.ROOT / 'results/dynark/part5/v3-campaign-matrix-training-011.json')
+            self.assertEqual(registered_011['manifest_raw_sha256'],
+                             '0b7f6340a34d43e1c1680c1f306a993b36a409e13fc427d24e207df4fa676a96')
+            self.assertEqual(registered_011['manifest_canonical_sha256'],
+                             '0b7f6340a34d43e1c1680c1f306a993b36a409e13fc427d24e207df4fa676a96')
+            self.assertEqual(registered_011['output_root'],
+                             binder.ROOT / 'artifacts/dynark/part5/v3-matrix-training-011')
+            self.assertEqual(binder._registered_campaign(
+                registered_011['manifest_path'], registered_011['manifest_raw_sha256'])[0],
+                'training-011')
+            registered = REGISTERED_CAMPAIGNS['training-012']
+            self.assertEqual(registered['manifest_path'],
+                             binder.ROOT / 'results/dynark/part5/v3-campaign-matrix-training-012.json')
+            self.assertEqual(registered['manifest_raw_sha256'],
+                             '21612a6451c00b7a46d9abaa3445e5acecec3c14583317884800b49b2614ff53')
+            self.assertEqual(registered['manifest_canonical_sha256'],
+                             '21612a6451c00b7a46d9abaa3445e5acecec3c14583317884800b49b2614ff53')
+            self.assertEqual(registered['output_root'],
+                             binder.ROOT / 'artifacts/dynark/part5/v3-matrix-training-012')
+            self.assertEqual(registered['actual_plan_sha256'],
+                             'e1cd1b9eb1c08fed70cd7544b0286af82422eb50a49a63875be267b57907f467')
+            self.assertEqual(binder._registered_campaign(
+                registered['manifest_path'], registered['manifest_raw_sha256'])[0],
+                'training-012')
+            with self.assertRaisesRegex(ValueError, 'registered training-012 manifest'):
+                binder._registered_campaign(registered['manifest_path'], 'f' * 64)
+
+    def test_training_012_rejects_plan_digest_mismatch(self):
+        manifest = {'campaign_id': 'training-012'}
+        manifest_path = self.write('training-012.json', manifest)
+        plan_path = self.root / 'matrix-plan.json'
+        plan_path.write_bytes(self.raw({'schema': 'synthetic-plan'}))
+        canonical_sha = 'b' * 64
+        self.registrations['training-012'] = {
+            'manifest_path': manifest_path,
+            'manifest_raw_sha256': self.digest(manifest),
+            'manifest_canonical_sha256': canonical_sha,
+            'output_root': self.root,
+            'actual_plan_sha256': 'f' * 64,
+        }
+        self.validated.update(campaign_id='training-012', manifest_sha256=canonical_sha)
+        self.mocks[0].return_value = self.validated
+        self.args['matrix_manifest'] = manifest_path
+
+        with self.assertRaisesRegex(ValueError, 'matrix plan digest'):
+            binder.bind(**self.args)
+        self.assertFalse(self.args['output'].exists())
+
+    def test_training_012_spoofed_digest_and_other_path_reject(self):
+        manifest = {'campaign_id': 'training-012'}
+        manifest_path = self.write('training-012.json', manifest)
+        plan_path = self.root / 'matrix-plan.json'
+        plan_path.write_bytes(self.raw({'schema': 'synthetic-plan'}))
+        registration = {
+            'manifest_path': manifest_path,
+            'manifest_raw_sha256': self.digest(manifest),
+            'manifest_canonical_sha256': 'b' * 64,
+            'output_root': self.root,
+            'actual_plan_sha256': hashlib.sha256(plan_path.read_bytes()).hexdigest(),
+        }
+        self.registrations['training-012'] = registration
+        self.validated.update(campaign_id='training-012', manifest_sha256='b' * 64)
+        self.mocks[0].return_value = self.validated
+        self.args['matrix_manifest'] = manifest_path
+
+        self.registrations['training-012'] = dict(registration,
+                                                  manifest_raw_sha256='f' * 64)
+        with self.assertRaisesRegex(ValueError, 'registered.*manifest'):
+            binder.bind(**self.args)
+        self.registrations['training-012'] = dict(registration,
+                                                  manifest_path=self.root / 'other.json')
+        with self.assertRaisesRegex(ValueError, 'registered.*manifest'):
+            binder.bind(**self.args)
         self.assertFalse(self.args['output'].exists())
 
     def test_rejects_duplicate_or_nonfinite_report_values(self):

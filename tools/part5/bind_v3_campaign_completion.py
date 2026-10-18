@@ -24,6 +24,32 @@ REGISTERED_MANIFEST_PATH = ROOT / 'results/dynark/part5/v3-campaign-matrix-train
 REGISTERED_MANIFEST_RAW_SHA256 = '0b7f6340a34d43e1c1680c1f306a993b36a409e13fc427d24e207df4fa676a96'
 REGISTERED_MANIFEST_CANONICAL_SHA256 = REGISTERED_MANIFEST_RAW_SHA256
 REGISTERED_OUTPUT_ROOT = ROOT / 'artifacts/dynark/part5/v3-matrix-training-011'
+TRAINING_012_ACTUAL_PLAN_SHA256 = 'e1cd1b9eb1c08fed70cd7544b0286af82422eb50a49a63875be267b57907f467'
+REGISTERED_CAMPAIGNS = {
+    'training-011': {
+        'manifest_path': REGISTERED_MANIFEST_PATH,
+        'manifest_raw_sha256': REGISTERED_MANIFEST_RAW_SHA256,
+        'manifest_canonical_sha256': REGISTERED_MANIFEST_CANONICAL_SHA256,
+        'output_root': REGISTERED_OUTPUT_ROOT,
+        'actual_plan_sha256': None,
+    },
+    'training-012': {
+        'manifest_path': ROOT / 'results/dynark/part5/v3-campaign-matrix-training-012.json',
+        'manifest_raw_sha256': '21612a6451c00b7a46d9abaa3445e5acecec3c14583317884800b49b2614ff53',
+        'manifest_canonical_sha256': '21612a6451c00b7a46d9abaa3445e5acecec3c14583317884800b49b2614ff53',
+        'output_root': ROOT / 'artifacts/dynark/part5/v3-matrix-training-012',
+        'actual_plan_sha256': TRAINING_012_ACTUAL_PLAN_SHA256,
+    },
+}
+
+
+def _registered_campaign(manifest_path, raw_sha256):
+    for campaign_id, registration in REGISTERED_CAMPAIGNS.items():
+        if Path(manifest_path) == registration['manifest_path']:
+            if raw_sha256 != registration['manifest_raw_sha256']:
+                raise ValueError(f'registered {campaign_id} manifest path and raw digest required')
+            return campaign_id, registration
+    raise ValueError('registered campaign manifest path and raw digest required')
 
 
 def _unique_object(pairs):
@@ -64,14 +90,18 @@ def bind(matrix_manifest, clock_report, economics_report, reconciliation_report,
                  reconciliation_report=Path(reconciliation_report),
                  total_summary=Path(total_summary))
     loaded = {key: _read(path) for key, path in paths.items()}
-    if (paths['matrix_manifest'] != REGISTERED_MANIFEST_PATH
-            or loaded['matrix_manifest'][1] != REGISTERED_MANIFEST_RAW_SHA256):
-        raise ValueError('registered Training-011 manifest path and raw digest required')
+    registered_campaign_id, registration = _registered_campaign(
+        paths['matrix_manifest'], loaded['matrix_manifest'][1])
     validated = matrix.validate_manifest(paths['matrix_manifest'])
-    if (validated['campaign_id'] != REGISTERED_CAMPAIGN_ID
-            or validated['manifest_sha256'] != REGISTERED_MANIFEST_CANONICAL_SHA256
-            or validated['output_root'] != REGISTERED_OUTPUT_ROOT):
-        raise ValueError('registered Training-011 campaign identity required')
+    if (validated['campaign_id'] != registered_campaign_id
+            or validated['manifest_sha256'] != registration['manifest_canonical_sha256']
+            or validated['output_root'] != registration['output_root']):
+        raise ValueError(f'registered {registered_campaign_id} campaign identity required')
+    if registration['actual_plan_sha256'] is not None:
+        paths['matrix_plan'] = registration['output_root'] / 'matrix-plan.json'
+        loaded['matrix_plan'] = _read(paths['matrix_plan'])
+        if loaded['matrix_plan'][1] != registration['actual_plan_sha256']:
+            raise ValueError(f'registered {registered_campaign_id} matrix plan digest required')
     sequence_sha = costs.verify_completed_matrix(validated)
     planned = matrix.plan_slots(validated)
     if len(planned) != 60:
