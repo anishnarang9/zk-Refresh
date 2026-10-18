@@ -316,7 +316,9 @@ For each k, the expected report/status files are `$PART5/application-v3-campaign
 
 ## 4. Fresh k=5 Full smoke
 
-The smoke uses a separate k=5 final-ledger clone and isolated outputs. It is not one of the 60 matrix slots. The full session's proof gate requires `campaign-full-k5`, `update_count: 5`, six proofs, and 52 ordinary checks; this exercises intermediate generations 3 and 4 that caused Training-009's failure.
+The first attempt used clone home `$PART5/application-v3-campaign-training-010-smoke-k5-clone`, smoke home `$PART5/v3-training-010-smoke-k5-full`, effect output `$PART5/application-v3-training-010-smoke-k5-full-effect`, and control output `$PART5/application-v3-training-010-smoke-k5-full-control`. Preserve those as the failed smoke-001 record; its proof report passed, but the application admission failed because the 65,536-byte monitor reader rejected the 99,130-byte k=5 transition monitor. See [the smoke-001 failure note](v3-training-010-smoke-failure-001.md) for report hashes and the source trace. The session submitted no protected effect and was not a matrix run.
+
+The scoped fix raises only the transition-monitor read cap to 1 MiB at `harness/tests/queue_v3_local_campaign_effect.py:451`. Its current source SHA-256 is `01f27ef23626b235605fca823a0af55e120169885ef7583b79bb8913524fbf39`; this fix is pending smoke verification. Keep the isolated Training-010 proof binary and source-closure checks below unchanged (`NEW_PROOF_SHA=093659cec842945fd3db15e9e51087b5717d71dcb375fdf60ced58279a5ad19a`). The retry uses the already-created `-002` final-ledger clone, checks its receipt against the current k=5 transition pins, and writes only to fresh `-002` smoke outputs. It is not one of the 60 matrix slots. The full session proof gate still requires `campaign-full-k5`, `update_count: 5`, six proofs, and 52 ordinary checks; matrix creation and execution remain gated on the complete smoke gate passing.
 
 ```bash
 K=5
@@ -330,24 +332,45 @@ TRANSITION_REPORT="$TRANSITION_ROOT/transition-report.json"
 TRANSITION_STATUS="$TRANSITION_CONTROL/status.json"
 TRANSITION_CONFIG_SHA=$(sha256_file "$TRANSITION_CONFIG")
 
-SMOKE_CLONE_HOME="$PART5/application-v3-campaign-training-010-smoke-k5-clone"
+SMOKE_CLONE_HOME="$PART5/application-v3-campaign-training-010-smoke-k5-clone-002"
 SMOKE_CLONE_LEDGER="$SMOKE_CLONE_HOME/ledger"
 SMOKE_CLONE_REPORT="$SMOKE_CLONE_HOME/clone-report.json"
-SMOKE_HOME="$PART5/v3-training-010-smoke-k5-full"
+SMOKE_HOME="$PART5/v3-training-010-smoke-k5-full-002"
 SMOKE_WORK="$SMOKE_HOME/work"
-SMOKE_EFFECT="$PART5/application-v3-training-010-smoke-k5-full-effect"
-SMOKE_CONTROL="$PART5/application-v3-training-010-smoke-k5-full-control"
+SMOKE_EFFECT="$PART5/application-v3-training-010-smoke-k5-full-effect-002"
+SMOKE_CONTROL="$PART5/application-v3-training-010-smoke-k5-full-control-002"
 SMOKE_PRIVATE="$SMOKE_HOME/outer-private"
 SMOKE_OUTER="$SMOKE_HOME/outer-report.json"
 
-for p in "$SMOKE_CLONE_HOME" "$SMOKE_HOME" "$SMOKE_EFFECT" "$SMOKE_CONTROL"; do require_absent "$p"; done
-mkdir -m 700 "$SMOKE_CLONE_HOME" "$SMOKE_HOME" "$SMOKE_WORK"
-"$PYTHON" -B "$CLONE_FINAL" \
-  --transition-config "$TRANSITION_CONFIG" --config-sha "$TRANSITION_CONFIG_SHA" \
-  --transition-report "$TRANSITION_REPORT" --report-sha "$(sha256_file "$TRANSITION_REPORT")" \
-  --transition-status "$TRANSITION_STATUS" --status-sha "$(sha256_file "$TRANSITION_STATUS")" \
-  --transition-monitor "$TRANSITION_MONITOR" --monitor-sha "$(sha256_file "$TRANSITION_MONITOR")" \
-  --monitor-owner "$TRANSITION_OWNER" --target-count 5 --destination "$SMOKE_CLONE_LEDGER"
+for p in "$SMOKE_HOME" "$SMOKE_EFFECT" "$SMOKE_CONTROL"; do require_absent "$p"; done
+test -d "$SMOKE_CLONE_HOME" && test ! -L "$SMOKE_CLONE_HOME"
+test -d "$SMOKE_CLONE_LEDGER" && test ! -L "$SMOKE_CLONE_LEDGER"
+test -f "$SMOKE_CLONE_REPORT" && test ! -L "$SMOKE_CLONE_REPORT"
+"$PYTHON" -B - "$SMOKE_CLONE_HOME" "$SMOKE_CLONE_LEDGER" "$SMOKE_CLONE_REPORT" \
+  "$TRANSITION_CONFIG" "$TRANSITION_REPORT" "$TRANSITION_STATUS" "$TRANSITION_MONITOR" <<'PY'
+import hashlib, json, pathlib, sys
+home, ledger, receipt, config_path, report_path, status_path, monitor_path = map(pathlib.Path, sys.argv[1:])
+load = lambda path: json.loads(path.read_bytes())
+sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+clone, config, report = load(receipt), load(config_path), load(report_path)
+assert clone['schema'] == 'part5-v3-campaign-final-ledger-clone-v1'
+assert clone['training_only'] is True and clone['target_count'] == 5
+assert clone['copy_identical'] is True and clone['source_stable'] is True
+assert clone['application_effect'] is False
+assert clone['destination'] == str(ledger) and ledger.is_dir()
+assert clone['source'] == config['ledger']
+assert clone['current_root'] == report['current_root']
+assert clone['signed_history_sha256'] == report['signed_history_sha256']
+assert clone['monitor_owner'] == 'part5-v3-campaign-r5-transition-training-010'
+assert clone['transition_config_sha256'] == sha(config_path)
+assert clone['transition_report_sha256'] == sha(report_path)
+assert clone['transition_status_sha256'] == sha(status_path)
+assert clone['transition_monitor_sha256'] == sha(monitor_path)
+print(f'verified existing smoke clone-002 receipt sha256={sha(receipt)}')
+PY
+test "$(sha256_file "$EFFECT_SUPERVISOR")" = 01f27ef23626b235605fca823a0af55e120169885ef7583b79bb8913524fbf39
+test "$(sha256_file "$PROOF_BINARY")" = "$NEW_PROOF_SHA"
+mkdir -m 700 "$SMOKE_HOME" "$SMOKE_WORK"
 
 PINS=(--exporter-sha256 "$(sha256_file "$EXPORTER")"
       --node-sha256 "$(sha256_file "$NODE")"
@@ -360,7 +383,7 @@ PINS=(--exporter-sha256 "$(sha256_file "$EXPORTER")"
 
 P5_V3_CAMPAIGN_SESSION_SUPERVISOR=bounded-complete-session \
   "$PYTHON" -B "$SESSION_RUNNER" \
-  --owner v3-campaign-full-k5-training-010-smoke --cwd "$ROOT" \
+  --owner v3-campaign-full-k5-training-010-smoke-002 --cwd "$ROOT" \
   --private-output "$SMOKE_PRIVATE" --report "$SMOKE_OUTER" \
   --runtime-seconds 1800 --rss-bytes 4294967296 --storage-bytes 536870912 \
   --storage-path "$SMOKE_EFFECT" --storage-path "$SMOKE_CONTROL" \
@@ -390,6 +413,7 @@ outer_path, session_path, proof_path, binary_path, source_path = map(pathlib.Pat
 load = lambda path: json.loads(path.read_bytes())
 sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
 outer, session, proof, source = map(load, (outer_path, session_path, proof_path, source_path))
+assert outer['owner'] == 'v3-campaign-full-k5-training-010-smoke-002'
 assert outer['passed'] is True and outer['exit_code'] == 0 and outer['stop_reason'] is None
 assert outer['runner_error_type'] is None and outer['cleanup_remaining_owned_processes'] == 0
 assert outer['cleanup_status_unknown'] is False
