@@ -51,6 +51,8 @@ class HeldoutFreezePinClosureTests(unittest.TestCase):
             'harness/src/registry.rs',
             'harness/src/setup.rs',
             'harness/tests/queue_v3.rs',
+            'harness/tests/queue_v3_ambiguous_rpc_proxy.py',
+            'harness/tests/queue_v3_local_ambiguous_restart.py',
             'harness/Cargo.toml',
             'harness/Cargo.lock',
             'circuits/profile.json',

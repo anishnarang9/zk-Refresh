@@ -53,6 +53,8 @@ REGISTRY_FILES = [
     'harness/tests/queue_v3_local_stage.py',
     'harness/tests/queue_v3_local_transition.py',
     'harness/tests/queue_v3_local_execute.py',
+    'harness/tests/queue_v3_ambiguous_rpc_proxy.py',
+    'harness/tests/queue_v3_local_ambiguous_restart.py',
     'harness/tests/queue_v3_local_disabled_config_negative.py',
     'harness/tests/queue_v3_local_branch.py',
     'harness/tests/queue_v3_clone_ledger.py',
