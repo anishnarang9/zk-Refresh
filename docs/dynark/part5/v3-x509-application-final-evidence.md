@@ -148,6 +148,8 @@ Local DER admission negatives have source/fixture validation coverage only; they
 
 **Source-only follow-up (2026-10-18 02:55 UTC):** The same held-out A R0 clone session now also re-enables config, refreshes issuer source and rebinds the head, disables the issuer, then submits the same valid Full wire expecting Policy 713. Source pins three additional five-account finalized snapshots for this sequence. This is wiring only: no Rust build, validator run, held-out freeze or cases, or economics result exists. Training-009 still owns the heavy slot. Account the combined negative cost once, not once per rejection step; no issuer rejection is claimed as executed.
 
+**Bounded held-out runner build update (2026-10-18):** Build monitor-002 failed with JSON macro recursion, and monitor-003 failed because a local `source_digest` binding shadowed the helper. After the fixes in pushed commit `5ba9e37`, monitor-004 passed with exit 0 in 7.665 seconds and zero remaining owned processes. The bounded reports are `artifacts/dynark/part5/v3-heldout-queue-runner-build-report-002.json`, `-003.json`, and `-004.json`; these are build outcomes, not loaded application results. The installed stable `artifacts/dynark/part5/v3-heldout-queue-runner-002` has SHA-256 `f82401e93c506eb1bdd8e2787a18bdbdbd5d948fc42a8f04a0cbeefe9ebe002c`. Its saved `--list` output at `artifacts/dynark/part5/v3-heldout-queue-runner-build-002/queue-v3-tests.txt` contains all eight required names shown in the recipe below. No held-out freeze, cohort, cases, or acceptance result exists. Earlier dated statements that runner-002 was absent remain historical snapshots.
+
 ### Cost interpretation rules
 
 The primary unit is one complete authorization of one exact, still-unconsumed
@@ -356,9 +358,9 @@ python3 -B -m tools.part5.run_v3_campaign_matrix \
   "$PWD/results/dynark/part5/v3-campaign-matrix-training-005.json" --plan
 ```
 
-The held-out commands below document reproducible inputs and a future run sequence; they do not indicate that the held-out run has occurred. The freeze input, prepare config, packet template and executable inputs listed below exist. The previously built `artifacts/dynark/part5/v3-heldout-queue-runner-001` reflects the older queue source and is stale for the current source. The replacement stable runner at `artifacts/dynark/part5/v3-heldout-queue-runner-002` has not been built or listed yet, so it has no current SHA-256 or confirmed test listing. The freeze, cohort, run manifests, case outputs, assembled manifest, verifier report and cost report do not exist. The output paths below are reserved names and each creation command requires its output path to be fresh. Run the blocks in order from the repository root; each block defines its own path variables. The freeze receipt and prior-key inventory go in the owner-only `results/dynark/part5/v3-heldout-freeze-001/` directory. Keep the cohort, case manifests, and case outputs under owner-only ignored paths in `artifacts/dynark/part5/`. Do not put raw credentials, keys, witnesses, proofs, signed envelopes or ledger clones in tracked prose or files.
+The held-out commands below document reproducible inputs and a future run sequence; they do not indicate that the held-out run has occurred. The freeze input, prepare config, packet template and executable inputs listed below exist. The previously built `artifacts/dynark/part5/v3-heldout-queue-runner-001` reflects the older queue source and is stale for the current source. At this historical pre-build snapshot, the replacement stable runner at `artifacts/dynark/part5/v3-heldout-queue-runner-002` had not been built or listed; the dated build update above records its subsequent installed hash and confirmed listing. The freeze, cohort, run manifests, case outputs, assembled manifest, verifier report and cost report do not exist. The output paths below are reserved names and each creation command requires its output path to be fresh. Run the blocks in order from the repository root; each block defines its own path variables. The freeze receipt and prior-key inventory go in the owner-only `results/dynark/part5/v3-heldout-freeze-001/` directory. Keep the cohort, case manifests, and case outputs under owner-only ignored paths in `artifacts/dynark/part5/`. Do not put raw credentials, keys, witnesses, proofs, signed envelopes or ledger clones in tracked prose or files.
 
-The following records the held-out Rust runner build recipe. It must create the replacement stable copy at `artifacts/dynark/part5/v3-heldout-queue-runner-002`. Use a fresh build target and an empty destination; preserve the older runner-001. The Python campaign interpreter and raw Cargo output path are not valid `--runner` inputs.
+The following retains the held-out Rust runner build recipe used before the installed build recorded above. It must create the replacement stable copy at `artifacts/dynark/part5/v3-heldout-queue-runner-002`. Use a fresh build target and an empty destination; preserve the older runner-001. The Python campaign interpreter and raw Cargo output path are not valid `--runner` inputs. The executable search uses depth 8 because the generated binary is nested under `debug/build/.../out`.
 
 ```sh
 set -euo pipefail
@@ -372,7 +374,7 @@ CARGO_TARGET_DIR="$BUILD_TARGET" CARGO_BUILD_JOBS=1 /Users/anishnarang/.cargo/bi
   --offline --locked --manifest-path "$ROOT/harness/Cargo.toml" \
   --test queue_v3 --no-run
 
-RUNNER_CANDIDATES="$(find "$BUILD_TARGET/debug" -maxdepth 4 -type f \
+RUNNER_CANDIDATES="$(find "$BUILD_TARGET/debug" -maxdepth 8 -type f \
   -perm -111 -name 'queue_v3-*' -print)"
 test -n "$RUNNER_CANDIDATES"
 test "$(printf '%s\n' "$RUNNER_CANDIDATES" | wc -l | tr -d ' ')" -eq 1
