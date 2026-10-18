@@ -12,6 +12,8 @@ Pushed commit `1fd7f53` adds held-out effect-transaction and pinned proof-artifa
 
 **Cost-model correction (2026-10-18 01:00 UTC):** Pushed commit `72a43e7` charges each matched `k` pair for its exact measured R0-to-Rk transition, rather than summing independent transitions to smaller target counts. The matrix clones only the exact target transition for each slot. Thirty focused economics tests pass, including a new exact-transition regression. No Training-007 cost report has been produced yet.
 
+**2026-10-18 post-snapshot update (01:06 UTC):** Pushed `4323f65` to apply the registered median strict-positive break-even rule, carry confirmed transaction-byte/compute/fee samples, and expose matrix-grid completeness; pushed `ef2506e` to require the 60-slot grid for the held-out model. The related Python suite passed 41 tests and 4 subtests. Training-007 remains live and incomplete; the last verified ordered receipt sequence has four receipts, ending at repetition 1, `k = 1`, Full (`r1-k1-full`). No full-matrix or held-out result is established.
+
 ## What the application demonstrates
 
 The experiment covers the declared bounded X.509/RSA profile and an exact, finalized action-v2 request. The v3 application checks the current authenticated registry state and uses a program-owned queue append with request consumption as its protected effect. This is development evidence for the declared profile; it does not establish arbitrary X.509 support, production issuer operations, production setup, or devnet deployment.
