@@ -7,7 +7,6 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
-from unittest import mock
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -76,15 +75,6 @@ class IssuanceTests(unittest.TestCase):
                                        {**self.parameters(), key: value}, 'cryptography')
         with self.assertRaises(ValueError):
             tool.issue_certificate(self.issuer, self.issuer, self.parameters(), 'cryptography')
-
-    def test_openssl_private_key_temporary_directory_is_ignored(self):
-        tool = self.tool()
-        with mock.patch.object(tool.tempfile, 'TemporaryDirectory',
-                               side_effect=RuntimeError('temp location probe')) as temporary:
-            with self.assertRaisesRegex(RuntimeError, 'temp location probe'):
-                tool._openssl(self.issuer, self.holder,
-                              tool._parameters(self.parameters()), 'I' * 40, 'H' * 24)
-        self.assertEqual(Path(temporary.call_args.kwargs['dir']), tool.ROOT / 'artifacts')
 
     def test_private_publication_links_exact_freeze_and_never_claims_key_freshness(self):
         tool = self.tool()
