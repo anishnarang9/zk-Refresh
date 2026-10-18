@@ -314,16 +314,28 @@ Proceed only after all eight commands exit successfully and produce one `accepta
 
 ## 5. Acceptance verification, cost analysis, and reporting
 
-These are post-case gates. Do not assemble acceptance inputs, verify acceptance, analyze costs, or write a heldout result report until all eight cases pass. The assembler requires eight distinct, explicitly hash-pinned fragments. The independent verifier must pass before cost analysis. The cost analyzer reports matched heldout request-B wall costs; it does not infer CPU savings or choose an economic winner. Final reporting must preserve the verifier outcome and cost limitations and must not claim acceptance or economics from freeze/cohort/manifests alone.
+These are post-case gates. Do not assemble acceptance inputs, verify acceptance,
+analyze costs, or write a heldout result report until all eight cases pass. The
+assembler requires eight distinct, explicitly hash-pinned fragments. The
+independent verifier must pass before cost analysis. The cost analyzer reports
+matched heldout request-B wall costs; it does not infer CPU savings or choose
+an economic winner. The final model combines those direct `k = 1` heldout
+deltas with the sampled Training-010 update-count deltas. Its other heldout
+counts are conditional estimates, not new heldout runs or a measured heldout
+break-even. Final reporting must preserve the verifier outcome and cost
+limitations and must not claim acceptance or economics from
+freeze/cohort/manifests alone.
 
 ```bash
 ASSEMBLED_DIR="$PART5/v3-heldout-assembled-training-010"
 ASSEMBLED_MANIFEST="$ASSEMBLED_DIR/heldout-acceptance-manifest.json"
 ACCEPTANCE_REPORT="$RESULTS/v3-heldout-acceptance-training-010.json"
 COST_REPORT="$RESULTS/v3-heldout-cost-analysis-training-010.json"
+MODEL_REPORT="$RESULTS/v3-heldout-conditional-break-even-training-010.json"
 require_absent "$ASSEMBLED_DIR"
 require_absent "$ACCEPTANCE_REPORT"
 require_absent "$COST_REPORT"
+require_absent "$MODEL_REPORT"
 git check-ignore -q "$ASSEMBLED_DIR"
 
 FRAGMENTS=()
@@ -344,6 +356,15 @@ python3 -B tools/part5/analyze_v3_heldout_costs.py \
   --manifest "$ASSEMBLED_MANIFEST:$ASSEMBLED_SHA" \
   --acceptance-report "$ACCEPTANCE_REPORT:$ACCEPTANCE_SHA" \
   --output "$COST_REPORT"
+COST_SHA="$(sha256_file "$COST_REPORT")"
+TOTAL_SHA="$(sha256_file "$TOTAL_SUMMARY")"
+python3 -B tools/part5/model_v3_heldout_break_even.py \
+  --heldout-cost-report "$COST_REPORT:$COST_SHA" \
+  --training-total-summary "$TOTAL_SUMMARY:$TOTAL_SHA" \
+  --output "$MODEL_REPORT"
+test -s "$MODEL_REPORT"
 ```
 
-No command in this runbook has been executed for heldout freeze, issuance, manifests, cases, acceptance, or economics. Those results remain prospective until their output gates pass.
+No command in this runbook has been executed for heldout freeze, issuance,
+manifests, cases, acceptance, direct costs, or the conditional model. Those
+results remain prospective until their output gates pass.
