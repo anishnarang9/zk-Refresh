@@ -116,6 +116,189 @@ def fixture_report(output):
 
 
 class DisabledConfigNegativeReportTests(unittest.TestCase):
+    def test_run_checks_stage_report_with_wrapper_config(self):
+        config = {
+            'prior_stage_config': '/unused/stage-config.json',
+            'prior_stage_config_sha256': 'd' * 64,
+            'prior_stage_status': '/unused/stage-status.json',
+            'prior_stage_status_sha256': 'e' * 64,
+            'prior_stage_monitor': '/unused/stage-monitor.json',
+            'prior_stage_monitor_sha256': 'f' * 64,
+            'stage_root': '/unused/stage',
+            'stage_report_sha256': 'a' * 64,
+            'stage_plan_sha256': 'b' * 64,
+            'expected_genesis': 'local-genesis',
+        }
+        encoded = (json.dumps(config, sort_keys=True, separators=(',', ':'),
+                              allow_nan=False) + '\n').encode()
+        with tempfile.TemporaryDirectory() as tmp:
+            config_path = Path(tmp).resolve() / 'config.json'
+            config_path.write_bytes(encoded)
+            stage_config = {'prior_config': '/unused/prepared.json',
+                            'prior_config_sha256': 'c' * 64}
+            pinned_json = [stage_config, {}, {}, {}]
+            stage_report = {'stage': 'report'}
+            stage_plan = {'stage': 'plan'}
+
+            class StageReportChecked(Exception):
+                pass
+
+            with mock.patch.dict(supervisor.os.environ, {
+                    'P5_V3_DISABLED_CONFIG_NEGATIVE_SCOPE': supervisor.SCOPE}), \
+                    mock.patch.object(supervisor, '_validate_config'), \
+                    mock.patch.object(supervisor.execute, 'pinned_json',
+                                      side_effect=pinned_json), \
+                    mock.patch.object(supervisor.execute, 'review_stage'), \
+                    mock.patch.object(supervisor, '_pinned',
+                                      side_effect=[stage_report, stage_plan]), \
+                    mock.patch.object(supervisor.execute, 'check_stage_report',
+                                      side_effect=StageReportChecked) as check_report:
+                with self.assertRaises(StageReportChecked):
+                    supervisor.run(config, hashlib.sha256(encoded).hexdigest(),
+                                   config_path)
+
+        self.assertIs(check_report.call_args.args[2], config)
+
+    def test_run_uses_stage_config_for_runner_identity_pins(self):
+        config = {
+            'prior_stage_config': '/unused/stage-config.json',
+            'prior_stage_config_sha256': 'd' * 64,
+            'prior_stage_status': '/unused/stage-status.json',
+            'prior_stage_status_sha256': 'e' * 64,
+            'prior_stage_monitor': '/unused/stage-monitor.json',
+            'prior_stage_monitor_sha256': 'f' * 64,
+            'stage_root': '/unused/stage',
+            'stage_report_sha256': 'a' * 64,
+            'stage_plan_sha256': 'b' * 64,
+            'ledger': '/unused/heldout/ledger',
+            'heldout_r0_clone_report': '/unused/heldout/clone-report.json',
+            'heldout_r0_clone_report_sha256': '1' * 64,
+            'expected_genesis': 'local-genesis',
+            'runner': '/unused/stage/runner',
+            'runner_sha256': '2' * 64,
+            'full_wire': '/unused/full-wire.bin',
+            'full_wire_sha256': '3' * 64,
+            'expected_program': 'local-program',
+            'expected_elf_sha256': '4' * 64,
+            'output_dir': '/unused/output',
+            'control_output': '/unused/control',
+            'rust_config_path': '/unused/rust-config.json',
+            'rust_config_sha256': '5' * 64,
+            'variant': 3,
+        }
+        encoded = (json.dumps(config, sort_keys=True, separators=(',', ':'),
+                              allow_nan=False) + '\n').encode()
+        stage_report_path = str(Path(config['stage_root']) / 'stage-report.json')
+        stage_plan_path = str(Path(config['stage_root']) / 'plan.json')
+        rust_config = {
+            'schema': 'part5-v3-disabled-config-negative-config-v1',
+            'variant': 3, 'request_slot': 'A', 'stage_root': config['stage_root'],
+            'stage_report': stage_report_path,
+            'stage_report_sha256': config['stage_report_sha256'],
+            'stage_plan': stage_plan_path,
+            'stage_plan_sha256': config['stage_plan_sha256'],
+            'ledger': config['ledger'],
+            'heldout_r0_clone_report': config['heldout_r0_clone_report'],
+            'heldout_r0_clone_report_sha256': config['heldout_r0_clone_report_sha256'],
+            'full_wire': config['full_wire'],
+            'full_wire_sha256': config['full_wire_sha256'],
+            'expected_program': config['expected_program'],
+            'expected_genesis': config['expected_genesis'],
+            'expected_elf_sha256': config['expected_elf_sha256'],
+            'output_dir': config['output_dir'], 'control_output': config['control_output'],
+            'runner': config['runner'], 'runner_sha256': config['runner_sha256'],
+        }
+        stage_config = {
+            'prior_config': '/unused/prepared.json',
+            'prior_config_sha256': 'c' * 64,
+            'runner': config['runner'],
+            'runner_sha256': config['runner_sha256'],
+        }
+        prepared = {'program': config['expected_program'],
+                    'elf_sha256': config['expected_elf_sha256']}
+        stage_report = {'genesis': config['expected_genesis']}
+
+        class RunnerChecked(Exception):
+            pass
+
+        with tempfile.TemporaryDirectory() as tmp:
+            config_path = Path(tmp).resolve() / 'config.json'
+            config_path.write_bytes(encoded)
+            with mock.patch.dict(supervisor.os.environ, {
+                    'P5_V3_DISABLED_CONFIG_NEGATIVE_SCOPE': supervisor.SCOPE}), \
+                    mock.patch.object(supervisor, '_validate_config'), \
+                    mock.patch.object(supervisor.execute, 'pinned_json',
+                                      side_effect=[stage_config, {}, {}, prepared]), \
+                    mock.patch.object(supervisor.execute, 'review_stage'), \
+                    mock.patch.object(supervisor, '_pinned',
+                                      side_effect=[stage_report, {}]), \
+                    mock.patch.object(supervisor.execute, 'check_stage_report'), \
+                    mock.patch.object(supervisor.execute, 'report_loaded'), \
+                    mock.patch.object(supervisor, '_clone_is_initial'), \
+                    mock.patch.object(supervisor.execute.stage, 'snapshot_generated',
+                                      side_effect=[(b'rust config', config['rust_config_sha256']),
+                                                   (b'x' * 448, config['full_wire_sha256'])]), \
+                    mock.patch.object(supervisor.execute.base, 'decode_json',
+                                      return_value=rust_config), \
+                    mock.patch.object(supervisor.execute.base, 'checked',
+                                      side_effect=RunnerChecked) as checked_runner:
+                with self.assertRaises(RunnerChecked):
+                    supervisor.run(config, hashlib.sha256(encoded).hexdigest(),
+                                   config_path)
+
+        checked_runner.assert_called_once_with(
+            config['runner'], config['runner_sha256'], 128 * 1024 * 1024)
+
+    def test_clone_receipt_checks_initial_clone_after_source_transition(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            source = root / 'source' / 'ledger'
+            clone = root / 'heldout' / 'ledger'
+            for path in (source.parent, source, clone.parent, clone):
+                path.mkdir(mode=0o700)
+            for ledger in (source, clone):
+                genesis = ledger / 'genesis.bin'
+                genesis.write_bytes(b'initial R0 ledger')
+                genesis.chmod(0o600)
+
+            clone_rows = supervisor.ledger_inventory(clone)
+            receipt = {
+                'schema': 'part5-v3-heldout-r0-ledger-clone-v1',
+                'heldout_acceptance': False,
+                'stage_report_sha256': 'a' * 64,
+                'stage_status_sha256': 'b' * 64,
+                'stage_monitor_sha256': 'c' * 64,
+                'source': str(source), 'destination': str(clone),
+                'entry_count': len(clone_rows),
+                'tree_sha256': hashlib.sha256(
+                    json.dumps(clone_rows, separators=(',', ':')).encode()).hexdigest(),
+                'source_stable': True, 'copy_identical': True,
+                'loaded_identity_rechecked_after_restart': False,
+                'application_effect': False,
+            }
+            receipt_path = clone.parent / 'clone-report.json'
+            receipt_path.write_text(json.dumps(receipt))
+            receipt_path.chmod(0o600)
+            config = {
+                'ledger': str(clone),
+                'heldout_r0_clone_report': str(receipt_path),
+                'heldout_r0_clone_report_sha256': hashlib.sha256(
+                    receipt_path.read_bytes()).hexdigest(),
+                'stage_report_sha256': 'a' * 64,
+                'prior_stage_status_sha256': 'b' * 64,
+                'prior_stage_monitor_sha256': 'c' * 64,
+            }
+            stage_config = {'ledger': str(source)}
+
+            (source / 'genesis.bin').write_bytes(b'transitioned to R1')
+            self.assertEqual(
+                supervisor._clone_is_initial(config, stage_config, {}, {}, {}),
+                receipt)
+
+            (clone / 'genesis.bin').write_bytes(b'tampered clone')
+            with self.assertRaisesRegex(ValueError, 'clone must start byte-identical'):
+                supervisor._clone_is_initial(config, stage_config, {}, {}, {})
+
     def test_accepts_complete_v2_report_and_all_six_pinned_snapshot_groups(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp)

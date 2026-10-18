@@ -87,10 +87,9 @@ def _clone_is_initial(config, stage_config, stage_report, stage_status,
         'application_effect': False}
     if any(receipt.get(name) != value for name, value in expected.items()):
         raise ValueError('pinned separate disabled-config clone receipt required')
-    source_rows = ledger_inventory(source)
     clone_rows = ledger_inventory(ledger)
-    expected_tree = _sha(json.dumps(source_rows, separators=(',', ':')).encode())
-    if (source_rows != clone_rows or receipt.get('entry_count') != len(clone_rows)
+    expected_tree = _sha(json.dumps(clone_rows, separators=(',', ':')).encode())
+    if (receipt.get('entry_count') != len(clone_rows)
             or receipt.get('tree_sha256') != expected_tree):
         raise ValueError('disabled-config clone must start byte-identical to stage ledger')
     return receipt
@@ -291,7 +290,7 @@ def run(config, config_sha256, config_path):
     stage_plan_path = Path(config['stage_root']) / 'plan.json'
     stage_report = _pinned(stage_report_path, config['stage_report_sha256'])
     stage_plan = _pinned(stage_plan_path, config['stage_plan_sha256'], 8192)
-    execute.check_stage_report(stage_report, stage_plan, stage_config, prepared)
+    execute.check_stage_report(stage_report, stage_plan, config, prepared)
     execute.report_loaded(stage_report, prepared)
     _clone_is_initial(config, stage_config, stage_report, prior, stage_monitor)
     rust_config_raw, rust_config_sha = execute.stage.snapshot_generated(
@@ -330,8 +329,8 @@ def run(config, config_sha256, config_path):
     wire, wire_sha = execute.stage.snapshot_generated(config['full_wire'], 448)
     if len(wire) != 448 or wire_sha != config['full_wire_sha256']:
         raise ValueError('pinned Full R0 wire required')
-    if (config['runner'] != prepared['runner']
-            or config['runner_sha256'] != prepared['runner_sha256']
+    if (config['runner'] != stage_config['runner']
+            or config['runner_sha256'] != stage_config['runner_sha256']
             or config['expected_program'] != prepared['program']
             or config['expected_elf_sha256'] != prepared['elf_sha256']
             or config['expected_genesis'] != stage_report['genesis']):
