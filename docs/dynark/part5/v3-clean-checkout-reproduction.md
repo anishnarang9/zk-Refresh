@@ -1,6 +1,6 @@
 # Clean-checkout reproduction status and build steps
 
-This partial guide separates two goals: checking the evidence for the specific Training-010 run, and running a new campaign from the pinned source. A new run creates new keys, state, binary hashes, and receipts; it cannot recreate Training-010's receipt hashes. The Training-010 matrix was still in progress in the registered snapshot, and the heldout runbook says its acceptance steps have not run. Neither is a completed application acceptance result. The missing setup/package evidence below still prevents a full clean-checkout rerun; the initial R0 prepare config and a synthetic prior-public-key control can now be constructed from source using the bounded commands below.
+This partial guide separates two goals: checking the historical evidence for the specific Training-010 run, and running a new campaign from pinned source. A new run creates new keys, state, binary hashes, and receipts; it cannot recreate Training-010's receipt hashes. Training-010 later stopped after host sleep; [Training-011](v3-training-011-registration.md) is the fresh active matrix and has not established complete economics or heldout acceptance. The missing setup/package evidence below still prevents a full clean-checkout rerun; the initial R0 prepare config and a synthetic prior-public-key control can now be constructed from source using the bounded commands below.
 
 ## Source and runtime pins
 
