@@ -21,6 +21,7 @@ if str(ROOT) not in sys.path:
 
 from tools.part5 import build_v3_heldout_packet_v2 as packet_v2
 from tools.part5 import verify_v3_fresh_package_output_pins as package_pins_v2
+from harness.tests import queue_v3_build_prep as build_prep
 
 PREFLIGHT_SCHEMA = 'credential-v3-heldout-freeze-preflight-v2'
 PACKAGE_PINS_PATH = ROOT / packet_v2.PACKAGE_PINS_RELATIVE
@@ -119,25 +120,67 @@ def validate_setup_pin(setup, pin_record, setup_manifest_sha256):
     return identity['package']
 
 
+def validate_application_vk(source_vk, pin_record, setup_manifest_sha256,
+                            package_digest):
+    """Bind the application VK source to the externally pinned v2 package."""
+    identity = pin_record.get('package_identity')
+    ordinary_vk = pin_record.get('ordinary_vk')
+    if (type(source_vk) is not dict or type(identity) is not dict
+            or type(ordinary_vk) is not dict
+            or source_vk.get('setup_manifest_sha256') != setup_manifest_sha256
+            or source_vk.get('package_id') != package_digest
+            or source_vk.get('circuit_id') != identity.get('circuit')
+            or source_vk.get('engine_extended_vk_digest') != identity.get('engine_extended_vk')
+            or source_vk.get('ordinary_vk_file_sha256') != ordinary_vk.get('sha256')
+            or not all(_sha(value) for value in (
+                setup_manifest_sha256, package_digest,
+                identity.get('circuit'), identity.get('engine_extended_vk'),
+                ordinary_vk.get('sha256')))):
+        raise ValueError('current application VK differs from fresh v2 package')
+
+
 def validate_prepare_binding(prepare, *, setup_manifest_sha256, package_digest,
-                             application_source_sha256, application_elf_sha256):
+                             application_source_sha256, application_elf_sha256,
+                             source_vk):
     """Require prepare evidence for this package, source manifest, and loaded ELF."""
     loaded = prepare.get('loaded_program') if type(prepare) is dict else None
     setup_identity = prepare.get('v3_vk') if type(prepare) is dict else None
+    cleanup = prepare.get('cleanup') if type(prepare) is dict else None
+    status = prepare.get('status') if type(prepare) is dict else None
     if (type(prepare) is not dict or prepare.get('schema') != 1
-            or prepare.get('status') != 'passed'
+            or status not in ('passed', 'failed')
             or prepare.get('scope') != PREPARE_SCOPE
             or prepare.get('application_effect') is not False
             or prepare.get('devnet') is not False
+            or prepare.get('prepared_application_accounts') is not False
+            or prepare.get('error_type') is not None
             or prepare.get('source_manifest_sha256') != application_source_sha256
             or not _sha(application_source_sha256)
             or type(setup_identity) is not dict
+            or setup_identity != source_vk
             or setup_identity.get('setup_manifest_sha256') != setup_manifest_sha256
-            or setup_identity.get('package_digest') != package_digest):
+            or setup_identity.get('package_id') != package_digest
+            or type(cleanup) is not dict
+            or cleanup.get('spawned') is not True
+            or cleanup.get('reaped') is not True
+            or (status == 'passed' and (
+                cleanup.get('graceful') is not True
+                or cleanup.get('exit_code') != 0
+                or prepare.get('ledger_reuse_requires_review') is not False))
+            or (status == 'failed' and (
+                cleanup.get('graceful') is not False
+                or cleanup.get('exit_code') != -2
+                or prepare.get('ledger_reuse_requires_review') is not True))):
         raise ValueError('fresh v2 prepare identity required')
     if (type(loaded) is not dict or loaded.get('elf_match') is not True
             or loaded.get('elf_sha256') != application_elf_sha256
-            or not _sha(application_elf_sha256)):
+            or not _sha(application_elf_sha256)
+            or loaded.get('commitment') != 'finalized'
+            or loaded.get('application_effect') is not False
+            or any(type(loaded.get(field)) is not str or not loaded[field]
+                   for field in ('genesis', 'program', 'programdata'))
+            or any(not _sha(loaded.get(field)) for field in
+                   ('program_account_sha256', 'programdata_account_sha256'))):
         raise ValueError('loaded ELF does not match fresh prepare evidence')
 
 
@@ -193,8 +236,12 @@ def preflight(*, package_pins_path, package_pins_sha256, prepare_status,
 
     source_raw = _stable_read(application_source_manifest, MAX_JSON_BYTES)
     source_manifest = _json(source_raw, 'application source manifest')
+    if source_manifest != build_prep.source_manifest(ROOT):
+        raise ValueError('current application source manifest required')
     application_source_sha = hashlib.sha256(
         json.dumps(source_manifest, sort_keys=True).encode()).hexdigest()
+    source_vk = source_manifest.get('v3_vk')
+    validate_application_vk(source_vk, pin_record, setup_sha, package_digest)
     elf_sha, _ = _file_digest(application_elf, maximum=MAX_BINARY_BYTES)
     prepare_raw = _stable_read(prepare_status, MAX_JSON_BYTES)
     prepare = _json(prepare_raw, 'application prepare evidence')
@@ -204,6 +251,7 @@ def preflight(*, package_pins_path, package_pins_sha256, prepare_status,
         package_digest=package_digest,
         application_source_sha256=application_source_sha,
         application_elf_sha256=elf_sha,
+        source_vk=source_vk,
     )
 
     proof_sha, _ = _file_digest(
@@ -231,6 +279,28 @@ def preflight(*, package_pins_path, package_pins_sha256, prepare_status,
         'package_digest': pin_record['package_identity']['package'],
         'package_pins_sha256': package_pins_sha256,
     })
+    package_pins_v2.verify_file(pins_path, package_pins_sha256, repo_root=ROOT)
+    checked_files = (
+        (pins_path, package_pins_sha256, package_pins_v2.MAX_RECORD_BYTES,
+         (0o600, 0o644)),
+        (setup_path, setup_sha, package_pins_v2.MAX_REPORT_BYTES,
+         (0o600, 0o644)),
+        (Path(application_source_manifest), hashlib.sha256(source_raw).hexdigest(),
+         MAX_JSON_BYTES, (0o600, 0o644)),
+        (Path(prepare_status), hashlib.sha256(prepare_raw).hexdigest(),
+         MAX_JSON_BYTES, (0o600, 0o644)),
+        (Path(application_elf), elf_sha, MAX_BINARY_BYTES, (0o600, 0o644)),
+        (Path(proof_binary), proof_sha, MAX_BINARY_BYTES, (0o700, 0o755)),
+        (Path(input_preparer), preparer_sha, MAX_SOURCE_BYTES, (0o600, 0o644)),
+        (Path(client_source), client_sha, MAX_SOURCE_BYTES, (0o600, 0o644)),
+        (Path(adapter_binary), adapter_sha, MAX_BINARY_BYTES, (0o700, 0o755)),
+    )
+    for path, expected, maximum, modes in checked_files:
+        if hashlib.sha256(_stable_read(path, maximum, modes=modes)).hexdigest() != expected:
+            raise ValueError('preflight input changed before return')
+    if (source_manifest != build_prep.source_manifest(ROOT)
+            or source_identity != packet_v2.proof_source_identity(ROOT)):
+        raise ValueError('source closure changed before return')
     return {
         'schema': PREFLIGHT_SCHEMA,
         'preflight_passed': True,
