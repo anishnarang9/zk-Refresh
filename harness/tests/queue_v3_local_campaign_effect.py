@@ -448,7 +448,7 @@ def admit(config):
         transition_status = pinned(config['transition_status'],
                                    config['transition_status_sha256'])
         transition_monitor = pinned(config['transition_monitor'],
-                                    config['transition_monitor_sha256'])
+                                    config['transition_monitor_sha256'], 1024 * 1024)
         changed = pinned(Path(config['transition_root']) / 'transition-report.json',
                          config['transition_report_sha256'])
         if (transition_config.get('scope') != 'part5-v3-campaign-transition'

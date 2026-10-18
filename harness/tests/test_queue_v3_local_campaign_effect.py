@@ -60,6 +60,90 @@ class CampaignEffectChecks(unittest.TestCase):
         self.assertEqual(result, (83, current))
         self.assertEqual(minimums, [83, 83])
 
+    def test_admit_reads_transition_monitor_larger_than_64kib(self):
+        with tempfile.TemporaryDirectory() as directory:
+            monitor_path = Path(directory).resolve() / 'transition-monitor.json'
+            monitor = {'schema': 1, 'owner': 'transition-owner', 'exit_code': 1,
+                       'stop_reason': None, 'runner_error_type': None,
+                       'cleanup_remaining_owned_processes': 0, 'cleanup_status_unknown': False,
+                       'limits': {'runtime_seconds': 420, 'owned_tree_rss_bytes': 4294967296,
+                                  'storage_growth_bytes': 268435456, 'poll_seconds': 0.2},
+                       'samples': [{'elapsed_seconds': index / 5,
+                                    'owned_process_count': 1, 'owned_tree_rss_bytes': 1024,
+                                    'storage_growth_bytes': 0} for index in range(1800)]}
+            raw = json.dumps(monitor).encode()
+            self.assertGreater(len(raw), 65536)
+            self.assertLess(len(raw), 1024 * 1024)
+            monitor_path.write_bytes(raw)
+            monitor_path.chmod(0o600)
+            effect.reviewed_monitor(monitor, 'transition-owner', effect.transition.LIMITS)
+            config = {'schema': 1, 'scope': 'part5-v3-campaign-effect',
+                      'mode': 'full', 'target_count': 5, 'outer_limits_required': effect.LIMITS,
+                      'stage_config': '/stage-config', 'stage_config_sha256': 'stage-config-sha',
+                      'stage_status': '/stage-status', 'stage_status_sha256': 'stage-status-sha',
+                      'stage_monitor': '/stage-monitor', 'stage_monitor_sha256': 'stage-monitor-sha',
+                      'stage_monitor_owner': 'stage-owner', 'stage_root': '/stage',
+                      'stage_report_sha256': 'stage-report-sha', 'stage_plan_sha256': 'plan-sha',
+                      'context': '/context', 'context_sha256': 'context-sha',
+                      'cohort_root': directory, 'runner': '/runner', 'runner_sha256': 'runner-sha',
+                      'expected_genesis': 'genesis', 'transition_config': '/transition-config',
+                      'transition_config_sha256': 'transition-config-sha',
+                      'transition_status': '/transition-status',
+                      'transition_status_sha256': 'transition-status-sha',
+                      'transition_monitor': str(monitor_path),
+                      'transition_monitor_sha256': sha(raw), 'transition_root': '/transition',
+                      'transition_report_sha256': 'transition-report-sha'}
+            context = {'schema': 'part5-v3-campaign-context-v1', 'root_sequence': ['00' * 32],
+                       'initial_allocations': {'cohort_receipt_sha256': 'cohort-sha',
+                                               'membership_sha256': 'membership-sha'}}
+            documents = {
+                '/stage-config': {'scope': 'part5-v3-campaign-stage', 'stage_output': '/stage',
+                    'context': '/context', 'context_sha256': 'context-sha',
+                    'prior_config': '/original', 'prior_config_sha256': 'original-sha'},
+                '/stage-status': {'scope': 'part5-v3-campaign-stage', 'stage_verified': True,
+                    'config_sha256': 'stage-config-sha', 'stage_report_sha256': 'stage-report-sha',
+                    'application_effect': False, 'status': 'failed', 'error_type': None,
+                    'ledger_reuse_requires_review': True, 'loaded_program': {},
+                    'validator_cleanup': {'reaped': True, 'exit_code': -2},
+                    'runner_cleanup': {'reaped': True, 'exit_code': 0}},
+                '/stage-monitor': dict(monitor, owner='stage-owner', limits={
+                    **monitor['limits'], 'runtime_seconds': 180}),
+                '/stage/stage-report.json': {'schema': 'part5-v3-campaign-stage-v1',
+                    'passed': True, 'registry_history_authenticated': True,
+                    'allocation_history_authenticated': True, 'application_effect': False,
+                    'proof_created': False, 'plan_sha256': 'plan-sha',
+                    'program': 'program', 'genesis': 'genesis'},
+                '/stage/plan.json': {'root': [0] * 32},
+                '/original': {'build_plan': '/build', 'build_plan_sha256': 'build-sha',
+                    'elf': '/elf', 'elf_sha256': 'elf-sha', 'validator': '/validator',
+                    'validator_sha256': 'validator-sha', 'program': 'program'},
+                '/build': {'source_manifest': {}, 'external_cargo_config_pins': {},
+                           'argv': ['/builder'], 'builder_sha256': 'builder-sha'},
+                '/context': context, '/transition-config': {}, '/transition-status': {}}
+            real_checked = effect.base.checked
+
+            def checked(path, digest, cap):
+                if str(path) == str(monitor_path):
+                    return real_checked(path, digest, cap)
+                if str(path) == '/transition/transition-report.json':
+                    raise RuntimeError('transition report reached after pinned monitor')
+                return effect.encoded(documents.get(str(path), {}))
+
+            with patch.object(effect.base, 'checked', side_effect=checked), \
+                 patch.object(effect.base.prep, 'check_manifest'), \
+                 patch.object(effect.base.prep, 'external_config_pins', return_value={}), \
+                 patch.object(effect.base.prep, 'compare_elf_payload'), \
+                 patch.object(effect, 'report_loaded'), \
+                 patch.object(effect, 'derive', return_value=context), \
+                 patch.object(effect, 'account_artifacts', return_value=[]):
+                with self.assertRaisesRegex(RuntimeError, 'transition report reached after pinned monitor'):
+                    effect.admit(config)
+                with self.assertRaisesRegex(ValueError, 'pin mismatch'):
+                    effect.admit(dict(config, transition_monitor_sha256='f' * 64))
+                monitor_path.write_bytes(b' ' * (1024 * 1024 + 1))
+                with self.assertRaisesRegex(ValueError, 'bounded regular artifact'):
+                    effect.admit(dict(config, transition_monitor_sha256=sha(monitor_path.read_bytes())))
+
     def test_bounded_monitor_requires_clean_owned_tree(self):
         monitor = {'owner': 'campaign-effect', 'exit_code': 1,
                    'stop_reason': None, 'runner_error_type': None,
