@@ -45,6 +45,25 @@ INPUT_FIELDS = {
     "proof_receipt", "proof_receipt_sha256", "full_wire", "full_wire_sha256",
 }
 
+# Required producer contract for the next source wave, not an accepted schema.
+# Rust emits runtime facts; the supervisor and outer runner supply their own
+# process/resource/cleanup receipts after the Rust process has exited.
+LOADED_REPORT_CONTRACT = {
+    "status": "required_design_not_implemented",
+    "identity_fields": ["runner_test", "rust_config_sha256", "cohort_id",
+                        "cohort_freeze_sha256", "cohort_manifest_sha256",
+                        "stage_report_sha256", "clone_receipt_sha256",
+                        "program", "genesis", "genesis_sha256", "loaded_program"],
+    "loaded_program_fields": list(execute.IDENTITY_FIELDS) + ["elf_match"],
+    "input_rows": "65 ordered request/action/account/proof/wire pins matching the Rust config; validated Full wire for each action",
+    "fills": "64 distinct ordered successful finalized Execute signatures/slots; pinned request before bytes, consumed after bytes, and each queue append",
+    "rejection": "exact 65th request; finalized signature/slot; InstructionError index 1 Custom 708; unconsumed",
+    "preconditions": "active config and issuer, current bound head, fresh status and live request at submit clock",
+    "snapshots": "five ordered config/issuer/head/request/queue addresses and private before/after byte files; unchanged by rejection",
+    "supervisor_checks": "recheck loaded ELF/genesis and finalized RPC transactions/accounts against report and pinned inputs",
+    "ownership": "separate supervisor and outer bounded_runner receipts; Rust must not claim whole-tree cleanup while validator and runner are alive",
+}
+
 
 def _sha(raw):
     return hashlib.sha256(raw).hexdigest()
@@ -137,17 +156,47 @@ def _validate_inputs(inputs):
     return checked
 
 
+def _rust_code(text):
+    """Mask Rust strings/comments so textual decoys cannot register a test."""
+    token = re.compile(r'//[^\n]*|/\*|(?:br|r)(?P<hashes>\#*)".*?"(?P=hashes)|"(?:\\.|[^"\\])*"', re.S)
+    pieces, position = [], 0
+    while match := token.search(text, position):
+        pieces.append(text[position:match.start()])
+        end = match.end()
+        if match.group() == "/*":
+            depth = 1
+            while depth:
+                boundary = re.search(r'/\*|\*/', text[end:])
+                if boundary is None:
+                    end = len(text)
+                    break
+                depth += 1 if boundary.group() == "/*" else -1
+                end += boundary.end()
+        masked = text[match.start():end]
+        pieces.append(" " + "\n" * masked.count("\n") if masked.startswith("/") else '""')
+        position = end
+    pieces.append(text[position:])
+    return "".join(pieces)
+
+
 def _require_rust_entrypoint(sources=ENTRYPOINT_SOURCES):
     """Stop before process startup unless both Rust registration points exist."""
     if len(sources) != 2:
         raise RuntimeError("Rust queue-capacity entrypoint is not integrated")
     test_source, module_source = map(Path, sources)
     try:
-        test_text = test_source.read_text(encoding="utf-8")
-        module_text = module_source.read_text(encoding="utf-8")
+        test_text = _rust_code(test_source.read_text(encoding="utf-8"))
+        module_text = _rust_code(module_source.read_text(encoding="utf-8"))
     except OSError as error:
         raise RuntimeError("Rust queue-capacity entrypoint is not integrated") from error
-    if RUST_TEST not in test_text or RUST_FN not in module_text:
+    registered = (r'^\s*#\[\s*test\s*\]\s*#\[\s*ignore(?:\s*=\s*"")?\s*\]\s*'
+                  r'fn\s+' + re.escape(RUST_TEST) + r'\s*\(\s*\)\s*\{\s*'
+                  r'zk_fresh_benchmark\s*::\s*solana\s*::\s*queue_v3\s*::\s*'
+                  + re.escape(RUST_FN) + r'\s*\(\s*\)\s*\.\s*unwrap\s*\(\s*\)\s*;\s*\}')
+    implemented = (r'^\s*pub\s+fn\s+' + re.escape(RUST_FN)
+                   + r'\s*\(\s*\)\s*->\s*Result\s*<\s*\(\s*\)\s*>\s*\{')
+    if (len(re.findall(registered, test_text, re.M)) != 1
+            or len(re.findall(implemented, module_text, re.M)) != 1):
         raise RuntimeError("Rust queue-capacity entrypoint is not integrated")
 
 
@@ -398,7 +447,8 @@ def _validate_config(config):
     return inputs
 
 
-def _write_integration_failure(config, config_sha256, config_path, error):
+def _write_integration_failure(config, config_sha256, config_path, error,
+                               blocker="missing_rust_entrypoint"):
     control = _canonical_child(config["control_output"], "control output directory")
     control.mkdir(mode=0o700)
     status = {
@@ -407,7 +457,10 @@ def _write_integration_failure(config, config_sha256, config_path, error):
         "config_path": str(config_path), "config_sha256": config_sha256,
         "validator_started": False, "runner_started": False,
         "loaded_execution_established": False, "application_effect": False,
-        "integration_required": "Review and freeze the Rust entrypoint and its bounded loaded launcher before any loaded pass.",
+        "integration_blocker": blocker,
+        "integration_required": "Implement and review the Rust runtime report producer and its supervised RPC checks before enabling loaded execution.",
+        "required_loaded_report_contract": LOADED_REPORT_CONTRACT,
+        "report_consistency_establishes_loaded_execution": False,
         "validator_cleanup": {"spawned": False, "reaped": True},
         "runner_cleanup": {"spawned": False, "reaped": True},
         "remaining_owned_processes": 0,
@@ -436,8 +489,11 @@ def run(config, config_sha256, config_path):
         return 2
 
     error = RuntimeError(
-        "Rust queue-capacity entrypoint exists but its loaded launcher is not reviewed or enabled")
-    _write_integration_failure(config, config_sha256, config_path, error)
+        "Rust queue-capacity loaded report interface is not integrated: "
+        "supplied evidence v1 establishes consistency only; a reviewed runtime "
+        "producer, finalized RPC checks, and separate outer cleanup receipt are required")
+    _write_integration_failure(config, config_sha256, config_path, error,
+                               blocker="missing_loaded_report_interface")
     return 2
 
 

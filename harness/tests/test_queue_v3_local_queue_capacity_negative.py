@@ -80,6 +80,65 @@ class QueueCapacitySupervisorTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "Rust queue-capacity entrypoint is not integrated"):
                 supervisor._require_rust_entrypoint((test_source, module_source))
 
+    def test_rust_entrypoint_requires_exact_registered_delegate_and_function(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            test_source, module_source = root / "test.rs", root / "module.rs"
+            registration = (
+                '#[test]\n#[ignore = "requires supervised loaded validator"]\n'
+                'fn root_pinned_queue_v3_queue_capacity_negative() {\n'
+                '    zk_fresh_benchmark::solana::queue_v3::'
+                'queue_capacity_negative_from_env().unwrap();\n}\n')
+            implementation = 'pub fn queue_capacity_negative_from_env() -> Result<()> { Ok(()) }\n'
+            cases = (
+                ('// ' + supervisor.RUST_TEST, implementation),
+                ('/*\n' + registration + '*/\n', implementation),
+                ('const DECOY: &str = r#"\n' + registration + '"#;\n', implementation),
+                (registration.replace(supervisor.RUST_TEST, supervisor.RUST_TEST + '_decoy'), implementation),
+                (registration.replace('queue_capacity_negative_from_env().unwrap()', 'stage_from_env().unwrap()'), implementation),
+                (registration.replace('#[test]\n', ''), implementation),
+                (registration.replace('#[ignore = "requires supervised loaded validator"]\n', ''), implementation),
+                (registration, '// ' + supervisor.RUST_FN),
+                (registration, '/* nested /* comment */\n' + implementation + '*/\n'),
+                (registration, implementation.replace(supervisor.RUST_FN, supervisor.RUST_FN + '_decoy')),
+            )
+            for test_text, module_text in cases:
+                test_source.write_text(test_text, encoding='utf-8')
+                module_source.write_text(module_text, encoding='utf-8')
+                with self.subTest(test=test_text, module=module_text), self.assertRaisesRegex(
+                        RuntimeError, 'Rust queue-capacity entrypoint is not integrated'):
+                    supervisor._require_rust_entrypoint((test_source, module_source))
+            test_source.write_text(registration, encoding='utf-8')
+            module_source.write_text(implementation, encoding='utf-8')
+            supervisor._require_rust_entrypoint((test_source, module_source))
+
+    def test_present_marker_still_blocks_missing_loaded_report_interface_without_startup(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            control = root / 'control'
+            config = {'schema': supervisor.CONFIG_SCHEMA, 'scope': supervisor.SCOPE,
+                      'control_output': str(control)}
+            path = root / 'config.json'
+            raw = json.dumps(config).encode()
+            path.write_bytes(raw)
+            with (mock.patch.dict(os.environ, {'P5_V3_QUEUE_CAPACITY_NEGATIVE_SCOPE': supervisor.SCOPE}),
+                  mock.patch.object(supervisor, '_validate_config'),
+                  mock.patch.object(supervisor, '_require_rust_entrypoint'),
+                  mock.patch.object(supervisor, '_canonical_child', return_value=control),
+                  mock.patch.object(supervisor.execute.base, 'ports_free') as ports,
+                  mock.patch('subprocess.Popen') as spawn):
+                self.assertEqual(supervisor.run(config, hashlib.sha256(raw).hexdigest(), path), 2)
+            status = json.loads((control / 'status.json').read_text())
+            self.assertIn('loaded report interface is not integrated', status['error_message'])
+            self.assertEqual(status['integration_blocker'], 'missing_loaded_report_interface')
+            self.assertIs(status['report_consistency_establishes_loaded_execution'], False)
+            self.assertEqual(status['required_loaded_report_contract'], supervisor.LOADED_REPORT_CONTRACT)
+            self.assertIs(status['validator_started'], False)
+            self.assertIs(status['runner_started'], False)
+            self.assertEqual(status['remaining_owned_processes'], 0)
+            ports.assert_not_called()
+            spawn.assert_not_called()
+
     def test_integration_failure_status_records_zero_started_processes(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()
