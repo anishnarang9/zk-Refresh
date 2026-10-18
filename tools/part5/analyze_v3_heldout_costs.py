@@ -407,6 +407,50 @@ def _verify_run_manifest(case):
     return _canonical_manifest_sha256(run_manifest), raw_sha
 
 
+def _verify_current_head_evidence(report_case):
+    evidence = report_case.get('current_head_evidence')
+    if type(evidence) is not dict or set(evidence) != {'R0', 'R1', 'R2'}:
+        raise ValueError('complete current-head evidence for R0/R1/R2 required')
+    expected_fields = {
+        'evidence_scope', 'independent_production_freshness', 'root', 'root_version',
+        'source_sequence', 'source_digest', 'publisher_sequence', 'publisher_digest',
+        'publisher_key_sha256', 'history_sha256', 'report_sha256',
+        'finalized_head_account_sha256', 'finalized_config_account_sha256',
+    }
+    roots = report_case.get('roots')
+    if type(roots) is not dict or set(roots) != {'R0', 'R1', 'R2'}:
+        raise ValueError('current-head evidence requires accepted R0/R1/R2 roots')
+    digest_fields = (
+        'root', 'source_digest', 'publisher_digest', 'publisher_key_sha256',
+        'history_sha256', 'report_sha256', 'finalized_head_account_sha256',
+        'finalized_config_account_sha256',
+    )
+    for label in ('R0', 'R1', 'R2'):
+        row = evidence[label]
+        expected_version = {'R0': 0, 'R1': 1, 'R2': 2}[label]
+        expected_sequence = {'R0': 1, 'R1': 3, 'R2': 3}[label]
+        if (type(row) is not dict or set(row) != expected_fields
+                or row.get('evidence_scope') != 'controlled_local_signed_publisher_current_head'
+                or row.get('independent_production_freshness') is not False
+                or row.get('root') != roots[label]
+                or any(type(row.get(name)) is not str
+                       or HEX64.fullmatch(row[name]) is None
+                       for name in digest_fields)
+                or type(row.get('root_version')) is not int
+                or row['root_version'] != expected_version
+                or type(row.get('source_sequence')) is not int
+                or row['source_sequence'] != expected_sequence
+                or type(row.get('publisher_sequence')) is not int
+                or row['publisher_sequence'] != expected_sequence):
+            raise ValueError(f'incomplete or inconsistent current-head evidence for {label}')
+    branches = report_case.get('branches')
+    for label, branch in (('R1', 'anchor'), ('R2', 'own_revocation')):
+        accepted = branches.get(branch) if type(branches) is dict else None
+        if (type(accepted) is not dict
+                or evidence[label]['report_sha256'] != accepted.get('result_report_sha256')):
+            raise ValueError(f'current-head evidence report pin differs for {label}')
+
+
 def _verify_case_identity(report_case, case):
     context = _load_pinned_json(case.get('case_context'), 'case context')
     target = context.get('target') if type(context) is dict else None
@@ -800,6 +844,7 @@ def analyze(manifest_ref, acceptance_ref):
         _check_order(case, variant)
         _check_summary(case, journal, durations)
         _verify_case_identity(report_case, case)
+        _verify_current_head_evidence(report_case)
         _verify_b_request(report_case, case)
         proof_samples = _verify_proof_durations(case, journal, durations)
         monitor_samples = _verify_monitor_durations(case, journal, durations)
@@ -961,7 +1006,8 @@ def analyze(manifest_ref, acceptance_ref):
                        'bounded monitors; they are not continuous maxima or complete resource '
                        'accounting.'),
         },
-        'claims': {'cpu_savings': False, 'whole_application_benefit': False},
+        'claims': {'cpu_savings': False, 'whole_application_benefit': False,
+                   'independent_production_freshness': False},
     }
 
 

@@ -421,6 +421,27 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
                 'issuer_index': target['issuer_index'],
                 'holder_index': target['holder_index'],
                 'roots': roots,
+                'current_head_evidence': {
+                    root_name: {
+                        'evidence_scope': 'controlled_local_signed_publisher_current_head',
+                        'independent_production_freshness': False,
+                        'root': roots[root_name],
+                        'root_version': index,
+                        'source_sequence': (1, 3, 3)[index],
+                        'source_digest': f'{variant + index + 1201:064x}',
+                        'publisher_sequence': (1, 3, 3)[index],
+                        'publisher_digest': f'{variant + index + 1301:064x}',
+                        'publisher_key_sha256': f'{variant + index + 1401:064x}',
+                        'history_sha256': f'{variant + index + 1501:064x}',
+                        'report_sha256': (
+                            f'{variant + index + 1601:064x}' if root_name == 'R0'
+                            else effect_reports['anchor' if root_name == 'R1'
+                                                else 'own_revocation']['sha256']),
+                        'finalized_head_account_sha256': f'{variant + index + 1701:064x}',
+                        'finalized_config_account_sha256': f'{variant + index + 1801:064x}',
+                    }
+                    for index, root_name in enumerate(('R0', 'R1', 'R2'))
+                },
                 'branches': {name: {
                     'request_slot': branch_slots[name],
                     'action_hash': branch_id[name]['action_hash'],
@@ -474,6 +495,8 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         self.assertEqual(pair['shared_B_seconds'], 15.0)
         self.assertEqual(pair['full_B_seconds'], 38.0)
         self.assertEqual(pair['anchor_B_seconds'], 43.0)
+        self.assertFalse(result['claims']['independent_production_freshness'])
+        self.assertIn('charge it once to each B mode', result['pair_view_accounting'])
         self.assertEqual(pair['effect_transaction_metrics']['unrelated_full'], {
             'status': 'available', 'scenario': 'v3-valid-full-R1',
             'source_report_sha256': pair['effect_transaction_metrics'][
@@ -739,6 +762,44 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         self.acceptance['sha256'] = sha(path.read_bytes())
         with self.assertRaisesRegex(ValueError, 'exact assembled manifest'):
             analyzer.analyze(self.manifest, self.acceptance)
+
+    def test_rejects_missing_or_incomplete_current_head_evidence(self):
+        original = json.loads(Path(self.acceptance['path']).read_text())
+        mutations = (
+            lambda row: row.pop('current_head_evidence'),
+            lambda row: row['current_head_evidence']['R2'].pop(
+                'finalized_config_account_sha256'),
+            lambda row: row['current_head_evidence']['R1'].__setitem__(
+                'root', 'f' * 64),
+            lambda row: row['current_head_evidence']['R0'].__setitem__(
+                'independent_production_freshness', True),
+            lambda row: row['current_head_evidence']['R1'].__setitem__(
+                'report_sha256', 'f' * 64),
+            lambda row: row['current_head_evidence']['R2'].__setitem__(
+                'report_sha256', 'f' * 64),
+            lambda row: row['current_head_evidence']['R0'].__setitem__(
+                'root_version', 1),
+            lambda row: row['current_head_evidence']['R1'].__setitem__(
+                'root_version', 2),
+            lambda row: row['current_head_evidence']['R2'].__setitem__(
+                'root_version', 1),
+            lambda row: row['current_head_evidence']['R0'].__setitem__(
+                'source_sequence', 2),
+            lambda row: row['current_head_evidence']['R1'].__setitem__(
+                'source_sequence', 4),
+            lambda row: row['current_head_evidence']['R2'].__setitem__(
+                'publisher_sequence', 4),
+        )
+        for mutate in mutations:
+            with self.subTest(mutate=mutate):
+                report = json.loads(json.dumps(original))
+                mutate(report['cases'][0])
+                path = Path(self.acceptance['path'])
+                path.write_text(json.dumps(report, sort_keys=True) + '\n')
+                path.chmod(0o600)
+                self.acceptance['sha256'] = sha(path.read_bytes())
+                with self.assertRaisesRegex(ValueError, 'current-head evidence'):
+                    analyzer.analyze(self.manifest, self.acceptance)
 
     def test_rejects_journal_not_bound_to_pinned_run_manifest(self):
         manifest = json.loads(Path(self.manifest['path']).read_text())
