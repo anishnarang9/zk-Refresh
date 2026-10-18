@@ -144,6 +144,13 @@ def _write_receipt(path, fd, created, report):
         raise ValueError('arm receipt write failed') from None
 
 
+def _cleanup_ok(result):
+    return (type(result) is dict and result.get('passed') is True
+            and type(result.get('remaining_owned_processes')) is int
+            and result['remaining_owned_processes'] == 0
+            and result.get('status_known') is True)
+
+
 def record_arm(arm_identity, ordered_steps, output, clock=None):
     """Run the exact serial arm and write a fresh 0600 timing receipt on success.
 
@@ -158,12 +165,15 @@ def record_arm(arm_identity, ordered_steps, output, clock=None):
     clock = _SystemClock() if clock is None else clock
     fd, created = _reserve(path)
     completed = False
+    cleanup_started = False
     try:
         started = _monotonic(clock)
         start_utc = _utc(clock)
         durations = {}
         for name, function in steps:
             step_start = _monotonic(clock)
+            if name == 'cleanup':
+                cleanup_started = True
             try:
                 result = function()
             except Exception:
@@ -175,10 +185,7 @@ def record_arm(arm_identity, ordered_steps, output, clock=None):
                 raise ValueError('arm step failed')
             if name == 'effect' and result.get('effect_verified') is not True:
                 raise ValueError('arm effect verification failed')
-            if name == 'cleanup' and (
-                    type(result.get('remaining_owned_processes')) is not int
-                    or result['remaining_owned_processes'] != 0
-                    or result.get('status_known') is not True):
+            if name == 'cleanup' and not _cleanup_ok(result):
                 raise ValueError('arm cleanup is incomplete or unknown')
             durations[name] = step_end - step_start
         ended = _monotonic(clock)
@@ -209,4 +216,13 @@ def record_arm(arm_identity, ordered_steps, output, clock=None):
         return report
     finally:
         if not completed:
-            _remove_reserved(path, fd, created)
+            try:
+                if not cleanup_started:
+                    try:
+                        cleanup_result = steps[-1][1]()
+                    except Exception:
+                        raise ValueError('arm cleanup is incomplete or unknown') from None
+                    if not _cleanup_ok(cleanup_result):
+                        raise ValueError('arm cleanup is incomplete or unknown')
+            finally:
+                _remove_reserved(path, fd, created)

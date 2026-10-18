@@ -84,9 +84,19 @@ class DirectArmSpanTests(unittest.TestCase):
             steps, calls = _steps(fail='proof')
             with self.assertRaisesRegex(ValueError, '^arm step failed$') as caught:
                 recorder.record_arm(_identity(), steps, output, clock=FakeClock())
-            self.assertEqual(calls, list(STEP_NAMES[:6]))
+            self.assertEqual(calls, list(STEP_NAMES[:6]) + ['cleanup'])
             self.assertFalse(output.exists())
             self.assertNotIn(temporary, str(caught.exception))
+
+    def test_failed_step_with_failed_cleanup_reports_cleanup_failure(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / 'arm.json'
+            steps, calls = _steps(fail='proof')
+            steps[-1] = ('cleanup', lambda: {'passed': False})
+            with self.assertRaisesRegex(ValueError, 'arm cleanup is incomplete'):
+                recorder.record_arm(_identity(), steps, output, clock=FakeClock())
+            self.assertEqual(calls, list(STEP_NAMES[:6]))
+            self.assertFalse(output.exists())
 
     def test_rejects_wrong_order_effect_or_cleanup_claims(self):
         with tempfile.TemporaryDirectory() as temporary:
