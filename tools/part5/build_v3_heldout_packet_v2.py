@@ -23,7 +23,7 @@ SOURCE_FILES = [
 ]
 PACKAGE_PINS_RELATIVE = 'docs/dynark/part5/v3-fresh-package-v2-package-pins.json'
 PACKAGE_PINS_SCHEMA = 'part5-v3-fresh-package-output-pins-v2'
-FREEZE_SCHEMA = 'credential-v3-frozen-holdout-boundary-v1'
+FREEZE_SCHEMA = 'credential-v3-frozen-holdout-boundary-v2'
 TEMPLATE_FIELDS = (
     'package_digest', 'setup_manifest_path', 'setup_manifest_sha256',
     'package_check_path', 'package_check_sha256', 'r1cs_path', 'wasm_path',
@@ -221,6 +221,7 @@ def build(template_path, template_sha256, freeze_path, freeze_sha256, pairs,
             or type(frozen_at) is not int or not 0 < frozen_at < 2**64
             or frozen.get('setup_manifest_sha256') != selected['setup_manifest_sha256']
             or frozen.get('package_digest') != selected['package_digest']
+            or frozen.get('package_pins_sha256') != package_pins_sha256
             or frozen.get('proof_binary_sha256') != proof_binary_sha256
             or frozen.get('proof_source_identity') != source_id
             or frozen.get('input_preparer_sha256') != input_preparer_sha256

@@ -92,10 +92,11 @@ class HeldoutPacketV2Tests(unittest.TestCase):
         self.freeze_path = self.root / "private/freeze.json"
         self.cases = [self.make_pair("holdout_0")]
         self.freeze = {
-            "schema": "credential-v3-frozen-holdout-boundary-v1",
+            "schema": "credential-v3-frozen-holdout-boundary-v2",
             "frozen_at_unix_ns": 1,
             "setup_manifest_sha256": self.template["setup_manifest_sha256"],
             "package_digest": self.template["package_digest"],
+            "package_pins_sha256": self.sha(self.package_path),
             "proof_binary_sha256": "e" * 64,
             "proof_source_identity": self.expected_source,
             "input_preparer_sha256": self.preparer_sha,
@@ -169,6 +170,28 @@ class HeldoutPacketV2Tests(unittest.TestCase):
         with mock.patch.object(tool, "ROOT", self.root):
             with self.assertRaisesRegex(ValueError, "freeze identity"):
                 self.build()
+
+    def test_rejects_v1_freeze_receipt(self):
+        self.freeze["schema"] = "credential-v3-frozen-holdout-boundary-v1"
+        self.save(self.freeze_path, self.freeze)
+        with mock.patch.object(tool, "ROOT", self.root):
+            with self.assertRaisesRegex(ValueError, "freeze identity"):
+                self.build()
+
+    def test_rejects_freeze_with_different_package_pins_digest(self):
+        self.freeze["package_pins_sha256"] = "f" * 64
+        self.save(self.freeze_path, self.freeze)
+        with mock.patch.object(tool, "ROOT", self.root):
+            with self.assertRaisesRegex(ValueError, "freeze identity"):
+                self.build()
+
+    def test_rust_heldout_boundary_requires_packet_and_installed_package_pins(self):
+        repo = Path(__file__).resolve().parents[3]
+        source = (repo / "circuits/credential-v3-bounded/qualification/proof-runner-v2/src/main.rs").read_text()
+        boundary = source.split("fn heldout_boundary(", 1)[1].split("fn validate_full_receipt(", 1)[0]
+        self.assertIn('"credential-v3-frozen-holdout-boundary-v2"', boundary)
+        self.assertIn('text(packet, "package_pins_sha256")?', boundary)
+        self.assertIn("pins::current().record_sha.as_str()", boundary)
 
     def test_rejects_setup_pin_that_differs_from_external_package_record(self):
         self.template["setup_manifest_sha256"] = "f" * 64

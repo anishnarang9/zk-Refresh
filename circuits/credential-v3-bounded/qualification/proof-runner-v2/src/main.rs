@@ -296,9 +296,11 @@ fn heldout_boundary(packet: &Value, owner: u32) -> Result<()> {
             owner,
         )?;
         required(
-            text(&frozen, "schema")? == "credential-v3-frozen-holdout-boundary-v1"
+            text(&frozen, "schema")? == "credential-v3-frozen-holdout-boundary-v2"
                 && text(&frozen, "setup_manifest_sha256")? == setup_manifest_sha()
                 && text(&frozen, "package_digest")? == package_sha()
+                && text(&frozen, "package_pins_sha256")? == text(packet, "package_pins_sha256")?
+                && text(packet, "package_pins_sha256")? == pins::current().record_sha.as_str()
                 && text(&frozen, "proof_binary_sha256")? == binary_hash(owner)?
                 && text(&frozen, "proof_source_identity")? == proof_source_identity()
                 && text(&frozen, "input_preparer_sha256")?
