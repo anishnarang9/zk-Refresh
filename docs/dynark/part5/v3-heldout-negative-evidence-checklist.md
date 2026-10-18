@@ -1,12 +1,12 @@
-# Post-Training-011 loaded negative evidence checklist
+# Post-Training-012 loaded negative evidence checklist
 
 This checklist covers the two acceptance-plan cases that still need loaded-validator evidence: an issuer status whose signed expiry has passed, and an Execute attempt against a full request queue. The acceptance plan explicitly names stale status and queue capacity at lines 44–50 of `v3-heldout-acceptance-plan.md`.
 
-## Gate before implementation
+## Gate before loaded execution and heldout freeze
 
-- Wait until the Training-011 matrix has a final sequence receipt and its registered report gate, including the clock-drift audit, has completed. A running driver, a partial receipt stream, or an interrupted matrix is not the gate.
-- Keep every Training-011-pinned file and artifact unchanged through that gate. In particular, do not edit `harness/src/solana/queue_v3.rs`, `harness/tests/queue_v3.rs`, the heldout runner, verifier, freeze tooling, or the runner-002 binary while the matrix is using their pinned hashes.
-- After the gate, work from the accepted Training-011 identities. Add a new heldout tooling freeze/cohort and a new isolated Rust runner artifact; do not overwrite runner-002 or the canonical Training-009 proof binary. The new tooling freeze must pin the additions below and continue to pin the same accepted application ELF hash.
+- Wait until the Training-012 matrix has a final sequence receipt and its registered report gate, including the clock-drift audit, economics, reconciliation, and total summary, has completed. Training-011 stopped at its storage limit and has no final sequence. A running driver, a partial receipt stream, or an interrupted matrix is not the gate.
+- Keep every Training-012-pinned file and artifact unchanged through that gate. Source-only work on separate heldout files may proceed, but do not build or run a competing proof, validator, or loaded-negative job. Freeze tooling, the accepted runner-002 binary, and the active campaign identities must not be overwritten.
+- After the gate, work from the accepted Training-012 identities. Add a new heldout tooling freeze/cohort and a new isolated Rust runner artifact; do not overwrite runner-002 or the canonical Training-009 proof binary. The new tooling freeze must pin the additions below and continue to pin the same accepted application ELF hash.
 - First run the new Python and Rust source-level tests. Then run one bounded loaded-validator stale-status pilot. Queue capacity has a much larger setup cost; qualify its setup and finite owner limit before scheduling it. No result is claimed by this checklist.
 
 ## Expected program behavior
@@ -49,7 +49,7 @@ There is no zero-cost state-seeding shortcut established in the current harness.
 
 ## Evidence integration and independent checks
 
-After the new Rust/Python sources exist, update `freeze_v3_heldout_cohort.py`'s registry/client source lists so the freeze covers the new supervisors, imported helpers, Rust modules, tests, heldout runner, assembler, verifier, and cost analyzer. Build and pin a separate runner binary. Freeze the updated source bundle and create a fresh cohort/manifest only after Training-011 is final; old receipts remain valid evidence for their old source hashes but cannot certify the new negative-evidence implementation.
+After the new Rust/Python sources exist, update `freeze_v3_heldout_cohort.py`'s registry/client source lists so the freeze covers the new supervisors, imported helpers, Rust modules, tests, heldout runner, assembler, verifier, and cost analyzer. Build and pin a separate runner binary. Freeze the updated source bundle and create a fresh cohort/manifest only after Training-012 is final; old receipts remain valid evidence for their old source hashes but cannot certify the new negative-evidence implementation.
 
 Extend the case runner and journal as follows:
 
