@@ -1380,6 +1380,28 @@ pub fn execute_from_env() -> Result<()> {
         Some(zk_fresh_program::application_v3::AppError::Privileges as u64),
         &mut events,
     )?;
+    let mut missing_final_account = p.execute(&wire)?;
+    missing_final_account.accounts.pop();
+    transport::send(
+        &rpc,
+        &admin,
+        None,
+        missing_final_account,
+        "v3-execute-missing-final-account",
+        Some(zk_fresh_program::application_v3::AppError::Accounts as u64),
+        &mut events,
+    )?;
+    let mut system_program_as_issuer = p.execute(&wire)?;
+    system_program_as_issuer.accounts[1] = AccountMeta::new_readonly(system_program::id(), false);
+    transport::send(
+        &rpc,
+        &admin,
+        None,
+        system_program_as_issuer,
+        "v3-execute-system-program-as-issuer",
+        Some(zk_fresh_program::application_v3::AppError::Owner as u64),
+        &mut events,
+    )?;
     let rooted = transport::wait_finalized(&rpc, &events)?;
     let (_, rejected) = finalized_accounts(&rpc, &p, rooted)?;
     ensure!(

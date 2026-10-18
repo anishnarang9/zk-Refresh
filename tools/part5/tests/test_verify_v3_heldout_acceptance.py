@@ -646,6 +646,10 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
              'err': {'InstructionError': [1, {'Custom': 714}]}},
             {'scenario': 'v3-execute-readonly-request', 'customError': 711,
              'err': {'InstructionError': [1, {'Custom': 711}]}},
+            {'scenario': 'v3-execute-missing-final-account', 'customError': 709,
+             'err': {'InstructionError': [1, {'Custom': 709}]}},
+            {'scenario': 'v3-execute-system-program-as-issuer', 'customError': 710,
+             'err': {'InstructionError': [1, {'Custom': 710}]}},
             {'scenario': 'v3-valid-full-execute', 'customError': None,
              'err': None},
             {'scenario': 'v3-replay-new-transaction', 'customError': 707,
@@ -664,6 +668,14 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Full A transaction error mismatch'):
             verifier._verify_full_transactions(rows, snapshots)
         rows[2]['err'] = {'InstructionError': [1, {'Custom': 713}]}
+        rows[7]['err'] = {'InstructionError': [1, {'Custom': 710}]}
+        with self.assertRaisesRegex(ValueError, 'Full A transaction error mismatch'):
+            verifier._verify_full_transactions(rows, snapshots)
+        rows[7]['err'] = {'InstructionError': [1, {'Custom': 709}]}
+        rows[8]['err'] = {'InstructionError': [1, {'Custom': 709}]}
+        with self.assertRaisesRegex(ValueError, 'Full A transaction error mismatch'):
+            verifier._verify_full_transactions(rows, snapshots)
+        rows[8]['err'] = {'InstructionError': [1, {'Custom': 710}]}
         snapshots['after_sha256'][0] = 'f' * 64
         with self.assertRaisesRegex(ValueError, 'preserve all five accounts'):
             verifier._verify_full_transactions(rows, snapshots)
