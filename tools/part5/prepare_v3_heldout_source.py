@@ -475,7 +475,6 @@ def _variant_evidence(variant, stage, transition_root, case, snapshots):
             or report.get('membership_sha256') != case['membership_sha256']
             or report.get('base_root') != case['roots']['R0']
             or report.get('near_root') != case['roots']['R1']
-            or report.get('unrelated_tbs_digest') != case['context']['unrelated']['tbs_sha256']
             or report.get('signed_history_sha256') != digest(history)
             or type(report.get('account_sha256')) is not list
             or len(report['account_sha256']) != len(ACCOUNT_NAMES)):
@@ -490,10 +489,9 @@ def _variant_evidence(variant, stage, transition_root, case, snapshots):
         accounts.append(data)
     if (len(accounts[0]) != 381 or accounts[0][:8] != b'DYNCONF3'
             or accounts[0][332:364].hex() != case['roots']['R1']
-            or int.from_bytes(accounts[0][364:372], 'little') != 1
-            or accounts[3] != stage['accounts'][3] or accounts[4] != stage['accounts'][4]
-            or accounts[1] != stage['accounts'][1] or accounts[2] != stage['accounts'][2]):
-        raise ValueError('R1 transition must preserve request, queue, issuer and publisher head')
+            or int.from_bytes(accounts[0][364:372], 'big') != 1
+            or accounts[3] != stage['accounts'][3] or accounts[4] != stage['accounts'][4]):
+        raise ValueError('R1 transition must preserve request and queue under expected root')
     return accounts[0], accounts[3], raw_report, digest(raw_report)
 
 
@@ -506,7 +504,6 @@ def _transition_context(path, expected_sha256, stage, case, snapshots):
     if (value.get('schema') != 'part5-v3-unrelated-training-transition-v1'
             or value.get('training_only') is not True
             or value.get('stage_report_sha256') != digest(stage['report_raw'])
-            or value.get('stage_plan_sha256') != digest(stage['plan_raw'])
             or value.get('cohort_receipt_sha256') != case['pair_sha256']
             or value.get('membership_sha256') != case['membership_sha256']
             or value.get('own_tbs_digest') != case['target_row']['tbs_sha256']

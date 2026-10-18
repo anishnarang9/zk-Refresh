@@ -223,19 +223,18 @@ class HeldoutSourceTests(unittest.TestCase):
 
     def write_transition(self):
         self.config1[332:364] = bytes.fromhex(self.case_context['membership']['R1'])
-        self.config1[364:372] = (1).to_bytes(8, 'little')
+        self.config1[364:372] = (1).to_bytes(8, 'big')
         self.write(self.transition / 'plan.json', tool.encoded(self.plan))
         self.write(self.transition / 'config.bin', bytes(self.config1))
         for name, raw in zip(('issuer.bin', 'head.bin', 'request.bin', 'queue.bin'),
-                             (b'I' * 40, b'H' * 40, self.request, b'Q' * 40)):
+                             (b'J' * 40, b'K' * 40, self.request, b'Q' * 40)):
             self.write(self.transition / name, raw)
         self.write(self.transition / 'signed-history.json', b'{}')
-        accounts = [bytes(self.config1), b'I' * 40, b'H' * 40, self.request, b'Q' * 40]
+        accounts = [bytes(self.config1), b'J' * 40, b'K' * 40, self.request, b'Q' * 40]
         transition_context = {
             'schema': 'part5-v3-unrelated-training-transition-v1',
             'training_only': True,
             'stage_report_sha256': tool.digest(tool.encoded(self.stage_report)),
-            'stage_plan_sha256': tool.digest(tool.encoded(self.plan)),
             'cohort_receipt_sha256': tool.digest(self.pair_raw),
             'membership_sha256': tool.digest(self.member_raw),
             'own_tbs_digest': self.rows[0]['tbs_sha256'],
@@ -259,7 +258,6 @@ class HeldoutSourceTests(unittest.TestCase):
             'transition_context_sha256': tool.digest(transition_context_raw),
             'base_root': self.case_context['membership']['R0'],
             'near_root': self.case_context['membership']['R1'],
-            'unrelated_tbs_digest': self.case_context['unrelated']['tbs_sha256'],
             'signed_history_sha256': tool.digest(b'{}'),
             'account_sha256': [tool.digest(value) for value in accounts],
         }
@@ -360,6 +358,8 @@ class HeldoutSourceTests(unittest.TestCase):
             )
 
     def test_r0_and_r1_keep_exact_staged_request_and_action(self):
+        self.assertNotIn('stage_plan_sha256', json.loads(self.transition_context.read_bytes()))
+        self.assertNotIn('unrelated_tbs_digest', self.transition_report)
         r0 = self.run_prepare('R0', self.output0)
         r0_path = self.output0 / 'source-receipt.json'
         r0_sha = tool.digest(r0_path.read_bytes())
@@ -396,6 +396,22 @@ class HeldoutSourceTests(unittest.TestCase):
         report['transition_context_sha256'] = '0' * 64
         self.write(self.transition / 'transition-report.json', tool.encoded(report))
         with self.assertRaisesRegex(ValueError, 'does not pin heldout transition context'):
+            self.run_prepare('R1', self.output1,
+                             r0_source_receipt=r0_path,
+                             r0_source_receipt_sha256=tool.digest(r0_path.read_bytes()))
+        self.assertEqual(list(self.output1.iterdir()), [])
+
+    def test_r1_rejects_wrong_unrelated_digest_even_when_report_pins_context(self):
+        self.run_prepare('R0', self.output0)
+        r0_path = self.output0 / 'source-receipt.json'
+        context = json.loads(self.transition_context.read_bytes())
+        context['unrelated_tbs_digest'] = '0' * 64
+        context_raw = tool.encoded(context)
+        self.write(self.transition_context, context_raw)
+        report = json.loads((self.transition / 'transition-report.json').read_bytes())
+        report['transition_context_sha256'] = tool.digest(context_raw)
+        self.write(self.transition / 'transition-report.json', tool.encoded(report))
+        with self.assertRaisesRegex(ValueError, 'heldout R0-to-R1 transition context mismatch'):
             self.run_prepare('R1', self.output1,
                              r0_source_receipt=r0_path,
                              r0_source_receipt_sha256=tool.digest(r0_path.read_bytes()))
