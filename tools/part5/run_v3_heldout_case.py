@@ -36,6 +36,16 @@ DISABLED_CONFIG_SIDECAR_KEYS = {
     'full_wire', 'config', 'rust_config', 'status', 'outer', 'report',
     'eligible_accounts', 'before_accounts', 'after_accounts',
     'issuer_eligible_accounts', 'issuer_before_accounts', 'issuer_after_accounts'}
+AMBIGUOUS_RESTART_SIDECAR_SCHEMA = 'credential-v3-heldout-ambiguous-restart-v1'
+AMBIGUOUS_RESTART_SIDECAR_KEYS = {
+    'schema', 'variant', 'stage_report_sha256', 'stage_plan_sha256',
+    'r0_source_receipt_sha256', 'full_proof_receipt_sha256',
+    'replay_proof_receipt_sha256', 'clone_receipt', 'full_wire',
+    'replay_full_wire', 'config', 'status', 'outer', 'proxy_receipt',
+    'finality_receipt', 'pre_submit_report', 'pre_submit_accounts', 'final_accounts'}
+AMBIGUOUS_ACCOUNT_NAMES = ('config', 'issuer', 'head', 'request', 'queue')
+AMBIGUOUS_RESTART_SUPERVISOR = 'harness/tests/queue_v3_local_ambiguous_restart.py'
+AMBIGUOUS_RESTART_PROXY = 'harness/tests/queue_v3_ambiguous_rpc_proxy.py'
 ROLE_NAMES = ('profile', 'r1cs', 'witness_executable', 'setup_manifest',
               'ordinary_vk', 'proof_runner', 'signer_interface',
               'ordinary_adapter', 'loaded_elf')
@@ -344,6 +354,43 @@ def disabled_config_negative_wall_seconds(steps):
             raise ValueError(f'completed disabled-config journal wall time required for {name}')
         total += float(wall)
     return total
+
+
+def ambiguous_restart_wall_seconds(steps):
+    """Report the independent A-clone plus supervisor cost outside branch totals."""
+    names = ('positive_full:ambiguous-restart-clone',
+             'positive_full:ambiguous-restart')
+    total = 0.0
+    for name in names:
+        row = steps.get(name)
+        wall = row.get('wall_seconds') if type(row) is dict else None
+        if (type(row) is not dict or row.get('status') != 'passed'
+                or type(wall) not in (int, float) or not math.isfinite(wall)
+                or wall < 0):
+            raise ValueError(f'completed ambiguous-restart journal wall time required for {name}')
+        total += float(wall)
+    return total
+
+
+def reviewed_ambiguous_restart_outer(outer, expected_owner):
+    limits = outer.get('limits') if type(outer) is dict else None
+    return (type(outer) is dict and outer.get('schema') == 1
+        and outer.get('measurement') == 'bounded_complete_session'
+        and outer.get('owner') == expected_owner and outer.get('passed') is True
+        and outer.get('exit_code') == 0 and outer.get('stop_reason') is None
+        and outer.get('runner_error_type') is None
+        and outer.get('cleanup_remaining_owned_processes') == 0
+        and outer.get('cleanup_status_unknown') is False
+        and type(outer.get('duration_seconds')) in (int, float)
+        and math.isfinite(outer.get('duration_seconds'))
+        and outer.get('duration_seconds') > 0
+        and type(outer.get('sample_count')) is int and outer.get('sample_count') > 0
+        and limits == {'runtime_seconds': LIMITS['runtime_seconds'],
+                       'owned_tree_rss_bytes': LIMITS['rss_bytes'],
+                       'storage_growth_bytes': LIMITS['storage_growth_bytes'],
+                       'poll_seconds': limits.get('poll_seconds') if type(limits) is dict else None}
+        and type(limits.get('poll_seconds')) in (int, float)
+        and math.isfinite(limits['poll_seconds']) and limits['poll_seconds'] > 0)
 
 
 def all_step_wall_seconds(journal_doc):
@@ -764,6 +811,7 @@ class HeldoutCaseRunner:
             'r0_clone': REPO / 'harness/tests/queue_v3_clone_heldout_r0.py',
             'r1_clone': REPO / 'harness/tests/queue_v3_clone_ledger.py',
             'disabled_config_negative': REPO / 'harness/tests/queue_v3_local_disabled_config_negative.py',
+            'ambiguous_restart': REPO / AMBIGUOUS_RESTART_SUPERVISOR,
         }
 
     def _bounded_run(self, owner, command, output, report, *, runtime, storage_paths=(), env=None):
@@ -1088,6 +1136,7 @@ class HeldoutCaseRunner:
                 raise ValueError('existing R0 clone receipt is not this request')
             return {'root': str(clone_root), 'ledger': str(destination),
                     'receipt': str(receipt_path), 'receipt_sha256': digest(_read(receipt_path)),
+                    'label': label,
                     'monitor': str(root / (label + '-clone-monitor.json')),
                     'monitor_sha256': digest(_read(root / (label + '-clone-monitor.json'))),
                     'monitor_owner': f'heldout-v{self.variant:02d}-{request}-clone-{label}',
@@ -1109,6 +1158,7 @@ class HeldoutCaseRunner:
             raise ValueError('bounded heldout R0 clone failed review')
         return {'root': str(clone_root), 'ledger': str(destination),
                 'receipt': str(receipt_path), 'receipt_sha256': digest(_read(receipt_path)),
+                'label': label,
                 'monitor': str(monitor_path), 'monitor_sha256': digest(_read(monitor_path)),
                 'monitor_owner': owner, 'wall_seconds': outer['duration_seconds']}
 
@@ -1273,6 +1323,409 @@ class HeldoutCaseRunner:
             'monitor_sha256': digest(_read(monitor_path)),
             'monitor_owner': owner,
             'wall_seconds': outer['duration_seconds']}
+
+    def _frozen_registry_source(self, relative):
+        registry = self.manifest['frozen_bundles']['registry']
+        rows = [item for item in registry
+                if type(item) is dict and item.get('path') == relative]
+        if len(rows) != 1:
+            raise ValueError('ambiguous-restart source missing from frozen registry bundle')
+        artifact = rows[0].get('artifact')
+        expected_path = REPO / relative
+        if (type(artifact) is not dict or artifact.get('path') != str(expected_path)
+                or not _hash(artifact.get('sha256'))):
+            raise ValueError('ambiguous-restart source freeze reference malformed')
+        _read(expected_path, artifact['sha256'], 128 * 1024 * 1024)
+        return {'path': str(expected_path), 'sha256': artifact['sha256']}
+
+    def _ambiguous_restart(self, request, root, stage, source, proof,
+                           replay_proof, clone, main_clone):
+        from harness.tests import queue_v3_local_ambiguous_restart as supervisor
+        from harness.tests import queue_v3_ambiguous_rpc_proxy as proxy_tools
+
+        if (request != 'positive_full' or clone.get('label') != 'ambiguous-restart-r0'
+                or clone['receipt_sha256'] == main_clone['receipt_sha256']
+                or clone['ledger'] == main_clone['ledger']
+                or clone['receipt'] == main_clone['receipt']):
+            raise ValueError('independent positive A/R0 ambiguous-restart clone required')
+        supervisor_ref = self._frozen_registry_source(AMBIGUOUS_RESTART_SUPERVISOR)
+        proxy_ref = self._frozen_registry_source(AMBIGUOUS_RESTART_PROXY)
+        supervisor_path = Path(supervisor_ref['path'])
+        if supervisor_path != self.toolpaths['ambiguous_restart']:
+            raise ValueError('ambiguous-restart supervisor differs from its frozen path')
+
+        side_root = root / 'ambiguous-restart'
+        if not side_root.exists():
+            side_root.mkdir(mode=0o700)
+        else:
+            _private_dir(side_root)
+        output = self._art(request, 'ambiguous-restart')
+        control = self._art(request, 'ambiguous-restart-control')
+        config_path = side_root / 'supervisor-config.json'
+        outer_path = side_root / 'outer.json'
+        monitor_dir = side_root / 'monitor'
+        owner = f'heldout-v{self.variant:02d}-{request}-ambiguous-restart'
+        status_path = Path(control) / 'status.json'
+        proxy_receipt_path = Path(control) / 'proxy-receipt.json'
+        finality_receipt_path = Path(control) / 'finality-receipt.json'
+        pre_submit_report_path = Path(output) / 'pre-submit-report.json'
+        pre_submit_paths = {name: Path(output) / f'pre-submit-{name}.bin'
+                            for name in AMBIGUOUS_ACCOUNT_NAMES}
+        final_paths = {name: Path(output) / f'final-{name}.bin'
+                       for name in AMBIGUOUS_ACCOUNT_NAMES}
+
+        stage_report = _json(Path(stage['report']), stage['report_sha256'])
+        context_path = self.output_root / 'pair-view' / 'stage-context.json'
+        full_wire = proof['wires']['r0_full_wire']
+        replay_wire = replay_proof['wires']['r0_full_wire']
+        config = {
+            'schema': supervisor.SCHEMA,
+            'scope': supervisor.SCOPE,
+            'outer_limits_required': LIMITS,
+            'proxy_script': proxy_ref['path'],
+            'proxy_script_sha256': proxy_ref['sha256'],
+            'proxy_port': 19500 + self.variant,
+            'expected_program': stage_report['program'],
+            'expected_genesis': stage_report['genesis'],
+            'expected_elf_sha256': self.manifest['frozen_files']['loaded_elf']['sha256'],
+            'prior_monitor_owner': stage['monitor_owner'],
+            'execute_output': output,
+            'control_output': control,
+            'prior_stage_config': stage['config'],
+            'prior_stage_config_sha256': stage['config_sha256'],
+            'prior_stage_status': stage['status_path'],
+            'prior_stage_status_sha256': stage['status_sha256'],
+            'prior_stage_monitor': stage['monitor'],
+            'prior_stage_monitor_sha256': stage['monitor_sha256'],
+            'stage_root': stage['root'],
+            'stage_report_sha256': stage['report_sha256'],
+            'stage_plan_sha256': stage['plan_sha256'],
+            'ledger': clone['ledger'],
+            'heldout_r0_clone_report': clone['receipt'],
+            'heldout_r0_clone_report_sha256': clone['receipt_sha256'],
+            'runner': self.manifest['runner'],
+            'runner_sha256': self.manifest['runner_sha256'],
+            'context': str(context_path),
+            'context_sha256': digest(_read(context_path)),
+            'full_wire': full_wire['path'],
+            'full_wire_sha256': full_wire['sha256'],
+            'replay_full_wire': replay_wire['path'],
+            'replay_full_wire_sha256': replay_wire['sha256'],
+        }
+        supervisor._validate_config(config)
+        config_sha = digest(encoded(config))
+        inputs = {
+            'variant': self.variant,
+            'stage_report_sha256': stage['report_sha256'],
+            'stage_plan_sha256': stage['plan_sha256'],
+            'r0_source_receipt_sha256': source['receipt_sha256'],
+            'full_proof_receipt_sha256': proof['receipt_sha256'],
+            'replay_proof_receipt_sha256': replay_proof['receipt_sha256'],
+            'clone_receipt_sha256': clone['receipt_sha256'],
+            'full_wire_sha256': full_wire['sha256'],
+            'replay_full_wire_sha256': replay_wire['sha256'],
+            'supervisor_script_sha256': supervisor_ref['sha256'],
+            'proxy_script_sha256': proxy_ref['sha256'],
+            'frozen_elf_sha256': self.manifest['frozen_files']['loaded_elf']['sha256'],
+            'config_sha256': config_sha,
+            'proxy_port': config['proxy_port'],
+        }
+        artifacts = (config_path, outer_path, monitor_dir, Path(output), Path(control),
+                     status_path, proxy_receipt_path, finality_receipt_path,
+                     pre_submit_report_path,
+                     *pre_submit_paths.values(), *final_paths.values())
+        present = [path.exists() or path.is_symlink() for path in artifacts]
+        if any(present) and not all(present):
+            raise ValueError('partial ambiguous-restart output requires manual review')
+        if not any(present):
+            self._write_config(config_path, config)
+            outer = self.bounded_run(owner,
+                [sys.executable, str(supervisor_path), '--config', str(config_path),
+                 '--config-sha256', config_sha], monitor_dir, outer_path,
+                runtime=LIMITS['runtime_seconds'],
+                storage_paths=(Path(clone['ledger']), Path(output), Path(control)),
+                env={'P5_V3_AMBIGUOUS_RESTART_SUPERVISOR': supervisor.SCOPE})
+            status = _json(status_path)
+            if not reviewed_ambiguous_restart_outer(outer, owner):
+                raise ValueError('bounded ambiguous-restart supervisor did not exit cleanly')
+        else:
+            if _read(config_path) != encoded(config):
+                raise ValueError('saved ambiguous-restart config differs from pinned inputs')
+            outer = _json(outer_path)
+            status = _json(status_path)
+
+        sidecar = {
+            'schema': AMBIGUOUS_RESTART_SIDECAR_SCHEMA,
+            'variant': self.variant,
+            'stage_report_sha256': stage['report_sha256'],
+            'stage_plan_sha256': stage['plan_sha256'],
+            'r0_source_receipt_sha256': source['receipt_sha256'],
+            'full_proof_receipt_sha256': proof['receipt_sha256'],
+            'replay_proof_receipt_sha256': replay_proof['receipt_sha256'],
+            'clone_receipt': self._artifact(clone['receipt']),
+            'full_wire': self._artifact(full_wire['path']),
+            'replay_full_wire': self._artifact(replay_wire['path']),
+            'config': self._artifact(config_path),
+            'status': self._artifact(status_path),
+            'outer': self._artifact(outer_path),
+            'proxy_receipt': self._artifact(proxy_receipt_path),
+            'finality_receipt': self._artifact(finality_receipt_path),
+            'pre_submit_report': self._artifact(pre_submit_report_path),
+            'pre_submit_accounts': {name: self._artifact(path)
+                                   for name, path in pre_submit_paths.items()},
+            'final_accounts': {name: self._artifact(path)
+                               for name, path in final_paths.items()},
+        }
+        sidecar_path = side_root / 'sidecar.json'
+        sidecar_raw = json.dumps(sidecar, sort_keys=True, indent=2).encode() + b'\n'
+        if sidecar_path.exists():
+            if _read(sidecar_path) != sidecar_raw:
+                raise ValueError('saved ambiguous-restart sidecar differs from evidence')
+        else:
+            _write_new(sidecar_path, sidecar_raw)
+        if not self._ambiguous_restart_sidecar_verified(
+                sidecar_path, digest(sidecar_raw), inputs):
+            raise ValueError('ambiguous-restart sidecar did not verify pinned evidence')
+        return {'status': 'passed', 'sidecar': str(sidecar_path),
+                'sidecar_sha256': digest(sidecar_raw),
+                'monitor': str(outer_path),
+                'monitor_sha256': digest(_read(outer_path)),
+                'monitor_owner': owner,
+                'wall_seconds': outer['duration_seconds']}
+
+    @staticmethod
+    def _ambiguous_restart_sidecar_verified(path, expected_sha256, inputs):
+        try:
+            sidecar = _json(path, expected_sha256, 1024 * 1024)
+            if (type(sidecar) is not dict
+                    or set(sidecar) != AMBIGUOUS_RESTART_SIDECAR_KEYS
+                    or sidecar.get('schema') != AMBIGUOUS_RESTART_SIDECAR_SCHEMA
+                    or type(sidecar.get('variant')) is not int
+                    or not 0 <= sidecar['variant'] < 8):
+                return False
+            expected_sidecar = {
+                'variant': 'variant',
+                'stage_report_sha256': 'stage_report_sha256',
+                'stage_plan_sha256': 'stage_plan_sha256',
+                'r0_source_receipt_sha256': 'r0_source_receipt_sha256',
+                'full_proof_receipt_sha256': 'full_proof_receipt_sha256',
+                'replay_proof_receipt_sha256': 'replay_proof_receipt_sha256',
+            }
+            if any(sidecar[field] != inputs[key]
+                   for field, key in expected_sidecar.items()):
+                return False
+            for field in ('stage_report_sha256', 'stage_plan_sha256',
+                          'r0_source_receipt_sha256', 'full_proof_receipt_sha256',
+                          'replay_proof_receipt_sha256'):
+                if not _hash(sidecar.get(field)):
+                    return False
+            refs = ('clone_receipt', 'full_wire', 'replay_full_wire', 'config',
+                    'status', 'outer', 'proxy_receipt', 'finality_receipt',
+                    'pre_submit_report')
+            loaded = {}
+            for field in refs:
+                ref = sidecar[field]
+                if (type(ref) is not dict or set(ref) != {'path', 'sha256'}
+                        or not _hash(ref.get('sha256'))):
+                    return False
+                raw = _read(ref['path'], ref['sha256'], 32 * 1024 * 1024)
+                loaded[field] = json.loads(raw) if field in {
+                    'clone_receipt', 'config', 'status', 'outer',
+                    'proxy_receipt', 'finality_receipt', 'pre_submit_report'} else None
+            config = loaded['config']
+            status = loaded['status']
+            outer = loaded['outer']
+            proxy_receipt = loaded['proxy_receipt']
+            finality_receipt = loaded['finality_receipt']
+            pre_report = loaded['pre_submit_report']
+            clone = loaded['clone_receipt']
+            if (sidecar['variant'] != inputs['variant']
+                    or config.get('schema') != 'part5-v3-local-ambiguous-restart-supervisor-v1'
+                    or config.get('scope') != 'part5-v3-local-ambiguous-restart'
+                    or config.get('proxy_port') != 19500 + sidecar['variant']
+                    or config.get('proxy_script_sha256') != inputs['proxy_script_sha256']
+                    or config.get('expected_elf_sha256') != inputs['frozen_elf_sha256']
+                    or config.get('stage_report_sha256') != sidecar['stage_report_sha256']
+                    or config.get('stage_plan_sha256') != sidecar['stage_plan_sha256']
+                    or config.get('heldout_r0_clone_report_sha256')
+                        != sidecar['clone_receipt']['sha256']
+                    or config.get('heldout_r0_clone_report_sha256')
+                        != inputs['clone_receipt_sha256']
+                    or config.get('full_wire_sha256') != sidecar['full_wire']['sha256']
+                    or config.get('replay_full_wire_sha256')
+                        != sidecar['replay_full_wire']['sha256']
+                    or config.get('full_wire_sha256') != inputs['full_wire_sha256']
+                    or config.get('replay_full_wire_sha256')
+                        != inputs['replay_full_wire_sha256']
+                    or clone.get('schema') != 'part5-v3-heldout-r0-ledger-clone-v1'
+                    or clone.get('stage_report_sha256') != sidecar['stage_report_sha256']
+                    or clone.get('heldout_acceptance') is not False
+                    or clone.get('copy_identical') is not True
+                    or clone.get('destination') != config.get('ledger')
+                    or clone.get('application_effect') is not False
+                    or clone.get('loaded_identity_rechecked_after_restart') is not False
+                    or status.get('schema') != 1
+                    or status.get('scope') != 'part5-v3-local-ambiguous-restart'
+                    or status.get('status') != 'passed'
+                    or status.get('heldout_acceptance') is not True
+                    or status.get('error_type') is not None
+                    or status.get('config_sha256') != sidecar['config']['sha256']
+                    or status.get('proxy_receipt_sha256') != sidecar['proxy_receipt']['sha256']
+                    or status.get('finality_receipt_path')
+                        != sidecar['finality_receipt']['path']
+                    or status.get('finality_receipt_sha256')
+                        != sidecar['finality_receipt']['sha256']
+                    or status.get('pre_submit_report_sha256')
+                        != sidecar['pre_submit_report']['sha256']
+                    or status.get('stage_report_sha256') != sidecar['stage_report_sha256']
+                    or status.get('stage_plan_sha256') != sidecar['stage_plan_sha256']
+                    or status.get('heldout_r0_clone_report_sha256')
+                        != sidecar['clone_receipt']['sha256']
+                    or status.get('full_wire_sha256') != sidecar['full_wire']['sha256']
+                    or status.get('replay_full_wire_sha256')
+                        != sidecar['replay_full_wire']['sha256']
+                    or status.get('proxy_script_sha256') != inputs['proxy_script_sha256']
+                    or status.get('expected_elf_sha256') != inputs['frozen_elf_sha256']
+                    or status.get('proxy_receipt_verified') is not True
+                    or status.get('expected_transport_failure') is not True
+                    or status.get('runner_exit_code') == 0
+                    or status.get('proxy_status') != 'response_dropped'
+                    or status.get('matching_submissions') != 1
+                    or status.get('retry_count') != 0
+                    or status.get('restart_identity_verified') is not True
+                    or not _hash(status.get('ledger_genesis_sha256_after_stop'))
+                    or status.get('signature_finalized_success') is not True
+                    or status.get('five_account_reconciliation_verified') is not True
+                    or status.get('prepositive_snapshot_saved_by_runner') is not True
+                    or status.get('cleanup_verified') is not True
+                    or status.get('effect_count') != 1
+                    or status.get('request_consumed') is not True
+                    or status.get('queue_appends') != 1
+                    or status.get('application_effect') is not True
+                    or not _hash(status.get('signature_sha256'))
+                    or type(status.get('signature_finalized_slot')) is not int
+                    or status['signature_finalized_slot'] <= 0
+                    or not reviewed_ambiguous_restart_outer(
+                        outer, f"heldout-v{sidecar['variant']:02d}-positive_full-ambiguous-restart")):
+                return False
+            expected_context = Path(config['context'])
+            if (status.get('context_sha256') != config.get('context_sha256')
+                    or status.get('expected_program') != config.get('expected_program')
+                    or status.get('expected_genesis') != config.get('expected_genesis')
+                    or status.get('expected_elf_sha256') != config.get('expected_elf_sha256')
+                    or status.get('runner_sha256') != config.get('runner_sha256')
+                    or status.get('ledger_path_sha256') != digest(
+                        str(Path(config['ledger'])).encode())
+                    or not expected_context.is_file()):
+                return False
+            before, after = status.get('loaded_program_before'), status.get('loaded_program_after')
+            if (type(before) is not dict or type(after) is not dict
+                    or any(before.get(key) != after.get(key)
+                           for key in ('program', 'genesis', 'elf_sha256'))
+                    or before.get('program') != config['expected_program']
+                    or before.get('genesis') != config['expected_genesis']
+                    or before.get('elf_sha256') != config['expected_elf_sha256']
+                    or before.get('elf_match') is not True
+                    or after.get('elf_match') is not True):
+                return False
+            if (type(sidecar.get('pre_submit_accounts')) is not dict
+                    or set(sidecar['pre_submit_accounts']) != set(AMBIGUOUS_ACCOUNT_NAMES)
+                    or type(sidecar.get('final_accounts')) is not dict
+                    or set(sidecar['final_accounts']) != set(AMBIGUOUS_ACCOUNT_NAMES)):
+                return False
+            pre_hashes = []
+            final_hashes = []
+            pre_paths = []
+            final_paths = []
+            for name in AMBIGUOUS_ACCOUNT_NAMES:
+                for group, prefix, hash_list, paths in (
+                        ('pre_submit_accounts', 'pre-submit-', pre_hashes, pre_paths),
+                        ('final_accounts', 'final-', final_hashes, final_paths)):
+                    ref = sidecar[group][name]
+                    if (type(ref) is not dict or set(ref) != {'path', 'sha256'}
+                            or not _hash(ref.get('sha256'))
+                            or Path(ref['path']).parent != Path(config['execute_output'])
+                            or Path(ref['path']).name != f'{prefix}{name}.bin'):
+                        return False
+                    _read(ref['path'], ref['sha256'], 4096)
+                    hash_list.append(ref['sha256'])
+                    paths.append(ref['path'])
+            pre_report_ref = sidecar['pre_submit_report']
+            if (Path(pre_report_ref['path']) != Path(config['execute_output']) / 'pre-submit-report.json'
+                    or pre_report.get('schema') != 'part5-v3-ambiguous-pre-submit-v1'
+                    or pre_report.get('training_only') is not True
+                    or pre_report.get('application_effect') is not False
+                    or pre_report.get('request_consumed') is not False
+                    or pre_report.get('stage_report_sha256') != sidecar['stage_report_sha256']
+                    or pre_report.get('stage_plan_sha256') != sidecar['stage_plan_sha256']
+                    or pre_report.get('wire_sha256') != sidecar['full_wire']['sha256']
+                    or pre_report.get('account_sha256') != pre_hashes
+                    or status.get('pre_submit_account_sha256') != pre_hashes
+                    or status.get('final_account_sha256') != final_hashes
+                    or status.get('final_account_paths') != final_paths):
+                return False
+            if (Path(sidecar['status']['path']) != Path(config['control_output']) / 'status.json'
+                    or Path(sidecar['proxy_receipt']['path'])
+                        != Path(config['control_output']) / 'proxy-receipt.json'
+                    or Path(sidecar['finality_receipt']['path'])
+                        != Path(config['control_output']) / 'finality-receipt.json'
+                    or Path(config['proxy_script']) != REPO / AMBIGUOUS_RESTART_PROXY):
+                return False
+            if (set(proxy_receipt) != {
+                    'schema', 'status', 'target_wire_sha256', 'transaction_sha256',
+                    'signature', 'matching_submissions', 'duplicate_matching_submissions',
+                    'duplicate_rejected', 'forward_attempted', 'forwarded', 'response_dropped'}
+                    or proxy_receipt.get('schema') != 'queue-v3-ambiguous-rpc-proxy-receipt-v1'
+                    or proxy_receipt.get('status') != 'response_dropped'
+                    or proxy_receipt.get('target_wire_sha256') != sidecar['full_wire']['sha256']
+                    or proxy_receipt.get('matching_submissions') != 1
+                    or proxy_receipt.get('duplicate_matching_submissions') != 0
+                    or proxy_receipt.get('duplicate_rejected') is not False
+                    or proxy_receipt.get('forward_attempted') != 1
+                    or proxy_receipt.get('forwarded') != 1
+                    or proxy_receipt.get('response_dropped') is not True
+                    or not _hash(proxy_receipt.get('transaction_sha256'))):
+                return False
+            from harness.tests import queue_v3_ambiguous_rpc_proxy as proxy_tools
+            proxy_tools.decode_base58_signature(proxy_receipt.get('signature'))
+            if (status.get('signature_sha256') != digest(proxy_receipt['signature'].encode())
+                    or status.get('transaction_sha256')
+                        != proxy_receipt['transaction_sha256']):
+                return False
+            if (type(finality_receipt) is not dict
+                    or set(finality_receipt) != {
+                        'schema', 'signature', 'signature_status', 'transaction'}
+                    or finality_receipt.get('schema')
+                        != 'part5-v3-ambiguous-finality-receipt-v1'
+                    or finality_receipt.get('signature') != proxy_receipt['signature']):
+                return False
+            finality_status = finality_receipt.get('signature_status')
+            finality_transaction = finality_receipt.get('transaction')
+            finality_slot = status.get('signature_finalized_slot')
+            if (type(finality_status) is not dict
+                    or set(finality_status) != {'slot', 'confirmationStatus', 'err'}
+                    or finality_status.get('confirmationStatus') != 'finalized'
+                    or finality_status.get('err') is not None
+                    or type(finality_status.get('slot')) is not int
+                    or type(finality_slot) is not int
+                    or finality_status.get('slot') != finality_slot
+                    or type(finality_transaction) is not dict
+                    or set(finality_transaction) != {'slot', 'meta', 'signatures'}
+                    or type(finality_transaction.get('slot')) is not int
+                    or finality_transaction.get('slot') != finality_slot
+                    or type(finality_transaction.get('meta')) is not dict
+                    or set(finality_transaction['meta']) != {'err'}
+                    or finality_transaction['meta'].get('err') is not None
+                    or finality_transaction.get('signatures')
+                        != [proxy_receipt['signature']]):
+                return False
+            stderr_path = Path(config['control_output']) / 'runner.stderr.log'
+            stderr = _read(stderr_path, cap=65536)
+            if b'RPC sendTransaction transport failed' not in stderr:
+                return False
+            return True
+        except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+            return False
 
     def _clone_r1(self, request, label, root, transition):
         clone_root = root / (label + '-clone')
@@ -1873,6 +2326,64 @@ class HeldoutCaseRunner:
                     effect['disabled_config_negative'] = {
                         'path': disabled_negative['sidecar'],
                         'sha256': disabled_negative['sidecar_sha256']}
+                    ambiguous_clone_inputs = {
+                        'label': 'ambiguous-restart-r0',
+                        'stage_report_sha256': stage['report_sha256'],
+                        'r0_source_receipt_sha256': r0_source['receipt_sha256'],
+                        'full_proof_receipt_sha256': full_proof['receipt_sha256'],
+                        'replay_proof_receipt_sha256': replay_proof['receipt_sha256'],
+                        'full_wire_sha256': full_proof['wires']['r0_full_wire']['sha256'],
+                        'replay_full_wire_sha256': replay_proof['wires']['r0_full_wire']['sha256'],
+                    }
+                    ambiguous_clone = self.journal.run_step(
+                        'positive_full:ambiguous-restart-clone',
+                        inputs=ambiguous_clone_inputs,
+                        job=lambda req=req, root=root, stage=stage: {
+                            'status': 'passed', **self._clone_r0(
+                                req, root, stage, label='ambiguous-restart-r0')},
+                        reuse=lambda saved: self._verify_record(
+                            saved, ('receipt',), ('receipt_sha256',))
+                            and saved.get('label') == 'ambiguous-restart-r0'
+                            and _json(saved['receipt']).get('stage_report_sha256')
+                                == stage['report_sha256'])
+                    ambiguous_supervisor_ref = self._frozen_registry_source(
+                        AMBIGUOUS_RESTART_SUPERVISOR)
+                    ambiguous_proxy_ref = self._frozen_registry_source(
+                        AMBIGUOUS_RESTART_PROXY)
+                    ambiguous_inputs = {
+                        'variant': self.variant,
+                        'stage_report_sha256': stage['report_sha256'],
+                        'stage_plan_sha256': stage['plan_sha256'],
+                        'r0_source_receipt_sha256': r0_source['receipt_sha256'],
+                        'full_proof_receipt_sha256': full_proof['receipt_sha256'],
+                        'replay_proof_receipt_sha256': replay_proof['receipt_sha256'],
+                        'clone_receipt_sha256': ambiguous_clone['receipt_sha256'],
+                        'full_wire_sha256': full_proof['wires']['r0_full_wire']['sha256'],
+                        'replay_full_wire_sha256': replay_proof['wires']['r0_full_wire']['sha256'],
+                        'supervisor_script_sha256': ambiguous_supervisor_ref['sha256'],
+                        'proxy_script_sha256': ambiguous_proxy_ref['sha256'],
+                        'frozen_elf_sha256': self.manifest['frozen_files']['loaded_elf']['sha256'],
+                        'proxy_port': 19500 + self.variant,
+                    }
+                    ambiguous_owner = (
+                        f'heldout-v{self.variant:02d}-{req}-ambiguous-restart')
+                    ambiguous_restart = self.journal.run_step(
+                        'positive_full:ambiguous-restart',
+                        inputs=ambiguous_inputs,
+                        job=lambda req=req, root=root, stage=stage, source=r0_source,
+                                   proof=full_proof, replay_proof=replay_proof,
+                                   ambiguous_clone=ambiguous_clone, clone=clone: {
+                            **self._ambiguous_restart(req, root, stage, source, proof,
+                                replay_proof, ambiguous_clone, clone)},
+                        reuse=lambda saved: self._verify_record(
+                            saved, ('sidecar', 'monitor'),
+                            ('sidecar_sha256', 'monitor_sha256'))
+                            and saved.get('monitor_owner') == ambiguous_owner
+                            and self._ambiguous_restart_sidecar_verified(
+                                saved['sidecar'], saved['sidecar_sha256'], ambiguous_inputs))
+                    effect['ambiguous_restart'] = {
+                        'path': ambiguous_restart['sidecar'],
+                        'sha256': ambiguous_restart['sidecar_sha256']}
                     branch_results['full'] = {'stage': stage, 'transition': None,
                         'sources': {'R0': r0_source}, 'effect': effect, 'clone': clone}
                 elif req == 'unrelated_compare':
@@ -1977,6 +2488,8 @@ class HeldoutCaseRunner:
             all_wall_times = all_step_wall_seconds(journal_doc)
             disabled_negative_wall = disabled_config_negative_wall_seconds(
                 journal_doc['steps'])
+            ambiguous_restart_wall = ambiguous_restart_wall_seconds(
+                journal_doc['steps'])
             fragment = {'schema': 'credential-v3-heldout-acceptance-case-fragment-v1',
                 'variant': self.variant,
                 'run_manifest': self.run_manifest_ref,
@@ -1988,9 +2501,13 @@ class HeldoutCaseRunner:
                 'disabled_config_negative': {
                     'path': branch_results['full']['effect']['disabled_config_negative']['path'],
                     'sha256': branch_results['full']['effect']['disabled_config_negative']['sha256']},
+                'ambiguous_restart': {
+                    'path': branch_results['full']['effect']['ambiguous_restart']['path'],
+                    'sha256': branch_results['full']['effect']['ambiguous_restart']['sha256']},
                 **slots,
                 'shared_costs': journal_doc['costs'], **wall_costs,
                 'disabled_config_negative_wall_seconds': disabled_negative_wall,
+                'ambiguous_restart_wall_seconds': ambiguous_restart_wall,
                 'run_journal': self._artifact(self.journal.path),
                 'all_step_wall_seconds': all_wall_times,
                 'branch_order': branch_order,

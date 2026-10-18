@@ -433,11 +433,14 @@ def test_case_fragment_shape_matches_assembler_and_verifier_contracts(tmp_path):
         **slots, 'branches': emitted_branches,
         'disabled_config_negative': {'path': str(r2_rejection),
             'sha256': hashlib.sha256(r2_rejection_raw).hexdigest()},
+        'ambiguous_restart': {'path': str(r2_rejection),
+            'sha256': hashlib.sha256(r2_rejection_raw).hexdigest()},
         'run_manifest': run_manifest_ref,
         'run_journal': {'path': str(journal_path),
                         'sha256': hashlib.sha256(journal_raw).hexdigest()},
         'all_step_wall_seconds': {'prepare': 1.0},
         'disabled_config_negative_wall_seconds': 2.0,
+        'ambiguous_restart_wall_seconds': 3.0,
         'shared_costs': {'shared_stage_seconds': 0.0,
                          'shared_transition_seconds': 0.0},
         'branch_wall_components': branch_components,
@@ -511,6 +514,8 @@ def test_acceptance_costs_include_full_branch_wall_and_shared_setup_wall():
         'own_revocation:r1-clone': {'wall_seconds': 8},
         'own_revocation:effect': {'wall_seconds': 9},
         'own_revocation:r2-active-witness': {'wall_seconds': 4},
+        'positive_full:ambiguous-restart-clone': {'status': 'passed', 'wall_seconds': 3.5},
+        'positive_full:ambiguous-restart': {'status': 'passed', 'wall_seconds': 6.0},
         'positive_full:stage': {'wall_seconds': 1.25},
         'positive_full:transition': {'wall_seconds': 2.5},
         'unrelated_compare:stage': {'wall_seconds': 1.5},
@@ -524,6 +529,21 @@ def test_acceptance_costs_include_full_branch_wall_and_shared_setup_wall():
     assert costs['shared_stage_transition_wall_seconds'] == {
         'stage': {'A': 1.25, 'B': 1.5, 'C': 1.75},
         'transition': {'A': 2.5, 'B': 2.75, 'C': 3.0}}
+    assert runner.ambiguous_restart_wall_seconds({
+        'positive_full:ambiguous-restart-clone': {
+            'status': 'passed', 'wall_seconds': 3.5},
+        'positive_full:ambiguous-restart': {
+            'status': 'passed', 'wall_seconds': 6.0}}) == 9.5
+    assert costs['branch_wall_seconds']['full'] == 15
+
+
+def test_ambiguous_restart_wall_cost_requires_both_independent_steps():
+    with pytest.raises(ValueError, match='ambiguous-restart journal wall time'):
+        runner.ambiguous_restart_wall_seconds({
+            'positive_full:ambiguous-restart-clone': {
+                'status': 'passed', 'wall_seconds': 3.5},
+            'positive_full:ambiguous-restart': {
+                'status': 'failed', 'wall_seconds': 6.0}})
 
 
 def test_disabled_config_negative_wall_cost_is_separate_from_matched_branches():
@@ -537,6 +557,181 @@ def test_disabled_config_negative_wall_cost_is_separate_from_matched_branches():
             'positive_full:disabled-config-clone': {'status': 'passed', 'wall_seconds': 2.5},
             'positive_full:disabled-config-negative': {'status': 'failed', 'wall_seconds': 4.0},
         })
+
+
+def test_ambiguous_restart_sidecar_pins_status_proxy_and_all_ten_account_files(tmp_path):
+    tmp_path = tmp_path.resolve()
+
+    def save(path, value):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        raw = value if isinstance(value, bytes) else runner.encoded(value)
+        path.write_bytes(raw)
+        path.chmod(0o600)
+        return {'path': str(path), 'sha256': hashlib.sha256(raw).hexdigest()}
+
+    variant = 0
+    stage_report_sha = 'a' * 64
+    stage_plan_sha = 'b' * 64
+    source_sha = 'c' * 64
+    full_proof_sha = 'd' * 64
+    replay_proof_sha = 'e' * 64
+    proxy_sha = 'f' * 64
+    elf_sha = '8' * 64
+    output, control = tmp_path / 'execute-output', tmp_path / 'control-output'
+    context = save(tmp_path / 'stage-context.json', b'{"training_only":true}\n')
+    ledger = tmp_path / 'ledger'
+    ledger.mkdir()
+    full_wire = save(tmp_path / 'full.wire', b'full-wire')
+    replay_wire = save(tmp_path / 'replay-full.wire', b'replay-full-wire')
+    clone = save(tmp_path / 'clone-report.json', {
+        'schema': 'part5-v3-heldout-r0-ledger-clone-v1',
+        'stage_report_sha256': stage_report_sha,
+        'heldout_acceptance': False, 'copy_identical': True,
+        'destination': str(ledger), 'application_effect': False,
+        'loaded_identity_rechecked_after_restart': False})
+    pre_hashes, final_hashes, pre_paths, final_paths = [], [], [], []
+    pre_refs, final_refs = {}, {}
+    for name in runner.AMBIGUOUS_ACCOUNT_NAMES:
+        pre_refs[name] = save(output / f'pre-submit-{name}.bin', f'pre:{name}'.encode())
+        final_refs[name] = save(output / f'final-{name}.bin', f'final:{name}'.encode())
+        pre_hashes.append(pre_refs[name]['sha256'])
+        final_hashes.append(final_refs[name]['sha256'])
+        pre_paths.append(pre_refs[name]['path'])
+        final_paths.append(final_refs[name]['path'])
+    pre_report = save(output / 'pre-submit-report.json', {
+        'schema': 'part5-v3-ambiguous-pre-submit-v1', 'training_only': True,
+        'application_effect': False, 'request_consumed': False,
+        'stage_report_sha256': stage_report_sha, 'stage_plan_sha256': stage_plan_sha,
+        'wire_sha256': full_wire['sha256'], 'account_sha256': pre_hashes})
+    signature = '1' * 64
+    proxy_receipt = save(control / 'proxy-receipt.json', {
+        'schema': 'queue-v3-ambiguous-rpc-proxy-receipt-v1',
+        'status': 'response_dropped', 'target_wire_sha256': full_wire['sha256'],
+        'transaction_sha256': '9' * 64, 'signature': signature,
+        'matching_submissions': 1, 'duplicate_matching_submissions': 0,
+        'duplicate_rejected': False, 'forward_attempted': 1,
+        'forwarded': 1, 'response_dropped': True})
+    finality_receipt_value = {
+        'schema': 'part5-v3-ambiguous-finality-receipt-v1',
+        'signature': signature,
+        'signature_status': {'slot': 4, 'confirmationStatus': 'finalized', 'err': None},
+        'transaction': {'slot': 4, 'meta': {'err': None}, 'signatures': [signature]},
+    }
+    finality_receipt = save(control / 'finality-receipt.json', finality_receipt_value)
+    proxy_script = REPO / 'harness/tests/queue_v3_ambiguous_rpc_proxy.py'
+    config_value = {
+        'schema': 'part5-v3-local-ambiguous-restart-supervisor-v1',
+        'scope': 'part5-v3-local-ambiguous-restart',
+        'proxy_port': 19500, 'proxy_script': str(proxy_script),
+        'proxy_script_sha256': proxy_sha,
+        'stage_report_sha256': stage_report_sha,
+        'stage_plan_sha256': stage_plan_sha,
+        'heldout_r0_clone_report_sha256': clone['sha256'],
+        'full_wire': full_wire['path'], 'full_wire_sha256': full_wire['sha256'],
+        'replay_full_wire': replay_wire['path'],
+        'replay_full_wire_sha256': replay_wire['sha256'],
+        'expected_program': 'program-key', 'expected_genesis': 'genesis-key',
+        'expected_elf_sha256': elf_sha,
+        'runner_sha256': '7' * 64, 'ledger': str(ledger),
+        'context': context['path'], 'context_sha256': context['sha256'],
+        'execute_output': str(output), 'control_output': str(control),
+    }
+    config = save(tmp_path / 'supervisor-config.json', config_value)
+    status = save(control / 'status.json', {
+        'schema': 1, 'scope': 'part5-v3-local-ambiguous-restart',
+        'status': 'passed', 'heldout_acceptance': True, 'error_type': None,
+        'config_sha256': config['sha256'], 'proxy_receipt_sha256': proxy_receipt['sha256'],
+        'finality_receipt_path': finality_receipt['path'],
+        'finality_receipt_sha256': finality_receipt['sha256'],
+        'pre_submit_report_sha256': pre_report['sha256'],
+        'stage_report_sha256': stage_report_sha, 'stage_plan_sha256': stage_plan_sha,
+        'heldout_r0_clone_report_sha256': clone['sha256'],
+        'full_wire_sha256': full_wire['sha256'],
+        'replay_full_wire_sha256': replay_wire['sha256'],
+        'proxy_script_sha256': proxy_sha, 'expected_elf_sha256': elf_sha,
+        'expected_program': 'program-key', 'expected_genesis': 'genesis-key',
+        'runner_sha256': '7' * 64, 'context_sha256': context['sha256'],
+        'ledger_path_sha256': hashlib.sha256(str(ledger).encode()).hexdigest(),
+        'proxy_receipt_verified': True, 'expected_transport_failure': True,
+        'runner_exit_code': 1, 'proxy_status': 'response_dropped',
+        'matching_submissions': 1, 'retry_count': 0,
+        'transaction_sha256': '9' * 64,
+        'ledger_genesis_sha256_after_stop': 'a' * 64,
+        'restart_identity_verified': True, 'signature_finalized_success': True,
+        'five_account_reconciliation_verified': True,
+        'prepositive_snapshot_saved_by_runner': True, 'cleanup_verified': True,
+        'effect_count': 1, 'request_consumed': True, 'queue_appends': 1,
+        'application_effect': True, 'signature_sha256': hashlib.sha256(
+            signature.encode()).hexdigest(), 'signature_finalized_slot': 4,
+        'pre_submit_account_sha256': pre_hashes,
+        'final_account_sha256': final_hashes, 'final_account_paths': final_paths,
+        'loaded_program_before': {'program': 'program-key', 'genesis': 'genesis-key',
+                                  'elf_sha256': elf_sha, 'elf_match': True},
+        'loaded_program_after': {'program': 'program-key', 'genesis': 'genesis-key',
+                                 'elf_sha256': elf_sha, 'elf_match': True},
+    })
+    outer = save(tmp_path / 'outer.json', {
+        'schema': 1, 'measurement': 'bounded_complete_session',
+        'owner': 'heldout-v00-positive_full-ambiguous-restart',
+        'passed': True, 'exit_code': 0, 'stop_reason': None,
+        'runner_error_type': None, 'cleanup_remaining_owned_processes': 0,
+        'cleanup_status_unknown': False, 'duration_seconds': 1.25,
+        'sample_count': 1,
+        'limits': {'runtime_seconds': 180, 'owned_tree_rss_bytes': 4294967296,
+                   'storage_growth_bytes': 268435456, 'poll_seconds': 0.1},
+    })
+    save(control / 'runner.stderr.log', b'RPC sendTransaction transport failed')
+    sidecar = {
+        'schema': runner.AMBIGUOUS_RESTART_SIDECAR_SCHEMA, 'variant': variant,
+        'stage_report_sha256': stage_report_sha, 'stage_plan_sha256': stage_plan_sha,
+        'r0_source_receipt_sha256': source_sha,
+        'full_proof_receipt_sha256': full_proof_sha,
+        'replay_proof_receipt_sha256': replay_proof_sha,
+        'clone_receipt': clone, 'full_wire': full_wire,
+        'replay_full_wire': replay_wire, 'config': config, 'status': status,
+        'outer': outer, 'proxy_receipt': proxy_receipt,
+        'finality_receipt': finality_receipt,
+        'pre_submit_report': pre_report, 'pre_submit_accounts': pre_refs,
+        'final_accounts': final_refs,
+    }
+    sidecar_path = tmp_path / 'sidecar.json'
+    sidecar_raw = json.dumps(sidecar, sort_keys=True, indent=2).encode() + b'\n'
+    sidecar_path.write_bytes(sidecar_raw)
+    sidecar_path.chmod(0o600)
+    inputs = {
+        'variant': variant, 'stage_report_sha256': stage_report_sha,
+        'stage_plan_sha256': stage_plan_sha, 'r0_source_receipt_sha256': source_sha,
+        'full_proof_receipt_sha256': full_proof_sha,
+        'replay_proof_receipt_sha256': replay_proof_sha,
+        'clone_receipt_sha256': clone['sha256'],
+        'full_wire_sha256': full_wire['sha256'],
+        'replay_full_wire_sha256': replay_wire['sha256'],
+        'supervisor_script_sha256': '6' * 64, 'proxy_script_sha256': proxy_sha,
+        'frozen_elf_sha256': elf_sha, 'proxy_port': 19500,
+    }
+    sidecar_sha = hashlib.sha256(sidecar_raw).hexdigest()
+    assert runner.HeldoutCaseRunner._ambiguous_restart_sidecar_verified(
+        sidecar_path, sidecar_sha, inputs)
+
+    receipt_path = Path(finality_receipt['path'])
+    receipt_path.write_bytes(runner.encoded({**finality_receipt_value,
+                                             'transaction': {
+                                                 **finality_receipt_value['transaction'],
+                                                 'signatures': []}}))
+    assert not runner.HeldoutCaseRunner._ambiguous_restart_sidecar_verified(
+        sidecar_path, sidecar_sha, inputs)
+    receipt_path.write_bytes(runner.encoded(finality_receipt_value))
+    receipt_path.unlink()
+    assert not runner.HeldoutCaseRunner._ambiguous_restart_sidecar_verified(
+        sidecar_path, sidecar_sha, inputs)
+    receipt_path.write_bytes(runner.encoded(finality_receipt_value))
+
+    changed = json.loads(sidecar_path.read_text())
+    changed['status']['sha256'] = '0' * 64
+    changed_raw = json.dumps(changed, sort_keys=True, indent=2).encode() + b'\n'
+    sidecar_path.write_bytes(changed_raw)
+    assert not runner.HeldoutCaseRunner._ambiguous_restart_sidecar_verified(
+        sidecar_path, hashlib.sha256(changed_raw).hexdigest(), inputs)
 
 
 def test_disabled_config_supervisor_binds_all_six_five_account_snapshots(tmp_path):
