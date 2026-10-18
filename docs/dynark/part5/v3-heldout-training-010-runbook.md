@@ -106,6 +106,74 @@ PY
 
 The freeze includes current heldout registry/client and shared queue/transition sources. Let all related source edits settle before Step 1; any frozen source change afterward requires a new fresh freeze and cohort. Do not overwrite the campaign proof executable or use the canonical Training-009 proof path.
 
+## 0.5. Gate on the completed Training-010 matrix and total-cost summary
+
+This is a required pre-freeze gate, not a claim that the matrix or summary has passed. Wait until the serial matrix driver exits 0 and publishes its final sequence receipt. The freeze tool does not enforce matrix completion. The commands below use the registered Training-010 manifest and output root; the read-only audit revalidates all 60 slot receipts and the sequence, checks the economics input against the registered plan, and recomputes the reconciliation and summary from their pinned inputs.
+
+After matrix completion, run this gate immediately before Step 1. It creates each missing report in dependency order and preserves existing reports, so a later report can be retried if an earlier command succeeded before a failure. The read-only audit at the end validates the full chain.
+
+```bash
+MATRIX="$RESULTS/v3-campaign-matrix-training-010.json"
+MATRIX_OUTPUT="$PART5/v3-matrix-training-010"
+ECONOMICS_INPUT="$MATRIX_OUTPUT/economics-input-manifest.json"
+ECONOMICS_REPORT="$RESULTS/v3-campaign-economics-training-010.json"
+RECONCILIATION_REPORT="$RESULTS/v3-campaign-cost-reconciliation-training-010.json"
+TOTAL_SUMMARY="$RESULTS/v3-campaign-total-cost-training-010.json"
+
+test -s "$ECONOMICS_INPUT"
+ensure_report() {
+  local path="$1"
+  shift
+  if [ -L "$path" ]; then
+    printf 'Refusing symlink report path: %s\n' "$path" >&2
+    return 1
+  elif [ -e "$path" ]; then
+    test -f "$path" && test -s "$path"
+  else
+    "$@"
+    test -f "$path" && test -s "$path"
+  fi
+}
+ensure_report "$ECONOMICS_REPORT" python3 -B tools/part5/analyze_v3_campaign_economics.py \
+  --manifest "$ECONOMICS_INPUT" --output "$ECONOMICS_REPORT"
+ensure_report "$RECONCILIATION_REPORT" python3 -B tools/part5/reconcile_v3_campaign_costs.py \
+  --matrix-manifest "$MATRIX" --economics-report "$ECONOMICS_REPORT" \
+  --output "$RECONCILIATION_REPORT"
+ensure_report "$TOTAL_SUMMARY" python3 -B tools/part5/summarize_v3_campaign_total.py \
+  --reconciliation-report "$RECONCILIATION_REPORT" \
+  --matrix-manifest "$MATRIX" --economics-report "$ECONOMICS_REPORT" \
+  --output "$TOTAL_SUMMARY"
+
+python3 -B - "$ROOT" "$MATRIX" "$MATRIX_OUTPUT" "$ECONOMICS_INPUT" \
+  "$ECONOMICS_REPORT" "$RECONCILIATION_REPORT" "$TOTAL_SUMMARY" <<'PY'
+import json, pathlib, sys
+root, matrix_path, output_root, economics_input, economics_report, reconciliation_report, total_summary = map(pathlib.Path, sys.argv[1:])
+sys.path.insert(0, str(root))
+from tools.part5 import run_v3_campaign_matrix as matrix
+from tools.part5 import reconcile_v3_campaign_costs as costs
+from tools.part5 import summarize_v3_campaign_total as total
+
+validated = matrix.validate_manifest(matrix_path)
+assert validated['campaign_id'] == 'training-010'
+assert pathlib.Path(validated['output_root']).resolve(strict=True) == output_root.resolve(strict=True)
+sequence_sha = costs.verify_completed_matrix(validated)
+planned = matrix.plan_slots(validated)
+assert len(planned) == 60
+assert matrix.read_json(economics_input) == matrix.economics_input_manifest(planned)
+
+economics = matrix.read_json(economics_report)
+expected_reconciliation = costs.reconcile(validated, economics)
+expected_reconciliation['economics_report_sha256'] = matrix.sha256(economics_report)
+assert matrix.read_json(reconciliation_report) == expected_reconciliation
+summary = total.load_and_summarize(reconciliation_report, matrix_path, economics_report)
+assert json.loads(total_summary.read_bytes()) == summary
+assert summary['matrix_grid_complete'] is True
+assert summary['matched_pairs'] == 20 and summary['expected_pairs'] == 20
+assert summary['source_hashes']['sequence_receipt_sha256'] == sequence_sha
+print('Training-010 matrix receipts, economics inputs, reconciliation, and 20-pair total-cost summary validate.')
+PY
+```
+
 ## 1. Freeze the heldout boundary and prior-key inventory
 
 The freeze command itself checks the current prepare source manifest and frozen product identities. Its output directory must be a fresh direct child of `results/dynark/part5`; the tool publishes `freeze.json` and its paired `prior-key-inventory.json` as owner-only files.
@@ -214,7 +282,7 @@ Before running cases, verify `case-00.json` through `case-07.json` exist and eac
 
 Each case runs one certificate through the local application gate and records a resumable journal and acceptance fragment. Within one case, validator, clone, and application sessions run serially under 180-second owners with 4 GiB RSS and 256 MiB storage-growth caps. Proof preparation has separate bounded owners: each witness generation has 300 seconds, each relation check 600 seconds, and each adapter job 600 seconds; each has 4 GiB RSS and 512 MiB storage-growth caps. Full proof jobs have 1,800 seconds and Anchor proof jobs 3,600 seconds, each with 4 GiB RSS and 512 MiB storage-growth caps. These are per-child ceilings, not predicted runtime or a whole-case deadline.
 
-The direct case command has no whole-case global deadline or cross-case/global heavy-job lock. Its journal lock serializes cooperating invocations for that same output root only. Run exactly one case command at a time, with no campaign, validator, build, or other heavy job running concurrently; do not background the loop or launch another variant from another session. Validator port guards detect occupied ports but do not reserve a global execution lease. Wait for the preceding owner to finish and prove cleanup before starting the observer or a case. There is no observed heldout case duration yet. Stop if one case fails; inspect its journal and resume only that same manifest/root when its saved inputs validate, rather than silently starting another case or fresh retry root.
+The direct case command has no whole-case global deadline or cross-case/global heavy-job lock. Its journal lock serializes cooperating invocations for that same output root only. Run exactly one case command at a time, with no campaign, validator, build, or other heavy job running concurrently; do not background the loop or launch another variant from another session. Validator port guards detect occupied ports but do not reserve a global execution lease. Wait for the preceding owner to finish and prove cleanup before starting the observer or a case. There is no observed heldout case duration yet. The loop below is fresh-run only because it requires each case root to be absent. If a case fails, stop the loop, inspect its journal and saved inputs, and after review retry only that case directly against the same manifest and existing output root; do not rerun the loop or create a replacement root.
 
 ```bash
 for V in 00 01 02 03 04 05 06 07; do
@@ -225,6 +293,15 @@ for V in 00 01 02 03 04 05 06 07; do
     --manifest "$RUN_MANIFESTS/case-$V.json" \
     --output-root "$CASE_ROOT"
 done
+```
+
+For a reviewed retry of an existing case journal, replace `03` with the failed case number and use the same manifest/root directly, omitting the loop's `require_absent` guard:
+
+```bash
+V=03
+python3 -B tools/part5/run_v3_heldout_case.py \
+  --manifest "$RUN_MANIFESTS/case-$V.json" \
+  --output-root "$PART5/v3-heldout-case-training-010-$V"
 ```
 
 Proceed only after all eight commands exit successfully and produce one `acceptance-case-fragment.json` each. Confirm fragment variants cover 0–7 and every case journal is complete before acceptance work.
