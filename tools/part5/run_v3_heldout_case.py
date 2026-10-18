@@ -538,6 +538,8 @@ class RunJournal:
         document = self._read()
         prior = document['steps'].get(name)
         failed_attempt_wall_seconds = []
+        started_monotonic = time.monotonic()
+        started_unix_ns = time.time_ns()
         if prior is not None:
             if prior.get('inputs') != inputs:
                 raise ValueError(f'resumable step {name} inputs changed')
@@ -556,12 +558,28 @@ class RunJournal:
                     raise ValueError(f'resumable step {name} evidence no longer verifies')
                 return prior
             if prior.get('status') == 'running':
-                # The job-specific recovery path must revalidate complete
-                # pinned outputs or reject an incomplete output directory.
+                prior_monotonic = prior.get('started_monotonic')
+                prior_unix_ns = prior.get('started_unix_ns')
+                if (type(prior_monotonic) not in (int, float)
+                        or not math.isfinite(prior_monotonic)
+                        or type(prior_unix_ns) is not int or prior_unix_ns <= 0):
+                    raise ValueError(f'resumable step {name} has no trustworthy start clocks')
+                monotonic_elapsed = started_monotonic - prior_monotonic
+                wall_elapsed = (started_unix_ns - prior_unix_ns) / 1_000_000_000
+                if (not math.isfinite(monotonic_elapsed) or not math.isfinite(wall_elapsed)
+                        or monotonic_elapsed < 0 or wall_elapsed < 0
+                        or abs(monotonic_elapsed - wall_elapsed) > 5.0):
+                    raise ValueError(f'resumable step {name} interrupted timing is uncertain')
+                # Include downtime while the prior invocation was absent. If a
+                # crash/reboot made either clock uncertain, fail closed above.
+                failed_attempt_wall_seconds.append(max(monotonic_elapsed, wall_elapsed))
                 prior['status'] = 'interrupted'
+                prior['failed_attempt_wall_seconds'] = list(failed_attempt_wall_seconds)
+                prior['failed_attempt_count'] = len(failed_attempt_wall_seconds)
                 self._save(document)
         row = {'status': 'running', 'inputs': inputs,
-               'started_monotonic': time.monotonic(),
+               'started_monotonic': started_monotonic,
+               'started_unix_ns': started_unix_ns,
                'failed_attempt_wall_seconds': list(failed_attempt_wall_seconds),
                'failed_attempt_count': len(failed_attempt_wall_seconds)}
         document['steps'][name] = row
@@ -583,15 +601,12 @@ class RunJournal:
             raise
         elapsed = time.monotonic() - began
         if failed_attempt_wall_seconds:
-            # The previous failed call already includes any supervisor work
-            # left behind in a recoverable artifact. Charge the retry's actual
-            # call time so that artifact timing is not counted again.
+            # Charge measured failed/interrupted calls and this recovery call.
+            # Do not add supervisor timings from recovered artifacts again.
             elapsed += sum(failed_attempt_wall_seconds)
         elif (type(measured_wall) in (int, float) and math.isfinite(measured_wall)
                 and measured_wall >= 0):
-            # Use whole-call time on the original run; when recovering a
-            # durable artifact after interruption, its supervisor duration is
-            # the best surviving measurement.
+            # On an uninterrupted call, retain the larger helper-level timing.
             elapsed = max(elapsed, float(measured_wall))
         row['wall_seconds'] = elapsed
         row['completed_monotonic'] = time.monotonic()

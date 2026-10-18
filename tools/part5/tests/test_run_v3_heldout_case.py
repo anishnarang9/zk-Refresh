@@ -221,19 +221,66 @@ def test_journal_rejects_legacy_failed_step_without_measured_time(tmp_path):
                              job=lambda: {'status': 'passed'})
 
 
-def test_journal_preserves_reported_wall_time_on_artifact_recovery(tmp_path):
+def test_journal_charges_interrupted_interval_without_recounting_artifact_time(
+        tmp_path, monkeypatch):
     journal = runner.RunJournal(tmp_path / 'journal.json', manifest_sha256='a' * 64)
+    times = iter((102.0, 102.1, 102.8, 103.0))
+    monkeypatch.setattr(runner.time, 'monotonic', lambda: next(times))
+    monkeypatch.setattr(runner.time, 'time_ns', lambda: 3_000_000_000)
     with journal:
         document = journal._read()
         document['steps']['stage-A'] = {
-            'status': 'running', 'inputs': {'config': 'b' * 64}}
+            'status': 'running', 'inputs': {'config': 'b' * 64},
+            'started_monotonic': 100.0, 'started_unix_ns': 1_000_000_000}
         journal._save(document)
         result = journal.run_step(
             'stage-A', inputs={'config': 'b' * 64},
             job=lambda: {'status': 'passed', 'wall_seconds': 12.5},
             category='stage')
-    assert result['wall_seconds'] == 12.5
-    assert journal._read()['costs']['shared_stage_seconds'] == 12.5
+    assert result['failed_attempt_wall_seconds'] == [pytest.approx(2.0)]
+    assert result['wall_seconds'] == pytest.approx(2.7)
+    assert journal._read()['costs']['shared_stage_seconds'] == pytest.approx(2.7)
+
+
+def test_journal_charges_costly_interrupted_attempt_before_successful_retry(
+        tmp_path, monkeypatch):
+    journal = runner.RunJournal(tmp_path / 'journal.json', manifest_sha256='a' * 64)
+    times = iter((3700.0, 3700.1, 3700.5, 3700.6))
+    monkeypatch.setattr(runner.time, 'monotonic', lambda: next(times))
+    monkeypatch.setattr(runner.time, 'time_ns', lambda: 3_601_000_000_000)
+    with journal:
+        document = journal._read()
+        document['steps']['unrelated_compare:proof-full'] = {
+            'status': 'running', 'inputs': {'source': 'c' * 64},
+            'started_monotonic': 100.0, 'started_unix_ns': 1_000_000_000}
+        journal._save(document)
+        result = journal.run_step(
+            'unrelated_compare:proof-full', inputs={'source': 'c' * 64},
+            job=lambda: {'status': 'passed', 'wall_seconds': 3600.0})
+    assert result['failed_attempt_wall_seconds'] == [pytest.approx(3600.0)]
+    assert result['failed_attempt_count'] == 1
+    assert result['wall_seconds'] == pytest.approx(3600.4)
+
+
+@pytest.mark.parametrize('clock_state', ['missing', 'mismatch'])
+def test_journal_rejects_uncertain_interrupted_attempt_clocks(
+        tmp_path, monkeypatch, clock_state):
+    journal = runner.RunJournal(tmp_path / 'journal.json', manifest_sha256='a' * 64)
+    monkeypatch.setattr(runner.time, 'monotonic', lambda: 200.0)
+    monkeypatch.setattr(runner.time, 'time_ns', lambda: 20_000_000_000)
+    with journal:
+        document = journal._read()
+        prior = {'status': 'running', 'inputs': {'source': 'd' * 64},
+                 'started_monotonic': 100.0}
+        if clock_state == 'mismatch':
+            prior['started_unix_ns'] = 5_000_000_000
+        document['steps']['proof-B'] = prior
+        journal._save(document)
+        called = []
+        with pytest.raises(ValueError, match='start clocks|timing is uncertain'):
+            journal.run_step('proof-B', inputs={'source': 'd' * 64},
+                             job=lambda: called.append(True))
+        assert called == []
 
 
 def test_pair_view_preparation_is_inside_the_timed_journal_step(tmp_path, monkeypatch):
