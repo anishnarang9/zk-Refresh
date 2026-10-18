@@ -36,6 +36,58 @@ def test_request_matrix_uses_three_distinct_actions_and_matched_b_clones():
     assert requests[2]['branches'][0]['mode'] == 'own-revocation'
 
 
+def test_positive_full_r0_clones_complete_between_stage_and_transition(tmp_path):
+    class Journal:
+        def __init__(self):
+            self.calls = []
+            self.completed = []
+
+        def run_step(self, name, *, inputs, job, reuse=None, category=None):
+            self.calls.append((name, inputs))
+            result = job()
+            self.completed.append(name)
+            return result
+
+    case_runner = object.__new__(runner.HeldoutCaseRunner)
+    case_runner.journal = Journal()
+    case_runner._verify_record = runner.HeldoutCaseRunner._verify_record
+    wall_by_label = {'r0': 1.25, 'disabled-config-r0': 2.5,
+                     'ambiguous-restart-r0': 3.75}
+    clone_steps = ['positive_full:r0-clone',
+                   'positive_full:disabled-config-clone',
+                   'positive_full:ambiguous-restart-clone']
+
+    def stage(req, root, case_root, context, prepared):
+        return {'report_sha256': 'b' * 64, 'wall_seconds': 4.0}
+
+    def clone(request, root, stage, *, label='r0'):
+        return {'label': label, 'receipt': label + '-receipt',
+                'receipt_sha256': 'a' * 64,
+                'wall_seconds': wall_by_label[label]}
+
+    def transition(req, root, case_root, stage):
+        assert case_runner.journal.completed == ['positive_full:stage', *clone_steps]
+        return {'report_sha256': 'c' * 64, 'wall_seconds': 5.0}
+
+    case_runner._stage = stage
+    case_runner._clone_r0 = clone
+    case_runner._transition = transition
+    stage_result, transition_result, clones = case_runner._stage_transition(
+        'positive_full', tmp_path / 'root', tmp_path, {'case_context_sha256': 'd' * 64},
+        {'status_sha256': 'e' * 64})
+
+    assert [name for name, _ in case_runner.journal.calls] == [
+        'positive_full:stage', *clone_steps, 'positive_full:transition']
+    stage_sha = stage_result['report_sha256']
+    assert [inputs for _, inputs in case_runner.journal.calls[1:4]] == [
+        {'stage_report_sha256': stage_sha},
+        {'stage_report_sha256': stage_sha, 'label': 'disabled-config-r0'},
+        {'stage_report_sha256': stage_sha, 'label': 'ambiguous-restart-r0'}]
+    assert [clones[key]['wall_seconds'] for key in
+            ('r0', 'disabled_config', 'ambiguous_restart')] == [1.25, 2.5, 3.75]
+    assert transition_result['report_sha256'] == 'c' * 64
+
+
 def test_application_artifact_names_are_stable_per_run_and_fresh_between_runs():
     one = runner.application_artifact_name(3, 'a' * 32, 'positive_full', 'runtime')
     assert one == runner.application_artifact_name(3, 'a' * 32, 'positive_full', 'runtime')

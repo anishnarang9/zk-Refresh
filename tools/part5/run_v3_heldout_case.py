@@ -1230,6 +1230,53 @@ class HeldoutCaseRunner:
                 'monitor': str(monitor_path), 'monitor_sha256': digest(_read(monitor_path)),
                 'monitor_owner': owner, 'wall_seconds': outer['duration_seconds']}
 
+    def _stage_transition(self, req, root, case_root, request_inputs, prepared):
+        stage_inputs = {**request_inputs, 'prepare_status_sha256': prepared['status_sha256']}
+        stage = self.journal.run_step(req + ':stage', inputs=stage_inputs,
+            job=lambda: {'status': 'passed', **self._stage(
+                req, root, case_root, case_root / 'stage-context.json', prepared)},
+            reuse=lambda saved: self._verify_record(
+                saved, ('config', 'status_path', 'monitor', 'report', 'plan')),
+            category='stage')
+        positive_full_clones = None
+        if req == 'positive_full':
+            positive_full_clones = self._positive_full_r0_clones(root, stage)
+        transition_inputs = {**stage_inputs, 'stage_report_sha256': stage['report_sha256']}
+        transition = self.journal.run_step(req + ':transition', inputs=transition_inputs,
+            job=lambda: {'status': 'passed', **self._transition(req, root, case_root, stage)},
+            reuse=lambda saved: self._verify_record(
+                saved, ('config', 'context', 'status_path', 'monitor', 'report')),
+            category='transition')
+        return stage, transition, positive_full_clones
+
+    def _positive_full_r0_clones(self, root, stage):
+        """Clone the staged A ledger before the transition can mutate its source."""
+        stage_report_sha256 = stage['report_sha256']
+        clone = self.journal.run_step('positive_full:r0-clone',
+            inputs={'stage_report_sha256': stage_report_sha256},
+            job=lambda: {'status': 'passed', **self._clone_r0('positive_full', root, stage)},
+            reuse=lambda saved: self._verify_record(
+                saved, ('receipt',), ('receipt_sha256',)))
+        disabled_clone = self.journal.run_step('positive_full:disabled-config-clone',
+            inputs={'stage_report_sha256': stage_report_sha256,
+                    'label': 'disabled-config-r0'},
+            job=lambda: {'status': 'passed', **self._clone_r0(
+                'positive_full', root, stage, label='disabled-config-r0')},
+            reuse=lambda saved: self._verify_record(
+                saved, ('receipt',), ('receipt_sha256',)))
+        ambiguous_clone = self.journal.run_step('positive_full:ambiguous-restart-clone',
+            inputs={'stage_report_sha256': stage_report_sha256,
+                    'label': 'ambiguous-restart-r0'},
+            job=lambda: {'status': 'passed', **self._clone_r0(
+                'positive_full', root, stage, label='ambiguous-restart-r0')},
+            reuse=lambda saved: self._verify_record(
+                saved, ('receipt',), ('receipt_sha256',))
+                and saved.get('label') == 'ambiguous-restart-r0'
+                and _json(saved['receipt']).get('stage_report_sha256')
+                    == stage_report_sha256)
+        return {'r0': clone, 'disabled_config': disabled_clone,
+                'ambiguous_restart': ambiguous_clone}
+
     def _disabled_account_bundle(self, report, output_dir, group):
         rows = report.get(group + '_accounts')
         if (type(rows) is not list or len(rows) != len(NEGATIVE_ACCOUNT_NAMES)
@@ -2259,20 +2306,8 @@ class HeldoutCaseRunner:
                         req, root, case_root, case_root / 'stage-context.json')},
                     reuse=lambda saved: self._verify_record(saved,
                         ('config', 'status_path', 'monitor')))
-                stage_inputs = {**request_inputs, 'prepare_status_sha256': prepare_result['status_sha256']}
-                stage = self.journal.run_step(req + ':stage', inputs=stage_inputs,
-                    job=lambda req=req, root=root, prep=prepare_result: {'status': 'passed', **self._stage(
-                        req, root, case_root, case_root / 'stage-context.json', prep)},
-                    reuse=lambda saved: self._verify_record(saved,
-                        ('config', 'status_path', 'monitor', 'report', 'plan')),
-                    category='stage')
-                transition_inputs = {**stage_inputs, 'stage_report_sha256': stage['report_sha256']}
-                transition = self.journal.run_step(req + ':transition', inputs=transition_inputs,
-                    job=lambda req=req, root=root, stage=stage: {'status': 'passed', **self._transition(
-                        req, root, case_root, stage)},
-                    reuse=lambda saved: self._verify_record(saved,
-                        ('config', 'context', 'status_path', 'monitor', 'report')),
-                    category='transition')
+                stage, transition, positive_full_clones = self._stage_transition(
+                    req, root, case_root, request_inputs, prepare_result)
                 # Request preparation is intentionally explicit. The R0 and R1
                 # builders are reused unchanged; each request has its own roots.
                 def source_call(variant, out):
@@ -2343,20 +2378,9 @@ class HeldoutCaseRunner:
                 if req == 'positive_full':
                     replay_proof = self._request_proof(req, 'full', root, case_root,
                         stage, transition, r0_source, r1_source, label='fresh-replay')
-                    clone = self.journal.run_step('positive_full:r0-clone',
-                        inputs={'stage_report_sha256': stage['report_sha256']},
-                        job=lambda req=req, root=root, stage=stage: {
-                            'status': 'passed', **self._clone_r0(req, root, stage)},
-                        reuse=lambda saved: self._verify_record(saved, ('receipt',), ('receipt_sha256',)))
-                    disabled_clone = self.journal.run_step(
-                        'positive_full:disabled-config-clone',
-                        inputs={'stage_report_sha256': stage['report_sha256'],
-                                'label': 'disabled-config-r0'},
-                        job=lambda req=req, root=root, stage=stage: {
-                            'status': 'passed', **self._clone_r0(
-                                req, root, stage, label='disabled-config-r0')},
-                        reuse=lambda saved: self._verify_record(
-                            saved, ('receipt',), ('receipt_sha256',)))
+                    clone = positive_full_clones['r0']
+                    disabled_clone = positive_full_clones['disabled_config']
+                    ambiguous_clone = positive_full_clones['ambiguous_restart']
                     full_proof = proofs['full']
                     effect = self.journal.run_step('positive_full:execute',
                         inputs={'stage_report_sha256': stage['report_sha256'],
@@ -2394,26 +2418,6 @@ class HeldoutCaseRunner:
                     effect['disabled_config_negative'] = {
                         'path': disabled_negative['sidecar'],
                         'sha256': disabled_negative['sidecar_sha256']}
-                    ambiguous_clone_inputs = {
-                        'label': 'ambiguous-restart-r0',
-                        'stage_report_sha256': stage['report_sha256'],
-                        'r0_source_receipt_sha256': r0_source['receipt_sha256'],
-                        'full_proof_receipt_sha256': full_proof['receipt_sha256'],
-                        'replay_proof_receipt_sha256': replay_proof['receipt_sha256'],
-                        'full_wire_sha256': full_proof['wires']['r0_full_wire']['sha256'],
-                        'replay_full_wire_sha256': replay_proof['wires']['r0_full_wire']['sha256'],
-                    }
-                    ambiguous_clone = self.journal.run_step(
-                        'positive_full:ambiguous-restart-clone',
-                        inputs=ambiguous_clone_inputs,
-                        job=lambda req=req, root=root, stage=stage: {
-                            'status': 'passed', **self._clone_r0(
-                                req, root, stage, label='ambiguous-restart-r0')},
-                        reuse=lambda saved: self._verify_record(
-                            saved, ('receipt',), ('receipt_sha256',))
-                            and saved.get('label') == 'ambiguous-restart-r0'
-                            and _json(saved['receipt']).get('stage_report_sha256')
-                                == stage['report_sha256'])
                     ambiguous_supervisor_ref = self._frozen_registry_source(
                         AMBIGUOUS_RESTART_SUPERVISOR)
                     ambiguous_proxy_ref = self._frozen_registry_source(
