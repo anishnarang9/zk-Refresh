@@ -128,6 +128,8 @@ Local DER admission negatives have source/fixture validation coverage only; they
 
 **Source-only follow-up (2026-10-18):** A separate held-out A R0 clone, loaded-ELF disabled-config Execute negative, three five-account finalized snapshots, and independent sidecar/verifier checks are now wired into the case runner. The negative's clone and session wall time are recorded outside the matched Full/Anchor branch totals. Focused Python tests and Rust formatting checks passed, but the Rust runner has not been compiled and this negative has not run against a validator. Training-009 owns the sole heavyweight-job slot; no held-out acceptance claim follows from this source change.
 
+**Source-only follow-up (2026-10-18 02:55 UTC):** The same held-out A R0 clone session now also re-enables config, refreshes issuer source and rebinds the head, disables the issuer, then submits the same valid Full wire expecting Policy 713. Source pins three additional five-account finalized snapshots for this sequence. This is wiring only: no Rust build, validator run, held-out freeze or cases, or economics result exists. Training-009 still owns the heavy slot. Account the combined negative cost once, not once per rejection step; no issuer rejection is claimed as executed.
+
 ### Cost interpretation rules
 
 The primary unit is one complete authorization of one exact, still-unconsumed
