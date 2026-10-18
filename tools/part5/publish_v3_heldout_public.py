@@ -284,13 +284,11 @@ def render_report(summary):
         f"| Anchor B wall seconds | {med['anchor_B_seconds']:.9g} |",
         f"| Anchor minus Full B seconds | {med['anchor_minus_full_B_seconds']:.9g} |",
         f"| Wall savings fraction | {med['wall_savings_fraction']:.9g} |", '',
-        (f"Median Anchor B cost was higher than Full B ({med['wall_savings_fraction']:.3%} "
-         "wall savings is negative); no request-B component-sum benefit was measured."
-         if med['anchor_minus_full_B_seconds'] > 0 else
-         f"Median Anchor B cost was lower than Full B ({med['wall_savings_fraction']:.3%} "
-         "wall savings); this request-B component result does not establish a whole-application benefit."
-         if med['anchor_minus_full_B_seconds'] < 0 else
-         'Median Anchor B and Full B costs were equal; no request-B component-sum benefit was measured.'), '',
+        (f"Median paired Anchor-minus-Full cost delta: "
+         f"{med['anchor_minus_full_B_seconds']:+.9g} seconds."),
+        (f"Separately, median per-variant wall savings fraction: "
+         f"{med['wall_savings_fraction']:+.3%}."),
+        'These are different summaries across the eight pairs and may have different signs.', '',
         'Only heldout target count k=1 is measured. Other counts are conditional estimates '
         'using Training-012 sampled count-delta changes; they are not heldout runs or '
         'measured break-even results.', '',

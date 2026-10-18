@@ -132,7 +132,7 @@ def test_projection_recomputes_pair_arithmetic_and_eight_case_medians():
         publisher.project_reports(acceptance, cost, model, training, hashes)
 
 
-def test_negative_savings_is_published_as_no_component_sum_benefit():
+def test_negative_savings_fraction_is_reported_separately_from_cost_delta():
     acceptance, cost, model, training, hashes = _fixtures()
     for row in cost['pairs']:
         row['anchor_B_branch_only_seconds'] += 8.0
@@ -151,8 +151,38 @@ def test_negative_savings_is_published_as_no_component_sum_benefit():
     assert summary['timing']['eight_case_medians']['wall_savings_fraction'] < 0
     assert all(row['wall_savings_fraction'] < 0
                for row in summary['timing']['variants'])
-    assert 'no request-B component-sum benefit was measured' in report
+    assert 'Median paired Anchor-minus-Full cost delta: +7 seconds.' in report
+    assert 'Separately, median per-variant wall savings fraction: -' in report
     assert summary['claims']['economic_winner'] is False
+
+
+def test_opposite_median_signs_are_reported_as_separate_statistics():
+    acceptance, cost, model, training, hashes = _fixtures()
+    for index, row in enumerate(cost['pairs']):
+        full = 1000.0 if index < 4 else 100.0
+        delta = float(index + 1) if index < 4 else -60.0 - 10.0 * (index - 4)
+        shared = 1.0
+        anchor = full + delta
+        row.update({
+            'shared_B_seconds': shared,
+            'full_B_branch_only_seconds': full - shared,
+            'anchor_B_branch_only_seconds': anchor - shared,
+            'full_B_seconds': full,
+            'anchor_B_seconds': anchor,
+            'anchor_minus_full_B_seconds': delta,
+            'B_total_wall_savings_fraction': (full - anchor) / full,
+        })
+    model = break_even.build(cost, training, hashes['cost_report_sha256'],
+                             hashes['training_total_summary_sha256'])
+
+    summary, report = publisher.project_reports(acceptance, cost, model, training, hashes)
+    medians = summary['timing']['eight_case_medians']
+
+    assert medians['anchor_minus_full_B_seconds'] == -29.5
+    assert medians['wall_savings_fraction'] == 0.2995
+    assert 'Median paired Anchor-minus-Full cost delta: -29.5 seconds.' in report
+    assert 'Separately, median per-variant wall savings fraction: +29.950%.' in report
+    assert 'Median Anchor B cost was lower than Full B' not in report
 
 
 def test_projection_rejects_missing_negative_coverage_and_unverified_acceptance():
