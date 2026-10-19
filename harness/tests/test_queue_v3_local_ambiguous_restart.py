@@ -91,6 +91,18 @@ class AmbiguousRestartTests(unittest.TestCase):
             with self.subTest(index=index, offset=offset), self.assertRaises(ValueError):
                 m.reconcile_final_accounts(before, changed, context)
 
+    def test_reconciliation_uses_staged_config_pubkey_not_config_data(self):
+        before, after, context = self._account_fixture()
+        pre_submit = after[:3] + before[3:]
+        self.assertNotEqual(pre_submit[0][8:40], context['config'])
+        self.assertEqual(pre_submit[3][8:40], context['config'])
+        self.assertEqual(pre_submit[4][8:40], context['config'])
+        self.assertEqual(m.reconcile_final_accounts(before, after, context, pre_submit),
+                         [sha(raw) for raw in after])
+        with self.assertRaisesRegex(ValueError, 'pinned finalized request'):
+            m.reconcile_final_accounts(before, after,
+                {**context, 'config': pre_submit[0][8:40]}, pre_submit)
+
     def test_missing_direct_prepositive_snapshot_is_a_hard_failure(self):
         result = m.final_status({
             'proxy_receipt_verified': True,
@@ -320,6 +332,8 @@ class AmbiguousRestartTests(unittest.TestCase):
     def _account_fixture(self):
         config = bytearray(381)
         config[:8] = b'DYNCONF3'
+        config[8:40] = bytes([12]) * 32
+        config_key = bytes([11]) * 32
         config[332:364] = bytes(range(1, 33))
         config[364:372] = (3).to_bytes(8, 'big')
         config[372:380] = (4).to_bytes(8, 'big')
@@ -360,14 +374,15 @@ class AmbiguousRestartTests(unittest.TestCase):
         head[272:280] = (1100).to_bytes(8, 'big', signed=True)
         request = bytearray(2249)
         request[:8] = b'DYNREQ03'
-        request[8:40] = config[8:40]
+        request[8:40] = config_key
         request[183] = 1
         queue = bytearray(2090)
         queue[:8] = b'DYNQUE03'
-        queue[8:40] = config[8:40]
+        queue[8:40] = config_key
         before = [bytes(config), bytes(issuer), bytes(head), bytes(request), bytes(queue)]
         context = {
             'root': bytes(config[332:364]),
+            'config': config_key,
             'request': bytes([10]) * 32,
             'observed_at': 1201,
             'head_committed_at': 1202,

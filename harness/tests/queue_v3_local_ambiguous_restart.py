@@ -193,7 +193,7 @@ def reconcile_final_accounts(before: list[bytes], after: list[bytes], context: d
         derived_context['head_committed_at'] = int.from_bytes(
             pre_submit[2][272:280], 'big', signed=True)
         execute.check_effect_bytes(pre_submit, after, {
-            'config': execute.base.b58(pre_submit[0][8:40]),
+            'config': execute.base.b58(context['config']),
             'request': execute.base.b58(context['request'])})
     else:
         derived_context['observed_at'] = int.from_bytes(issuer[213:221], 'big', signed=True)
@@ -672,6 +672,7 @@ def run(config: dict, config_sha256: str, config_path: str) -> int:
         if before != staged_bytes:
             raise ValueError('heldout clone does not start from the exact staged accounts')
         context_for_effect = {
+            'config': execute.base.key(staged['config']),
             'root': bytes.fromhex(context['root']),
             'request': execute.base.key(staged['request'])}
         status.update({'initial_finalized_slot': pre_slot,
