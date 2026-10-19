@@ -280,13 +280,13 @@ def _check_provenance(config, artifacts):
     source_path = _private_directory(source_path, 'stage source ledger')
     if stage_config.get('ledger') != str(source_path):
         raise ValueError('pinned stage ledger differs from clone source')
-    source_rows, clone_rows = ledger_inventory(source_path), ledger_inventory(ledger)
-    tree_sha = _sha(json.dumps(source_rows, separators=(',', ':')).encode())
-    if (source_rows != clone_rows or type(clone.get('entry_count')) is not int
+    clone_rows = ledger_inventory(ledger)
+    tree_sha = _sha(json.dumps(clone_rows, separators=(',', ':')).encode())
+    if (type(clone.get('entry_count')) is not int
             or clone.get('entry_count') != len(clone_rows)
             or clone.get('tree_sha256') != tree_sha
-            or clone.get('excluded_stale_admin_socket') != stale_admin_socket(source_path)):
-        raise ValueError('cloned ledger inventory differs from pinned stage source')
+            or type(clone.get('excluded_stale_admin_socket')) is not bool):
+        raise ValueError('cloned ledger inventory differs from pinned clone receipt')
     for candidate in (source_path, ledger):
         _, genesis_sha = execute.stage.snapshot_generated(candidate / 'genesis.bin', 16 * 1024 * 1024)
         if genesis_sha != config['expected_genesis_sha256']:

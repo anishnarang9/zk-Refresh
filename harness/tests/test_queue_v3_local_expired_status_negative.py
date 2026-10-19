@@ -3,6 +3,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import socket
 import sys
 import tempfile
 import unittest
@@ -305,7 +306,7 @@ class ExpiredStatusNegativeTests(unittest.TestCase):
                 supervisor._check_input_pins(value)
 
     def test_preflight_rejects_hash_valid_stage_source_clone_elf_and_genesis_drift(self):
-        for mutation in ('stage', 'plan', 'source', 'clone', 'clone_status', 'clone_socket',
+        for mutation in ('stage', 'plan', 'source', 'clone', 'clone_status',
                          'status_report', 'status_config', 'elf',
                          'source_genesis', 'genesis'):
             with tempfile.TemporaryDirectory() as tmp:
@@ -330,11 +331,6 @@ class ExpiredStatusNegativeTests(unittest.TestCase):
                 elif mutation == 'clone':
                     clone = dict(paths['clone_receipt'])
                     clone['stage_report_sha256'] = 'f' * 64
-                    raw = (json.dumps(clone, sort_keys=True, separators=(',', ':')) + '\n').encode()
-                    value['clone_receipt_sha256'] = _write_private(paths['clone_receipt_path'], raw)
-                elif mutation == 'clone_socket':
-                    clone = dict(paths['clone_receipt'])
-                    clone['excluded_stale_admin_socket'] = True
                     raw = (json.dumps(clone, sort_keys=True, separators=(',', ':')) + '\n').encode()
                     value['clone_receipt_sha256'] = _write_private(paths['clone_receipt_path'], raw)
                 elif mutation == 'clone_status':
@@ -396,6 +392,46 @@ class ExpiredStatusNegativeTests(unittest.TestCase):
             clone_raw = (json.dumps(clone, sort_keys=True, separators=(',', ':')) + '\n').encode()
             value['clone_receipt_sha256'] = _write_private(paths['clone_receipt_path'], clone_raw)
             with self.assertRaisesRegex(ValueError, 'stage ledger differs from clone source'):
+                supervisor._check_input_pins(value)
+
+    def test_preflight_accepts_authentic_r0_clone_after_source_advances(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            value = config()
+            paths = make_preflight_artifacts(root, value)
+            _write_private(paths['source_ledger'] / 'r1-account.bin', b'advanced source ledger')
+
+            supervisor._check_input_pins(value)
+
+    def test_preflight_rejects_clone_changed_after_its_pinned_receipt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            value = config()
+            paths = make_preflight_artifacts(root, value)
+            _write_private(paths['ledger'] / 'tampered.bin', b'unreceipted clone entry')
+
+            with self.assertRaises(ValueError):
+                supervisor._check_input_pins(value)
+
+    def test_preflight_ignores_later_source_socket_state_but_requires_boolean_receipt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            value = config()
+            paths = make_preflight_artifacts(root, value)
+            admin_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            try:
+                admin_socket.bind(str(paths['source_ledger'] / 'admin.rpc'))
+            finally:
+                admin_socket.close()
+            (paths['source_ledger'] / 'admin.rpc').chmod(0o600)
+
+            supervisor._check_input_pins(value)
+
+            clone = dict(paths['clone_receipt'])
+            clone['excluded_stale_admin_socket'] = 1
+            raw = (json.dumps(clone, sort_keys=True, separators=(',', ':')) + '\n').encode()
+            value['clone_receipt_sha256'] = _write_private(paths['clone_receipt_path'], raw)
+            with self.assertRaises(ValueError):
                 supervisor._check_input_pins(value)
 
     def test_finalized_time_gate_waits_for_expiry_and_enforces_age(self):
