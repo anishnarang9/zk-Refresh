@@ -746,6 +746,158 @@ pub fn campaign_effect_from_env() -> Result<()> {
     campaign::effect_from_env()
 }
 
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StageReplayPackage {
+    schema: String,
+    context_sha256: String,
+    files: std::collections::BTreeMap<String, String>,
+}
+
+struct StageReplay {
+    plan: V3QueuePlan,
+    plan_raw: Vec<u8>,
+    keys: [Keypair; 4],
+    key_raw: Vec<Vec<u8>>,
+}
+
+fn private_replay_bytes(path: &Path, digest: &str, cap: u64) -> Result<Vec<u8>> {
+    use std::io::Read;
+    use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+    transport::unhex(digest)?;
+    ensure!(
+        path.is_absolute() && fs::canonicalize(path)? == path,
+        "canonical replay artifact required"
+    );
+    let parent = fs::symlink_metadata(path.parent().context("replay parent missing")?)?;
+    let owner = unsafe { libc::geteuid() };
+    ensure!(
+        parent.is_dir() && parent.uid() == owner && parent.mode() & 0o7777 == 0o700,
+        "owner-only replay package directory required"
+    );
+    let before = fs::symlink_metadata(path)?;
+    ensure!(
+        before.is_file()
+            && before.uid() == owner
+            && before.mode() & 0o7777 == 0o600
+            && before.len() <= cap,
+        "owner-only bounded replay artifact required"
+    );
+    let mut file = OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)?;
+    let identity = |m: &fs::Metadata| {
+        (
+            m.dev(),
+            m.ino(),
+            m.mode(),
+            m.uid(),
+            m.len(),
+            m.mtime(),
+            m.mtime_nsec(),
+            m.ctime(),
+            m.ctime_nsec(),
+        )
+    };
+    ensure!(
+        identity(&before) == identity(&file.metadata()?),
+        "replay artifact changed at open"
+    );
+    let mut raw = Vec::new();
+    Read::by_ref(&mut file)
+        .take(cap + 1)
+        .read_to_end(&mut raw)?;
+    ensure!(
+        identity(&before) == identity(&file.metadata()?)
+            && raw.len() as u64 == before.len()
+            && hex::encode(Sha256::digest(&raw)) == digest,
+        "replay artifact changed or pin mismatch"
+    );
+    Ok(raw)
+}
+
+fn stage_replay(
+    path: &Path,
+    program: [u8; 32],
+    genesis: [u8; 32],
+    values: &StageValues,
+    now: i64,
+) -> Result<StageReplay> {
+    let raw = private_replay_bytes(path, &transport::env("P5_V3_REPLAY_PACKAGE_SHA256")?, 8192)?;
+    let package: StageReplayPackage = serde_json::from_slice(&raw)?;
+    let names = [
+        "plan.json",
+        "admin.json",
+        "publisher.json",
+        "source.json",
+        "creator.json",
+    ];
+    ensure!(
+        package.schema == "part5-v3-stage-replay-v1"
+            && package.context_sha256 == transport::env("P5_V3_CONTEXT_SHA256")?
+            && package.files.len() == names.len()
+            && names.iter().all(|name| package.files.contains_key(*name)),
+        "exact replay context and artifact pins required"
+    );
+    // stage_values authenticated the complete context bytes, including evidence,
+    // certificate validity and allocations, against this same digest.
+    transport::unhex(&package.context_sha256)?;
+    let parent = path.parent().context("replay parent missing")?;
+    let plan_raw = private_replay_bytes(
+        &parent.join("plan.json"),
+        &package.files["plan.json"],
+        65536,
+    )?;
+    let plan: V3QueuePlan = serde_json::from_slice(&plan_raw)?;
+    ensure!(
+        plan.program == program
+            && plan.genesis == genesis
+            && plan.root == values.root
+            && plan.issuer_hash == values.issuer_hash
+            && plan.policy_id == values.policy_id
+            && plan.aki == values.aki
+            && now >= values.not_before
+            && now < values.not_after
+            && plan.deadline > now
+            && plan.deadline <= values.not_after
+            && plan.recipient == plan.source
+            && plan.payload == [0, 1, 2, 3],
+        "replay plan domain, context, validity or deadline mismatch"
+    );
+    let mut keys = Vec::new();
+    let mut key_raw = Vec::new();
+    for (name, expected) in
+        names[1..]
+            .iter()
+            .zip([plan.admin, plan.publisher, plan.source, plan.creator])
+    {
+        let raw = private_replay_bytes(&parent.join(name), &package.files[*name], 1024)?;
+        let bytes: Vec<u8> = serde_json::from_slice(&raw)?;
+        let key = Keypair::from_bytes(&bytes)?;
+        ensure!(
+            key.pubkey().to_bytes() == expected,
+            "replay signer differs from plan"
+        );
+        keys.push(key);
+        key_raw.push(raw);
+    }
+    let keys: [Keypair; 4] = keys
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("four replay signers required"))?;
+    Ok(StageReplay {
+        plan,
+        plan_raw,
+        keys,
+        key_raw,
+    })
+}
+
+fn replay_deadline_covers_stage(now: i64, deadline: i64) -> bool {
+    now.checked_add(180)
+        .is_some_and(|minimum| deadline >= minimum)
+}
+
 fn stage_with_context(campaign: bool) -> Result<()> {
     ensure!(
         transport::env("P5_V3_STAGE_SCOPE")?
@@ -763,6 +915,23 @@ fn stage_with_context(campaign: bool) -> Result<()> {
     );
     let rpc = transport::local_rpc()?;
     let (program, genesis, loaded) = transport::domain(&rpc)?;
+    let values = stage_values(campaign)?;
+    let now = transport::clock(&rpc)?;
+    let replay = if let Some(path) = std::env::var_os("P5_V3_REPLAY_PACKAGE") {
+        Some(stage_replay(
+            Path::new(&path),
+            program,
+            genesis,
+            &values,
+            now,
+        )?)
+    } else {
+        ensure!(
+            std::env::var_os("P5_V3_REPLAY_PACKAGE_SHA256").is_none(),
+            "replay path required with pin"
+        );
+        None
+    };
     let StageValues {
         root,
         issuer_hash,
@@ -772,35 +941,66 @@ fn stage_with_context(campaign: bool) -> Result<()> {
         not_before,
         not_after,
         allocation,
-    } = stage_values(campaign)?;
-    let now = transport::clock(&rpc)?;
+    } = values;
     ensure!(
         now >= not_before && now < not_after,
         "training certificate currently valid"
     );
-    let admin = transport::keys(&output, "admin.json")?;
-    let publisher = transport::keys(&output, "publisher.json")?;
-    let source = transport::keys(&output, "source.json")?;
-    let creator = transport::keys(&output, "creator.json")?;
-    let p = V3QueuePlan {
-        program,
-        genesis,
-        admin: admin.pubkey().to_bytes(),
-        publisher: publisher.pubkey().to_bytes(),
-        source: source.pubkey().to_bytes(),
-        creator: creator.pubkey().to_bytes(),
-        seed: random_bytes(),
-        nonce: random_bytes(),
-        recipient: source.pubkey().to_bytes(),
-        issuer_hash,
-        aki,
-        root,
-        policy_id,
-        deadline: (now + 86_400).min(not_after),
-        payload: vec![0, 1, 2, 3],
+    let (p, [admin, publisher, source, creator], replay_plan_raw) = match replay {
+        Some(replay) => {
+            for (name, raw) in [
+                "admin.json",
+                "publisher.json",
+                "source.json",
+                "creator.json",
+            ]
+            .iter()
+            .zip(&replay.key_raw)
+            {
+                transport::new_file(&output.join(name), raw)?;
+            }
+            (replay.plan, replay.keys, Some(replay.plan_raw))
+        }
+        None => {
+            let admin = transport::keys(&output, "admin.json")?;
+            let publisher = transport::keys(&output, "publisher.json")?;
+            let source = transport::keys(&output, "source.json")?;
+            let creator = transport::keys(&output, "creator.json")?;
+            let p = V3QueuePlan {
+                program,
+                genesis,
+                admin: admin.pubkey().to_bytes(),
+                publisher: publisher.pubkey().to_bytes(),
+                source: source.pubkey().to_bytes(),
+                creator: creator.pubkey().to_bytes(),
+                seed: random_bytes(),
+                nonce: random_bytes(),
+                recipient: source.pubkey().to_bytes(),
+                issuer_hash,
+                aki,
+                root,
+                policy_id,
+                deadline: (now + 86_400).min(not_after),
+                payload: vec![0, 1, 2, 3],
+            };
+            (p, [admin, publisher, source, creator], None)
+        }
     };
     ensure!(p.deadline > now, "positive request lifetime required");
     let a = p.addresses();
+    if replay_plan_raw.is_some() {
+        for address in [a.config, a.issuer, a.head, a.request, a.queue] {
+            ensure!(
+                rpc.account(&address)?.is_none(),
+                "replay requires an unstaged prepared ledger"
+            );
+        }
+        let replay_now = transport::clock(&rpc)?;
+        ensure!(
+            replay_deadline_covers_stage(replay_now, p.deadline),
+            "replay deadline must cover the 180-second stage owner ceiling"
+        );
+    }
     let mut funding = Vec::new();
     for key in [&admin, &publisher, &creator] {
         let signature = rpc.call(
@@ -1028,7 +1228,11 @@ fn stage_with_context(campaign: bool) -> Result<()> {
     let allocation_bytes = allocation.bytes()?;
     transport::new_file(&output.join("initial-allocations.json"), &allocation_bytes)?;
     let allocations_sha256 = hex::encode(Sha256::digest(allocation_bytes));
-    transport::new_json(&output.join("plan.json"), &p)?;
+    if let Some(raw) = replay_plan_raw {
+        transport::new_file(&output.join("plan.json"), &raw)?;
+    } else {
+        transport::new_json(&output.join("plan.json"), &p)?;
+    }
     for (name, data) in [
         ("config.bin", &bytes[0]),
         ("issuer.bin", &bytes[1]),
@@ -2342,6 +2546,15 @@ impl V3QueuePlan {
 mod tests {
     use super::*;
     use zk_fresh_program::{application_runtime_v3 as runtime, application_v3::AppInstruction};
+
+    #[test]
+    fn replay_deadline_requires_full_owner_window_without_overflow() {
+        assert!(!replay_deadline_covers_stage(1000, 1179));
+        assert!(replay_deadline_covers_stage(1000, 1180));
+        assert!(replay_deadline_covers_stage(1000, 1181));
+        assert!(!replay_deadline_covers_stage(i64::MAX - 179, i64::MAX));
+        assert!(replay_deadline_covers_stage(i64::MAX - 180, i64::MAX));
+    }
 
     fn plan() -> V3QueuePlan {
         V3QueuePlan {

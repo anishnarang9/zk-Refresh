@@ -25,6 +25,12 @@ LIMITS = {'runtime_seconds': 180, 'rss_bytes': 4294967296,
 
 
 def review_prior(prior, monitor, original, config):
+    if prior.get('scope') == 'part5-v3-prepared-import':
+        if str(REPO) not in sys.path:
+            sys.path.insert(0, str(REPO))
+        from harness.tests.queue_v3_clone_prepared import review_import
+        review_import(prior, monitor, original, config)
+        return
     if (prior.get('schema') != 1 or prior.get('scope') != 'part5-v3-local-prepare'
             or prior.get('config_sha256') != config['prior_config_sha256']
             or prior.get('application_effect') is not False
@@ -88,6 +94,72 @@ def snapshot_generated(path, cap):
     return raw, base.sha(raw)
 
 
+REPLAY_NAMES = ('plan.json', 'admin.json', 'publisher.json', 'source.json', 'creator.json')
+REPLAY_ENV = ('P5_V3_REPLAY_PACKAGE', 'P5_V3_REPLAY_PACKAGE_SHA256')
+
+
+def replay_environment(config, context):
+    """Admit a private manifest beside the five unchanged prior stage artifacts.
+
+    The manifest pins the complete stage context, including validity, enrollment
+    evidence and allocations. Rust independently checks the live domain, clock
+    and keypairs before any transaction and writes the original artifact bytes.
+    """
+    if 'replay_package' not in config:
+        return {}
+    pin = config['replay_package']
+    if not isinstance(pin, dict) or set(pin) != {'path', 'sha256'}:
+        raise ValueError('explicit replay package path and sha256 required')
+    path = Path(pin['path'])
+    parent = path.parent
+    meta = parent.lstat()
+    if (not path.is_absolute() or path.resolve() != path
+            or not stat.S_ISDIR(meta.st_mode) or meta.st_uid != os.getuid()
+            or stat.S_IMODE(meta.st_mode) != 0o700):
+        raise ValueError('canonical owner-only replay package directory required')
+
+    def read(name, expected, cap):
+        raw, actual = snapshot_generated(name, cap)
+        base.prep.canonical_sha(expected)
+        if actual != expected:
+            raise ValueError('replay artifact pin mismatch')
+        return raw
+
+    package = base.decode_json(read(path, pin['sha256'], 8192))
+    if (set(package) != {'schema', 'context_sha256', 'files'}
+            or package['schema'] != 'part5-v3-stage-replay-v1'
+            or package['context_sha256'] != config['context_sha256']
+            or not isinstance(package['files'], dict)
+            or set(package['files']) != set(REPLAY_NAMES)):
+        raise ValueError('exact replay package and context pins required')
+    base.prep.canonical_sha(package['context_sha256'])
+    artifacts = {name: read(parent / name, package['files'][name],
+                           65536 if name == 'plan.json' else 1024)
+                 for name in REPLAY_NAMES}
+    plan = base.decode_json(artifacts['plan.json'])
+    for name in ('root', 'issuer_hash', 'policy_id', 'aki'):
+        if plan.get(name) != list(bytes.fromhex(context[name])):
+            raise ValueError('replay plan differs from stage context')
+    if (type(plan.get('deadline')) is not int
+            or not context['not_before'] < plan['deadline'] <= context['not_after']
+            or plan.get('payload') != [0, 1, 2, 3]
+            or plan.get('recipient') != plan.get('source')):
+        raise ValueError('replay request shape or certificate lifetime mismatch')
+    for role in ('admin', 'publisher', 'source', 'creator'):
+        key = base.decode_json(artifacts[role + '.json'])
+        if (not isinstance(key, list) or len(key) != 64
+                or any(type(value) is not int or not 0 <= value <= 255 for value in key)
+                or key[32:] != plan.get(role)):
+            raise ValueError('replay signer differs from plan')
+    return dict(zip(REPLAY_ENV, (str(path), pin['sha256'])))
+
+
+def set_replay_environment(env, replay):
+    for name in REPLAY_ENV:
+        env.pop(name, None)
+    env.update(replay)
+
+
 def admit(config):
     if (config.get('schema') != 1
             or config.get('scope') not in ('part5-v3-local-stage', 'part5-v3-campaign-stage')
@@ -123,6 +195,7 @@ def admit(config):
                                   allocations.get('cohort_receipt_sha256'),
                                   allocations.get('membership_sha256'))) != context_raw):
             raise ValueError('campaign context differs from admitted signed certificates')
+    replay_environment(config, context)
     ledger = Path(config['ledger'])
     if ledger != Path(original['runtime_output']) / 'ledger':
         raise ValueError('original protected ledger path required')
@@ -143,6 +216,10 @@ def run(config, config_sha256):
     if os.environ.get('P5_V3_STAGE_SUPERVISOR') != 'local-ledger-review-and-stage':
         raise ValueError('explicit external bounded runner scope required')
     original, prior, elf, output, control, argv = admit(config)
+    replay = {}
+    if 'replay_package' in config:
+        context = base.decode_json(base.checked(config['context'], config['context_sha256'], 8192))
+        replay = replay_environment(config, context)
     started = time.monotonic(); validator = runner = None; logs = []; handlers = {}
     previous_umask = os.umask(0o077)
     status = {'schema': 1, 'scope': config['scope'], 'status': 'failed',
@@ -164,8 +241,9 @@ def run(config, config_sha256):
             'runner': config['runner'], 'runner_sha256': config['runner_sha256'],
             'prior_status_sha256': config['prior_status_sha256'],
             'elf_sha256': original['elf_sha256'], 'context_sha256': config['context_sha256'],
-            'outer_limits_required': LIMITS})
+            'outer_limits_required': LIMITS, 'replay_package': config.get('replay_package')})
         env = os.environ.copy()
+        set_replay_environment(env, replay)
         for name in ('LD_PRELOAD', 'DYLD_INSERT_LIBRARIES'):
             env.pop(name, None)
         validator = subprocess.Popen(argv, cwd=REPO, env=env, stdin=subprocess.DEVNULL,
