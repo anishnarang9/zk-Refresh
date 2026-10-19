@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 import fcntl
+from unittest import mock
 
 from tools.part5 import run_v3_heldout_direct_arm as direct
 
@@ -20,6 +21,7 @@ def arm(mode, *, action='action', clone='same-tree', destination=None):
         'mode': mode,
         'status': 'passed',
         'run_manifest_sha256': h('manifest'),
+        'shared_context_sha256': h('shared-b-context'),
         'identity': {
             'credential_sha256': h('credential'),
             'finalized_request_sha256': h('request'),
@@ -43,6 +45,10 @@ def arm(mode, *, action='action', clone='same-tree', destination=None):
             'passed': True,
             'effect_count': 1,
             'request_consumed': True,
+        },
+        'evidence': {
+            'stage_report_sha256': h('shared-stage-report'),
+            'transition_report_sha256': h('shared-transition-report'),
         },
     }
 
@@ -82,6 +88,49 @@ class DirectHeldoutPairTests(unittest.TestCase):
         self.assertEqual(result['anchor_wall_savings_fraction'], 0.2)
         self.assertEqual(result['update_count'], 1)
         self.assertFalse(result['k_gt_1_measured'])
+
+    def test_pair_requires_one_shared_stopped_transition_and_labels_post_transition_scope(self):
+        full, anchor = arm('full'), arm('anchor')
+        result = direct.validate_direct_pair(
+            full, anchor, outer(100), outer(80),
+            variant=0, order=('full', 'anchor'))
+        self.assertEqual(result['basis'], 'separate directly timed post-transition B segment outer wall')
+        self.assertEqual(result['shared_context_sha256'], h('shared-b-context'))
+        self.assertIs(result.get('complete_import_to_execute_arm'), False)
+
+        anchor['shared_context_sha256'] = h('another-transition')
+        with self.assertRaisesRegex(ValueError, 'shared B context'):
+            direct.validate_direct_pair(
+                full, anchor, outer(100), outer(80),
+                variant=0, order=('full', 'anchor'))
+
+        anchor['shared_context_sha256'] = full['shared_context_sha256']
+        anchor['evidence']['transition_report_sha256'] = h('different-transition')
+        with self.assertRaisesRegex(ValueError, 'shared B context'):
+            direct.validate_direct_pair(
+                full, anchor, outer(100), outer(80),
+                variant=0, order=('full', 'anchor'))
+
+    def test_rejects_matching_arm_hashes_that_do_not_bind_to_shared_context(self):
+        full, anchor = arm('full'), arm('anchor')
+        shared = {
+            'stage': {'report_sha256': h('actual-shared-stage')},
+            'transition': {'report_sha256': h('actual-shared-transition')},
+        }
+        wrong_stage = h('same-but-wrong-stage')
+        wrong_transition = h('same-but-wrong-transition')
+        for row in (full, anchor):
+            row['evidence']['stage_report_sha256'] = wrong_stage
+            row['evidence']['transition_report_sha256'] = wrong_transition
+
+        binding = getattr(direct, 'validate_shared_arm_binding', None)
+        self.assertTrue(callable(binding), 'shared report hashes must be bound to pair arms')
+        with self.assertRaisesRegex(ValueError, 'shared stage report'):
+            binding(full, anchor, shared)
+
+        shared['stage']['report_sha256'] = wrong_stage
+        with self.assertRaisesRegex(ValueError, 'shared transition report'):
+            binding(full, anchor, shared)
 
     def test_rejects_mismatched_finalized_action_or_root_sequence(self):
         with self.assertRaisesRegex(ValueError, 'action'):
@@ -174,10 +223,11 @@ class DirectHeldoutPairTests(unittest.TestCase):
             token = 'a' * 64
             manifest_sha = h('manifest')
             ticket = {
-                'schema': 'credential-v3-heldout-worker-ticket-v1',
+                'schema': direct.WORKER_TICKET_SCHEMA,
                 'mode': 'full',
                 'case_output_root': str(case_output),
                 'manifest_sha256': manifest_sha,
+                'shared_context_sha256': h('shared-b-context'),
                 'supervisor_pid': parent_pid,
                 'token': token,
             }
@@ -251,6 +301,132 @@ class DirectHeldoutPairTests(unittest.TestCase):
             self.assertNotIn('report_sha256', saved)
             self.assertEqual(sidecar['report_sha256'], report_sha256)
             self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), report_sha256)
+
+    def test_shared_context_reader_pins_setup_files_and_runner_root_layout(self):
+        artifacts_root = direct.ROOT / 'artifacts'
+        artifacts_existed = artifacts_root.exists()
+        artifacts_root.mkdir(mode=0o700, exist_ok=True)
+        temporary = tempfile.TemporaryDirectory(
+            prefix='.direct-arm-shared-context-test-', dir=artifacts_root)
+        if not artifacts_existed:
+            self.addCleanup(lambda: artifacts_root.rmdir()
+                            if artifacts_root.exists() and not any(artifacts_root.iterdir())
+                            else None)
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name).resolve()
+        pair_root = root / 'pair'
+        pair_root.mkdir(mode=0o700)
+        shared_root = pair_root / 'shared-B'
+
+        case_runner = direct._load_module(
+            'test_direct_arm_shared_case_runner',
+            direct.ROOT / 'tools/part5/run_v3_heldout_case.py')
+        manifest = {
+            'variant': 0,
+            'cohort_root': str(root / 'cohort'),
+            'cohort_sha256': h('cohort'),
+            'base_prepare_config_sha256': h('prepare-template'),
+        }
+        manifest_sha = case_runner.digest(case_runner.encoded(manifest))
+        manifest_path = root / 'manifest.json'
+        direct._write_new(manifest_path, manifest)
+        run_ref = {'path': str(manifest_path), 'sha256': manifest_sha}
+
+        def write_ref(base, name):
+            path = base / name
+            path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            sha = direct._write_new(path, {'artifact': name})
+            return str(path), sha
+
+        def fake_prepare(runner, request, request_root, case_root, stage_context):
+            config, config_sha = write_ref(request_root, 'prepare-config.json')
+            status, status_sha = write_ref(request_root, 'prepare-status.json')
+            monitor, monitor_sha = write_ref(request_root, 'prepare-monitor.json')
+            return {'config': config, 'config_sha256': config_sha,
+                    'status_path': status, 'status_sha256': status_sha,
+                    'monitor': monitor, 'monitor_sha256': monitor_sha,
+                    'monitor_owner': 'fake-shared-prepare-owner',
+                    'runtime': str(request_root / 'runtime'),
+                    'control': str(request_root / 'prepare-control'),
+                    'wall_seconds': 0.01}
+
+        def fake_stage_transition(runner, request, request_root, case_root,
+                                  request_inputs, prepared):
+            stage = {}
+            for key, sha_key, name in (
+                    ('config', 'config_sha256', 'stage-config.json'),
+                    ('status_path', 'status_sha256', 'stage-status.json'),
+                    ('monitor', 'monitor_sha256', 'stage-monitor.json'),
+                    ('report', 'report_sha256', 'stage-report.json'),
+                    ('plan', 'plan_sha256', 'stage-plan.json')):
+                stage[key], stage[sha_key] = write_ref(request_root, name)
+            transition = {}
+            for key, sha_key, name in (
+                    ('config', 'config_sha256', 'transition-config.json'),
+                    ('status_path', 'status_sha256', 'transition-status.json'),
+                    ('monitor', 'monitor_sha256', 'transition-monitor.json'),
+                    ('context', 'context_sha256', 'transition-context.json'),
+                    ('report', 'report_sha256', 'transition-report.json')):
+                transition[key], transition[sha_key] = write_ref(request_root, name)
+            stage['root'] = str(request_root / 'stage')
+            stage['monitor_owner'] = 'fake-shared-stage-owner'
+            transition['root'] = str(request_root / 'transition')
+            transition['monitor_owner'] = 'fake-shared-transition-owner'
+            stage = runner.journal.run_step(request + ':stage',
+                inputs={'request': request},
+                job=lambda: {'status': 'passed', **stage})
+            transition = runner.journal.run_step(request + ':transition',
+                inputs={'request': request},
+                job=lambda: {'status': 'passed', **transition})
+            return stage, transition, None
+
+        class FakeContextBuilder:
+            @staticmethod
+            def prepare(cohort_root, cohort_sha256, variant, case_root):
+                direct._write_new(case_root / 'case-context.json', {
+                    'target': {'variant': variant}})
+                direct._write_new(case_root / 'cohort-receipt.json', {
+                    'heldout_acceptance': False})
+
+        original_loader = direct._load_module
+
+        def load_context_builder(name, path):
+            if name == 'direct_arm_shared_context_builder':
+                return FakeContextBuilder
+            return original_loader(name, path)
+
+        with (mock.patch.object(case_runner, 'validate_manifest', return_value=({}, {}, {})),
+              mock.patch.object(case_runner.HeldoutCaseRunner, '_prepare', fake_prepare),
+              mock.patch.object(case_runner.HeldoutCaseRunner, '_stage_transition',
+                                fake_stage_transition),
+              mock.patch.object(direct, '_load_module', side_effect=load_context_builder)):
+            shared, context_path, context_sha = direct._run_shared_b_setup(
+                case_runner, manifest, run_ref, manifest_sha, shared_root)
+
+        self.assertEqual(context_path, shared_root / 'shared-context.json')
+        self.assertTrue((shared_root / 'case-run' / 'run-id.json').is_file())
+        self.assertEqual(shared['case_root'], str(shared_root / 'case-run' / 'pair-view'))
+        mode_root = pair_root / 'arm-full'
+        mode_root.mkdir(mode=0o700)
+        direct._write_new(mode_root / direct.WORKER_CLAIM_NAME, {
+            'shared_context_sha256': context_sha})
+        loaded, loaded_sha = direct._read_shared_b_context(
+            mode_root, case_runner, manifest_sha, 0)
+        self.assertEqual(loaded_sha, context_sha)
+        self.assertEqual(loaded['stage']['report_sha256'],
+                         shared['stage']['report_sha256'])
+
+        stage_report = Path(shared['stage']['report'])
+        stage_bytes = stage_report.read_bytes()
+        stage_report.write_bytes(b'mutated stage report\n')
+        with self.assertRaisesRegex(ValueError, 'setup artifact changed'):
+            direct._read_shared_b_context(mode_root, case_runner, manifest_sha, 0)
+        stage_report.write_bytes(stage_bytes)
+
+        transition_report = Path(shared['transition']['report'])
+        transition_report.write_bytes(b'mutated transition report\n')
+        with self.assertRaisesRegex(ValueError, 'setup artifact changed'):
+            direct._read_shared_b_context(mode_root, case_runner, manifest_sha, 0)
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Directly time a matched heldout Full-B / Anchor-B loaded application pair.
+"""Directly time matched post-transition heldout Full-B / Anchor-B segments.
 
-Each arm is a fresh B-only run from the pinned case manifest and is wrapped by
-the existing complete-session supervisor. The case runner and all frozen inputs
-remain unchanged. This command performs real heldout work when invoked; tests
+The supervisor creates one pinned shared B setup; serial mode workers independently
+prepare sources and proof, clone its stopped R1 ledger, and execute. The case runner
+and frozen inputs remain unchanged. Invocation performs real heldout work; tests
 must use only the pure validation helpers below.
 """
 import argparse
@@ -17,6 +17,7 @@ import os
 from pathlib import Path
 import stat
 import sys
+import time
 import uuid
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -26,11 +27,13 @@ if str(ROOT) not in sys.path:
 ARTIFACTS = ROOT / 'artifacts/dynark/part5'
 RESULTS = ROOT / 'results/dynark/part5'
 HEAVY_LOCK = ARTIFACTS / '.v3-heldout-heavy.lock'
-ARM_SCHEMA = 'credential-v3-heldout-direct-arm-v1'
-PAIR_SCHEMA = 'credential-v3-heldout-direct-pair-v1'
-WORKER_TICKET_SCHEMA = 'credential-v3-heldout-worker-ticket-v1'
+ARM_SCHEMA = 'credential-v3-heldout-direct-arm-v2'
+PAIR_SCHEMA = 'credential-v3-heldout-direct-pair-v2'
+SHARED_CONTEXT_SCHEMA = 'credential-v3-heldout-direct-shared-b-context-v1'
+WORKER_TICKET_SCHEMA = 'credential-v3-heldout-worker-ticket-v2'
 WORKER_TICKET_NAME = 'worker-launch.json'
 WORKER_CLAIM_NAME = 'worker-claim.json'
+WORKER_CLAIM_SCHEMA = 'credential-v3-heldout-worker-claim-v2'
 LOCK_OWNER_SCHEMA = 'credential-v3-heldout-heavy-lock-owner-v1'
 OUTER_LIMITS = {
     'full': {'runtime_seconds': 6000, 'rss_bytes': 4294967296,
@@ -146,7 +149,13 @@ def _arm_identity(arm, mode, variant):
             or effect.get('effect_count') != 1
             or effect.get('request_consumed') is not True):
         raise ValueError('one verified loaded application effect required')
-    return identity, clone
+    shared_context_sha256 = arm.get('shared_context_sha256')
+    evidence = arm.get('evidence')
+    if (not _hash(shared_context_sha256) or type(evidence) is not dict
+            or not _hash(evidence.get('stage_report_sha256'))
+            or not _hash(evidence.get('transition_report_sha256'))):
+        raise ValueError('shared stopped B context evidence is required')
+    return identity, clone, shared_context_sha256, evidence
 
 
 def validate_direct_pair(full, anchor, full_outer, anchor_outer, *, variant, order):
@@ -154,10 +163,16 @@ def validate_direct_pair(full, anchor, full_outer, anchor_outer, *, variant, ord
     expected_order = arm_order(variant)
     if tuple(order) != expected_order:
         raise ValueError('counterbalanced arm order does not match the heldout variant')
-    full_identity, full_clone = _arm_identity(full, 'full', variant)
-    anchor_identity, anchor_clone = _arm_identity(anchor, 'anchor', variant)
+    full_identity, full_clone, full_shared, full_evidence = _arm_identity(full, 'full', variant)
+    anchor_identity, anchor_clone, anchor_shared, anchor_evidence = _arm_identity(
+        anchor, 'anchor', variant)
     if full.get('run_manifest_sha256') != anchor.get('run_manifest_sha256'):
         raise ValueError('matched case manifest identity required')
+    if (full_shared != anchor_shared
+            or full_evidence['stage_report_sha256'] != anchor_evidence['stage_report_sha256']
+            or full_evidence['transition_report_sha256']
+                != anchor_evidence['transition_report_sha256']):
+        raise ValueError('Full and Anchor arms must use the same shared B context and transition')
     for field in ('credential_sha256', 'finalized_request_sha256',
                   'finalized_action_transport_sha256', 'action_hash'):
         if full_identity[field] != anchor_identity[field]:
@@ -176,7 +191,9 @@ def validate_direct_pair(full, anchor, full_outer, anchor_outer, *, variant, ord
     savings = (full_seconds - anchor_seconds) / full_seconds
     return {
         'matched': True,
-        'basis': 'separate directly timed bounded request-B pipeline outer wall',
+        'basis': 'separate directly timed post-transition B segment outer wall',
+        'complete_import_to_execute_arm': False,
+        'shared_context_sha256': full_shared,
         'variant': variant,
         'arm_order': list(order),
         'update_count': 1,
@@ -190,6 +207,29 @@ def validate_direct_pair(full, anchor, full_outer, anchor_outer, *, variant, ord
         'independent_byte_identical_r1_clones': True,
         'same_finalized_action_and_root_sequence': True,
     }
+
+
+def validate_shared_arm_binding(full, anchor, shared):
+    """Require both arm receipts to name the reports in the produced shared setup."""
+    if type(shared) is not dict:
+        raise ValueError('shared B context report required for arm evidence binding')
+    expected = {
+        'stage_report_sha256': (shared.get('stage', {}).get('report_sha256')
+                                if type(shared.get('stage')) is dict else None),
+        'transition_report_sha256': (shared.get('transition', {}).get('report_sha256')
+                                     if type(shared.get('transition')) is dict else None),
+    }
+    if not all(_hash(value) for value in expected.values()):
+        raise ValueError('pinned shared stage and transition reports required')
+    for mode, arm in (('Full', full), ('Anchor', anchor)):
+        evidence = arm.get('evidence') if type(arm) is dict else None
+        if type(evidence) is not dict:
+            raise ValueError(f'{mode} arm shared context evidence required')
+        if evidence.get('stage_report_sha256') != expected['stage_report_sha256']:
+            raise ValueError(f'{mode} arm does not bind to the shared stage report')
+        if evidence.get('transition_report_sha256') != expected['transition_report_sha256']:
+            raise ValueError(f'{mode} arm does not bind to the shared transition report')
+    return expected
 
 
 def _private_dir(path, *, fresh=False, ignored=False):
@@ -293,11 +333,13 @@ def _authorize_worker(ticket_path, case_output_root, mode, manifest_sha256, toke
     env_token = os.environ.get('P5_V3_DIRECT_ARM_WORKER_TOKEN')
     if (type(ticket) is not dict
             or set(ticket) != {'schema', 'mode', 'case_output_root',
-                               'manifest_sha256', 'supervisor_pid', 'token'}
+                               'manifest_sha256', 'shared_context_sha256',
+                               'supervisor_pid', 'token'}
             or ticket.get('schema') != WORKER_TICKET_SCHEMA
             or ticket.get('mode') != mode
             or ticket.get('case_output_root') != str(case_output_root)
             or ticket.get('manifest_sha256') != manifest_sha256
+            or not _hash(ticket.get('shared_context_sha256'))
             or type(ticket.get('supervisor_pid')) is not int
             or ticket['supervisor_pid'] != parent_pid
             or type(token) is not str or type(env_token) is not str
@@ -308,9 +350,10 @@ def _authorize_worker(ticket_path, case_output_root, mode, manifest_sha256, toke
         raise ValueError('worker ticket parent does not own the heavyweight lock')
     claim_path = mode_root / WORKER_CLAIM_NAME
     _write_new(claim_path, {
-        'schema': 'credential-v3-heldout-worker-claim-v1',
+        'schema': WORKER_CLAIM_SCHEMA,
         'mode': mode,
         'manifest_sha256': manifest_sha256,
+        'shared_context_sha256': ticket['shared_context_sha256'],
         'supervisor_pid': parent_pid,
         'ticket_sha256': _digest(raw),
     })
@@ -327,32 +370,22 @@ def _read_manifest(case_runner, manifest_path):
     return raw, manifest, run_ref, manifest_sha
 
 
-def _write_arm_report(path, report):
-    _write_new(path, report)
-
-
-def _run_arm_worker(manifest_path, mode, case_output_root, token):
-    if mode not in ('full', 'anchor'):
-        raise ValueError('Full or Anchor B arm required')
-    case_runner = _load_module('direct_arm_case_runner',
-                               ROOT / 'tools/part5/run_v3_heldout_case.py')
-    _, manifest, run_ref, manifest_sha = _read_manifest(case_runner, Path(manifest_path))
-    variant = manifest['variant']
-    mode_root, output_root = _worker_output_paths(case_output_root)
-    _private_dir(mode_root, ignored=True)
-    _authorize_worker(mode_root / WORKER_TICKET_NAME, output_root, mode,
-                      manifest_sha, token)
-    _private_dir(output_root, fresh=True, ignored=True)
+def _run_shared_b_setup(case_runner, manifest, run_ref, manifest_sha, shared_root):
+    """Prepare one pinned pair view, local stage, and stopped B transition."""
+    shared_root = _private_dir(shared_root, fresh=True, ignored=True)
+    shared_case_root = shared_root / 'case-run'
     runner = case_runner.HeldoutCaseRunner(
-        manifest, output_root, run_manifest_ref=run_ref,
+        manifest, shared_case_root, run_manifest_ref=run_ref,
         manifest_sha256=manifest_sha)
     case_root = runner.output_root / 'pair-view'
-    context_builder = _load_module('direct_arm_context_builder',
-                                   ROOT / 'tools/part5/prepare_v3_heldout_context.py')
+    context_builder = _load_module(
+        'direct_arm_shared_context_builder',
+        ROOT / 'tools/part5/prepare_v3_heldout_context.py')
+    variant = manifest['variant']
 
     def pair_view():
         if case_root.exists() or case_root.is_symlink():
-            raise ValueError('fresh B-arm pair view required')
+            raise ValueError('fresh shared B pair view required')
         case_root.mkdir(mode=0o700)
         context_builder.prepare(Path(manifest['cohort_root']),
             manifest['cohort_sha256'], variant, case_root)
@@ -360,7 +393,7 @@ def _run_arm_worker(manifest_path, mode, case_output_root, token):
         case_doc = case_runner._json(case_root / 'case-context.json')
         if (case_doc.get('target', {}).get('variant') != variant
                 or pair_doc.get('heldout_acceptance') is not False):
-            raise ValueError('B-arm pair view does not match the frozen case manifest')
+            raise ValueError('shared B pair view does not match the frozen case manifest')
         return {'status': 'passed',
                 'case_context_sha256': case_runner.digest(
                     case_runner._read(case_root / 'case-context.json')),
@@ -369,13 +402,15 @@ def _run_arm_worker(manifest_path, mode, case_output_root, token):
 
     spec = case_runner.request_matrix()[1]
     req = spec['name']
+    if req != 'unrelated_compare':
+        raise ValueError('shared direct B setup requires the request-B matrix entry')
     root = runner._layout(req)
     request_inputs = {
         'case_context_sha256': None,
         'prepare_template_sha256': manifest['base_prepare_config_sha256'],
         'request_slot': spec['request_slot'],
     }
-
+    started = time.monotonic()
     with runner.journal:
         pair = runner.journal.run_step('pair-view',
             inputs={'cohort': manifest['cohort_sha256'], 'variant': variant},
@@ -393,7 +428,114 @@ def _run_arm_worker(manifest_path, mode, case_output_root, token):
                 saved, ('config', 'status_path', 'monitor')))
         stage, transition, _ = runner._stage_transition(
             req, root, case_root, request_inputs, prepared)
+        steps = runner.journal._read()['steps']
+    segment_wall = time.monotonic() - started
+    costs = {
+        'scope': 'shared B pair-view, prepare, stage, and R1 transition',
+        'segment_wall_seconds': segment_wall,
+        'pair_view_wall_seconds': steps['pair-view']['wall_seconds'],
+        'prepare_wall_seconds': steps[req + ':prepare']['wall_seconds'],
+        'stage_wall_seconds': steps[req + ':stage']['wall_seconds'],
+        'transition_wall_seconds': steps[req + ':transition']['wall_seconds'],
+        'bounded_owners': [prepared['monitor_owner'], stage['monitor_owner'],
+                           transition['monitor_owner']],
+    }
+    shared = {
+        'schema': SHARED_CONTEXT_SCHEMA,
+        'variant': variant,
+        'run_manifest_sha256': manifest_sha,
+        'request': req,
+        'case_root': str(case_root),
+        'pair_view': pair,
+        'prepared': prepared,
+        'stage': stage,
+        'transition': transition,
+        'costs': costs,
+    }
+    path = shared_root / 'shared-context.json'
+    return shared, path, _write_new(path, shared)
 
+
+def _write_arm_report(path, report):
+    _write_new(path, report)
+
+
+def _read_shared_b_context(mode_root, case_runner, manifest_sha, variant):
+    shared_root = _private_dir(Path(mode_root).parent / 'shared-B', ignored=True)
+    path = shared_root / 'shared-context.json'
+    claim = _load_json(Path(mode_root) / WORKER_CLAIM_NAME)
+    expected_sha = claim.get('shared_context_sha256') if type(claim) is dict else None
+    raw = path.read_bytes()
+    if not _hash(expected_sha) or case_runner.digest(raw) != expected_sha:
+        raise ValueError('shared B context does not match the locked-parent ticket')
+    shared = json.loads(raw)
+    case_root = shared_root / 'case-run' / 'pair-view'
+    if (type(shared) is not dict
+            or shared.get('schema') != SHARED_CONTEXT_SCHEMA
+            or shared.get('variant') != variant
+            or shared.get('run_manifest_sha256') != manifest_sha
+            or shared.get('request') != 'unrelated_compare'
+            or shared.get('case_root') != str(case_root)
+            or case_root.resolve(strict=True) != case_root):
+        raise ValueError('pinned shared B context identity required')
+    pair = shared.get('pair_view')
+    prepared = shared.get('prepared')
+    stage = shared.get('stage')
+    transition = shared.get('transition')
+    if (type(pair) is not dict or type(prepared) is not dict or type(stage) is not dict
+            or type(transition) is not dict
+            or pair.get('case_context_sha256') != case_runner.digest(
+                case_runner._read(case_root / 'case-context.json'))
+            or pair.get('pair_receipt_sha256') != case_runner.digest(
+                case_runner._read(case_root / 'cohort-receipt.json'))):
+        raise ValueError('pinned shared B pair view is incomplete')
+    for record, refs in (
+            (prepared, (('config', 'config_sha256'),
+                        ('status_path', 'status_sha256'),
+                        ('monitor', 'monitor_sha256'))),
+            (stage, (('config', 'config_sha256'),
+                     ('status_path', 'status_sha256'),
+                     ('monitor', 'monitor_sha256'),
+                     ('report', 'report_sha256'),
+                     ('plan', 'plan_sha256'))),
+            (transition, (('config', 'config_sha256'),
+                          ('status_path', 'status_sha256'),
+                          ('monitor', 'monitor_sha256'),
+                          ('context', 'context_sha256'),
+                          ('report', 'report_sha256')))):
+        for path_key, sha_key in refs:
+            if (type(record.get(path_key)) is not str
+                    or not _hash(record.get(sha_key))
+                    or case_runner.digest(case_runner._read(record[path_key]))
+                        != record[sha_key]):
+                raise ValueError('shared B setup artifact changed after the transition')
+    return shared, expected_sha
+
+
+def _run_arm_worker(manifest_path, mode, case_output_root, token):
+    if mode not in ('full', 'anchor'):
+        raise ValueError('Full or Anchor B arm required')
+    case_runner = _load_module('direct_arm_case_runner',
+                               ROOT / 'tools/part5/run_v3_heldout_case.py')
+    _, manifest, run_ref, manifest_sha = _read_manifest(case_runner, Path(manifest_path))
+    variant = manifest['variant']
+    mode_root, output_root = _worker_output_paths(case_output_root)
+    _private_dir(mode_root, ignored=True)
+    _authorize_worker(mode_root / WORKER_TICKET_NAME, output_root, mode,
+                      manifest_sha, token)
+    shared, shared_context_sha256 = _read_shared_b_context(
+        mode_root, case_runner, manifest_sha, variant)
+    _private_dir(output_root, fresh=True, ignored=True)
+    runner = case_runner.HeldoutCaseRunner(
+        manifest, output_root, run_manifest_ref=run_ref,
+        manifest_sha256=manifest_sha)
+    case_root = Path(shared['case_root'])
+    spec = case_runner.request_matrix()[1]
+    req = spec['name']
+    root = runner._layout(req)
+    stage, transition = shared['stage'], shared['transition']
+
+    with runner.journal:
         def source_call(source_variant, out, r0_source=None):
             out = Path(out)
             if out.exists() or out.is_symlink():
@@ -521,6 +663,7 @@ def _run_arm_worker(manifest_path, mode, case_output_root, token):
     arm = {
         'schema': ARM_SCHEMA, 'variant': variant, 'mode': mode, 'status': 'passed',
         'run_manifest_sha256': manifest_sha,
+        'shared_context_sha256': shared_context_sha256,
         'identity': identity,
         'proof': {'mode': mode, 'proof_created': True,
                   'ordinary_verified': True,
@@ -533,7 +676,7 @@ def _run_arm_worker(manifest_path, mode, case_output_root, token):
         'effect': {'report_sha256': effect['report_sha256'], 'mode': mode,
                    'passed': True, 'effect_count': 1, 'request_consumed': True},
         'evidence': {
-            'pair_context_sha256': pair['case_context_sha256'],
+            'pair_context_sha256': shared['pair_view']['case_context_sha256'],
             'stage_report_sha256': stage['report_sha256'],
             'transition_report_sha256': transition['report_sha256'],
             'source_r0_receipt_sha256': r0['receipt_sha256'],
@@ -591,7 +734,7 @@ def run_pair(manifest_path, output_root):
     case_runner = _load_module('direct_pair_case_runner',
                                ROOT / 'tools/part5/run_v3_heldout_case.py')
     manifest_path, output_root = Path(manifest_path), Path(output_root)
-    _, manifest, _, manifest_sha = _read_manifest(case_runner, manifest_path)
+    _, manifest, run_ref, manifest_sha = _read_manifest(case_runner, manifest_path)
     variant = manifest['variant']
     order = arm_order(variant)
     if (not output_root.is_absolute() or output_root.parent != ARTIFACTS
@@ -602,6 +745,8 @@ def run_pair(manifest_path, output_root):
     try:
         _private_dir(output_root, fresh=True, ignored=True)
         _private_dir(supervision_root, fresh=True, ignored=True)
+        shared, shared_path, shared_sha256 = _run_shared_b_setup(
+            case_runner, manifest, run_ref, manifest_sha, output_root / 'shared-B')
         rows = {}
         mode_roots = {}
         outer_reports = {}
@@ -617,6 +762,7 @@ def run_pair(manifest_path, output_root):
                 'mode': mode,
                 'case_output_root': str(arm_output_root),
                 'manifest_sha256': manifest_sha,
+                'shared_context_sha256': shared_sha256,
                 'supervisor_pid': os.getpid(),
                 'token': worker_token,
             })
@@ -640,7 +786,8 @@ def run_pair(manifest_path, output_root):
             arm_report = mode_root / 'arm-report.json'
             arm = _load_json(arm_report)
             arm_report_sha256 = _digest(arm_report.read_bytes())
-            if arm.get('run_manifest_sha256') != manifest_sha:
+            if (arm.get('run_manifest_sha256') != manifest_sha
+                    or arm.get('shared_context_sha256') != shared_sha256):
                 raise ValueError(f'{mode} B-arm report digest or manifest pin mismatch')
             rows[mode] = arm
             mode_roots[mode] = {'root': str(mode_root),
@@ -649,14 +796,27 @@ def run_pair(manifest_path, output_root):
                 'supervisor_private_output': str(private_monitor)}
         comparison = validate_direct_pair(rows['full'], rows['anchor'],
             outer_reports['full'], outer_reports['anchor'], variant=variant, order=order)
+        comparison['shared_context_evidence'] = validate_shared_arm_binding(
+            rows['full'], rows['anchor'], shared)
         report = {
             'schema': PAIR_SCHEMA,
             'variant': variant,
             'run_manifest': {'path': str(manifest_path), 'sha256': manifest_sha},
+            'measurement_scope': 'direct post-transition B segments',
+            'complete_import_to_execute_arm': False,
+            'shared_b_context': {
+                'path': str(shared_path),
+                'sha256': shared_sha256,
+                'costs': shared['costs'],
+                'stage_report_sha256': shared['stage']['report_sha256'],
+                'transition_report_sha256': shared['transition']['report_sha256'],
+            },
             'comparison': comparison,
             'arms': {mode: mode_roots[mode] for mode in ('full', 'anchor')},
             'timing_notes': [
-                'outer wall starts immediately before the arm worker launch and ends after owned-process cleanup',
+                'Full and Anchor outer walls start after one shared B pair-view, prepare, stage, and R1 transition',
+                'arm outer wall includes independent R0/R1 source preparation, selected proof, R1 clone, and loaded Execute',
+                'shared B context wall and component costs are reported separately and excluded from both arm walls',
                 'session-runner metadata setup and final outer report writing are outside the timed interval',
                 'nested child monitor durations are attribution only and are not summed into the direct arm wall',
                 'outer CPU fields are incomplete and are not a qualified complete-tree CPU comparison',
