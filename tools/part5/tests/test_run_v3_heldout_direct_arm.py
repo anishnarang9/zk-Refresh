@@ -71,6 +71,18 @@ def outer(seconds):
 
 
 class DirectHeldoutPairTests(unittest.TestCase):
+    def test_heavy_lock_uses_primary_checkout_from_git_common_dir(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            primary = root / 'primary'
+            worktree = root / 'worktree'
+            (primary / '.git').mkdir(parents=True)
+            worktree.mkdir()
+            with mock.patch('subprocess.check_output',
+                            return_value=str(primary / '.git').encode()):
+                self.assertEqual(direct._shared_lock_artifacts(worktree),
+                                 primary / 'artifacts/dynark/part5')
+
     def test_counterbalances_four_of_eight_each_way(self):
         orders = [direct.arm_order(v) for v in range(8)]
         self.assertEqual(orders.count(('full', 'anchor')), 4)
@@ -201,15 +213,15 @@ class DirectHeldoutPairTests(unittest.TestCase):
             target.mkdir()
             alias = root / 'alias'
             alias.symlink_to(target, target_is_directory=True)
-            previous_artifacts, previous_lock = direct.ARTIFACTS, direct.HEAVY_LOCK
-            direct.ARTIFACTS = alias
+            previous_artifacts, previous_lock = direct.LOCK_ARTIFACTS, direct.HEAVY_LOCK
+            direct.LOCK_ARTIFACTS = alias
             direct.HEAVY_LOCK = alias / '.v3-heldout-heavy.lock'
             try:
                 with self.assertRaisesRegex(ValueError, 'canonical'):
                     direct._acquire_heavy_lock()
                 self.assertFalse((target / '.v3-heldout-heavy.lock').exists())
             finally:
-                direct.ARTIFACTS, direct.HEAVY_LOCK = previous_artifacts, previous_lock
+                direct.LOCK_ARTIFACTS, direct.HEAVY_LOCK = previous_artifacts, previous_lock
 
     def test_worker_requires_ticket_from_parent_that_holds_lock(self):
         with tempfile.TemporaryDirectory() as temporary:

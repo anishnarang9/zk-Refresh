@@ -16,6 +16,7 @@ import math
 import os
 from pathlib import Path
 import stat
+import subprocess
 import sys
 import time
 import uuid
@@ -24,9 +25,28 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+
+def _shared_lock_artifacts(root):
+    root = Path(root)
+    if not root.is_absolute() or root.resolve(strict=True) != root:
+        raise ValueError('canonical checkout required for heavyweight lock')
+    env = {key: value for key, value in os.environ.items()
+           if not key.startswith('GIT_')}
+    raw = subprocess.check_output(['git', 'rev-parse', '--git-common-dir'],
+                                  cwd=root, env=env, stderr=subprocess.DEVNULL)
+    common = Path(os.fsdecode(raw.strip()))
+    if not common.is_absolute():
+        common = root / common
+    common = common.resolve(strict=True)
+    if common.name != '.git' or not common.is_dir():
+        raise ValueError('primary checkout Git directory required for heavyweight lock')
+    return common.parent / 'artifacts/dynark/part5'
+
+
 ARTIFACTS = ROOT / 'artifacts/dynark/part5'
 RESULTS = ROOT / 'results/dynark/part5'
-HEAVY_LOCK = ARTIFACTS / '.v3-heldout-heavy.lock'
+LOCK_ARTIFACTS = _shared_lock_artifacts(ROOT)
+HEAVY_LOCK = LOCK_ARTIFACTS / '.v3-heldout-heavy.lock'
 ARM_SCHEMA = 'credential-v3-heldout-direct-arm-v2'
 PAIR_SCHEMA = 'credential-v3-heldout-direct-pair-v2'
 SHARED_CONTEXT_SCHEMA = 'credential-v3-heldout-direct-shared-b-context-v1'
@@ -703,8 +723,8 @@ def _load_json(path):
 
 
 def _acquire_heavy_lock():
-    _canonical_directory(ARTIFACTS)
-    if HEAVY_LOCK.parent != ARTIFACTS:
+    _canonical_directory(LOCK_ARTIFACTS)
+    if HEAVY_LOCK.parent != LOCK_ARTIFACTS:
         raise ValueError('canonical heavyweight lock path required')
     fd = os.open(HEAVY_LOCK, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
     try:
