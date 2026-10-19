@@ -30,6 +30,10 @@ class HeldoutFreezePinClosureTests(unittest.TestCase):
             'tools/part5/prepare_v3_heldout_proof.py',
             'tools/part5/model_v3_heldout_break_even.py',
             'tools/part5/observe_v3_heldout_cohort.py',
+            'tools/part5/run_v3_heldout_complete_arm.py',
+            'tools/part5/run_v3_heldout_direct_arm.py',
+            'tools/part5/finalize_v3_expired_status_negative.py',
+            'tools/part5/heldout_expired_status_evidence.py',
             'crates/dynark-native-client/tests/support/v3_relation_witness.cjs',
         }
         self.assertTrue(required.issubset(set(tool.CLIENT_FILES)))
@@ -53,6 +57,9 @@ class HeldoutFreezePinClosureTests(unittest.TestCase):
             'harness/tests/queue_v3.rs',
             'harness/tests/queue_v3_ambiguous_rpc_proxy.py',
             'harness/tests/queue_v3_local_ambiguous_restart.py',
+            'harness/tests/queue_v3_clone_prepared.py',
+            'harness/tests/queue_v3_local_expired_status_negative.py',
+            'harness/tests/queue_v3_loaded_negative_checks.py',
             'harness/Cargo.toml',
             'harness/Cargo.lock',
             'circuits/profile.json',
