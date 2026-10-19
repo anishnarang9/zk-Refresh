@@ -573,7 +573,7 @@ class ExpiredSupervisorLaunchTests(unittest.TestCase):
                 'pub use expired_status_negative::expired_status_negative_from_env;',
             'harness/src/solana/queue_v3/expired_status_negative.rs':
                 'pub fn expired_status_negative_from_env() -> Result<()> {}\n'
-                + 'const REPORT: &str = "' + evidence.SCHEMA + '";\n'
+                + 'const REPORT: &str = "' + supervisor.CANDIDATE_SCHEMA + '";\n'
                 + 'const ENV: &str = "P5_V3_EXPIRED_STATUS_NEGATIVE_CONFIG_SHA256";\n'
                 + 'const FILE: &str = "expired-status-negative-report.json";',
         }
@@ -587,35 +587,22 @@ class ExpiredSupervisorLaunchTests(unittest.TestCase):
                     supervisor.IntegrationRequired):
                 supervisor._require_rust_entrypoint()
 
-    def test_marker_only_entrypoint_records_protocol_blocker_without_spawn(self):
+    def test_reviewed_entrypoint_dispatches_loaded_supervisor(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            output_root = root / 'artifacts/dynark/part5'
-            output_root.mkdir(parents=True)
             value = config()
-            value['output_dir'] = str(output_root / 'out')
-            value['control_output'] = str(output_root / 'control')
             path = root / 'config.json'
             raw = json.dumps(value).encode()
             path.write_bytes(raw)
             path.chmod(0o600)
             digest = hashlib.sha256(raw).hexdigest()
             with mock.patch.dict(os.environ, {'P5_V3_EXPIRED_STATUS_NEGATIVE_SCOPE': supervisor.SCOPE}), \
-                    mock.patch.object(supervisor, 'REPO', root), \
                     mock.patch.object(supervisor, '_check_input_pins'), \
                     mock.patch.object(supervisor, '_require_rust_entrypoint'), \
-                    mock.patch('subprocess.Popen') as spawn:
-                self.assertEqual(supervisor.run(value, digest, path), 2)
-            spawn.assert_not_called()
-            status = json.loads((output_root / 'control/status.json').read_text())
-            self.assertEqual(status['status'], 'blocked_integration')
-            self.assertFalse(status['loaded_execution_claimed'])
-            self.assertIn('live Rust runner cannot establish its own reaping', status['integration_required'])
-            self.assertTrue(status['outer_monitor_required'])
-            self.assertEqual(status['rust_report_contract']['report_schema'], evidence.SCHEMA)
-            self.assertEqual(status['rust_report_contract']['account_names'], list(supervisor.ACCOUNT_NAMES))
-            for role in ('runner', 'validator'):
-                self.assertEqual(status[role + '_cleanup'], {'spawned': False, 'reaped': True})
+                    mock.patch.object(supervisor, '_write_blocked_status'), \
+                    mock.patch.object(supervisor, '_run_loaded', create=True, return_value=0) as launch:
+                self.assertEqual(supervisor.run(value, digest, path), 0)
+            launch.assert_called_once_with(value, digest, path)
 
     def test_exact_entrypoint_and_report_markers_are_required(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -628,7 +615,7 @@ class ExpiredSupervisorLaunchTests(unittest.TestCase):
                     'pub use expired_status_negative::expired_status_negative_from_env;',
                 'harness/src/solana/queue_v3/expired_status_negative.rs':
                     'pub fn expired_status_negative_from_env() -> Result<()> {}\n'
-                    + 'const REPORT: &str = "' + evidence.SCHEMA + '";\n'
+                    + 'const REPORT: &str = "' + supervisor.CANDIDATE_SCHEMA + '";\n'
                     + 'const ENV: &str = "P5_V3_EXPIRED_STATUS_NEGATIVE_CONFIG_SHA256";\n'
                     + 'const FILE: &str = "expired-status-negative-report.json";',
             }
@@ -639,9 +626,313 @@ class ExpiredSupervisorLaunchTests(unittest.TestCase):
             with mock.patch.object(supervisor, 'REPO', root):
                 supervisor._require_rust_entrypoint()
                 module = root / 'harness/src/solana/queue_v3/expired_status_negative.rs'
-                module.write_text(module.read_text().replace(evidence.SCHEMA, 'wrong-schema'))
+                module.write_text(module.read_text().replace(supervisor.CANDIDATE_SCHEMA, 'wrong-schema'))
                 with self.assertRaises(supervisor.IntegrationRequired):
                     supervisor._require_rust_entrypoint()
+
+
+
+def candidate_fixture(root, value):
+    output = root / 'output'
+    output.mkdir(mode=0o700, exist_ok=True)
+    loaded = {key: 'pinned-' + key for key in supervisor.execute.IDENTITY_FIELDS}
+    loaded.update({'elf_match': True, 'elf_bytes': 32, 'loader': 'loader',
+                   'elf_sha256': value['expected_elf_sha256'],
+                   'program': value['expected_program'], 'genesis': value['expected_genesis']})
+    rust_loaded = {'elf_match': True, 'elf_sha256': value['expected_elf_sha256'],
+                   'loader': 'loader', 'local_bytes': 32, 'remote_bytes': 64}
+    refs = {path: {'path': value[path], 'sha256': value[digest]}
+            for path, digest, _ in supervisor.INPUT_ARTIFACTS}
+    refs['runner'] = {'path': value['runner'], 'sha256': value['runner_sha256']}
+    report = {
+        'schema': supervisor.CANDIDATE_SCHEMA,
+        'config_ref': {'path': str(root / 'config.json'), 'sha256': 'd' * 64},
+        'identities': supervisor._expected_identities(value), 'input_refs': refs,
+        'source_refs': {'full_proof': refs['full_proof_receipt'], 'full_wire': refs['full_wire']},
+        'program': value['expected_program'], 'genesis': value['expected_genesis'],
+        'loaded_program_before': rust_loaded, 'loaded_program_after': dict(rust_loaded),
+        'clock': {'observed_at': 100, 'expires_at': 120, 'now': 122, 'rpc_finalized': True},
+        'clock_observations': {'expiry_slot': 18, 'expiry_now': 121,
+                               'submit_slot': 20, 'execution_now': 123},
+        'preconditions': {'status_active': True, 'issuer_active': True, 'head_bound': True,
+                          'request_live': True, 'full_wire_statement_matches': True},
+        'publisher_transactions': {
+            'source': {'signature': '1' * 64, 'slot': 11, 'finalized': True,
+                       'error': None, 'block_time': 101},
+            'bind': {'signature': '2' * 64, 'slot': 12, 'finalized': True,
+                     'error': None, 'block_time': 102}},
+        'transaction': {'signature': '3' * 64, 'slot': 21, 'finalized': True,
+                        'error': {'InstructionError': [1, {'Custom': 705}]}},
+        'account_slots': {'initial': 10, 'bound': 15, 'before': 19, 'after': 22},
+        'snapshots': [],
+        'runner_observations': {'pid': 123, 'elapsed_seconds': 30, 'clock_wait_seconds': 20},
+        'external_finalization_required': True, 'full_proof_verified_in_rust': False,
+        'application_effect': False,
+    }
+    for index, name in enumerate(supervisor.ACCOUNT_NAMES):
+        row = {'name': name}
+        for phase in ('before', 'after'):
+            path = output / phase / (name + '.bin')
+            row[phase] = {'path': str(path), 'sha256': _write_private(path, bytes([index + 1]) * 8)}
+        report['snapshots'].append(row)
+    return report, loaded, output
+
+
+class ExpiredCandidateTests(unittest.TestCase):
+    def test_candidate_schema_is_distinct_from_final_external_evidence(self):
+        self.assertEqual(getattr(supervisor, 'CANDIDATE_SCHEMA', None),
+                         'credential-v3-expired-status-negative-rust-candidate-v1')
+        self.assertNotEqual(supervisor.CANDIDATE_SCHEMA, evidence.SCHEMA)
+        supervisor._require_rust_entrypoint()
+        self.assertEqual(set(supervisor.RUST_REPORT_CONTRACT['report_fields']),
+                         supervisor.CANDIDATE_FIELDS)
+
+    def test_candidate_checks_pins_finalized_error_clocks_and_five_snapshot_bytes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, value = Path(tmp).resolve(), config()
+            report, loaded, output = candidate_fixture(root, value)
+            validate = lambda candidate: supervisor._validate_candidate(
+                candidate, value, root / 'config.json', 'd' * 64, output, loaded, 123)
+            hashes, sizes = validate(report)
+            self.assertEqual(len(hashes), 5)
+            self.assertEqual(sizes, [8] * 5)
+            mutations = (
+                ('config', lambda r: r['config_ref'].update(sha256='e' * 64)),
+                ('input', lambda r: r['input_refs']['runner'].update(sha256='e' * 64)),
+                ('identity', lambda r: r['identities'].update(clone='e' * 64)),
+                ('proof', lambda r: r['source_refs']['full_proof'].update(path='/other')),
+                ('loaded', lambda r: r['loaded_program_after'].update(loader='other')),
+                ('clock', lambda r: r['clock'].update(now=120)),
+                ('slot', lambda r: r['account_slots'].update(before=14)),
+                ('error', lambda r: r['transaction'].update(error={'InstructionError': [0, {'Custom': 705}]})),
+                ('bool_error', lambda r: r['transaction'].update(error={'InstructionError': [True, {'Custom': 705}]})),
+                ('float_error', lambda r: r['transaction'].update(error={'InstructionError': [1, {'Custom': 705.0}]})),
+                ('publisher', lambda r: r['publisher_transactions']['bind'].update(finalized=False)),
+                ('pid', lambda r: r['runner_observations'].update(pid=999)),
+                ('wait', lambda r: r['runner_observations'].update(clock_wait_seconds=46)),
+                ('external', lambda r: r.update(measured={'peak_owned_rss_bytes': 0})),
+                ('snapshot', lambda r: r['snapshots'][0]['after'].update(path='/other')),
+            )
+            for name, mutate in mutations:
+                changed = json.loads(json.dumps(report))
+                mutate(changed)
+                with self.subTest(name=name), self.assertRaises(ValueError):
+                    validate(changed)
+            path = Path(report['snapshots'][-1]['after']['path'])
+            report['snapshots'][-1]['after']['sha256'] = _write_private(path, b'changed!')
+            with self.assertRaisesRegex(ValueError, 'application account changed'):
+                validate(report)
+
+    def test_live_recheck_requires_finalized_rpc_error_clock_and_snapshot_facts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, value = Path(tmp).resolve(), config()
+            report, loaded, output = candidate_fixture(root, value)
+            hashes, sizes = supervisor._validate_candidate(
+                report, value, root / 'config.json', 'd' * 64, output, loaded, 123)
+            txs = {tx['signature']: tx for tx in [report['transaction'],
+                    *report['publisher_transactions'].values()]}
+            def rpc(method, params):
+                if method == 'getSlot':
+                    self.assertEqual(params, [{'commitment': 'finalized'}])
+                    return 23
+                if method == 'getBlockTime':
+                    return {18: 121, 20: 122, 23: 124}[params[0]]
+                tx = txs[params[0][0] if method == 'getSignatureStatuses' else params[0]]
+                if method == 'getSignatureStatuses':
+                    return {'value': [{'confirmationStatus': 'finalized', 'slot': tx['slot'], 'err': tx['error']}]}
+                self.assertEqual(params[1]['commitment'], 'finalized')
+                return {'slot': tx['slot'], 'meta': {'err': tx['error']},
+                        'blockTime': tx.get('block_time', 123),
+                        'transaction': {'signatures': [tx['signature']]}}
+            with mock.patch.object(supervisor.execute, 'finalized_accounts', return_value=(24, [])) as accounts:
+                self.assertEqual(supervisor._recheck_candidate(rpc, report, value, {}, hashes, sizes), 24)
+                accounts.assert_called_once_with(rpc, {}, 22, value['expected_program'], hashes, sizes)
+            for failure in ('error', 'clock', 'slot', 'finality', 'signature'):
+                def wrong_rpc(method, params):
+                    result = rpc(method, params)
+                    if failure == 'error' and method == 'getTransaction':
+                        result['meta']['err'] = {'InstructionError': [1, {'Custom': 708}]}
+                    if failure == 'clock' and method == 'getBlockTime':
+                        return 120
+                    if failure == 'slot' and method == 'getTransaction':
+                        result['slot'] = True
+                    if failure == 'finality' and method == 'getSignatureStatuses':
+                        result['value'][0]['confirmationStatus'] = 'confirmed'
+                    if failure == 'signature' and method == 'getTransaction':
+                        result['transaction']['signatures'] = ['4' * 64]
+                    return result
+                with self.subTest(failure=failure), self.assertRaises(ValueError):
+                    supervisor._recheck_candidate(wrong_rpc, report, value, {}, hashes, sizes)
+
+    def test_candidate_validation_rejects_final_evidence_as_runner_output(self):
+        with self.assertRaisesRegex(ValueError, 'candidate'):
+            supervisor._validate_candidate({'schema': evidence.SCHEMA}, config(),
+                                           Path('/config'), 'a' * 64,
+                                           Path('/output'), {}, 123)
+
+
+class ExpiredSupervisorLifecycleTests(unittest.TestCase):
+    def exercise(self, mode):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            artifact_root = root / 'artifacts/dynark/part5'
+            artifact_root.mkdir(parents=True)
+            value = config()
+            value['output_dir'] = str(artifact_root / 'output')
+            value['control_output'] = str(artifact_root / 'control')
+            value['stage_root'] = str(root / 'stage')
+            value['ledger'] = str(root / 'clone/ledger')
+            Path(value['ledger']).mkdir(parents=True)
+            config_path = root / 'config.json'
+            raw = json.dumps(value).encode()
+            digest = _write_private(config_path, raw)
+            report, loaded, output = candidate_fixture(artifact_root, value)
+            report['config_ref'] = {'path': str(config_path), 'sha256': digest}
+            initial, initial_hashes = [], []
+            for index, name in enumerate(supervisor.ACCOUNT_NAMES):
+                data = bytes([index + 1]) * 8
+                initial.append(data)
+                initial_hashes.append(_write_private(Path(value['stage_root']) / (name + '.bin'), data))
+            # Candidate fixture files are written by the fake Rust runner after launch.
+            for path in output.rglob('*.bin'):
+                path.unlink()
+            for path in output.iterdir():
+                path.rmdir()
+            output.rmdir()
+            stage_report = {'loaded_program': loaded, 'account_sha256': initial_hashes, 'finalized_slot': 9}
+            prepared = {'validator': '/pinned/validator', 'validator_sha256': 'e' * 64}
+            staged = {'context': '/pinned/context.json', 'context_sha256': 'f' * 64}
+            validator = mock.Mock(pid=122)
+            validator.poll.return_value = 7 if mode == 'validator_exit' else None
+            runner = mock.Mock(pid=123)
+            runner.poll.return_value = None if mode in ('timeout', 'validator_exit') else 0
+            runner.wait.return_value = 1 if mode == 'runner_error' else 0
+            commands = []
+            clock = [0]
+            loaded_reads = [0]
+            original_snapshot = supervisor.execute.stage.snapshot_generated
+            def snapshot(path, cap):
+                result = original_snapshot(path, cap)
+                if mode == 'before_cleanup_exit' and Path(path) == config_path:
+                    validator.poll.return_value = 7
+                return result
+            def wait_loaded(*args):
+                loaded_reads[0] += 1
+                if mode == 'final_window_exit' and loaded_reads[0] == 2:
+                    validator.poll.return_value = 7
+                return loaded
+            def spawn(command, **kwargs):
+                commands.append((command, kwargs))
+                if len(commands) == 1:
+                    return validator
+                if mode not in ('missing_report', 'runner_error', 'timeout', 'validator_exit'):
+                    generated, _, _ = candidate_fixture(artifact_root, value)
+                    generated['config_ref'] = report['config_ref']
+                    _write_private(output / supervisor.REPORT_NAME, json.dumps(generated).encode())
+                return runner
+            def cleanup(proc):
+                if mode == 'cleanup_error' and proc is validator:
+                    raise OSError('cannot reap')
+                if mode == 'cleanup_overrun' and proc is validator:
+                    clock[0] = supervisor.SUPERVISOR_BUDGET_SECONDS + 1
+                return {'spawned': proc is not None, 'reaped': True,
+                        'graceful': False, 'exit_code': 0 if proc is runner else
+                        (7 if mode == 'unexpected_cleanup_exit' else -2)}
+            with mock.patch.object(supervisor, 'REPO', root), \
+                    mock.patch.object(supervisor, '_runtime_inputs', return_value=(prepared, staged, stage_report)), \
+                    mock.patch.object(supervisor.execute.base, 'checked', return_value=b'elf'), \
+                    mock.patch.object(supervisor.execute.base, 'ports_free'), \
+                    mock.patch.object(supervisor.execute.base, 'LocalRpc'), \
+                    mock.patch.object(supervisor.execute, 'wait_loaded_after_start', side_effect=wait_loaded), \
+                    mock.patch.object(supervisor.execute, 'wait_staged_finality', return_value=(10, initial)), \
+                    mock.patch.object(supervisor.execute.stage, 'snapshot_generated', side_effect=snapshot), \
+                    mock.patch.object(supervisor, '_recheck_candidate', return_value=24), \
+                    mock.patch.object(supervisor.subprocess, 'Popen', side_effect=spawn), \
+                    mock.patch.object(supervisor.execute.base, 'cleanup', side_effect=cleanup) as reaped, \
+                    mock.patch.object(supervisor.time, 'monotonic', side_effect=range(0, 400, 40)
+                                      if mode == 'timeout' else lambda: clock[0]), \
+                    mock.patch.dict(os.environ, {'LD_PRELOAD': 'untrusted', 'DYLD_INSERT_LIBRARIES': 'untrusted'}):
+                result = supervisor._run_loaded(value, digest, config_path)
+            status_path = Path(value['control_output']) / 'status.json'
+            status = json.loads(status_path.read_text())
+            self.assertEqual(status_path.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(status_path.parent.stat().st_mode & 0o777, 0o700)
+            self.assertEqual(len(commands), 2)
+            self.assertEqual(commands[1][0], [value['runner'], supervisor.RUST_TEST,
+                                            '--exact', '--ignored', '--test-threads=1'])
+            env = commands[1][1]['env']
+            self.assertEqual(env['P5_V3_EXPIRED_STATUS_NEGATIVE_CONFIG'], str(config_path))
+            self.assertEqual(env['P5_V3_EXPIRED_STATUS_NEGATIVE_CONFIG_SHA256'], digest)
+            self.assertNotIn('LD_PRELOAD', env)
+            self.assertNotIn('DYLD_INSERT_LIBRARIES', env)
+            self.assertEqual(reaped.call_args_list, [mock.call(runner), mock.call(validator)])
+            self.assertNotIn('measured', status)
+            self.assertNotIn('remaining_owned_processes', status)
+            self.assertFalse(status['effect_verified'])
+            self.assertFalse(status['application_effect'])
+            self.assertTrue(status['external_finalization_required'])
+            return result, status
+
+    def test_verified_candidate_records_direct_cleanup_and_pending_external_finalization(self):
+        result, status = self.exercise('success')
+        self.assertEqual(result, 0)
+        self.assertEqual(status['status'], 'candidate_verified_pending_external_finalization')
+        self.assertTrue(status['candidate_verified'])
+        self.assertEqual(status['candidate_schema'], supervisor.CANDIDATE_SCHEMA)
+        self.assertTrue(status['runner_cleanup']['reaped'])
+        self.assertTrue(status['validator_cleanup']['reaped'])
+        self.assertFalse(status['validator_cleanup']['graceful'])
+
+    def test_missing_or_uncompiled_entrypoint_and_process_failures_cannot_verify_candidate(self):
+        for mode, error in (('missing_report', 'FileNotFoundError'),
+                            ('runner_error', 'RuntimeError'),
+                            ('validator_exit', 'RuntimeError'), ('timeout', 'TimeoutError')):
+            with self.subTest(mode=mode):
+                result, status = self.exercise(mode)
+                self.assertEqual(result, 1)
+                self.assertEqual(status['status'], 'failed')
+                self.assertEqual(status['error_type'], error)
+                self.assertFalse(status['candidate_verified'])
+                self.assertTrue(status['validator_cleanup']['reaped'])
+
+    def test_abnormal_final_window_validator_exit_fails_supervisor(self):
+        result, status = self.exercise('final_window_exit')
+        self.assertEqual(result, 1)
+        self.assertEqual(status['status'], 'failed')
+        self.assertEqual(status['error_type'], 'RuntimeError')
+        self.assertFalse(status['candidate_verified'])
+
+    def test_validator_exit_between_final_rpc_and_cleanup_fails_supervisor(self):
+        result, status = self.exercise('before_cleanup_exit')
+        self.assertEqual(result, 1)
+        self.assertEqual(status['status'], 'failed')
+        self.assertTrue(status['candidate_verified'])
+        self.assertFalse(status['validator_alive_before_cleanup'])
+        self.assertEqual(status['error_type'], 'RuntimeError')
+
+    def test_unexpected_validator_cleanup_exit_fails_supervisor(self):
+        result, status = self.exercise('unexpected_cleanup_exit')
+        self.assertEqual(result, 1)
+        self.assertEqual(status['status'], 'failed')
+        self.assertTrue(status['candidate_verified'])
+        self.assertEqual(status['validator_cleanup']['exit_code'], 7)
+        self.assertEqual(status['error_type'], 'RuntimeError')
+
+    def test_cleanup_budget_overrun_fails_despite_verified_candidate(self):
+        result, status = self.exercise('cleanup_overrun')
+        self.assertEqual(result, 1)
+        self.assertEqual(status['status'], 'failed')
+        self.assertTrue(status['candidate_verified'])
+        self.assertGreater(status['elapsed_seconds'], supervisor.SUPERVISOR_BUDGET_SECONDS)
+        self.assertEqual(status['error_type'], 'TimeoutError')
+
+    def test_cleanup_failure_keeps_candidate_facts_but_fails_supervisor(self):
+        result, status = self.exercise('cleanup_error')
+        self.assertEqual(result, 1)
+        self.assertEqual(status['status'], 'failed')
+        self.assertTrue(status['candidate_verified'])
+        self.assertFalse(status['validator_cleanup']['reaped'])
+        self.assertEqual(status['validator_cleanup']['error_type'], 'OSError')
 
 
 if __name__ == '__main__':
