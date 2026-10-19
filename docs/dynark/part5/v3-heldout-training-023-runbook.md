@@ -1,10 +1,46 @@
 # Heldout Training-023 recovery runbook
 
-Training-022 case 00 failed at the ambiguous-restart gate after passed Full proofs, loaded Full protected effect, and disabled-config negative. Its one-shot proxy returned no response to the caller after one accepted submission, but no finalized signature or five-account reconciliation was observed after validator restart. The preserved case and a separate cloned-ledger diagnostic are recorded in the [Training-022 runbook](v3-heldout-training-022-runbook.md). Training-023 must use a new source freeze, cohort, manifests, and case roots after review of the finality-before-shutdown repair; none of the Training-022 outputs can be reused as acceptance evidence. The registered 60-slot economics comparison remains Training-012.
+Training-022 case 00 failed at the ambiguous-restart gate after passed Full proofs, loaded Full protected effect, and disabled-config negative. Its one-shot proxy returned no response to the caller after one accepted submission, but no finalized signature or five-account reconciliation was observed after validator restart. The preserved case and a separate cloned-ledger diagnostic are recorded in the [Training-022 runbook](v3-heldout-training-022-runbook.md). Training-023 was the fresh follow-up attempt; its case 00 also failed, as recorded below. Training-022 outputs were not reused as acceptance evidence. The registered 60-slot economics comparison remains Training-012.
 
-The commands below are a prospective serial execution plan. Run the numbered blocks in one Bash session so later blocks retain the paths and hashes set earlier. Stop at the first failed gate, preserve every failed root, and run only one proof, validator, build, or case job at a time under the stable heavy-job lock. The Step 0 source pins include the committed finality-before-shutdown repair.
+## Observed Training-023 stop
 
-## Shared prerequisites and prospective outputs
+Training-023 Step 0 and Step 0.5 passed. Its freeze SHA-256 was
+`14c437186e50a97a7e9a77c645a0ccd5b13e433207ab848abf667e130c91b5d4`; the
+prior-key inventory contained 174 public keys. The cohort issued eight
+certificates to eight holders across four issuers, and all eight manifests
+validated.
+
+Case 00's 14-step journal records passing Full proofs, the loaded Full
+protected effect, and the disabled-config negative. The ambiguous-restart gate
+failed during pre-stop reconciliation with
+`ValueError: pinned finalized request and empty v3 queue required`. Its outer
+child ran for 48.300084833 seconds, exited 1 without censoring, and reported
+zero remaining owned processes. No validated pre-restart finality receipt,
+restart, or case fragment was produced. Cases 01–07 were not run. Preserve the
+Training-023 freeze, cohort, manifests, and failed case root; case 00 is not
+accepted and has no heldout cost result.
+
+Commit `488ebd9` changed the frozen supervisor after this run. The Training-023
+source pins and outputs are historical and **must not be rerun or resumed**.
+A new Training-024 freeze, cohort, manifests, and case roots are required after
+the source changes are finalized. The supervisor change alone does not show
+that the pre-stop reconciliation failure is fixed.
+
+## Historical Training-023 commands and prerequisites
+
+The numbered commands below record the procedure and identities used for the
+failed Training-023 attempt. They are **historical and non-rerunnable**: output
+paths have been consumed, and the frozen supervisor changed in commit
+`488ebd9`. Do not run these commands, resume the Training-023 case, or reuse its
+freeze, cohort, manifests, or roots. A separate Training-024 runbook with new
+source pins and fresh paths is required.
+
+When these commands were prepared, they were to run serially in one Bash
+session so later blocks retained the paths and hashes set earlier, stopping at
+the first failed gate and allowing only one proof, validator, build, or case job
+at a time under the stable heavy-job lock.
+
+## Training-023 pinned prerequisites and output paths
 
 - Training-010 campaign freeze: `results/dynark/part5/v3-campaign-freeze-003/freeze.json`, SHA-256 `3aa9c34057a44db5d040777c6e8ad94bf9fa567bf12f9260742b08ef5428c203`. Its identity manifest pins the isolated corrected proof executable at `artifacts/dynark/part5/v3-proof-runner-training-010`, SHA-256 `093659cec842945fd3db15e9e51087b5717d71dcb375fdf60ced58279a5ad19a`.
 - The campaign identity manifest is `results/dynark/part5/v3-campaign-freeze-003/identity-manifest.json`, SHA-256 `e8f09c2fd84d9f2c69696b8d382e95d7498c7f2b9489e382b6cf8fc240db9ae7`; its `freeze_sha256` matches freeze-003.
@@ -488,7 +524,7 @@ python3 -B tools/part5/model_v3_heldout_break_even.py \
 test -s "$MODEL_REPORT"
 ```
 
-Training-012 matrix evidence and the Training-012 through Training-022 heldout attempts are preserved separately. These Training-023 outputs are prospective until each command and validation gate passes. The 35-second validator-port wait applies only to transient `EADDRINUSE` during validator-port preflight and is charged to its owning child budget; it does not reserve sockets or apply to the proxy. The ambiguous-restart proxy port `19500 + variant` is a separate one-shot endpoint and receives no retry. Report failed attempts separately from matched successful-case costs.
+Training-012 matrix evidence and the Training-012 through Training-023 heldout attempts are preserved separately. The Training-023 outputs are historical: case 00 failed at pre-stop reconciliation and cases 01–07 were not run. The 35-second validator-port wait applied only to transient `EADDRINUSE` during validator-port preflight and was charged to its owning child budget; it did not reserve sockets or apply to the proxy. The ambiguous-restart proxy port `19500 + variant` was a separate one-shot endpoint and received no retry. Report failed attempts separately from matched successful-case costs.
 
 ## 6. Publish and verify the scrubbed public bundle
 
