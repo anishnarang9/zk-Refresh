@@ -17,8 +17,8 @@ from tools.part5 import verify_v3_heldout_acceptance as verifier
 
 
 class HeldoutFreezePinClosureTests(unittest.TestCase):
-    def test_heldout_gates_pin_queue_runner_002_consistently(self):
-        expected = 'artifacts/dynark/part5/v3-heldout-queue-runner-002'
+    def test_heldout_gates_pin_queue_runner_003_consistently(self):
+        expected = 'artifacts/dynark/part5/v3-heldout-queue-runner-003'
         self.assertEqual(tool.RUNNER_BINARY, expected)
         self.assertEqual(manifest_builder.freeze_tool.RUNNER_BINARY, expected)
         self.assertEqual(verifier.QUEUE_RUNNER_REL, expected)
