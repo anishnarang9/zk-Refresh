@@ -45,3 +45,9 @@ fn root_pinned_queue_v3_branch() {
 fn root_pinned_queue_v3_disabled_config_negative() {
     zk_fresh_benchmark::solana::queue_v3::disabled_config_negative_from_env().unwrap();
 }
+
+#[test]
+#[ignore = "requires separate heldout R0 clone, pinned Full wire, and supervised loaded v3 validator"]
+fn root_pinned_queue_v3_expired_status_negative() {
+    zk_fresh_benchmark::solana::queue_v3::expired_status_negative_from_env().unwrap();
+}

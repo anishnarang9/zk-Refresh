@@ -14,8 +14,10 @@ use zk_fresh_program::application_v3::{
 mod branch;
 mod campaign;
 mod disabled_config;
+mod expired_status_negative;
 pub use branch::branch_from_env;
 pub use disabled_config::disabled_config_negative_from_env;
+pub use expired_status_negative::expired_status_negative_from_env;
 
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
