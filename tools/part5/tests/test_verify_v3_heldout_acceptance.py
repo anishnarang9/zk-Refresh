@@ -1107,7 +1107,8 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
     def test_independent_cohort_import_rejects_der_and_key_receipt_mismatch(self):
         cohort_root, rows, key_rows, issuer_keys, _ = self._real_import_fixture('key-mismatch')
         cert_path = cohort_root / 'certificate-03' / 'credential.der'
-        cert_path.write_bytes(cert_path.read_bytes()[:-1] + b'\x00')
+        original = cert_path.read_bytes()
+        cert_path.write_bytes(original[:-1] + bytes([original[-1] ^ 1]))
         with self.assertRaisesRegex(ValueError, 'artifact SHA-256 pin mismatch'):
             verifier._verify_cohort_import(
                 cohort_root, rows, key_rows, set(), 'a' * 64, 'b' * 64,
