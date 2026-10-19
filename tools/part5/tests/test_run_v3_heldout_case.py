@@ -50,19 +50,30 @@ def test_positive_full_r0_clones_complete_between_stage_and_transition(tmp_path)
 
     case_runner = object.__new__(runner.HeldoutCaseRunner)
     case_runner.journal = Journal()
+    case_runner.variant = 0
     case_runner._verify_record = runner.HeldoutCaseRunner._verify_record
     wall_by_label = {'r0': 1.25, 'disabled-config-r0': 2.5,
-                     'ambiguous-restart-r0': 3.75}
+                     'ambiguous-restart-r0': 3.75,
+                     'expired-status-r0': 4.25}
     clone_steps = ['positive_full:r0-clone',
                    'positive_full:disabled-config-clone',
-                   'positive_full:ambiguous-restart-clone']
+                   'positive_full:ambiguous-restart-clone',
+                   'positive_full:expired-status-clone']
 
     def stage(req, root, case_root, context, prepared):
         return {'report_sha256': 'b' * 64, 'wall_seconds': 4.0}
 
     def clone(request, root, stage, *, label='r0'):
-        return {'label': label, 'receipt': label + '-receipt',
-                'receipt_sha256': 'a' * 64,
+        root.mkdir(parents=True, exist_ok=True)
+        receipt = root / (label + '-receipt.json')
+        receipt.write_bytes(runner.encoded({
+            'stage_report_sha256': stage['report_sha256']}))
+        monitor = root / (label + '-monitor.json')
+        monitor.write_bytes(runner.encoded({'duration_seconds': wall_by_label[label]}))
+        return {'label': label, 'receipt': str(receipt),
+                'receipt_sha256': runner.digest(receipt.read_bytes()),
+                'monitor': str(monitor),
+                'monitor_sha256': runner.digest(monitor.read_bytes()),
                 'wall_seconds': wall_by_label[label]}
 
     def transition(req, root, case_root, stage):
@@ -83,9 +94,106 @@ def test_positive_full_r0_clones_complete_between_stage_and_transition(tmp_path)
         {'stage_report_sha256': stage_sha},
         {'stage_report_sha256': stage_sha, 'label': 'disabled-config-r0'},
         {'stage_report_sha256': stage_sha, 'label': 'ambiguous-restart-r0'}]
+    assert case_runner.journal.calls[4][1] == {
+        'stage_report_sha256': stage_sha, 'label': 'expired-status-r0'}
     assert [clones[key]['wall_seconds'] for key in
             ('r0', 'disabled_config', 'ambiguous_restart')] == [1.25, 2.5, 3.75]
+    assert clones['expired_status']['label'] == 'expired-status-r0'
+    assert clones['expired_status']['wall_seconds'] == 4.25
+    assert clones['expired_status']['monitor_sha256'] == runner.digest(
+        Path(clones['expired_status']['monitor']).read_bytes())
     assert transition_result['report_sha256'] == 'c' * 64
+
+
+@pytest.mark.parametrize(
+    ('variant', 'expected_labels'),
+    [(0, ['r0', 'disabled-config-r0', 'ambiguous-restart-r0',
+          'expired-status-r0']),
+     (1, ['r0', 'disabled-config-r0', 'ambiguous-restart-r0'])],
+)
+def test_expired_status_r0_clone_is_created_only_for_variant00(
+        tmp_path, variant, expected_labels):
+    class Journal:
+        def __init__(self):
+            self.calls = []
+
+        def run_step(self, name, *, inputs, job, reuse=None, category=None):
+            self.calls.append((name, inputs))
+            return job()
+
+    case_runner = object.__new__(runner.HeldoutCaseRunner)
+    case_runner.variant = variant
+    case_runner.journal = Journal()
+    clone_labels = []
+    stage = {'report_sha256': 'b' * 64}
+
+    def clone(_request, _root, _stage, *, label='r0'):
+        clone_labels.append(label)
+        receipt = tmp_path / (label + '-receipt.json')
+        receipt.write_bytes(runner.encoded({
+            'stage_report_sha256': _stage['report_sha256']}))
+        monitor = tmp_path / (label + '-monitor.json')
+        monitor.write_bytes(runner.encoded({'duration_seconds': 1.0}))
+        return {'label': label, 'receipt': str(receipt),
+                'receipt_sha256': runner.digest(receipt.read_bytes()),
+                'monitor': str(monitor),
+                'monitor_sha256': runner.digest(monitor.read_bytes()),
+                'wall_seconds': 1.0}
+
+    case_runner._clone_r0 = clone
+    clones = case_runner._positive_full_r0_clones(tmp_path, stage)
+
+    assert clone_labels == expected_labels
+    expired_step = ('positive_full:expired-status-clone', {
+        'stage_report_sha256': stage['report_sha256'],
+        'label': 'expired-status-r0'})
+    assert (expired_step in case_runner.journal.calls) is (variant == 0)
+    assert ('expired_status' in clones) == (variant == 0)
+
+
+def test_expired_status_r0_clone_reuse_binds_stage_label_and_receipt(tmp_path):
+    class Journal:
+        def __init__(self):
+            self.reuse = {}
+            self.results = {}
+
+        def run_step(self, name, *, inputs, job, reuse=None, category=None):
+            result = job()
+            self.reuse[name] = reuse
+            self.results[name] = result
+            return result
+
+    case_runner = object.__new__(runner.HeldoutCaseRunner)
+    case_runner.variant = 0
+    case_runner.journal = Journal()
+    case_runner._verify_record = runner.HeldoutCaseRunner._verify_record
+    stage_sha = 'b' * 64
+
+    def clone(_request, root, _stage, *, label='r0'):
+        receipt = tmp_path / (label + '-receipt.json')
+        receipt.write_bytes(runner.encoded({'stage_report_sha256': stage_sha}))
+        monitor = tmp_path / (label + '-monitor.json')
+        monitor.write_bytes(runner.encoded({'duration_seconds': 1.0}))
+        return {'label': label, 'receipt': str(receipt),
+                'receipt_sha256': runner.digest(receipt.read_bytes()),
+                'monitor': str(monitor),
+                'monitor_sha256': runner.digest(monitor.read_bytes()),
+                'wall_seconds': 1.0}
+
+    case_runner._clone_r0 = clone
+    case_runner._positive_full_r0_clones(tmp_path, {'report_sha256': stage_sha})
+
+    step = 'positive_full:expired-status-clone'
+    reuse = case_runner.journal.reuse[step]
+    saved = case_runner.journal.results[step]
+    assert reuse(saved)
+    assert not reuse({**saved, 'label': 'ambiguous-restart-r0'})
+    wrong_stage = tmp_path / 'wrong-stage-receipt.json'
+    wrong_stage.write_bytes(runner.encoded({'stage_report_sha256': 'c' * 64}))
+    assert not reuse({**saved, 'receipt': str(wrong_stage),
+                      'receipt_sha256': runner.digest(wrong_stage.read_bytes())})
+    assert not reuse({**saved, 'receipt_sha256': '0' * 64})
+    assert not reuse({**saved, 'monitor_sha256': '0' * 64})
 
 
 def test_application_artifact_names_are_stable_per_run_and_fresh_between_runs():

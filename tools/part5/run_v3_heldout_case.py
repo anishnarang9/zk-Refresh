@@ -1302,8 +1302,36 @@ class HeldoutCaseRunner:
                 and saved.get('label') == 'ambiguous-restart-r0'
                 and _json(saved['receipt']).get('stage_report_sha256')
                     == stage_report_sha256)
-        return {'r0': clone, 'disabled_config': disabled_clone,
-                'ambiguous_restart': ambiguous_clone}
+        clones = {'r0': clone, 'disabled_config': disabled_clone,
+                  'ambiguous_restart': ambiguous_clone}
+        if self.variant == 0:
+            label = 'expired-status-r0'
+
+            def verified_expired_status_clone(saved):
+                try:
+                    return (self._verify_record(
+                        saved, ('receipt', 'monitor'),
+                        ('receipt_sha256', 'monitor_sha256'))
+                        and saved.get('label') == label
+                        and _json(saved['receipt']).get('stage_report_sha256')
+                            == stage_report_sha256)
+                except (OSError, ValueError, KeyError, TypeError):
+                    return False
+
+            def create_expired_status_clone():
+                saved = self._clone_r0('positive_full', root, stage, label=label)
+                if not verified_expired_status_clone(saved):
+                    raise ValueError('expired-status R0 clone failed review')
+                return {'status': 'passed', **saved}
+
+            expired_status_clone = self.journal.run_step(
+                'positive_full:expired-status-clone',
+                inputs={'stage_report_sha256': stage_report_sha256,
+                        'label': label},
+                job=create_expired_status_clone,
+                reuse=verified_expired_status_clone)
+            clones['expired_status'] = expired_status_clone
+        return clones
 
     def _disabled_account_bundle(self, report, output_dir, group):
         rows = report.get(group + '_accounts')
