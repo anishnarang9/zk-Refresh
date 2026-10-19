@@ -2492,7 +2492,8 @@ def _verify_ambiguous_restart(ref, variant, globals_, slot, full_bundle,
             'r0_source_receipt_sha256', 'full_proof_receipt_sha256',
             'replay_proof_receipt_sha256', 'clone_receipt', 'full_wire',
             'replay_full_wire', 'config', 'status', 'outer', 'proxy_receipt',
-            'finality_receipt', 'pre_submit_report', 'pre_submit_accounts', 'final_accounts'}
+            'finality_receipt', 'pre_submit_report', 'pre_submit_accounts', 'final_accounts',
+            'pre_restart_finality_receipt', 'pre_stop_accounts'}
     stage, stage_bundle = slot['stage'], slot['stage_bundle']
     wires = full_bundle['result']['wires']
     _require(type(sidecar) is dict and set(sidecar) == keys
@@ -2577,6 +2578,8 @@ def _verify_ambiguous_restart(ref, variant, globals_, slot, full_bundle,
              and Path(sidecar['status']['path']) == control / 'status.json'
              and Path(sidecar['proxy_receipt']['path']) == control / 'proxy-receipt.json'
              and Path(sidecar['finality_receipt']['path']) == control / 'finality-receipt.json'
+             and Path(sidecar['pre_restart_finality_receipt']['path'])
+                 == control / 'pre-restart-finality-receipt.json'
              and Path(sidecar['pre_submit_report']['path']) == output / 'pre-submit-report.json',
              'ambiguous restart evidence paths must match supervisor outputs')
     _require(type(status) is dict and status.get('schema') == 1
@@ -2592,7 +2595,9 @@ def _verify_ambiguous_restart(ref, variant, globals_, slot, full_bundle,
                 'proxy_receipt_verified', 'expected_transport_failure', 'restart_identity_verified',
                 'signature_finalized_success', 'five_account_reconciliation_verified',
                 'prepositive_snapshot_saved_by_runner', 'cleanup_verified',
-                'request_consumed', 'application_effect'))
+                'request_consumed', 'application_effect',
+                'pre_restart_signature_finalized_success',
+                'pre_stop_accounts_reconciliation_verified', 'restart_accounts_persisted'))
              and type(status.get('runner_exit_code')) is int and status['runner_exit_code'] != 0
              and status.get('ledger_path_sha256') == _sha(config['ledger'].encode()),
              'ambiguous restart successful reviewed status required')
@@ -2670,9 +2675,26 @@ def _verify_ambiguous_restart(ref, variant, globals_, slot, full_bundle,
              and status.get('finality_receipt_path') == sidecar['finality_receipt']['path']
              and status.get('finality_receipt_sha256') == finality_sha,
              'ambiguous restart finality receipt must record successful matching finalized RPC observations')
+    pre_finality, pre_finality_sha = _json(sidecar['pre_restart_finality_receipt'], cap=4096)
+    _require(pre_finality == finality
+             and status.get('pre_restart_signature_finalized_slot') == signature_status['slot']
+             and status.get('pre_restart_finality_receipt_path')
+                 == sidecar['pre_restart_finality_receipt']['path']
+             and status.get('pre_restart_finality_receipt_sha256') == pre_finality_sha,
+             'ambiguous restart pre-stop finality receipt must match post-restart transaction')
+    chronology = [status.get(name) for name in (
+        'pre_restart_finality_elapsed_seconds', 'pre_stop_accounts_elapsed_seconds',
+        'first_validator_stop_elapsed_seconds', 'restart_identity_elapsed_seconds',
+        'post_restart_finality_elapsed_seconds', 'final_accounts_elapsed_seconds',
+        'elapsed_seconds')]
+    _require(all(type(value) in (int, float) and math.isfinite(value) and value >= 0
+                 for value in chronology)
+             and chronology == sorted(chronology)
+             and chronology[-1] <= outer['duration_seconds'],
+             'ambiguous restart must finalize and snapshot before stop, then reconcile after restart')
     report, report_sha = _json(sidecar['pre_submit_report'], cap=65536)
     snapshots = {}
-    for label, prefix in (('pre_submit', 'pre-submit'), ('final', 'final')):
+    for label, prefix in (('pre_submit', 'pre-submit'), ('pre_stop', 'pre-stop'), ('final', 'final')):
         refs = sidecar[label + '_accounts']
         _require(type(refs) is dict and set(refs) == set(ACCOUNT_NAMES),
                  'ambiguous restart requires exact five-account maps')
@@ -2684,6 +2706,12 @@ def _verify_ambiguous_restart(ref, variant, globals_, slot, full_bundle,
             _, _, snapshots[label][name] = _artifact(refs[name], cap=4096)
     pre_hashes = [_sha(snapshots['pre_submit'][name]) for name in ACCOUNT_NAMES]
     final_hashes = [_sha(snapshots['final'][name]) for name in ACCOUNT_NAMES]
+    pre_stop_hashes = [_sha(snapshots['pre_stop'][name]) for name in ACCOUNT_NAMES]
+    _require(snapshots['pre_stop'] == snapshots['final']
+             and status.get('pre_stop_account_sha256') == pre_stop_hashes
+             and status.get('pre_stop_account_paths')
+                 == [sidecar['pre_stop_accounts'][n]['path'] for n in ACCOUNT_NAMES],
+             'ambiguous restart must preserve all five finalized pre-stop account bytes')
     _require(type(report) is dict and report.get('schema') == 'part5-v3-ambiguous-pre-submit-v1'
              and report.get('training_only') is True and report.get('application_effect') is False
              and report.get('request_consumed') is False
@@ -2704,12 +2732,14 @@ def _verify_ambiguous_restart(ref, variant, globals_, slot, full_bundle,
              and status.get('final_account_paths') == [sidecar['final_accounts'][n]['path'] for n in ACCOUNT_NAMES],
              'ambiguous restart direct Rust pre-submit and saved final files must match reports')
     slots = [stage['report']['finalized_slot'], status.get('initial_finalized_slot'),
-             report.get('finalized_slot'), status.get('signature_finalized_slot'),
-             status.get('finalized_accounts_slot')]
+             report.get('finalized_slot'), status.get('pre_restart_signature_finalized_slot'),
+             status.get('pre_stop_accounts_slot'), status.get('finalized_accounts_slot')]
     _require(all(type(value) is int and value > 0 for value in slots)
              and slots == sorted(slots)
              and status.get('pre_submit_finalized_slot') == report['finalized_slot'],
              'ambiguous restart finalized slots must preserve pre-submit/transaction ordering')
+    _verify_ambiguous_account_transition(stage['accounts'], snapshots['pre_submit'],
+        snapshots['pre_stop'], _b58decode(stage['report']['request']))
     _verify_ambiguous_account_transition(stage['accounts'], snapshots['pre_submit'],
         snapshots['final'], _b58decode(stage['report']['request']))
     return {'sidecar_sha256': sidecar_sha, 'clone_receipt_sha256': clone['receipt_sha256'],
@@ -2718,6 +2748,8 @@ def _verify_ambiguous_restart(ref, variant, globals_, slot, full_bundle,
             'runner_stdout_sha256': runner_stdout_sha,
             'runner_stderr_sha256': runner_stderr_sha,
             'finality_receipt_sha256': finality_sha,
+            'pre_restart_finality_receipt_sha256': pre_finality_sha,
+            'pre_stop_account_sha256': pre_stop_hashes,
             'signature_finalization_evidence': 'pinned local RPC observation'}
 
 

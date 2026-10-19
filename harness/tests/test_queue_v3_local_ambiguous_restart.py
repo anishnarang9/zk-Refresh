@@ -104,6 +104,20 @@ class AmbiguousRestartTests(unittest.TestCase):
         self.assertEqual(result['status'], 'failed')
         self.assertFalse(result['heldout_acceptance'])
 
+    def test_final_status_requires_pre_stop_and_restart_persistence_gates(self):
+        required = ('proxy_receipt_verified', 'expected_transport_failure',
+            'restart_identity_verified', 'signature_finalized_success',
+            'five_account_reconciliation_verified', 'prepositive_snapshot_saved_by_runner',
+            'cleanup_verified', 'pre_restart_signature_finalized_success',
+            'pre_stop_accounts_reconciliation_verified', 'restart_accounts_persisted')
+        evidence = dict.fromkeys(required, True)
+        self.assertTrue(m.final_status(evidence)['heldout_acceptance'])
+        for name in required[-3:]:
+            with self.subTest(missing=name):
+                changed = dict(evidence)
+                del changed[name]
+                self.assertFalse(m.final_status(changed)['heldout_acceptance'])
+
     def test_validator_stop_accepts_only_reviewed_exit_modes(self):
         clean = {'spawned': True, 'reaped': True,
                  'graceful': True, 'exit_code': 0}
@@ -118,9 +132,60 @@ class AmbiguousRestartTests(unittest.TestCase):
             with self.subTest(changed=changed), self.assertRaises(ValueError):
                 m.reviewed_validator_stop(changed)
 
+    def test_pre_stop_capture_requires_finality_then_exact_effect_and_persists(self):
+        before, after, context = self._account_fixture()
+        pre = after[:3] + before[3:]
+        signature = m.proxy.encode_base58(bytes(range(64)))
+        finality = {'schema': 'part5-v3-ambiguous-finality-receipt-v1',
+                    'signature': signature,
+                    'signature_status': {'slot': 21, 'confirmationStatus': 'finalized', 'err': None},
+                    'transaction': {'slot': 21, 'meta': {'err': None}, 'signatures': [signature]}}
+        events = []
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            control, output = root / 'control', root / 'output'
+            control.mkdir(mode=0o700)
+            output.mkdir(mode=0o700)
+            with patch.object(m, '_wait_finalized_signature', side_effect=lambda *args:
+                              events.append('finality') or finality), \
+                    patch.object(m, '_finalized_accounts', side_effect=lambda *args:
+                                 events.append('accounts') or (22, after)):
+                receipt, accounts, status = m._capture_pre_stop_evidence(
+                    None, signature, {}, 'program', [len(raw) for raw in before],
+                    before, pre, context, 20, control, output, 0, m.time.monotonic() + 1)
+            self.assertEqual(events, ['finality', 'accounts'])
+            self.assertEqual(receipt, finality)
+            self.assertEqual(accounts, after)
+            self.assertTrue(status['pre_stop_accounts_reconciliation_verified'])
+            self.assertEqual(json.loads((control / 'pre-restart-finality-receipt.json').read_bytes()), finality)
+            self.assertEqual(status['pre_restart_signature_finalized_slot'], 21)
+            self.assertEqual(status['pre_stop_accounts_slot'], 22)
+            for name, raw in zip(m.ACCOUNT_NAMES, after):
+                saved = output / f'pre-stop-{name}.bin'
+                self.assertEqual(saved.read_bytes(), raw)
+                self.assertEqual(saved.stat().st_mode & 0o777, 0o600)
+
+    def test_pre_stop_capture_rejects_missing_finality_or_no_effect(self):
+        before, after, context = self._account_fixture()
+        with patch.object(m, '_wait_finalized_signature', side_effect=TimeoutError), \
+                patch.object(m, '_finalized_accounts') as accounts:
+            with self.assertRaises(TimeoutError):
+                m._capture_pre_stop_evidence(None, 'signature', {}, 'program', [],
+                    before, before, context, 1, Path('.'), Path('.'), 0, 1)
+            accounts.assert_not_called()
+        with patch.object(m, '_wait_finalized_signature', return_value={
+                'signature_status': {'slot': 21}}), \
+                patch.object(m, '_finalized_accounts', return_value=(22, before)), \
+                patch.object(m, '_persist_finality_receipt') as persist:
+            with self.assertRaises(ValueError):
+                m._capture_pre_stop_evidence(None, 'signature', {}, 'program', [],
+                    before, after[:3] + before[3:], context, 20, Path('.'), Path('.'), 0, 1)
+            persist.assert_not_called()
+
     def test_finality_reconciliation_uses_mock_rpc_and_exact_signature(self):
         signature = m.proxy.encode_base58(bytes(range(64)))
         replies = [
+            {'value': [None]},
             {'value': [{'confirmationStatus': 'confirmed', 'err': None, 'slot': 20}]},
             {'value': [{'confirmationStatus': 'finalized', 'err': None, 'slot': 21}]},
             {'slot': 21, 'meta': {'err': None}, 'transaction': {'signatures': [signature]}},
@@ -143,7 +208,7 @@ class AmbiguousRestartTests(unittest.TestCase):
                             'signatures': [signature]},
         })
         self.assertEqual([name for name, _ in calls], [
-            'getSignatureStatuses', 'getSignatureStatuses', 'getTransaction'])
+            'getSignatureStatuses', 'getSignatureStatuses', 'getSignatureStatuses', 'getTransaction'])
 
         with tempfile.TemporaryDirectory() as directory:
             path, receipt_sha = m._persist_finality_receipt(Path(directory), receipt)

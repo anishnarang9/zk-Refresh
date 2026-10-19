@@ -209,7 +209,8 @@ def final_status(evidence: dict) -> dict:
         'proxy_receipt_verified', 'expected_transport_failure',
         'restart_identity_verified', 'signature_finalized_success',
         'five_account_reconciliation_verified', 'prepositive_snapshot_saved_by_runner',
-        'cleanup_verified')
+        'pre_restart_signature_finalized_success', 'pre_stop_accounts_reconciliation_verified',
+        'restart_accounts_persisted', 'cleanup_verified')
     if any(evidence.get(name) is not True for name in required):
         return {'status': 'failed', 'heldout_acceptance': False}
     return {'status': 'passed', 'heldout_acceptance': True}
@@ -260,12 +261,12 @@ def _write_new_bytes(path: Path, raw: bytes) -> None:
         os.close(fd)
 
 
-def _verify_saved_final_account_bytes(output: Path, expected: list[bytes]) -> tuple[list[str], list[str]]:
+def _verify_saved_final_account_bytes(output: Path, expected: list[bytes], prefix='final') -> tuple[list[str], list[str]]:
     if len(expected) != 5 or any(not isinstance(raw, bytes) or not raw for raw in expected):
         raise ValueError('five nonempty finalized account byte arrays required')
     hashes, paths = [], []
     for name, raw in zip(ACCOUNT_NAMES, expected):
-        path = output / f'final-{name}.bin'
+        path = output / f'{prefix}-{name}.bin'
         info = path.lstat()
         if info.st_nlink != 1:
             raise ValueError('finalized account output must have one link')
@@ -277,17 +278,19 @@ def _verify_saved_final_account_bytes(output: Path, expected: list[bytes]) -> tu
     return hashes, paths
 
 
-def _persist_final_account_bytes(output: Path, accounts: list[bytes]) -> tuple[list[str], list[str]]:
+def _persist_final_account_bytes(output: Path, accounts: list[bytes], prefix='final') -> tuple[list[str], list[str]]:
+    if prefix not in ('final', 'pre-stop'):
+        raise ValueError('fixed account snapshot role required')
     if len(accounts) != 5 or any(not isinstance(raw, bytes) or not raw for raw in accounts):
         raise ValueError('five nonempty finalized account byte arrays required')
     for name, raw in zip(ACCOUNT_NAMES, accounts):
-        _write_new_bytes(output / f'final-{name}.bin', raw)
+        _write_new_bytes(output / f'{prefix}-{name}.bin', raw)
     directory_fd = os.open(output, os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0))
     try:
         os.fsync(directory_fd)
     finally:
         os.close(directory_fd)
-    return _verify_saved_final_account_bytes(output, accounts)
+    return _verify_saved_final_account_bytes(output, accounts, prefix)
 
 
 def _wait_loaded(rpc, proc, original, elf, deadline):
@@ -395,7 +398,7 @@ def _wait_finalized_signature(rpc, signature: str, deadline: float) -> dict:
         time.sleep(0.1)
 
 
-def _persist_finality_receipt(control: Path, receipt: dict) -> tuple[str, str]:
+def _persist_finality_receipt(control: Path, receipt: dict, filename='finality-receipt.json') -> tuple[str, str]:
     if (type(receipt) is not dict
             or set(receipt) != {'schema', 'signature', 'signature_status', 'transaction'}
             or receipt.get('schema') != 'part5-v3-ambiguous-finality-receipt-v1'):
@@ -425,7 +428,9 @@ def _persist_finality_receipt(control: Path, receipt: dict) -> tuple[str, str]:
         'transaction': {'slot': slot, 'meta': {'err': None},
                         'signatures': [signature]},
     }
-    path = control / 'finality-receipt.json'
+    if filename not in ('finality-receipt.json', 'pre-restart-finality-receipt.json'):
+        raise ValueError('fixed finality receipt role required')
+    path = control / filename
     raw = (json.dumps(expected, sort_keys=True, separators=(',', ':'),
                       allow_nan=False) + '\n').encode()
     _write_new_bytes(path, raw)
@@ -462,6 +467,37 @@ def _finalized_accounts(rpc, report, minimum_slot, program, sizes, deadline):
                 raise ValueError('finalized account size differs from the staged role')
             raw_accounts.append(raw)
         return slot, raw_accounts
+
+
+def _capture_pre_stop_evidence(rpc, signature, staged, program, sizes,
+                               before, pre_submit, context, pre_submit_slot,
+                               control, output, started, deadline):
+    # RPC admission is not execution. Keep this validator alive until the
+    # dropped-response transaction and its exact effect are both finalized.
+    finality = _wait_finalized_signature(rpc, signature, deadline)
+    finality_elapsed = time.monotonic() - started
+    signature_slot = finality['signature_status']['slot']
+    if pre_submit_slot > signature_slot:
+        raise ValueError('pre-submit snapshot is later than finalized transaction')
+    accounts_slot, accounts = _finalized_accounts(
+        rpc, staged, signature_slot, program, sizes, deadline)
+    hashes = reconcile_final_accounts(before, accounts, context, pre_submit)
+    receipt_path, receipt_sha = _persist_finality_receipt(
+        control, finality, 'pre-restart-finality-receipt.json')
+    saved_hashes, saved_paths = _persist_final_account_bytes(output, accounts, 'pre-stop')
+    if hashes != saved_hashes:
+        raise ValueError('saved pre-stop accounts differ from finalized effect')
+    return finality, accounts, {
+        'pre_restart_signature_finalized_success': True,
+        'pre_restart_signature_finalized_slot': signature_slot,
+        'pre_restart_finality_receipt_path': receipt_path,
+        'pre_restart_finality_receipt_sha256': receipt_sha,
+        'pre_restart_finality_elapsed_seconds': finality_elapsed,
+        'pre_stop_accounts_slot': accounts_slot,
+        'pre_stop_accounts_reconciliation_verified': True,
+        'pre_stop_account_sha256': saved_hashes, 'pre_stop_account_paths': saved_paths,
+        'pre_stop_accounts_elapsed_seconds': time.monotonic() - started,
+    }
 
 
 def _load_pre_submit_snapshot(output: Path, expected_sizes: list[int], minimum_slot: int,
@@ -702,12 +738,19 @@ def run(config: dict, config_sha256: str, config_path: str) -> int:
             'pre_submit_account_sha256': pre_submit_report['account_sha256'],
         })
 
+        pre_restart_finality, pre_stop_accounts, pre_stop_status = _capture_pre_stop_evidence(
+            rpc, receipt['signature'], staged, original['program'], sizes, before,
+            pre_submit, context_for_effect, pre_submit_report['finalized_slot'],
+            control, output, started, deadline)
+        status.update(pre_stop_status)
+
         proxy_cleanup = _stop_proxy(proxy_proc)
         proxy_proc = None
         first_stop = execute.base.cleanup(validator)
         validator = None
         status.update({'proxy_cleanup': proxy_cleanup, 'first_validator_cleanup': first_stop,
-                       'first_validator_stop_mode': reviewed_validator_stop(first_stop)})
+                       'first_validator_stop_mode': reviewed_validator_stop(first_stop),
+                       'first_validator_stop_elapsed_seconds': time.monotonic() - started})
         genesis_raw, genesis_sha = execute.stage.snapshot_generated(ledger / 'genesis.bin', 16 * 1024 * 1024)
         if not genesis_raw or genesis_sha != genesis_before_sha:
             raise ValueError('persistent heldout ledger genesis changed after stop')
@@ -723,9 +766,12 @@ def run(config: dict, config_sha256: str, config_path: str) -> int:
         execute.same_loaded(loaded, reloaded)
         if reloaded.get('genesis') != config['expected_genesis']:
             raise ValueError('same-ledger restart genesis mismatch')
-        status.update({'restart_identity_verified': True, 'loaded_program_after': reloaded})
+        status.update({'restart_identity_verified': True, 'loaded_program_after': reloaded,
+                       'restart_identity_elapsed_seconds': time.monotonic() - started})
 
         finality_receipt = _wait_finalized_signature(rpc, receipt['signature'], deadline)
+        if finality_receipt != pre_restart_finality:
+            raise ValueError('post-restart finalized transaction differs from pre-stop observation')
         finality_receipt_path, finality_receipt_sha256 = _persist_finality_receipt(
             control, finality_receipt)
         signature_slot = finality_receipt['signature_status']['slot']
@@ -735,15 +781,21 @@ def run(config: dict, config_sha256: str, config_path: str) -> int:
                        'signature_sha256': _sha(receipt['signature'].encode()),
                        'signature_finalized_slot': signature_slot,
                        'finality_receipt_path': finality_receipt_path,
-                       'finality_receipt_sha256': finality_receipt_sha256})
+                       'finality_receipt_sha256': finality_receipt_sha256,
+                       'post_restart_finality_elapsed_seconds': time.monotonic() - started})
         minimum_slot, after = _finalized_accounts(
-            rpc, staged, signature_slot, original['program'], sizes, deadline)
+            rpc, staged, max(signature_slot, status['pre_stop_accounts_slot']),
+            original['program'], sizes, deadline)
+        if after != pre_stop_accounts:
+            raise ValueError('same-ledger restart changed finalized pre-stop account bytes')
         account_hashes = reconcile_final_accounts(
             before, after, context_for_effect, pre_submit)
         saved_hashes, saved_paths = _persist_final_account_bytes(output, after)
         if saved_hashes != account_hashes:
             raise ValueError('saved finalized account hashes differ from reconciled hashes')
         status.update({'five_account_reconciliation_verified': True,
+                       'restart_accounts_persisted': True,
+                       'final_accounts_elapsed_seconds': time.monotonic() - started,
                        'finalized_accounts_slot': minimum_slot,
                        'final_account_sha256': saved_hashes,
                        'final_account_paths': saved_paths,
@@ -796,7 +848,9 @@ def run(config: dict, config_sha256: str, config_path: str) -> int:
                 'proxy_receipt_verified', 'expected_transport_failure',
                 'restart_identity_verified', 'signature_finalized_success',
                 'five_account_reconciliation_verified',
-                'prepositive_snapshot_saved_by_runner')
+                'prepositive_snapshot_saved_by_runner',
+                'pre_restart_signature_finalized_success',
+                'pre_stop_accounts_reconciliation_verified', 'restart_accounts_persisted')
                 } | {'cleanup_verified': status['cleanup_verified']}))
         for stream in streams:
             stream.close()

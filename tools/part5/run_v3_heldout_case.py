@@ -45,7 +45,8 @@ AMBIGUOUS_RESTART_SIDECAR_KEYS = {
     'r0_source_receipt_sha256', 'full_proof_receipt_sha256',
     'replay_proof_receipt_sha256', 'clone_receipt', 'full_wire',
     'replay_full_wire', 'config', 'status', 'outer', 'proxy_receipt',
-    'finality_receipt', 'pre_submit_report', 'pre_submit_accounts', 'final_accounts'}
+    'finality_receipt', 'pre_submit_report', 'pre_submit_accounts', 'final_accounts',
+    'pre_restart_finality_receipt', 'pre_stop_accounts'}
 AMBIGUOUS_ACCOUNT_NAMES = ('config', 'issuer', 'head', 'request', 'queue')
 AMBIGUOUS_RESTART_SUPERVISOR = 'harness/tests/queue_v3_local_ambiguous_restart.py'
 AMBIGUOUS_RESTART_PROXY = 'harness/tests/queue_v3_ambiguous_rpc_proxy.py'
@@ -1529,6 +1530,9 @@ class HeldoutCaseRunner:
         status_path = Path(control) / 'status.json'
         proxy_receipt_path = Path(control) / 'proxy-receipt.json'
         finality_receipt_path = Path(control) / 'finality-receipt.json'
+        pre_finality_path = Path(control) / 'pre-restart-finality-receipt.json'
+        pre_stop_paths = {name: Path(output) / f'pre-stop-{name}.bin'
+                          for name in AMBIGUOUS_ACCOUNT_NAMES}
         pre_submit_report_path = Path(output) / 'pre-submit-report.json'
         pre_submit_paths = {name: Path(output) / f'pre-submit-{name}.bin'
                             for name in AMBIGUOUS_ACCOUNT_NAMES}
@@ -1592,9 +1596,9 @@ class HeldoutCaseRunner:
             'proxy_port': config['proxy_port'],
         }
         artifacts = (config_path, outer_path, monitor_dir, Path(output), Path(control),
-                     status_path, proxy_receipt_path, finality_receipt_path,
+                     status_path, proxy_receipt_path, finality_receipt_path, pre_finality_path,
                      pre_submit_report_path,
-                     *pre_submit_paths.values(), *final_paths.values())
+                     *pre_submit_paths.values(), *pre_stop_paths.values(), *final_paths.values())
         present = [path.exists() or path.is_symlink() for path in artifacts]
         if any(present) and not all(present):
             raise ValueError('partial ambiguous-restart output requires manual review')
@@ -1631,6 +1635,9 @@ class HeldoutCaseRunner:
             'outer': self._artifact(outer_path),
             'proxy_receipt': self._artifact(proxy_receipt_path),
             'finality_receipt': self._artifact(finality_receipt_path),
+            'pre_restart_finality_receipt': self._artifact(pre_finality_path),
+            'pre_stop_accounts': {name: self._artifact(path)
+                                  for name, path in pre_stop_paths.items()},
             'pre_submit_report': self._artifact(pre_submit_report_path),
             'pre_submit_accounts': {name: self._artifact(path)
                                    for name, path in pre_submit_paths.items()},
@@ -1682,6 +1689,7 @@ class HeldoutCaseRunner:
                     return False
             refs = ('clone_receipt', 'full_wire', 'replay_full_wire', 'config',
                     'status', 'outer', 'proxy_receipt', 'finality_receipt',
+                    'pre_restart_finality_receipt',
                     'pre_submit_report')
             loaded = {}
             for field in refs:
@@ -1692,7 +1700,8 @@ class HeldoutCaseRunner:
                 raw = _read(ref['path'], ref['sha256'], 32 * 1024 * 1024)
                 loaded[field] = json.loads(raw) if field in {
                     'clone_receipt', 'config', 'status', 'outer',
-                    'proxy_receipt', 'finality_receipt', 'pre_submit_report'} else None
+                    'proxy_receipt', 'finality_receipt', 'pre_restart_finality_receipt',
+                    'pre_submit_report'} else None
             config = loaded['config']
             status = loaded['status']
             outer = loaded['outer']
@@ -1753,6 +1762,9 @@ class HeldoutCaseRunner:
                     or status.get('proxy_status') != 'response_dropped'
                     or status.get('matching_submissions') != 1
                     or status.get('retry_count') != 0
+                    or status.get('pre_restart_signature_finalized_success') is not True
+                    or status.get('pre_stop_accounts_reconciliation_verified') is not True
+                    or status.get('restart_accounts_persisted') is not True
                     or status.get('restart_identity_verified') is not True
                     or not _hash(status.get('ledger_genesis_sha256_after_stop'))
                     or status.get('signature_finalized_success') is not True
@@ -1792,15 +1804,20 @@ class HeldoutCaseRunner:
             if (type(sidecar.get('pre_submit_accounts')) is not dict
                     or set(sidecar['pre_submit_accounts']) != set(AMBIGUOUS_ACCOUNT_NAMES)
                     or type(sidecar.get('final_accounts')) is not dict
-                    or set(sidecar['final_accounts']) != set(AMBIGUOUS_ACCOUNT_NAMES)):
+                    or set(sidecar['final_accounts']) != set(AMBIGUOUS_ACCOUNT_NAMES)
+                    or type(sidecar.get('pre_stop_accounts')) is not dict
+                    or set(sidecar['pre_stop_accounts']) != set(AMBIGUOUS_ACCOUNT_NAMES)):
                 return False
             pre_hashes = []
             final_hashes = []
+            pre_stop_hashes = []
+            pre_stop_paths = []
             pre_paths = []
             final_paths = []
             for name in AMBIGUOUS_ACCOUNT_NAMES:
                 for group, prefix, hash_list, paths in (
                         ('pre_submit_accounts', 'pre-submit-', pre_hashes, pre_paths),
+                        ('pre_stop_accounts', 'pre-stop-', pre_stop_hashes, pre_stop_paths),
                         ('final_accounts', 'final-', final_hashes, final_paths)):
                     ref = sidecar[group][name]
                     if (type(ref) is not dict or set(ref) != {'path', 'sha256'}
@@ -1811,6 +1828,10 @@ class HeldoutCaseRunner:
                     _read(ref['path'], ref['sha256'], 4096)
                     hash_list.append(ref['sha256'])
                     paths.append(ref['path'])
+            if (pre_stop_hashes != final_hashes
+                    or status.get('pre_stop_account_sha256') != pre_stop_hashes
+                    or status.get('pre_stop_account_paths') != pre_stop_paths):
+                return False
             pre_report_ref = sidecar['pre_submit_report']
             if (Path(pre_report_ref['path']) != Path(config['execute_output']) / 'pre-submit-report.json'
                     or pre_report.get('schema') != 'part5-v3-ambiguous-pre-submit-v1'
@@ -1830,6 +1851,8 @@ class HeldoutCaseRunner:
                         != Path(config['control_output']) / 'proxy-receipt.json'
                     or Path(sidecar['finality_receipt']['path'])
                         != Path(config['control_output']) / 'finality-receipt.json'
+                    or Path(sidecar['pre_restart_finality_receipt']['path'])
+                        != Path(config['control_output']) / 'pre-restart-finality-receipt.json'
                     or Path(config['proxy_script']) != REPO / AMBIGUOUS_RESTART_PROXY):
                 return False
             if (set(proxy_receipt) != {
@@ -1879,6 +1902,27 @@ class HeldoutCaseRunner:
                     or finality_transaction['meta'].get('err') is not None
                     or finality_transaction.get('signatures')
                         != [proxy_receipt['signature']]):
+                return False
+            if (loaded['pre_restart_finality_receipt'] != finality_receipt
+                    or status.get('pre_restart_finality_receipt_path')
+                        != sidecar['pre_restart_finality_receipt']['path']
+                    or status.get('pre_restart_finality_receipt_sha256')
+                        != sidecar['pre_restart_finality_receipt']['sha256']
+                    or status.get('pre_restart_signature_finalized_slot') != finality_slot
+                    or type(status.get('pre_stop_accounts_slot')) is not int
+                    or type(status.get('finalized_accounts_slot')) is not int
+                    or not finality_slot <= status['pre_stop_accounts_slot']
+                        <= status['finalized_accounts_slot']):
+                return False
+            chronology = [status.get(name) for name in (
+                'pre_restart_finality_elapsed_seconds', 'pre_stop_accounts_elapsed_seconds',
+                'first_validator_stop_elapsed_seconds', 'restart_identity_elapsed_seconds',
+                'post_restart_finality_elapsed_seconds', 'final_accounts_elapsed_seconds',
+                'elapsed_seconds')]
+            if (any(type(value) not in (int, float) or not math.isfinite(value) or value < 0
+                    for value in chronology)
+                    or chronology != sorted(chronology)
+                    or chronology[-1] > outer['duration_seconds']):
                 return False
             control = Path(config['control_output'])
             stdout = _read_ambiguous_runner_log(control / 'runner.stdout.log')

@@ -1268,6 +1268,7 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
                     'signature_status': {'slot': 4, 'confirmationStatus': 'finalized', 'err': None},
                     'transaction': {'slot': 4, 'meta': {'err': None}, 'signatures': [proxy['signature']]}}
         finality_ref = save(Path('control/finality-receipt.json'), finality)
+        pre_finality_ref = save(Path('control/pre-restart-finality-receipt.json'), finality)
         pre_hashes = [verifier._sha(pre[n]) for n in verifier.ACCOUNT_NAMES]
         pre_report = {'schema': 'part5-v3-ambiguous-pre-submit-v1', 'training_only': True,
                       'application_effect': False, 'request_consumed': False, 'finalized_slot': 3,
@@ -1278,6 +1279,7 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         pre_report_ref = save(Path('output/pre-submit-report.json'), pre_report)
         pre_refs = {n: save(Path(f'output/pre-submit-{n}.bin'), pre[n]) for n in verifier.ACCOUNT_NAMES}
         final_refs = {n: save(Path(f'output/final-{n}.bin'), final[n]) for n in verifier.ACCOUNT_NAMES}
+        pre_stop_refs = {n: save(Path(f'output/pre-stop-{n}.bin'), final[n]) for n in verifier.ACCOUNT_NAMES}
         status = {name: True for name in ('heldout_acceptance', 'proxy_receipt_verified',
             'expected_transport_failure', 'restart_identity_verified', 'signature_finalized_success',
             'five_account_reconciliation_verified', 'prepositive_snapshot_saved_by_runner',
@@ -1300,6 +1302,17 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
             finality_receipt_path=finality_ref['path'], finality_receipt_sha256=finality_ref['sha256'],
             initial_finalized_slot=2, pre_submit_finalized_slot=3, signature_finalized_slot=4,
             finalized_accounts_slot=5)
+        status.update(pre_restart_signature_finalized_success=True,
+            pre_stop_accounts_reconciliation_verified=True, restart_accounts_persisted=True,
+            pre_restart_signature_finalized_slot=4, pre_stop_accounts_slot=5,
+            pre_restart_finality_receipt_path=pre_finality_ref['path'],
+            pre_restart_finality_receipt_sha256=pre_finality_ref['sha256'],
+            pre_stop_account_sha256=[pre_stop_refs[n]['sha256'] for n in verifier.ACCOUNT_NAMES],
+            pre_stop_account_paths=[pre_stop_refs[n]['path'] for n in verifier.ACCOUNT_NAMES],
+            pre_restart_finality_elapsed_seconds=0.5, pre_stop_accounts_elapsed_seconds=0.6,
+            first_validator_stop_elapsed_seconds=0.7, restart_identity_elapsed_seconds=0.8,
+            post_restart_finality_elapsed_seconds=0.9, final_accounts_elapsed_seconds=1.0,
+            elapsed_seconds=1.1)
         for name in ('proxy_cleanup', 'first_validator_cleanup', 'final_validator_cleanup'):
             status[name] = {'spawned': True, 'reaped': True, 'graceful': True, 'exit_code': 0}
         genesis = save(Path('ledger/genesis.bin'), b'pinned genesis')
@@ -1315,7 +1328,8 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
             'clone_receipt': clone, 'full_wire': full_wire, 'replay_full_wire': replay_wire,
             'config': config_ref, 'status': status_ref, 'outer': save(Path('outer.json'), outer),
             'proxy_receipt': proxy_ref, 'finality_receipt': finality_ref, 'pre_submit_report': pre_report_ref,
-            'pre_submit_accounts': pre_refs, 'final_accounts': final_refs}
+            'pre_submit_accounts': pre_refs, 'final_accounts': final_refs,
+            'pre_restart_finality_receipt': pre_finality_ref, 'pre_stop_accounts': pre_stop_refs}
         slot = {'stage': {'report': report, 'report_sha256': '4'*64, 'plan_sha256': '5'*64,
                          'monitor_owner': 'stage-owner', 'runtime_identity': identity,
                          'accounts': stage_accounts, 'config': {'context': context_ref['path']}},
@@ -1338,6 +1352,46 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
             result = verify(sidecar)
             self.assertEqual(result['effect_count'], 1)
             self.assertEqual(result['signature_finalization_evidence'], 'pinned local RPC observation')
+            for missing in ('pre_restart_finality_receipt', 'pre_stop_accounts'):
+                changed = dict(sidecar)
+                del changed[missing]
+                with self.subTest(missing=missing), self.assertRaises(ValueError):
+                    verify(changed)
+            for field, value in (
+                    ('pre_restart_signature_finalized_slot', 3),
+                    ('pre_stop_accounts_slot', 6),
+                    ('first_validator_stop_elapsed_seconds', 0.4),
+                    ('restart_identity_elapsed_seconds', float('nan')),
+                    ('pre_stop_account_sha256', ['f'*64]*5),
+                    ('pre_restart_finality_receipt_sha256', 'f'*64)):
+                changed = dict(sidecar, status=save(Path('control/status.json'),
+                                                   dict(status, **{field: value})))
+                with self.subTest(pre_stop_field=field), self.assertRaises(ValueError):
+                    verify(changed)
+            sidecar['status'] = save(Path('control/status.json'), status)
+            altered_finality = json.loads(json.dumps(finality))
+            altered_finality['signature_status']['slot'] = 5
+            altered_finality['transaction']['slot'] = 5
+            altered_ref = save(Path('control/pre-restart-finality-receipt.json'), altered_finality)
+            changed = dict(sidecar, pre_restart_finality_receipt=altered_ref,
+                status=save(Path('control/status.json'), dict(status,
+                    pre_restart_finality_receipt_sha256=altered_ref['sha256'],
+                    pre_restart_signature_finalized_slot=5)))
+            with self.assertRaisesRegex(ValueError, 'pre-stop finality receipt'):
+                verify(changed)
+            sidecar['pre_restart_finality_receipt'] = save(
+                Path('control/pre-restart-finality-receipt.json'), finality)
+            sidecar['status'] = save(Path('control/status.json'), status)
+            altered_pre = save(Path('output/pre-stop-request.bin'), pre['request'])
+            changed = dict(sidecar, pre_stop_accounts={**pre_stop_refs, 'request': altered_pre})
+            changed_status = dict(status,
+                pre_stop_account_sha256=[changed['pre_stop_accounts'][n]['sha256']
+                                        for n in verifier.ACCOUNT_NAMES])
+            changed['status'] = save(Path('control/status.json'), changed_status)
+            with self.assertRaises(ValueError):
+                verify(changed)
+            pre_stop_refs['request'] = save(Path('output/pre-stop-request.bin'), final['request'])
+            sidecar['status'] = save(Path('control/status.json'), status)
             stdout_path = self.root / 'control/runner.stdout.log'
             stderr_path = self.root / 'control/runner.stderr.log'
             self.assertEqual(result['runner_stdout_sha256'], verifier._sha(

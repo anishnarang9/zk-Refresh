@@ -870,7 +870,7 @@ def test_disabled_config_negative_wall_cost_is_separate_from_matched_branches():
         })
 
 
-def test_ambiguous_restart_sidecar_pins_status_proxy_and_all_ten_account_files(tmp_path):
+def test_ambiguous_restart_sidecar_pins_pre_and_post_finality_and_fifteen_account_files(tmp_path):
     tmp_path = tmp_path.resolve()
 
     def save(path, value):
@@ -929,6 +929,9 @@ def test_ambiguous_restart_sidecar_pins_status_proxy_and_all_ten_account_files(t
         'transaction': {'slot': 4, 'meta': {'err': None}, 'signatures': [signature]},
     }
     finality_receipt = save(control / 'finality-receipt.json', finality_receipt_value)
+    pre_finality = save(control / 'pre-restart-finality-receipt.json', finality_receipt_value)
+    pre_stop_refs = {name: save(output / f'pre-stop-{name}.bin', f'final:{name}'.encode())
+                     for name in runner.AMBIGUOUS_ACCOUNT_NAMES}
     proxy_script = REPO / 'harness/tests/queue_v3_ambiguous_rpc_proxy.py'
     config_value = {
         'schema': 'part5-v3-local-ambiguous-restart-supervisor-v1',
@@ -954,6 +957,17 @@ def test_ambiguous_restart_sidecar_pins_status_proxy_and_all_ten_account_files(t
         'config_sha256': config['sha256'], 'proxy_receipt_sha256': proxy_receipt['sha256'],
         'finality_receipt_path': finality_receipt['path'],
         'finality_receipt_sha256': finality_receipt['sha256'],
+        'pre_restart_finality_receipt_path': pre_finality['path'],
+        'pre_restart_finality_receipt_sha256': pre_finality['sha256'],
+        'pre_restart_signature_finalized_slot': 4, 'pre_stop_accounts_slot': 5,
+        'pre_restart_signature_finalized_success': True,
+        'pre_stop_accounts_reconciliation_verified': True, 'restart_accounts_persisted': True,
+        'pre_stop_account_sha256': final_hashes,
+        'pre_stop_account_paths': [pre_stop_refs[n]['path'] for n in runner.AMBIGUOUS_ACCOUNT_NAMES],
+        'pre_restart_finality_elapsed_seconds': 0.5, 'pre_stop_accounts_elapsed_seconds': 0.6,
+        'first_validator_stop_elapsed_seconds': 0.7, 'restart_identity_elapsed_seconds': 0.8,
+        'post_restart_finality_elapsed_seconds': 0.9, 'final_accounts_elapsed_seconds': 1.0,
+        'elapsed_seconds': 1.1, 'finalized_accounts_slot': 5,
         'pre_submit_report_sha256': pre_report['sha256'],
         'stage_report_sha256': stage_report_sha, 'stage_plan_sha256': stage_plan_sha,
         'heldout_r0_clone_report_sha256': clone['sha256'],
@@ -1003,6 +1017,7 @@ def test_ambiguous_restart_sidecar_pins_status_proxy_and_all_ten_account_files(t
         'replay_full_wire': replay_wire, 'config': config, 'status': status,
         'outer': outer, 'proxy_receipt': proxy_receipt,
         'finality_receipt': finality_receipt,
+        'pre_restart_finality_receipt': pre_finality, 'pre_stop_accounts': pre_stop_refs,
         'pre_submit_report': pre_report, 'pre_submit_accounts': pre_refs,
         'final_accounts': final_refs,
     }
@@ -1034,6 +1049,41 @@ def test_ambiguous_restart_sidecar_pins_status_proxy_and_all_ten_account_files(t
         sidecar_path, sidecar_sha, inputs)
     save(control / 'runner.stdout.log', b'RPC sendTransaction transport failed')
     save(control / 'runner.stderr.log', b'')
+
+    pre_path = Path(pre_finality['path'])
+    pre_path.unlink()
+    assert not runner.HeldoutCaseRunner._ambiguous_restart_sidecar_verified(
+        sidecar_path, sidecar_sha, inputs)
+    save(pre_path, finality_receipt_value)
+    account_path = Path(pre_stop_refs['request']['path'])
+    account_path.write_bytes(b'pre:request')
+    assert not runner.HeldoutCaseRunner._ambiguous_restart_sidecar_verified(
+        sidecar_path, sidecar_sha, inputs)
+    save(account_path, b'final:request')
+
+    original_status = json.loads(Path(status['path']).read_text())
+    for change in ('pre_finality_slot', 'chronology', 'missing_pre_ref'):
+        changed = json.loads(json.dumps(sidecar))
+        changed_status = dict(original_status)
+        if change == 'pre_finality_slot':
+            altered = json.loads(json.dumps(finality_receipt_value))
+            altered['signature_status']['slot'] = 5
+            altered['transaction']['slot'] = 5
+            changed['pre_restart_finality_receipt'] = save(pre_path, altered)
+            changed_status['pre_restart_finality_receipt_sha256'] = changed['pre_restart_finality_receipt']['sha256']
+            changed_status['pre_restart_signature_finalized_slot'] = 5
+        elif change == 'chronology':
+            changed_status['first_validator_stop_elapsed_seconds'] = 0.4
+        else:
+            del changed['pre_restart_finality_receipt']
+        changed['status'] = save(Path(status['path']), changed_status)
+        raw = runner.encoded(changed)
+        sidecar_path.write_bytes(raw)
+        assert not runner.HeldoutCaseRunner._ambiguous_restart_sidecar_verified(
+            sidecar_path, hashlib.sha256(raw).hexdigest(), inputs)
+        save(pre_path, finality_receipt_value)
+    save(Path(status['path']), original_status)
+    sidecar_path.write_bytes(sidecar_raw)
 
     receipt_path = Path(finality_receipt['path'])
     receipt_path.write_bytes(runner.encoded({**finality_receipt_value,
