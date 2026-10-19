@@ -1,14 +1,64 @@
+import base64
+from contextlib import ExitStack
 import json
 import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from harness.tests import queue_v3_local_branch as branch
 from harness.tests.queue_v3_local_branch import matched_proof_report, signed_successor
+
+
+class BranchFinalityTests(unittest.TestCase):
+    def test_r1_preflight_uses_transition_slot_and_rejects_mismatched_bytes(self):
+        staged = {'finalized_slot': 45, **dict(zip(branch.execute.ACCOUNT_NAMES,
+                                                  ['account'] * 5))}
+        changed = {'finalized_slot': 81, 'account_sha256': [branch.base.sha(b'R1')] * 5}
+        original = {'validator': 'validator', 'program': 'program', 'elf_sha256': 'elf'}
+        config = dict.fromkeys(('runner', 'runner_sha256', 'transition_report_sha256',
+                                'full_wire_sha256', 'anchor_wire_sha256'), 'unused')
+        config['mode'] = 'anchor'
+        for context_slot in (81, 82):
+            with self.subTest(context_slot=context_slot), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                control = root / 'control'
+                minimum_slots = []
+
+                def rpc(method, params):
+                    self.assertEqual(method, 'getMultipleAccounts')
+                    minimum_slots.append(params[1]['minContextSlot'])
+                    return {'context': {'slot': context_slot}, 'value': [
+                        {'owner': 'program', 'executable': False,
+                         'data': [base64.b64encode(b'R0').decode(), 'base64']}
+                    ] * 5}
+
+                with ExitStack() as stack:
+                    stack.enter_context(patch.dict(os.environ, {'P5_V3_BRANCH_SUPERVISOR': 'reviewed-r1-clone'}))
+                    stack.enter_context(patch.object(branch, 'admit', return_value=(
+                        original, staged, {}, changed, {'loaded_program': {}}, {},
+                        b'elf', [2] * 5, root / 'ledger', root / 'output', control)))
+                    stack.enter_context(patch.object(branch.base, 'ports_free'))
+                    stack.enter_context(patch.object(branch.stage, 'resume_argv', return_value=['validator']))
+                    launched = stack.enter_context(patch.object(branch.subprocess, 'Popen'))
+                    stack.enter_context(patch.object(branch.base, 'LocalRpc', return_value=rpc))
+                    stack.enter_context(patch.object(branch.execute, 'wait_loaded_after_start', return_value={}))
+                    stack.enter_context(patch.object(branch.execute, 'same_loaded'))
+                    stack.enter_context(patch.object(branch.base, 'cleanup', return_value={}))
+                    stack.enter_context(patch.object(branch.signal, 'signal'))
+                    stack.enter_context(patch('builtins.print'))
+                    self.assertEqual(branch.run(config, 'config'), 1)
+                self.assertEqual(minimum_slots, [81])
+                self.assertEqual(launched.call_count, 1)
+                status = json.loads((control / 'status.json').read_text())
+                self.assertFalse(status['branch_verified'])
+                self.assertEqual(status['error_type'], 'ValueError')
+                self.assertIn('finalized exact account bytes mismatch', status['error_message'])
+                self.assertIn(f'context_slot={context_slot}', status['error_message'])
 
 
 class BranchTransactionOutcomeTests(unittest.TestCase):

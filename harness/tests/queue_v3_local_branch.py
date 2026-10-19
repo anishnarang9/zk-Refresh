@@ -254,7 +254,8 @@ def run(config, config_sha256):
         loaded = execute.wait_loaded_after_start(rpc, validator, original['program'], elf, original['elf_sha256'])
         execute.same_loaded(transition_status['loaded_program'], loaded)
         prior_slot, before = execute.wait_staged_finality(
-            rpc, staged, original['program'], changed['account_sha256'], sizes)
+            rpc, staged, original['program'], changed['account_sha256'], sizes,
+            minimum_slot=changed['finalized_slot'])
         env.update({'P5_V3_BRANCH_MODE': config['mode'],
                     'P5_V3_STAGE_ROOT': config['stage_root'],
                     'P5_V3_STAGE_REPORT_SHA256': config['stage_report_sha256'],
