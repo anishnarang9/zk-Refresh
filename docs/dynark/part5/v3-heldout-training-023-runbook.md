@@ -2,7 +2,7 @@
 
 Training-022 case 00 failed at the ambiguous-restart gate after passed Full proofs, loaded Full protected effect, and disabled-config negative. Its one-shot proxy returned no response to the caller after one accepted submission, but no finalized signature or five-account reconciliation was observed after validator restart. The preserved case and a separate cloned-ledger diagnostic are recorded in the [Training-022 runbook](v3-heldout-training-022-runbook.md). Training-023 must use a new source freeze, cohort, manifests, and case roots after review of the finality-before-shutdown repair; none of the Training-022 outputs can be reused as acceptance evidence. The registered 60-slot economics comparison remains Training-012.
 
-The commands below are a prospective serial execution plan. Stop at the first failed gate, preserve every failed root, and run only one proof, validator, build, or case job at a time under the stable heavy-job lock. The Step 0 source pins include the committed finality-before-shutdown repair.
+The commands below are a prospective serial execution plan. Run the numbered blocks in one Bash session so later blocks retain the paths and hashes set earlier. Stop at the first failed gate, preserve every failed root, and run only one proof, validator, build, or case job at a time under the stable heavy-job lock. The Step 0 source pins include the committed finality-before-shutdown repair.
 
 ## Shared prerequisites and prospective outputs
 
@@ -259,21 +259,40 @@ OBSERVATION="$PRIVATE_ROOT/v3-heldout-cohort-observation.json"
 COHORT_MONITOR_HOME="$PART5/v3-heldout-cohort-training-023-monitor"
 COHORT_OUTER_REPORT="$RESULTS/v3-heldout-cohort-training-023-bounded.json"
 COHORT_OWNER=part5-v3-heldout-cohort-training-023
+LOCKFILE="$PART5/.v3-heldout-heavy.lock"
 require_absent "$COHORT_MONITOR_HOME"
 require_absent "$COHORT_OUTER_REPORT"
 require_absent "$PRIVATE_ROOT"
 git check-ignore -q "$PRIVATE_ROOT"
+test ! -L "$LOCKFILE"
+if test ! -e "$LOCKFILE"; then
+  (umask 077; : > "$LOCKFILE")
+fi
+test -f "$LOCKFILE"
+/usr/bin/lockf -t 0 -k "$LOCKFILE" /bin/bash -c '
+set -euo pipefail
+umask 077
+PRIVATE_ROOT="$1"; COHORT_MONITOR_HOME="$2"; COHORT_OUTER_REPORT="$3"
+if test -e "$PRIVATE_ROOT" || test -L "$PRIVATE_ROOT" ||
+   test -e "$COHORT_MONITOR_HOME" || test -L "$COHORT_MONITOR_HOME" ||
+   test -e "$COHORT_OUTER_REPORT" || test -L "$COHORT_OUTER_REPORT"; then
+  printf "Cohort output appeared before lock acquisition.\n" >&2
+  exit 1
+fi
 mkdir -m 700 "$PRIVATE_ROOT"
-python3 -B "$SUPERVISOR" \
-  --owner "$COHORT_OWNER" --cwd "$ROOT" \
+exec python3 -B "$4" \
+  --owner "$5" --cwd "$6" \
   --private-output "$COHORT_MONITOR_HOME" --report "$COHORT_OUTER_REPORT" \
   --runtime-seconds 1020 --rss-bytes 4294967296 --storage-bytes 268435456 \
   --storage-path "$PRIVATE_ROOT" --poll-seconds 0.2 -- \
   python3 -B tools/part5/observe_v3_heldout_cohort.py \
-  --freeze "$FREEZE" --freeze-sha256 "$FREEZE_SHA" \
-  --prior-key-inventory "$INVENTORY" \
-  --prior-key-inventory-sha256 "$INVENTORY_SHA" \
-  --output "$COHORT_ROOT" --observation "$OBSERVATION"
+  --freeze "$7" --freeze-sha256 "$8" \
+  --prior-key-inventory "$9" \
+  --prior-key-inventory-sha256 "${10}" \
+  --output "${11}" --observation "${12}"
+' cohort-owner "$PRIVATE_ROOT" "$COHORT_MONITOR_HOME" "$COHORT_OUTER_REPORT" \
+  "$SUPERVISOR" "$COHORT_OWNER" "$ROOT" "$FREEZE" "$FREEZE_SHA" \
+  "$INVENTORY" "$INVENTORY_SHA" "$COHORT_ROOT" "$OBSERVATION"
 
 python3 -B - "$COHORT_OUTER_REPORT" "$COHORT_OWNER" <<'PY'
 import json, pathlib, sys
