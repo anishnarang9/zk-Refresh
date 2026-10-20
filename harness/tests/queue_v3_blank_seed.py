@@ -94,7 +94,7 @@ def reviewed_stop(cleanup):
             or (cleanup.get('exit_code') == -signal.SIGINT and cleanup.get('graceful') is False))
 
 
-def review_monitor(monitor, owner, status):
+def review_monitor(monitor, owner, status, limits):
     expected_exit = 0 if status.get('status') == 'passed' else 1
     duration = monitor.get('duration_seconds')
     if (monitor.get('schema') != 1 or monitor.get('measurement') != 'bounded_complete_session'
@@ -106,6 +106,16 @@ def review_monitor(monitor, owner, status):
             or type(monitor.get('sample_count')) is not int or monitor['sample_count'] < 1
             or type(duration) not in (int, float) or not math.isfinite(duration) or duration <= 0):
         raise ValueError('uncensored stopped blank seed owner monitor required')
+    reported = monitor.get('limits')
+    expected = {'runtime_seconds': limits['runtime_seconds'],
+                'owned_tree_rss_bytes': limits['rss_bytes'],
+                'storage_growth_bytes': limits['storage_growth_bytes']}
+    if (type(reported) is not dict or set(reported) != set(expected) | {'poll_seconds'}
+            or any(type(reported[name]) not in (int, float) or reported[name] != value
+                   for name, value in expected.items())
+            or type(reported.get('poll_seconds')) not in (int, float)
+            or not math.isfinite(reported['poll_seconds']) or reported['poll_seconds'] <= 0):
+        raise ValueError('monitor resource caps differ from pinned creation/prepare contract')
 
 
 def build_manifest(sources):
@@ -129,7 +139,7 @@ def build_manifest(sources):
     base.checked(config['validator'], config['validator_sha256'], 128 * 1024 * 1024)
     review_creation_invocation(sources, config)
     check_observation(status.get('seed_observation'), config)
-    review_monitor(monitor, sources['monitor_owner'], status)
+    review_monitor(monitor, sources['monitor_owner'], status, config['outer_limits_required'])
     ledger = _directory(status['ledger'])
     # Full restart state is required; a genesis.bin-only directory is not a seed.
     for name in ('validator-keypair.json', 'vote-account-keypair.json', 'stake-account-keypair.json'):
@@ -370,7 +380,7 @@ def review_prepare(prior, monitor, original, config):
             or loaded.get('elf_match') is not True or loaded.get('elf_sha256') != original['elf_sha256']
             or loaded.get('upgrade_authority') is not None):
         raise ValueError('measured blank seed deployment preparation required')
-    review_monitor(monitor, config['prior_monitor_owner'], prior)
+    review_monitor(monitor, config['prior_monitor_owner'], prior, original['outer_limits_required'])
     imported = prior.get('seed_import', {})
     expected = {'schema': 'part5-v3-blank-seed-import-v1', 'seed_manifest': original['blank_seed'],
                 'source': manifest['ledger'], 'destination': prior['ledger'],

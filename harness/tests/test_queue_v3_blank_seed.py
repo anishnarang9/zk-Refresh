@@ -61,7 +61,11 @@ class BlankSeedTests(unittest.TestCase):
         monitor = dict(schema=1, measurement='bounded_complete_session', owner='blank-seed-test',
                        passed=False, exit_code=1, censored=False, stop_reason=None,
                        cleanup_remaining_owned_processes=0, cleanup_status_unknown=False,
-                       duration_seconds=2., sample_count=2)
+                       duration_seconds=2., sample_count=2,
+                       limits={'runtime_seconds': base.LIMITS['runtime_seconds'],
+                               'owned_tree_rss_bytes': base.LIMITS['rss_bytes'],
+                               'storage_growth_bytes': base.LIMITS['storage_growth_bytes'],
+                               'poll_seconds': 0.2})
         monitor_ref = self.write(root / 'create-monitor.json', monitor)
         private = root / 'monitor'; private.mkdir(mode=0o700)
         invocation = dict(owner=monitor['owner'], cwd=str(base.REPO), started_at_utc='2026-10-20T00:00:00Z',
@@ -337,6 +341,20 @@ class BlankSeedTests(unittest.TestCase):
                 if mutation == 'coverage': invocation['storage_roots'] = [str(root / 'monitor')]
                 if mutation == 'source': self.write(Path(config['owner_source']['path']), b'drifted source')
                 sources['invocation'] = self.write(Path(sources['invocation']['path']), invocation)
+                with self.assertRaises(ValueError): m.build_manifest(sources)
+
+    def test_creation_monitor_resource_caps_match_creation_contract(self):
+        self.api()
+        for mutation in ('missing', 'runtime_seconds', 'owned_tree_rss_bytes',
+                         'storage_growth_bytes', 'poll_seconds', 'unknown'):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory).resolve(); root.chmod(0o700)
+                _, _, monitor, sources, _, _ = self.fixture(root)
+                if mutation == 'missing': monitor.pop('limits')
+                elif mutation == 'poll_seconds': monitor['limits']['poll_seconds'] = 0
+                elif mutation == 'unknown': monitor['limits']['unregistered_limit'] = 1
+                else: monitor['limits'][mutation] += 1
+                sources['monitor'] = self.write(Path(sources['monitor']['path']), monitor)
                 with self.assertRaises(ValueError): m.build_manifest(sources)
 
 
