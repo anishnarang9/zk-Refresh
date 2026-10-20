@@ -24,7 +24,14 @@ LIMITS = {'runtime_seconds': 180, 'rss_bytes': 4294967296,
           'storage_growth_bytes': 268435456}
 
 
+def blank_seed_module():
+    return base.blank_seed_module()
+
+
 def review_prior(prior, monitor, original, config):
+    if 'blank_seed' in original or prior.get('preparation_kind') == 'blank-seed-deploy-v1':
+        blank_seed_module().review_prepare(prior, monitor, original, config)
+        return
     if prior.get('scope') == 'part5-v3-prepared-import':
         if str(REPO) not in sys.path:
             sys.path.insert(0, str(REPO))

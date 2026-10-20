@@ -328,6 +328,13 @@ def write_new(path, value):
         json.dump(value, stream, indent=2); stream.write('\n'); stream.flush(); os.fsync(stream.fileno())
 
 
+def blank_seed_module():
+    if str(REPO) not in sys.path:
+        sys.path.insert(0, str(REPO))
+    from harness.tests import queue_v3_blank_seed
+    return queue_v3_blank_seed
+
+
 def admit(config):
     if (config.get('schema') != 1 or config.get('scope') != 'part5-v3-local-prepare'
             or config.get('outer_limits_required') != LIMITS):
@@ -360,7 +367,13 @@ def admit(config):
         raise ValueError('disjoint runtime and control required')
     if not runtime.name.startswith('application-v3-') or not control.name.startswith('application-v3-'):
         raise ValueError('versioned v3 output paths required')
-    argv = validator_argv(config['validator'], runtime / 'ledger', elf_path, config['program'], config['mint'])
+    seeded_fields = ('blank_seed', 'solana_cli', 'program_signer', 'deployment_payer')
+    if any(name in config for name in seeded_fields):
+        seed = blank_seed_module()
+        seed.admit_deployment(config)
+        argv = seed.resume_argv(config['validator'], runtime / 'ledger')
+    else:
+        argv = validator_argv(config['validator'], runtime / 'ledger', elf_path, config['program'], config['mint'])
     return plan, elf, runtime, control, argv
 
 
@@ -380,6 +393,12 @@ def run(config, config_sha256):
         for signum in (signal.SIGINT, signal.SIGTERM):
             handlers[signum] = signal.signal(signum, interrupted)
         ports_free(timeout_seconds=PORT_WAIT_SECONDS)
+        seeded = 'blank_seed' in config
+        if seeded:
+            seed = blank_seed_module()
+            status['preparation_kind'] = seed.KIND
+            status['seed_import'] = seed.clone(config['blank_seed'], runtime / 'ledger', config)
+            argv = seed.resume_argv(config['validator'], runtime / 'ledger')
         for name in ('validator.stdout.log', 'validator.stderr.log'):
             fd = os.open(control / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             logs.append(os.fdopen(fd, 'wb'))
@@ -393,7 +412,11 @@ def run(config, config_sha256):
         env.update(plan['environment_required'])
         proc = subprocess.Popen(argv, cwd=REPO, env=env, stdin=subprocess.DEVNULL,
                                 stdout=logs[0], stderr=logs[1], start_new_session=False)
-        identity = wait_loaded(LocalRpc(), proc, config['program'], elf, config['elf_sha256'])
+        if seeded:
+            identity, deployment = seed.deploy(config, control, proc, LocalRpc(), elf)
+            status['deployment'] = deployment
+        else:
+            identity = wait_loaded(LocalRpc(), proc, config['program'], elf, config['elf_sha256'])
         prep.check_manifest(REPO, plan['source_manifest'])
         checked(config['elf'], config['elf_sha256'], 4 * 1024 * 1024)
         ledger = runtime / 'ledger'
@@ -403,7 +426,8 @@ def run(config, config_sha256):
                 or ledger_stat.st_uid != os.getuid() or not stat.S_ISREG(genesis_stat.st_mode)
                 or genesis_stat.st_mode & 0o7777 != 0o600 or genesis_stat.st_uid != os.getuid()):
             raise ValueError('owner-only persistent ledger/genesis required')
-        status.update({'status': 'passed', 'loaded_program': identity, 'mint': config['mint'],
+        mint = deployment['predeployment_observation']['payer'] if seeded else config['mint']
+        status.update({'status': 'passed', 'loaded_program': identity, 'mint': mint,
             'build_plan_sha256': config['build_plan_sha256'], 'v3_vk': plan['source_manifest']['v3_vk'],
             'source_manifest_sha256': sha(json.dumps(plan['source_manifest'], sort_keys=True).encode()),
             'ledger': str(ledger), 'prepared_application_accounts': False})
