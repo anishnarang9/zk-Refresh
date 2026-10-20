@@ -44,7 +44,7 @@ from tools.part5.registry_v3_vectors import h as poseidon_parent, leaf as poseid
 from harness.tests.queue_v3_clone_ledger import inventory as ledger_inventory
 from harness.tests.queue_v3_clone_ledger import stale_admin_socket
 
-MANIFEST_SCHEMA = 'credential-v3-heldout-acceptance-manifest-v1'
+MANIFEST_SCHEMA = 'credential-v3-heldout-acceptance-manifest-v2'
 OUTPUT_SCHEMA = 'credential-v3-heldout-application-report-v1'
 SOURCE_SCHEMA = 'credential-v3-heldout-request-source-v1'
 PAIR_SCHEMA = 'v3-two-signed-training-credentials-v1'
@@ -2313,6 +2313,8 @@ def _verify_case_run_provenance(case_bundle, variant, globals_, freeze_sha,
              and negative_step.get('monitor_sha256') == outer_ref['sha256']
              and negative_step.get('monitor_owner') == outer.get('owner'),
              'disabled-config journal evidence must join the exact clone and sidecar')
+    if globals_.get('schema') == MANIFEST_SCHEMA:
+        _verify_expired_status_journal(case_bundle, steps)
     _verify_ambiguous_restart_journal(case_bundle, steps, variant,
         globals_['frozen_files']['loaded_elf']['sha256'])
     return canonical
@@ -2751,6 +2753,101 @@ def _verify_ambiguous_restart(ref, variant, globals_, slot, full_bundle,
             'pre_restart_finality_receipt_sha256': pre_finality_sha,
             'pre_stop_account_sha256': pre_stop_hashes,
             'signature_finalization_evidence': 'pinned local RPC observation'}
+
+
+def _verify_expired_status_journal(case_bundle, steps):
+    from tools.part5.analyze_v3_heldout_costs import _expired_status_cost
+    _expired_status_cost(case_bundle, {'steps': steps})
+    sidecar, sha, manifest, _ = _replay_expired_status_sidecar(case_bundle['expired_status_negative'])
+    clone, loaded, final = (steps['positive_full:' + name] for name in
+                           ('expired-status-clone', 'expired-status-negative', 'expired-status-finalize'))
+    _require(clone.get('receipt') == sidecar['clone_receipt']['path']
+             and clone.get('receipt_sha256') == sidecar['clone_receipt']['sha256']
+             and loaded.get('refs') == manifest['refs']
+             and final.get('sidecar') == case_bundle['expired_status_negative']['path']
+             and final.get('sidecar_sha256') == sha
+             and final.get('inputs') == {'finalizer_manifest': manifest},
+             'expiry journal must bind exact clone, loaded run and finalized sidecar')
+
+
+def _replay_expired_status_sidecar(ref):
+    """Reopen every bound input and reproduce the post-exit finalization."""
+    from tools.part5 import finalize_v3_expired_status_negative as finalizer
+    from tools.part5.run_v3_heldout_case import EXPIRED_STATUS_SIDECAR_KEYS
+    sidecar, sidecar_sha = _json(ref, cap=65536)
+    _require(type(sidecar) is dict and set(sidecar) == EXPIRED_STATUS_SIDECAR_KEYS
+             and sidecar['schema'] == 'credential-v3-heldout-expired-status-negative-v1',
+             'strict expired-status sidecar required')
+    inputs = finalizer.Inputs()
+    for role in ('clone_receipt', 'full_wire', 'config', 'status', 'outer',
+                 'monitor_invocation', 'candidate', 'finalizer_manifest', 'finalization', 'report'):
+        inputs.raw(sidecar[role])
+    manifest = inputs.doc(sidecar['finalizer_manifest'])
+    config = inputs.doc(sidecar['config'])
+    mapping = {'config': 'config', 'status': 'supervisor_status', 'outer': 'monitor',
+               'monitor_invocation': 'monitor_invocation', 'candidate': 'candidate'}
+    _require(all(sidecar[k] == manifest['refs'][v] for k, v in mapping.items()),
+             'expiry sidecar and finalizer inputs differ')
+    for field, config_field in (('variant', 'variant'),
+            ('stage_report_sha256', 'stage_report_sha256'),
+            ('stage_plan_sha256', 'stage_plan_sha256'),
+            ('r0_source_receipt_sha256', 'source_receipt_sha256'),
+            ('full_proof_receipt_sha256', 'full_proof_receipt_sha256')):
+        _require(sidecar[field] == config[config_field], 'expiry config identity differs')
+    for field in ('clone_receipt', 'full_wire'):
+        _require(sidecar[field] == finalizer.config_ref(config, field, field + '_sha256'),
+                 'expiry config artifact differs')
+    regenerated = finalizer.finalize(manifest)
+    _require(inputs.doc(sidecar['finalization']) == regenerated
+             and inputs.doc(sidecar['report']) == regenerated['evidence'],
+             'expired-status finalization must reproduce from reopened inputs')
+    inputs.recheck()
+    return sidecar, sidecar_sha, manifest, regenerated
+
+
+def _verify_expired_status_negative(ref, variant, globals_, slot, full_bundle,
+                                    clone_destinations):
+    sidecar, sha, manifest, finalized = _replay_expired_status_sidecar(ref)
+    stage = slot['stage']
+    wire = full_bundle['result']['wires']['full']
+    _require(type(sidecar['variant']) is int and sidecar['variant'] == variant
+             and sidecar['stage_report_sha256'] == stage['report_sha256']
+             and sidecar['stage_plan_sha256'] == stage['plan_sha256']
+             and sidecar['r0_source_receipt_sha256'] == slot['r0_sha256']
+             and sidecar['full_proof_receipt_sha256'] == _pin_sha(full_bundle['proof']['receipt'])
+             and sidecar['full_wire'] == wire,
+             'expiry must bind exact heldout A stage, source and Full wire')
+    _verify_wire(wire, slot['r0']['selected_root'], slot['r0']['action_hash'])
+    positive = manifest['positive_full']
+    _require(all(positive[k] == full_bundle['result'][k] for k in ('config', 'report', 'status', 'monitor', 'monitor_owner')),
+             'expiry identical-wire validity must use this case positive Full execution')
+    client = {row['path']: row['artifact']['sha256'] for row in globals_['frozen_bundles']['client']}
+    registry = {row['path']: row['artifact']['sha256'] for row in globals_['frozen_bundles']['registry']}
+    _require(all(client.get(path, registry.get(path)) == digest
+                 for path, digest in manifest['source_pins'].items()),
+             'expiry finalizer sources must belong to this cohort frozen bundles')
+    evidence = finalized['evidence']
+    _require(evidence['identities']['freeze'] == globals_['freeze_sha256']
+             and evidence['identities']['loaded_elf'] == globals_['freeze']['identities']['loaded_elf']
+             and evidence['transaction']['error'] == {'InstructionError': [1, {'Custom': 705}]}
+             and finalized['facts']['application_accounts_unchanged'] is True,
+             'expiry loaded identity and unchanged five-account rejection required')
+    clone, _ = _json(sidecar['clone_receipt'], cap=65536)
+    destination = Path(clone['destination'])
+    _require(destination not in clone_destinations, 'expiry requires an independent clone')
+    clone_destinations.add(destination)
+    return {'sidecar_sha256': sha, 'report_sha256': sidecar['report']['sha256'],
+            'finalization_sha256': sidecar['finalization']['sha256'], **finalized['facts']}
+
+
+def _verify_queue_capacity_negative(manifest):
+    _require(type(manifest.get('queue_capacity_negative')) is dict
+             and type(manifest.get('queue_capacity_negative_wall_seconds')) in (int, float)
+             and math.isfinite(manifest['queue_capacity_negative_wall_seconds'])
+             and manifest['queue_capacity_negative_wall_seconds'] >= 0,
+             'shared capacity evidence and separate finite wall time required')
+    _json(manifest['queue_capacity_negative'], cap=4 * 1024 * 1024)
+    raise ValueError('loaded queue capacity finalizer replay is not integrated; final acceptance unavailable')
 
 
 def _verify_disabled_config_negative(ref, variant, globals_, slot, full_bundle,
@@ -3556,8 +3653,10 @@ def verify_manifest(manifest_path):
     manifest_path = Path(manifest_path)
     _require(manifest_path.is_absolute(), 'absolute manifest path required')
     manifest, manifest_sha256 = _read_json_path(manifest_path, cap=MAX_JSON)
-    _require(type(manifest) is dict and manifest.get('schema') == MANIFEST_SCHEMA,
+    _require(type(manifest) is dict and manifest.get('schema') in (MANIFEST_SCHEMA, 'credential-v3-heldout-acceptance-manifest-v1'),
              'heldout acceptance manifest schema required')
+    final_acceptance = manifest['schema'] == MANIFEST_SCHEMA
+    capacity_negative = _verify_queue_capacity_negative(manifest) if final_acceptance else None
     cases_raw = manifest.get('cases')
     _require(type(cases_raw) is list and len(cases_raw) == 8,
              'exactly eight heldout cases required')
@@ -3794,6 +3893,9 @@ def verify_manifest(manifest_path):
         disabled_negative = _verify_disabled_config_negative(
             case_bundle.get('disabled_config_negative'), variant, globals_,
             slots['A'], branches['full'], clone_destinations)
+        expired_negative = _verify_expired_status_negative(
+            case_bundle.get('expired_status_negative'), variant, globals_,
+            slots['A'], branches['full'], clone_destinations) if final_acceptance else None
         ambiguous_restart = _verify_ambiguous_restart(
             case_bundle.get('ambiguous_restart'), variant, globals_,
             slots['A'], branches['full'], clone_destinations)
@@ -3815,6 +3917,8 @@ def verify_manifest(manifest_path):
                                  'R1': branch_results['anchor']['current_head_evidence'],
                                  'R2': branch_results['own_revocation']['current_head_evidence'],
                              },
+                             'expired_status_negative': expired_negative,
+                             'expired_status_negative_wall_seconds': case_bundle.get('expired_status_negative_wall_seconds'),
                              'ambiguous_restart': ambiguous_restart,
                              'ambiguous_restart_wall_seconds': case_bundle['ambiguous_restart_wall_seconds'],
                              'disabled_config_negative': disabled_negative,
@@ -3825,7 +3929,9 @@ def verify_manifest(manifest_path):
     return {
         'schema': OUTPUT_SCHEMA,
         'verified': True,
-        'heldout_acceptance': True,
+        'heldout_acceptance': final_acceptance,
+        'evidence_scope': 'final-acceptance' if final_acceptance else 'legacy-core-path-only',
+        'queue_capacity_negative': capacity_negative,
         'manifest_sha256': manifest_sha256,
         'internal_training_mode_reused': True,
         'source_drift_detected': False,
@@ -3841,6 +3947,8 @@ def verify_manifest(manifest_path):
         'counts': {'variants': 8, 'issuers': 4, 'layouts': 8,
                    'openssl_issuances': 4, 'application_branches': 32,
                    'distinct_requests': 24,
+                   'loaded_expired_status_negatives': 8 if final_acceptance else 0,
+                   'loaded_queue_capacity_negatives': 1 if final_acceptance else 0,
                    'loaded_disabled_config_negatives': 8,
                    'loaded_disabled_issuer_negatives': 8,
                    'loaded_ambiguous_restarts': 8},

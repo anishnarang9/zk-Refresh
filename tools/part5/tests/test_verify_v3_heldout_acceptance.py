@@ -1759,7 +1759,7 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
 
     def test_missing_case_evidence_fails_closed(self):
         manifest = {
-            'schema': verifier.MANIFEST_SCHEMA,
+            'schema': 'credential-v3-heldout-acceptance-manifest-v1',
             'freeze_receipt': {'path': str(self.root / 'missing-freeze.json'),
                                'sha256': 'a' * 64},
             'cohort_receipt': {'path': str(self.root / 'missing-cohort.json'),

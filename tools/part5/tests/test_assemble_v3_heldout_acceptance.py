@@ -80,7 +80,7 @@ class HeldoutAcceptanceAssemblerTests(unittest.TestCase):
             case_dir.mkdir(mode=0o700)
             path = case_dir / 'acceptance-case-fragment.json'
             path.write_text(json.dumps({
-                'schema': assembler.FRAGMENT_SCHEMA, 'variant': variant,
+                'schema': 'credential-v3-heldout-acceptance-case-fragment-v1', 'variant': variant,
                 **self.globals, **payload,
             }))
             path.chmod(0o600)
@@ -93,7 +93,8 @@ class HeldoutAcceptanceAssemblerTests(unittest.TestCase):
 
     def test_assembles_exactly_eight_cases_in_variant_order(self):
         manifest = self.assemble()
-        self.assertEqual(manifest['schema'], assembler.MANIFEST_SCHEMA)
+        self.assertEqual(manifest['schema'], 'credential-v3-heldout-acceptance-manifest-v1')
+        self.assertEqual(manifest['evidence_scope'], 'legacy-core-path-only')
         self.assertEqual([case['variant'] for case in manifest['cases']], list(range(8)))
         self.assertEqual(manifest['proof_inputs'], self.globals['proof_inputs'])
         self.assertEqual(manifest['cases'][0]['run_journal'], self.ref)

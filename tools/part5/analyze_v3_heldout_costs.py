@@ -192,6 +192,37 @@ def _check_order(case, variant):
         raise ValueError('recorded branch/proof order does not match registered parity')
 
 
+def _verify_expired_status_audit(case, journal, accepted):
+    from tools.part5 import verify_v3_heldout_acceptance as verifier
+    sidecar, sha, manifest, finalized = verifier._replay_expired_status_sidecar(case['expired_status_negative'])
+    names = ('positive_full:expired-status-clone', 'positive_full:expired-status-negative',
+             'positive_full:expired-status-finalize')
+    clone, run, final = (journal['steps'][name] for name in names)
+    if (sidecar['variant'] != case['variant']
+            or clone.get('receipt_sha256') != sidecar['clone_receipt']['sha256']
+            or run.get('refs') != manifest['refs']
+            or final.get('sidecar') != case['expired_status_negative']['path']
+            or final.get('sidecar_sha256') != sha
+            or final.get('inputs') != {'finalizer_manifest': manifest}
+            or accepted.get('expired_status_negative', {}).get('sidecar_sha256') != sha
+            or accepted.get('expired_status_negative_wall_seconds') != case['expired_status_negative_wall_seconds']):
+        raise ValueError('expiry journal, accepted sidecar and finalizer inputs differ')
+
+
+def _expired_status_cost(case, journal):
+    names = ('positive_full:expired-status-clone', 'positive_full:expired-status-negative',
+             'positive_full:expired-status-finalize')
+    steps = journal.get('steps', {})
+    if any(type(steps.get(name)) is not dict or steps[name].get('status') != 'passed'
+           or not _number(steps[name].get('wall_seconds')) for name in names):
+        raise ValueError('three completed expired-status journal steps required')
+    total = sum(steps[name]['wall_seconds'] for name in names)
+    if (not _number(case.get('expired_status_negative_wall_seconds'))
+            or not _close(case['expired_status_negative_wall_seconds'], total)):
+        raise ValueError('expired-status separate cost disagrees with journal')
+    return total
+
+
 def _check_summary(case, journal, durations):
     wall_map = case.get('all_step_wall_seconds')
     if (type(wall_map) is not dict or set(wall_map) != set(durations)
@@ -946,15 +977,25 @@ def _sampled_peak(samples):
 def analyze(manifest_ref, acceptance_ref):
     manifest, manifest_sha = _load_input_ref(manifest_ref, 'assembled manifest')
     acceptance, acceptance_sha = _load_input_ref(acceptance_ref, 'acceptance report')
-    if manifest.get('schema') != MANIFEST_SCHEMA:
+    final_acceptance = manifest.get('schema') == MANIFEST_SCHEMA
+    if manifest.get('schema') not in (MANIFEST_SCHEMA, 'credential-v3-heldout-acceptance-manifest-v1'):
         raise ValueError('assembled heldout acceptance manifest required')
     if (acceptance.get('schema') != ACCEPTANCE_SCHEMA
             or acceptance.get('verified') is not True
-            or acceptance.get('heldout_acceptance') is not True
+            or acceptance.get('heldout_acceptance') is not final_acceptance
+            or (not final_acceptance and acceptance.get('evidence_scope') != 'legacy-core-path-only')
             or acceptance.get('internal_training_mode_reused') is not True):
         raise ValueError('independent verified heldout acceptance receipt required')
     if acceptance.get('manifest_sha256') != manifest_sha:
         raise ValueError('acceptance report does not pin the exact assembled manifest')
+    if final_acceptance:
+        if (acceptance.get('counts', {}).get('loaded_expired_status_negatives') != 8
+                or acceptance.get('counts', {}).get('loaded_queue_capacity_negatives') != 1):
+            raise ValueError('eight expiry and one capacity loaded negatives required')
+        from tools.part5 import verify_v3_heldout_acceptance as verifier
+        capacity = verifier._verify_queue_capacity_negative(manifest)
+        if acceptance.get('queue_capacity_negative') != capacity:
+            raise ValueError('capacity acceptance differs from independently reopened evidence')
     _verify_analyzer_frozen_source(manifest)
     freeze_ref, cohort_ref = manifest.get('freeze_receipt'), manifest.get('cohort_receipt')
     if (type(freeze_ref) is not dict or type(cohort_ref) is not dict
@@ -993,6 +1034,9 @@ def analyze(manifest_ref, acceptance_ref):
         durations = _duration_map(journal, run_manifest_sha)
         _check_order(case, variant)
         _check_summary(case, journal, durations)
+        if final_acceptance:
+            _expired_status_cost(case, journal)
+            _verify_expired_status_audit(case, journal, report_case)
         _verify_disabled_config_audit(case, journal)
         _verify_case_identity(report_case, case)
         _verify_current_head_evidence(report_case)
@@ -1055,6 +1099,7 @@ def analyze(manifest_ref, acceptance_ref):
         anchor_samples.extend(monitor_samples[step] for step in anchor_b_steps[5:])
         output_rows.append({
             'variant': variant,
+            'expired_status_negative_wall_seconds': case.get('expired_status_negative_wall_seconds'),
             'disabled_config_negative_wall_seconds': case[
                 'disabled_config_negative_wall_seconds'],
             'disabled_config_negative_components_seconds': {
@@ -1099,6 +1144,8 @@ def analyze(manifest_ref, acceptance_ref):
                 'full_B_plus_pair_view_seconds', 'anchor_B_plus_pair_view_seconds',
                 'B_total_wall_savings_fraction',
                 'B_plus_pair_view_wall_savings_fraction')}
+    if final_acceptance:
+        summary['expired_status_negative_wall_seconds'] = _summary(output_rows, 'expired_status_negative_wall_seconds')
     summary['disabled_config_negative_wall_seconds'] = _summary(
         output_rows, 'disabled_config_negative_wall_seconds')
     summary['ambiguous_restart_wall_seconds'] = _summary(
@@ -1143,8 +1190,12 @@ def analyze(manifest_ref, acceptance_ref):
     storage_values = [row[1] for row in sampled]
     return {
         'schema': OUTPUT_SCHEMA,
+        'heldout_acceptance': final_acceptance,
+        'evidence_scope': 'final-acceptance' if final_acceptance else 'legacy-core-path-only',
         'assembled_manifest_sha256': manifest_sha,
         'acceptance_report_sha256': acceptance_sha,
+        'queue_capacity_negative_wall_seconds': manifest.get('queue_capacity_negative_wall_seconds'),
+        'negative_accounting': 'Expired status and shared capacity are separate audit overhead, excluded from matched B totals.',
         'basis': 'request-B preparation, stage, transition, source, proof, clone, and effect wall time',
         'shared_B_formula': 'B:prepare+B:stage+B:transition+B:source-R0+B:source-R1',
         'full_B_formula': 'shared_B+B:proof-full+B:unrelated_full:clone+B:unrelated_full:effect',

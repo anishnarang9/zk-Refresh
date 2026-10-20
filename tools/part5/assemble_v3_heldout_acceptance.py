@@ -19,8 +19,8 @@ if str(ROOT) not in sys.path:
 
 from tools.part5 import generate_v3_heldout_keys as keygen
 
-FRAGMENT_SCHEMA = 'credential-v3-heldout-acceptance-case-fragment-v1'
-MANIFEST_SCHEMA = 'credential-v3-heldout-acceptance-manifest-v1'
+FRAGMENT_SCHEMA = 'credential-v3-heldout-acceptance-case-fragment-v2'
+MANIFEST_SCHEMA = 'credential-v3-heldout-acceptance-manifest-v2'
 VARIANTS = set(range(8))
 FROZEN_ROLES = {'profile', 'r1cs', 'witness_executable', 'setup_manifest',
                 'ordinary_vk', 'proof_runner', 'signer_interface',
@@ -34,9 +34,9 @@ GLOBAL_FIELDS = ('freeze_receipt', 'cohort_receipt', 'cohort_observation', 'froz
                  'application_source_files', 'source_files', 'proof_inputs')
 CASE_FIELDS = ('variant', 'case_context', 'stage_context', 'pair_receipt',
                'membership', 'stage', 'transition', 'sources', 'branches',
-               'disabled_config_negative', 'ambiguous_restart',
+               'disabled_config_negative', 'expired_status_negative', 'ambiguous_restart',
                'run_manifest', 'run_journal', 'all_step_wall_seconds', 'shared_costs',
-               'disabled_config_negative_wall_seconds',
+               'disabled_config_negative_wall_seconds', 'expired_status_negative_wall_seconds',
                'ambiguous_restart_wall_seconds',
                'branch_wall_components', 'branch_wall_seconds',
                'shared_stage_transition_wall_seconds', 'branch_order',
@@ -124,6 +124,9 @@ def _validate_cost_fields(case):
         raise ValueError('finite separate disabled-config negative wall time required')
     if not _finite_cost(case['ambiguous_restart_wall_seconds']):
         raise ValueError('finite separate ambiguous-restart wall time required')
+    if ('expired_status_negative_wall_seconds' in case
+            and not _finite_cost(case['expired_status_negative_wall_seconds'])):
+        raise ValueError('finite separate expired-status negative wall time required')
     shared = case['shared_costs']
     if (type(shared) is not dict
             or set(shared) != {'shared_stage_seconds', 'shared_transition_seconds'}
@@ -191,16 +194,19 @@ def _verify_globals(globals_):
             _verify_ref(row['artifact'])
 
 
-def _case_from_fragment(fragment):
+def _case_from_fragment(fragment, legacy=False):
+    schema = 'credential-v3-heldout-acceptance-case-fragment-v1' if legacy else FRAGMENT_SCHEMA
+    fields = tuple(field for field in CASE_FIELDS if not legacy or field not in
+                   ('expired_status_negative', 'expired_status_negative_wall_seconds'))
     if (type(fragment) is not dict
-            or fragment.get('schema') != FRAGMENT_SCHEMA
+            or fragment.get('schema') != schema
             or type(fragment.get('variant')) is not int
             or fragment['variant'] not in VARIANTS):
         raise ValueError('pinned heldout case fragment required')
     case = fragment.get('case')
     if case is None:
-        case = {field: fragment[field] for field in CASE_FIELDS if field in fragment}
-    if type(case) is not dict or set(case) != set(CASE_FIELDS):
+        case = {field: fragment[field] for field in fields if field in fragment}
+    if type(case) is not dict or set(case) != set(fields):
         raise ValueError('complete normalized heldout case evidence required')
     if case.get('variant', fragment['variant']) != fragment['variant']:
         raise ValueError('fragment and case variants differ')
@@ -223,12 +229,14 @@ def _case_from_fragment(fragment):
         raise ValueError('pinned current-R2 witness rejection receipt required')
     _verify_ref(own_revocation['current_r2_witness_rejection'], cap=1024 * 1024)
     _verify_ref(case['disabled_config_negative'], cap=1024 * 1024)
+    if not legacy:
+        _verify_ref(case['expired_status_negative'], cap=1024 * 1024)
     _verify_ref(case['ambiguous_restart'], cap=1024 * 1024)
     _validate_cost_fields(case)
     return case
 
 
-def assemble(fragment_refs):
+def assemble(fragment_refs, queue_capacity_negative=None, queue_capacity_negative_wall_seconds=None):
     if type(fragment_refs) not in (list, tuple) or len(fragment_refs) != 8:
         raise ValueError('exactly eight acceptance case fragments required')
     if any(type(ref) not in (list, tuple) or len(ref) != 2 for ref in fragment_refs):
@@ -240,6 +248,11 @@ def assemble(fragment_refs):
         raise ValueError('eight distinct case fragment paths required')
     fragments = [_pinned_json(path, ref[1])
                  for path, ref in zip(normalized_paths, fragment_refs)]
+    legacy = all(f.get('schema') == 'credential-v3-heldout-acceptance-case-fragment-v1' for f in fragments)
+    if not legacy:
+        if queue_capacity_negative is None or not _finite_cost(queue_capacity_negative_wall_seconds):
+            raise ValueError('shared queue capacity evidence and finite separate wall time required')
+        _verify_ref(queue_capacity_negative, cap=4 * 1024 * 1024)
     first = fragments[0]
     globals_ = first.get('globals')
     if globals_ is None:
@@ -254,12 +267,15 @@ def assemble(fragment_refs):
             raise ValueError('case fragments disagree on byte-pinned common identities')
         if fragment['variant'] in seen:
             raise ValueError('duplicate heldout variant')
-        case = _case_from_fragment(fragment)
+        case = _case_from_fragment(fragment, legacy=legacy)
         seen.add(case['variant'])
         cases.append(case)
     if seen != VARIANTS:
         raise ValueError('fragments must cover variants 0 through 7')
-    return {'schema': MANIFEST_SCHEMA, **globals_,
+    return {'schema': 'credential-v3-heldout-acceptance-manifest-v1' if legacy else MANIFEST_SCHEMA,
+            'evidence_scope': 'legacy-core-path-only' if legacy else 'final-acceptance', **globals_,
+            'queue_capacity_negative': queue_capacity_negative,
+            'queue_capacity_negative_wall_seconds': queue_capacity_negative_wall_seconds,
             'cases': sorted(cases, key=lambda case: case['variant'])}
 
 
@@ -288,6 +304,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--fragment', action='append', required=True,
                         help='PATH:SHA256 for one acceptance-case-fragment.json; pass exactly eight')
+    parser.add_argument('--queue-capacity-negative', required=True, help='PATH:SHA256')
+    parser.add_argument('--queue-capacity-negative-wall-seconds', required=True, type=float)
     parser.add_argument('--output-dir', required=True, type=Path)
     args = parser.parse_args()
     if len(args.fragment) != 8:
@@ -300,7 +318,9 @@ def main():
                     or any(char not in '0123456789abcdef' for char in pin)):
                 raise ValueError('fragment input must be PATH:SHA256')
             fragment_refs.append((path, pin))
-        manifest = assemble(fragment_refs)
+        capacity_path, _, capacity_sha = args.queue_capacity_negative.rpartition(':')
+        manifest = assemble(fragment_refs, {'path': capacity_path, 'sha256': capacity_sha},
+                            args.queue_capacity_negative_wall_seconds)
         path, sha = write_manifest(manifest, args.output_dir)
     except Exception:
         raise SystemExit('heldout acceptance assembly rejected') from None

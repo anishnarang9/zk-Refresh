@@ -638,7 +638,7 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         analyzer_ref = {'path': str(analyzer_path),
                         'sha256': sha(analyzer_path.read_bytes())}
         manifest_ref = self.write_json('manifest.json', {
-            'schema': analyzer.MANIFEST_SCHEMA,
+            'schema': 'credential-v3-heldout-acceptance-manifest-v1',
             'freeze_receipt': {'path': '/freeze', 'sha256': 'a' * 64},
             'cohort_receipt': {'path': '/cohort', 'sha256': 'c' * 64},
             'frozen_bundles': {'client': [
@@ -655,7 +655,8 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
         manifest_ref['sha256'] = sha(path.read_bytes())
         acceptance_ref = self.write_json('acceptance.json', {
             'schema': analyzer.ACCEPTANCE_SCHEMA,
-            'verified': True, 'heldout_acceptance': True,
+            'verified': True, 'heldout_acceptance': False,
+            'evidence_scope': 'legacy-core-path-only',
             'internal_training_mode_reused': True,
             'manifest_sha256': manifest_ref['sha256'],
             'freeze_sha256': 'a' * 64,
