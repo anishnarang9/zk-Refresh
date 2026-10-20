@@ -105,14 +105,10 @@ def test_positive_full_r0_clones_complete_between_stage_and_transition(tmp_path)
     assert transition_result['report_sha256'] == 'c' * 64
 
 
-@pytest.mark.parametrize(
-    ('variant', 'expected_labels'),
-    [(0, ['r0', 'disabled-config-r0', 'ambiguous-restart-r0',
-          'expired-status-r0']),
-     (1, ['r0', 'disabled-config-r0', 'ambiguous-restart-r0'])],
-)
-def test_expired_status_r0_clone_is_created_only_for_variant00(
-        tmp_path, variant, expected_labels):
+@pytest.mark.parametrize('variant', range(8))
+def test_expired_status_r0_clone_is_created_for_every_variant(tmp_path, variant):
+    expected_labels = ['r0', 'disabled-config-r0', 'ambiguous-restart-r0',
+                       'expired-status-r0']
     class Journal:
         def __init__(self):
             self.calls = []
@@ -147,8 +143,8 @@ def test_expired_status_r0_clone_is_created_only_for_variant00(
     expired_step = ('positive_full:expired-status-clone', {
         'stage_report_sha256': stage['report_sha256'],
         'label': 'expired-status-r0'})
-    assert (expired_step in case_runner.journal.calls) is (variant == 0)
-    assert ('expired_status' in clones) == (variant == 0)
+    assert expired_step in case_runner.journal.calls
+    assert 'expired_status' in clones
 
 
 def test_expired_status_r0_clone_reuse_binds_stage_label_and_receipt(tmp_path):

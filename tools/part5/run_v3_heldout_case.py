@@ -39,6 +39,17 @@ DISABLED_CONFIG_SIDECAR_KEYS = {
     'full_wire', 'config', 'rust_config', 'status', 'outer', 'report',
     'eligible_accounts', 'before_accounts', 'after_accounts',
     'issuer_eligible_accounts', 'issuer_before_accounts', 'issuer_after_accounts'}
+EXPIRED_STATUS_SIDECAR_SCHEMA = 'credential-v3-heldout-expired-status-negative-v1'
+CASE_FRAGMENT_SCHEMA = 'credential-v3-heldout-acceptance-case-fragment-v2'
+EXPIRED_STATUS_SIDECAR_KEYS = {
+    'schema', 'variant', 'stage_report_sha256', 'stage_plan_sha256',
+    'r0_source_receipt_sha256', 'full_proof_receipt_sha256', 'clone_receipt',
+    'full_wire', 'config', 'status', 'outer', 'monitor_invocation', 'candidate',
+    'finalizer_manifest', 'finalization', 'report'}
+EXPIRED_STATUS_STEP_NAMES = (
+    'positive_full:expired-status-clone',
+    'positive_full:expired-status-negative',
+    'positive_full:expired-status-finalize')
 AMBIGUOUS_RESTART_SIDECAR_SCHEMA = 'credential-v3-heldout-ambiguous-restart-v1'
 AMBIGUOUS_RESTART_SIDECAR_KEYS = {
     'schema', 'variant', 'stage_report_sha256', 'stage_plan_sha256',
@@ -444,6 +455,20 @@ def disabled_config_negative_wall_seconds(steps):
                 or type(wall) not in (int, float) or not math.isfinite(wall)
                 or wall < 0):
             raise ValueError(f'completed disabled-config journal wall time required for {name}')
+        total += float(wall)
+    return total
+
+
+def expired_status_negative_wall_seconds(steps):
+    """Count the independent clone, loaded supervisor, and finalizer once each."""
+    total = 0.0
+    for name in EXPIRED_STATUS_STEP_NAMES:
+        row = steps.get(name)
+        wall = row.get('wall_seconds') if type(row) is dict else None
+        if (type(row) is not dict or row.get('status') != 'passed'
+                or type(wall) not in (int, float) or not math.isfinite(wall)
+                or wall < 0):
+            raise ValueError(f'completed expired-status journal wall time required for {name}')
         total += float(wall)
     return total
 
@@ -873,6 +898,11 @@ class HeldoutCaseRunner:
             self.output_root = _private_dir(output_root, ignored=True)
         else:
             self.output_root = _private_dir(output_root, fresh=True, ignored=True)
+        fragment_path = self.output_root / 'acceptance-case-fragment.json'
+        if fragment_path.exists():
+            existing_fragment = _json(fragment_path, cap=4 * 1024 * 1024)
+            if existing_fragment.get('schema') != CASE_FRAGMENT_SCHEMA:
+                raise ValueError('prior fragment schema requires a fresh case root')
         self.variant = manifest['variant']
         run_id_path = self.output_root / 'run-id.json'
         journal_path = self.output_root / 'run-journal.json'
@@ -907,6 +937,7 @@ class HeldoutCaseRunner:
             'r1_clone': REPO / 'harness/tests/queue_v3_clone_ledger.py',
             'disabled_config_negative': REPO / 'harness/tests/queue_v3_local_disabled_config_negative.py',
             'ambiguous_restart': REPO / AMBIGUOUS_RESTART_SUPERVISOR,
+            'expired_status_negative': REPO / 'harness/tests/queue_v3_local_expired_status_negative.py',
         }
 
     def _bounded_run(self, owner, command, output, report, *, runtime, storage_paths=(), env=None):
@@ -1304,34 +1335,250 @@ class HeldoutCaseRunner:
                     == stage_report_sha256)
         clones = {'r0': clone, 'disabled_config': disabled_clone,
                   'ambiguous_restart': ambiguous_clone}
-        if self.variant == 0:
-            label = 'expired-status-r0'
+        label = 'expired-status-r0'
 
-            def verified_expired_status_clone(saved):
-                try:
-                    return (self._verify_record(
-                        saved, ('receipt', 'monitor'),
-                        ('receipt_sha256', 'monitor_sha256'))
-                        and saved.get('label') == label
-                        and _json(saved['receipt']).get('stage_report_sha256')
-                            == stage_report_sha256)
-                except (OSError, ValueError, KeyError, TypeError):
-                    return False
+        def verified_expired_status_clone(saved):
+            try:
+                return (self._verify_record(
+                    saved, ('receipt', 'monitor'),
+                    ('receipt_sha256', 'monitor_sha256'))
+                    and saved.get('label') == label
+                    and _json(saved['receipt']).get('stage_report_sha256')
+                        == stage_report_sha256)
+            except (OSError, ValueError, KeyError, TypeError):
+                return False
 
-            def create_expired_status_clone():
-                saved = self._clone_r0('positive_full', root, stage, label=label)
-                if not verified_expired_status_clone(saved):
-                    raise ValueError('expired-status R0 clone failed review')
-                return {'status': 'passed', **saved}
+        def create_expired_status_clone():
+            saved = self._clone_r0('positive_full', root, stage, label=label)
+            if not verified_expired_status_clone(saved):
+                raise ValueError('expired-status R0 clone failed review')
+            return {'status': 'passed', **saved}
 
-            expired_status_clone = self.journal.run_step(
-                'positive_full:expired-status-clone',
-                inputs={'stage_report_sha256': stage_report_sha256,
-                        'label': label},
-                job=create_expired_status_clone,
-                reuse=verified_expired_status_clone)
-            clones['expired_status'] = expired_status_clone
+        expired_status_clone = self.journal.run_step(
+            'positive_full:expired-status-clone',
+            inputs={'stage_report_sha256': stage_report_sha256,
+                    'label': label},
+            job=create_expired_status_clone,
+            reuse=verified_expired_status_clone)
+        clones['expired_status'] = expired_status_clone
         return clones
+
+    def _expired_status_inputs(self, request, root, stage, source, proof, clone, positive):
+        from harness.tests import queue_v3_local_expired_status_negative as supervisor
+        from tools.part5 import finalize_v3_expired_status_negative as finalizer
+        from tools.part5.build_v3_expired_status_negative_inputs import _frozen_bundle_source_pins
+
+        if (request != 'positive_full' or clone.get('label') != 'expired-status-r0'
+                or clone['ledger'] == _json(positive['config'])['ledger']):
+            raise ValueError('independent expired-status A/R0 clone required')
+        negative_root = root / 'expired-status-negative'
+        if not negative_root.exists():
+            negative_root.mkdir(mode=0o700)
+        else:
+            _private_dir(negative_root)
+        frozen = _frozen_bundle_source_pins(self.manifest, self.freeze_doc, REPO)
+        source_pins = {}
+        for relative in finalizer.SOURCE_PATHS:
+            expected = frozen.get(relative)
+            if not _hash(expected):
+                raise ValueError('expired-status finalizer source absent from frozen bundles')
+            _read(REPO / relative, expected, 128 * 1024 * 1024)
+            source_pins[relative] = expected
+        proof_doc = _json(proof['receipt'], proof['receipt_sha256'], cap=2 * 1024 * 1024)
+        raw_proof = proof_doc['artifacts']['proof/request_bound_training_full_base.proof']
+        _read(raw_proof['path'], raw_proof['sha256'], 32 * 1024 * 1024)
+        wire = proof['wires']['r0_full_wire']
+        if (proof_doc.get('target_variant') != self.variant
+                or proof_doc.get('wires', {}).get('r0_full_wire') != wire):
+            raise ValueError('expired-status Full proof variant or wire differs')
+        stage_report = _json(stage['report'], stage['report_sha256'])
+        elf = self.manifest['frozen_files']['loaded_elf']
+        config = {
+            'schema': supervisor.CONFIG_SCHEMA, 'scope': supervisor.SCOPE,
+            'variant': self.variant, 'request_slot': 'A',
+            'freeze_report': self.manifest['freeze_receipt'],
+            'freeze_sha256': self.manifest['freeze_sha256'],
+            'stage_config': stage['config'], 'stage_config_sha256': stage['config_sha256'],
+            'stage_status': stage['status_path'], 'stage_status_sha256': stage['status_sha256'],
+            'stage_report': stage['report'], 'stage_report_sha256': stage['report_sha256'],
+            'stage_plan': stage['plan'], 'stage_plan_sha256': stage['plan_sha256'],
+            'source_receipt': source['receipt'], 'source_receipt_sha256': source['receipt_sha256'],
+            'clone_receipt': clone['receipt'], 'clone_receipt_sha256': clone['receipt_sha256'],
+            'full_proof_receipt': proof['receipt'], 'full_proof_receipt_sha256': proof['receipt_sha256'],
+            'full_proof': raw_proof['path'], 'full_proof_sha256': raw_proof['sha256'],
+            'full_wire': wire['path'], 'full_wire_sha256': wire['sha256'],
+            'runner': self.manifest['runner'], 'runner_sha256': self.manifest['runner_sha256'],
+            'expected_elf': elf['path'], 'expected_elf_sha256': elf['sha256'],
+            'expected_program': stage_report['program'], 'expected_genesis': stage_report['genesis'],
+            'expected_genesis_sha256': digest(_read(Path(clone['ledger']) / 'genesis.bin',
+                                                       cap=16 * 1024 * 1024)),
+            'ledger': clone['ledger'], 'stage_root': stage['root'],
+            'output_dir': self._art(request, 'expired-status-negative'),
+            'control_output': self._art(request, 'expired-status-negative-control'),
+            'owner': f'heldout-v{self.variant:02d}-expired-status-negative-{self.run_id}',
+            'observation_lifetime_seconds': 20, 'wait_deadline_seconds': 45,
+            'owner_process_limits': supervisor.PROCESS_LIMITS,
+            'outer_limits_required': supervisor.LIMITS}
+        supervisor._validate_config(config)
+        config_path = negative_root / 'supervisor-config.json'
+        config_ref = {'path': str(config_path),
+                      'sha256': self._write_config(config_path, config)}
+        positive_refs = {
+            'config': self._artifact(positive['config']),
+            'report': self._artifact(positive['report']),
+            'status': self._artifact(positive['status_path']),
+            'monitor': self._artifact(positive['monitor']),
+            'monitor_invocation': self._artifact(
+                Path(positive['monitor']).with_suffix('') / 'invocation.json'),
+            'monitor_owner': positive['monitor_owner']}
+        return {'config': config, 'config_ref': config_ref, 'source_pins': source_pins,
+                'positive_full': positive_refs, 'monitor': negative_root / 'outer.json',
+                'monitor_dir': negative_root / 'monitor'}
+
+    def _expired_status_negative(self, request, root, stage, source, proof, clone, positive):
+        from harness.tests import queue_v3_local_expired_status_negative as supervisor
+        from tools.part5 import finalize_v3_expired_status_negative as finalizer
+
+        setup_started = time.monotonic()
+        prepared = self._expired_status_inputs(request, root, stage, source, proof, clone, positive)
+        setup_wall = time.monotonic() - setup_started
+        config, config_ref = prepared['config'], prepared['config_ref']
+        monitor, monitor_dir = prepared['monitor'], prepared['monitor_dir']
+        paths = {'config': Path(config_ref['path']),
+                 'candidate': Path(config['output_dir']) / supervisor.REPORT_NAME,
+                 'supervisor_status': Path(config['control_output']) / 'status.json',
+                 'monitor': monitor, 'monitor_invocation': monitor_dir / 'invocation.json'}
+        inputs = {'config': config_ref, 'source_pins': prepared['source_pins'],
+                  'positive_full': prepared['positive_full']}
+
+        def verify_loaded(saved):
+            try:
+                refs = saved['refs']
+                if (type(refs) is not dict or set(refs) != set(paths)
+                        or any(refs[key]['path'] != str(path) for key, path in paths.items())
+                        or refs['config'] != config_ref):
+                    return False
+                checked = finalizer.Inputs()
+                for ref in refs.values():
+                    checked.raw(ref)
+                outer, invocation = finalizer.monitor_pair(
+                    checked, refs['monitor'], refs['monitor_invocation'])
+                finalizer.check_monitor(outer, invocation, config['owner'],
+                    finalizer.REPO / 'harness/tests/queue_v3_local_expired_status_negative.py',
+                    config_ref, [config[p] for p in ('ledger', 'output_dir', 'control_output')],
+                    finalizer.REPO, private_output=monitor_dir)
+                checked.recheck()
+                return True
+            except (OSError, ValueError, KeyError, TypeError):
+                return False
+
+        def loaded_job():
+            existing = [paths[key].exists() for key in paths if key != 'config']
+            if all(existing):
+                outer = _json(monitor)
+            elif (any(existing) or monitor_dir.exists()
+                    or Path(config['output_dir']).exists()
+                    or Path(config['control_output']).exists()):
+                raise ValueError('partial expired-status output requires manual review')
+            else:
+                outer = self.bounded_run(config['owner'],
+                    [sys.executable, str(self.toolpaths['expired_status_negative']),
+                     '--config', config_ref['path'], '--config-sha256', config_ref['sha256']],
+                    monitor_dir, monitor, runtime=supervisor.LIMITS['runtime_seconds'],
+                    storage_paths=tuple(Path(config[p]) for p in
+                                        ('ledger', 'output_dir', 'control_output')),
+                    env={'P5_V3_EXPIRED_STATUS_NEGATIVE_SCOPE': supervisor.SCOPE})
+            saved = {'status': 'passed', 'refs': {key: self._artifact(path)
+                                                  for key, path in paths.items()},
+                     'setup_wall_seconds': setup_wall,
+                     'supervisor_wall_seconds': outer['duration_seconds'],
+                     'wall_seconds': setup_wall + outer['duration_seconds']}
+            if not verify_loaded(saved):
+                raise ValueError('bounded expired-status loaded supervisor evidence required')
+            return saved
+
+        loaded = self.journal.run_step(EXPIRED_STATUS_STEP_NAMES[1], inputs=inputs,
+                                      job=loaded_job, reuse=verify_loaded)
+        finalizer_manifest = {'schema': finalizer.MANIFEST_SCHEMA, 'refs': loaded['refs'],
+                              'source_pins': prepared['source_pins'],
+                              'positive_full': prepared['positive_full']}
+        negative_root = Path(config_ref['path']).parent
+        return self.journal.run_step(EXPIRED_STATUS_STEP_NAMES[2],
+            inputs={'finalizer_manifest': finalizer_manifest},
+            job=lambda: self._finalize_expired_status(negative_root, finalizer_manifest),
+            reuse=lambda saved: self._expired_status_sidecar_verified(
+                saved['sidecar'], saved['sidecar_sha256'], finalizer_manifest))
+
+    def _finalize_expired_status(self, root, manifest):
+        from tools.part5 import finalize_v3_expired_status_negative as finalizer
+
+        # This read-only finalizer reopens bounded post-exit monitor evidence and
+        # the independent identical-wire loaded success before emitting a report.
+        finalized = finalizer.finalize(manifest)
+        config = _json(manifest['refs']['config']['path'], manifest['refs']['config']['sha256'])
+        manifest_path, final_path, report_path = (root / 'finalizer-manifest.json',
+            root / 'finalization.json', root / 'evidence-report.json')
+        for path, value in ((manifest_path, manifest), (final_path, finalized),
+                            (report_path, finalized['evidence'])):
+            self._write_config(path, value)
+        sidecar = {'schema': EXPIRED_STATUS_SIDECAR_SCHEMA, 'variant': config['variant'],
+            'stage_report_sha256': config['stage_report_sha256'],
+            'stage_plan_sha256': config['stage_plan_sha256'],
+            'r0_source_receipt_sha256': config['source_receipt_sha256'],
+            'full_proof_receipt_sha256': config['full_proof_receipt_sha256'],
+            'clone_receipt': {'path': config['clone_receipt'], 'sha256': config['clone_receipt_sha256']},
+            'full_wire': {'path': config['full_wire'], 'sha256': config['full_wire_sha256']},
+            'config': manifest['refs']['config'], 'status': manifest['refs']['supervisor_status'],
+            'outer': manifest['refs']['monitor'],
+            'monitor_invocation': manifest['refs']['monitor_invocation'],
+            'candidate': manifest['refs']['candidate'],
+            'finalizer_manifest': self._artifact(manifest_path),
+            'finalization': self._artifact(final_path), 'report': self._artifact(report_path)}
+        sidecar_path = root / 'sidecar.json'
+        sidecar_sha = self._write_config(sidecar_path, sidecar)
+        return {'status': 'passed', 'sidecar': str(sidecar_path), 'sidecar_sha256': sidecar_sha}
+
+    @staticmethod
+    def _expired_status_sidecar_verified(path, expected_sha256, expected_manifest=None):
+        from tools.part5 import finalize_v3_expired_status_negative as finalizer
+
+        try:
+            sidecar = _json(path, expected_sha256)
+            if (set(sidecar) != EXPIRED_STATUS_SIDECAR_KEYS
+                    or sidecar['schema'] != EXPIRED_STATUS_SIDECAR_SCHEMA
+                    or type(sidecar['variant']) is not int or not 0 <= sidecar['variant'] < 8):
+                return False
+            inputs = finalizer.Inputs()
+            for role in ('clone_receipt', 'full_wire', 'config', 'status', 'outer',
+                         'monitor_invocation', 'candidate', 'finalizer_manifest',
+                         'finalization', 'report'):
+                inputs.raw(sidecar[role])
+            manifest = inputs.doc(sidecar['finalizer_manifest'])
+            if expected_manifest is not None and manifest != expected_manifest:
+                return False
+            mapping = {'config': 'config', 'status': 'supervisor_status', 'outer': 'monitor',
+                       'monitor_invocation': 'monitor_invocation', 'candidate': 'candidate'}
+            if any(sidecar[key] != manifest['refs'][role] for key, role in mapping.items()):
+                return False
+            config = inputs.doc(sidecar['config'])
+            for field, config_field in (
+                    ('variant', 'variant'), ('stage_report_sha256', 'stage_report_sha256'),
+                    ('stage_plan_sha256', 'stage_plan_sha256'),
+                    ('r0_source_receipt_sha256', 'source_receipt_sha256'),
+                    ('full_proof_receipt_sha256', 'full_proof_receipt_sha256')):
+                if sidecar[field] != config[config_field]:
+                    return False
+            for field in ('clone_receipt', 'full_wire'):
+                if sidecar[field] != finalizer.config_ref(config, field, field + '_sha256'):
+                    return False
+            regenerated = finalizer.finalize(manifest)
+            if (inputs.doc(sidecar['finalization']) != regenerated
+                    or inputs.doc(sidecar['report']) != regenerated['evidence']):
+                return False
+            inputs.recheck()
+            return True
+        except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+            return False
 
     def _disabled_account_bundle(self, report, output_dir, group):
         rows = report.get(group + '_accounts')
@@ -2037,7 +2284,8 @@ class HeldoutCaseRunner:
         else:
             outer = self.bounded_run(owner, [sys.executable, str(self.toolpaths['execute']),
                 '--config', str(config_path), '--config-sha256', config_sha], monitor_dir, monitor_path,
-                runtime=LIMITS['runtime_seconds'], storage_paths=(Path(output),),
+                runtime=LIMITS['runtime_seconds'],
+                storage_paths=(Path(clone['ledger']), Path(output), Path(control)),
                 env={'P5_V3_EXEC_SUPERVISOR': 'local-ledger-review-and-execute'})
             report, status = _json(report_path), _json(status_path)
         if (not reviewed_application_outer(outer)
@@ -2523,6 +2771,10 @@ class HeldoutCaseRunner:
                     effect['proof'] = self._proof_bundle(full_proof)
                     effect['replay_proof'] = self._proof_bundle(replay_proof)
                     effect['r0_clone'] = clone
+                    expiry = self._expired_status_negative(req, root, stage, r0_source,
+                        full_proof, positive_full_clones['expired_status'], effect)
+                    effect['expired_status_negative'] = {
+                        'path': expiry['sidecar'], 'sha256': expiry['sidecar_sha256']}
                     negative_inputs = {
                         'variant': self.variant,
                         'stage_report_sha256': stage['report_sha256'],
@@ -2689,7 +2941,8 @@ class HeldoutCaseRunner:
                 journal_doc['steps'])
             ambiguous_restart_wall = ambiguous_restart_wall_seconds(
                 journal_doc['steps'])
-            fragment = {'schema': 'credential-v3-heldout-acceptance-case-fragment-v1',
+            expiry_wall = expired_status_negative_wall_seconds(journal_doc['steps'])
+            fragment = {'schema': CASE_FRAGMENT_SCHEMA,
                 'variant': self.variant,
                 'run_manifest': self.run_manifest_ref,
                 'case_context': self._artifact(case_context / 'case-context.json'),
@@ -2697,6 +2950,7 @@ class HeldoutCaseRunner:
                 'pair_receipt': self._artifact(case_context / 'cohort-receipt.json'),
                 'membership': self._artifact(case_context / 'membership.json'),
                 'branches': branch_bundles,
+                'expired_status_negative': branch_results['full']['effect']['expired_status_negative'],
                 'disabled_config_negative': {
                     'path': branch_results['full']['effect']['disabled_config_negative']['path'],
                     'sha256': branch_results['full']['effect']['disabled_config_negative']['sha256']},
@@ -2705,6 +2959,7 @@ class HeldoutCaseRunner:
                     'sha256': branch_results['full']['effect']['ambiguous_restart']['sha256']},
                 **slots,
                 'shared_costs': journal_doc['costs'], **wall_costs,
+                'expired_status_negative_wall_seconds': expiry_wall,
                 'disabled_config_negative_wall_seconds': disabled_negative_wall,
                 'ambiguous_restart_wall_seconds': ambiguous_restart_wall,
                 'run_journal': self._artifact(self.journal.path),
