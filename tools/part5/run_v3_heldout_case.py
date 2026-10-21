@@ -1488,6 +1488,22 @@ class HeldoutCaseRunner:
                     storage_paths=tuple(Path(config[p]) for p in
                                         ('ledger', 'output_dir', 'control_output')),
                     env={'P5_V3_EXPIRED_STATUS_NEGATIVE_SCOPE': supervisor.SCOPE})
+            missing = [name for name, path in paths.items()
+                       if name != 'config' and not path.is_file()]
+            if missing:
+                exit_code = outer.get('exit_code') if type(outer) is dict else None
+                if type(exit_code) is not int:
+                    exit_code = 'unknown'
+                stop_reason = outer.get('stop_reason') if type(outer) is dict else None
+                if stop_reason not in (None, 'runtime_seconds',
+                        'owned_tree_rss_bytes', 'storage_growth_bytes', 'runner_error'):
+                    stop_reason = 'unrecognized'
+                raise ValueError(
+                    'bounded expired-status child missing '
+                    f'{", ".join(missing)} artifact(s); exit_code={exit_code}; '
+                    f'stop_reason={stop_reason}; monitor={monitor}; '
+                    f'bounded_stderr={monitor_dir / "stderr.log"}; '
+                    f'status={paths["supervisor_status"]}; candidate={paths["candidate"]}')
             saved = {'status': 'passed', 'refs': {key: self._artifact(path)
                                                   for key, path in paths.items()},
                      'setup_wall_seconds': setup_wall,

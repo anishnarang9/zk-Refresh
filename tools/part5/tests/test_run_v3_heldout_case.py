@@ -777,6 +777,8 @@ def test_case_fragment_shape_matches_assembler_and_verifier_contracts(tmp_path):
         **slots, 'branches': emitted_branches,
         'disabled_config_negative': {'path': str(r2_rejection),
             'sha256': hashlib.sha256(r2_rejection_raw).hexdigest()},
+        'expired_status_negative': {'path': str(r2_rejection),
+            'sha256': hashlib.sha256(r2_rejection_raw).hexdigest()},
         'ambiguous_restart': {'path': str(r2_rejection),
             'sha256': hashlib.sha256(r2_rejection_raw).hexdigest()},
         'run_manifest': run_manifest_ref,
@@ -784,6 +786,7 @@ def test_case_fragment_shape_matches_assembler_and_verifier_contracts(tmp_path):
                         'sha256': hashlib.sha256(journal_raw).hexdigest()},
         'all_step_wall_seconds': {'prepare': 1.0},
         'disabled_config_negative_wall_seconds': 2.0,
+        'expired_status_negative_wall_seconds': 4.0,
         'ambiguous_restart_wall_seconds': 3.0,
         'shared_costs': {'shared_stage_seconds': 0.0,
                          'shared_transition_seconds': 0.0},
@@ -798,6 +801,8 @@ def test_case_fragment_shape_matches_assembler_and_verifier_contracts(tmp_path):
     assert set(normalized) == set(assembler.CASE_FIELDS)
     assert set(normalized['branches']) == set(verifier.BRANCHES)
     assert normalized['disabled_config_negative'] == fragment['disabled_config_negative']
+    assert normalized['expired_status_negative'] == fragment['expired_status_negative']
+    assert normalized['expired_status_negative_wall_seconds'] == 4.0
     for name, bundle in normalized['branches'].items():
         clone = 'r0_clone' if name == 'full' else 'r1_clone'
         expected = {'result', 'proof', clone}
@@ -1528,3 +1533,48 @@ def test_r2_active_witness_uses_hex_root_from_producer_membership(tmp_path, monk
     assert observed['siblings'] == siblings
     assert observed['candidate']['root'] == str(raw_r2_root)
     assert observed['candidate']['siblings'] == [str(value) for value in siblings]
+
+
+def test_expired_status_negative_missing_candidate_has_bounded_diagnostics(
+        tmp_path, monkeypatch):
+    from harness.tests import queue_v3_local_expired_status_negative as supervisor
+
+    case_runner = object.__new__(runner.HeldoutCaseRunner)
+    config = {'owner': 'test-expired-owner', 'output_dir': str(tmp_path / 'output'),
+              'control_output': str(tmp_path / 'control'), 'ledger': str(tmp_path / 'ledger')}
+    config_path = tmp_path / 'config.json'
+    config_path.write_bytes(runner.encoded(config))
+    prepared = {'config': config,
+                'config_ref': {'path': str(config_path),
+                               'sha256': runner.digest(config_path.read_bytes())},
+                'monitor': tmp_path / 'outer.json', 'monitor_dir': tmp_path / 'monitor',
+                'source_pins': {}, 'positive_full': {}}
+    monkeypatch.setattr(case_runner, '_expired_status_inputs', lambda *args: prepared)
+    case_runner.toolpaths = {'expired_status_negative': Path('/private/child.py')}
+
+    class Journal:
+        def run_step(self, name, *, job, **kwargs):
+            return job()
+
+    case_runner.journal = Journal()
+
+    def failed_child(owner, command, monitor_dir, monitor, **kwargs):
+        monitor_dir.mkdir()
+        (monitor_dir / 'stderr.log').write_text('private diagnostic marker')
+        outer = {'exit_code': 1, 'stop_reason': None, 'passed': False,
+                 'duration_seconds': 0.262}
+        monitor.write_bytes(runner.encoded(outer))
+        return outer
+
+    case_runner.bounded_run = failed_child
+    with pytest.raises(ValueError) as caught:
+        case_runner._expired_status_negative('positive_full', tmp_path, {}, {}, {}, {}, {})
+    message = str(caught.value)
+    assert 'missing candidate, supervisor_status' in message
+    assert 'exit_code=1' in message
+    assert 'stop_reason=None' in message
+    assert str(prepared['monitor']) in message
+    assert str(prepared['monitor_dir'] / 'stderr.log') in message
+    assert str(Path(config['output_dir']) / supervisor.REPORT_NAME) in message
+    assert str(Path(config['control_output']) / 'status.json') in message
+    assert 'private diagnostic marker' not in message

@@ -336,7 +336,11 @@ def _validate_config(config):
 def _check_input_pins(config):
     artifacts = {}
     for path_field, hash_field, cap in INPUT_ARTIFACTS:
-        raw, actual = execute.stage.snapshot_generated(Path(config[path_field]), cap)
+        if path_field == 'expected_elf':
+            raw = execute.base.checked(config[path_field], config[hash_field], cap)
+            actual = _sha(raw)
+        else:
+            raw, actual = execute.stage.snapshot_generated(Path(config[path_field]), cap)
         if actual != config[hash_field]:
             raise ValueError(f'{path_field} input pin mismatch')
         artifacts[path_field] = raw

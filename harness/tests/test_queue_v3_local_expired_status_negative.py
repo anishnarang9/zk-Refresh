@@ -290,6 +290,34 @@ class ExpiredStatusNegativeTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(ValueError):
                 supervisor._validate_config(altered)
 
+    def test_preflight_accepts_pinned_executable_elf(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            value = config()
+            make_preflight_artifacts(Path(tmp).resolve(), value)
+            Path(value['expected_elf']).chmod(0o755)
+            supervisor._check_input_pins(value)
+
+    def test_preflight_rejects_mismatched_or_nonregular_executable_elf(self):
+        for mutation in ('bytes', 'directory', 'symlink', 'oversize'):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as tmp:
+                value = config()
+                make_preflight_artifacts(Path(tmp).resolve(), value)
+                elf = Path(value['expected_elf'])
+                elf.chmod(0o755)
+                if mutation == 'bytes':
+                    elf.write_bytes(b'wrong elf')
+                elif mutation == 'oversize':
+                    elf.write_bytes(b'x' * (4 * 1024 * 1024 + 1))
+                    value['expected_elf_sha256'] = hashlib.sha256(elf.read_bytes()).hexdigest()
+                else:
+                    elf.unlink()
+                    if mutation == 'directory':
+                        elf.mkdir()
+                    else:
+                        elf.symlink_to(value['full_proof'])
+                with self.assertRaises(ValueError):
+                    supervisor._check_input_pins(value)
+
     def test_checks_external_artifact_bytes_against_each_pin(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
