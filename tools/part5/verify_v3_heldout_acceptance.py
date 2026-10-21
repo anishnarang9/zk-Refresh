@@ -50,7 +50,7 @@ SOURCE_SCHEMA = 'credential-v3-heldout-request-source-v1'
 PAIR_SCHEMA = 'v3-two-signed-training-credentials-v1'
 RUN_SCHEMA = 'credential-v3-heldout-case-run-v1'
 JOURNAL_SCHEMA = 'credential-v3-heldout-case-run-journal-v1'
-QUEUE_RUNNER_REL = 'artifacts/dynark/part5/v3-heldout-queue-runner-003'
+QUEUE_RUNNER_REL = 'artifacts/dynark/part5/v3-heldout-queue-runner-004'
 BRANCHES = ('full', 'unrelated_full', 'anchor', 'own_revocation')
 ACCOUNT_NAMES = ('config', 'issuer', 'head', 'request', 'queue')
 SOURCE_FILE_ROLES = ('heldout_source_tool', 'training_helper', 'exporter',
@@ -2840,14 +2840,115 @@ def _verify_expired_status_negative(ref, variant, globals_, slot, full_bundle,
             'finalization_sha256': sidecar['finalization']['sha256'], **finalized['facts']}
 
 
-def _verify_queue_capacity_negative(manifest):
-    _require(type(manifest.get('queue_capacity_negative')) is dict
-             and type(manifest.get('queue_capacity_negative_wall_seconds')) in (int, float)
-             and math.isfinite(manifest['queue_capacity_negative_wall_seconds'])
-             and manifest['queue_capacity_negative_wall_seconds'] >= 0,
+def _verify_queue_capacity_negative(manifest, runtime_identity=None):
+    """Replay one loaded capacity run and join it to the final heldout cohort."""
+    from tools.part5 import finalize_v3_queue_capacity_negative as finalizer
+    from tools.part5 import heldout_queue_capacity_evidence as capacity_evidence
+    from harness.tests import queue_v3_local_queue_capacity_negative as supervisor
+
+    _require(type(manifest) is dict and manifest.get('schema') == MANIFEST_SCHEMA
+             and manifest.get('evidence_scope') == 'final-acceptance',
+             'capacity negative requires the final acceptance manifest schema')
+    wall = manifest.get('queue_capacity_negative_wall_seconds')
+    _require(type(wall) in (int, float) and math.isfinite(wall) and wall >= 0,
              'shared capacity evidence and separate finite wall time required')
-    _json(manifest['queue_capacity_negative'], cap=4 * 1024 * 1024)
-    raise ValueError('loaded queue capacity finalizer replay is not integrated; final acceptance unavailable')
+    _require(type(runtime_identity) is dict
+             and all(type(runtime_identity.get(name)) is str and runtime_identity[name]
+                     for name in ('program', 'genesis', 'elf_sha256')),
+             'capacity negative requires the verified loaded application identity')
+    finalized, finalized_sha = _json(manifest.get('queue_capacity_negative'), cap=MAX_JSON)
+    roles = ('config', 'candidate', 'supervisor_status', 'monitor',
+             'monitor_invocation', 'proof_monitor', 'proof_invocation')
+    expected_keys = {'schema', 'passed', 'scope', *roles, 'fixture_manifest',
+                     'preparation_receipt', 'evidence_report', 'evidence_dir',
+                     'report_consistency', 'setup_cost_seconds',
+                     'loaded_owner_seconds', 'loaded_run_established',
+                     'heldout_acceptance_established'}
+    _require(type(finalized) is dict and set(finalized) == expected_keys
+             and finalized['schema'] == finalizer.SCHEMA
+             and finalized['passed'] is True
+             and finalized['scope'] == supervisor.SCOPE
+             and finalized['loaded_run_established'] is True
+             and finalized['heldout_acceptance_established'] is False,
+             'exact passed loaded queue capacity finalization required')
+    config, _ = _json(finalized['config'], cap=MAX_JSON)
+    freeze_ref = manifest.get('freeze_receipt')
+    cohort_ref = manifest.get('cohort_receipt')
+    elf_ref = manifest.get('frozen_files', {}).get('loaded_elf')
+    _require(type(config) is dict and type(freeze_ref) is dict
+             and type(cohort_ref) is dict and type(elf_ref) is dict
+             and config.get('cohort_freeze') == freeze_ref.get('path')
+             and config.get('cohort_freeze_sha256') == freeze_ref.get('sha256')
+             and config.get('cohort_manifest') == cohort_ref.get('path')
+             and config.get('cohort_manifest_sha256') == cohort_ref.get('sha256')
+             and config.get('expected_elf') == elf_ref.get('path')
+             and config.get('expected_elf_sha256') == elf_ref.get('sha256')
+             and elf_ref.get('sha256') == runtime_identity['elf_sha256']
+             and config.get('expected_program') == runtime_identity['program']
+             and config.get('expected_genesis') == runtime_identity['genesis'],
+             'capacity run must bind this freeze, cohort, ELF, and loaded application')
+    runner = ROOT / QUEUE_RUNNER_REL
+    _require(config.get('runner') == str(runner)
+             and _is_sha(config.get('runner_sha256')),
+             'capacity run must use the frozen heldout queue runner')
+    _artifact({'path': str(runner), 'sha256': config['runner_sha256']},
+              cap=128 * 1024 * 1024)
+    bundles = manifest.get('frozen_bundles')
+    _require(type(bundles) is dict
+             and type(bundles.get('registry')) is list
+             and type(bundles.get('client')) is list,
+             'frozen capacity source bundles required')
+    registry = {row['path']: row['artifact']['sha256'] for row in bundles['registry']}
+    client = {row['path']: row['artifact']['sha256'] for row in bundles['client']}
+    _require(registry.get(QUEUE_RUNNER_REL) == config['runner_sha256'],
+             'capacity runner differs from the frozen registry bundle')
+    capacity_sources = (
+        'tools/part5/finalize_v3_queue_capacity_negative.py',
+        'tools/part5/prepare_v3_queue_capacity_fixture.py',
+        'tools/part5/heldout_queue_capacity_evidence.py',
+        'harness/tests/queue_v3_capacity_runtime.py',
+        'harness/tests/queue_v3_local_queue_capacity_negative.py',
+    )
+    for relative in capacity_sources:
+        source = ROOT / relative
+        _require(client.get(relative, registry.get(relative)) == _sha(source.read_bytes()),
+                 f'capacity source {relative} differs from the frozen source bundle')
+
+    replay_input = {'schema': finalizer.MANIFEST_SCHEMA,
+                    **{role: finalized[role] for role in roles}}
+    replayed = finalizer.finalize(replay_input)
+    _require(_canonical_json(replayed) == _canonical_json(finalized),
+             'loaded capacity finalization must reproduce from pinned inputs')
+    consistency = replayed['report_consistency']
+    _require(type(consistency) is dict
+             and consistency.get('schema') == capacity_evidence.SCHEMA
+             and consistency.get('report_consistent') is True
+             and consistency.get('successful_fill_count') == 64
+             and consistency.get('queue_capacity') == 64
+             and consistency.get('rejected_request_unconsumed') is True
+             and consistency.get('execute_instruction_index') == 1
+             and consistency.get('custom_error') == 708
+             and consistency.get('unchanged_application_account_count') == 5
+             and consistency.get('cleanup_known') is True
+             and consistency.get('loaded_run_established') is False
+             and consistency.get('heldout_acceptance_established') is False,
+             'capacity replay requires 64 fills, finalized 65th custom 708, and five unchanged accounts')
+    for cost_name in ('setup_cost_seconds', 'loaded_owner_seconds'):
+        cost = replayed.get(cost_name)
+        _require(type(cost) in (int, float) and math.isfinite(cost) and cost >= 0,
+                 'finite capacity owner and setup costs required')
+    _require(wall == (replayed['setup_cost_seconds'] + replayed['loaded_owner_seconds']),
+             'capacity negative wall cost must include preparation and loaded owner')
+    _json(manifest['queue_capacity_negative'], cap=MAX_JSON)
+    _json(finalized['config'], cap=MAX_JSON)
+    return {'finalization_sha256': finalized_sha,
+            'successful_fill_count': consistency['successful_fill_count'],
+            'custom_error': consistency['custom_error'],
+            'unchanged_application_account_count': consistency['unchanged_application_account_count'],
+            'setup_cost_seconds': replayed['setup_cost_seconds'],
+            'loaded_owner_seconds': replayed['loaded_owner_seconds'],
+            'total_wall_seconds': wall,
+            'bound_to_final_cohort': True}
 
 
 def _verify_disabled_config_negative(ref, variant, globals_, slot, full_bundle,
@@ -3656,7 +3757,7 @@ def verify_manifest(manifest_path):
     _require(type(manifest) is dict and manifest.get('schema') in (MANIFEST_SCHEMA, 'credential-v3-heldout-acceptance-manifest-v1'),
              'heldout acceptance manifest schema required')
     final_acceptance = manifest['schema'] == MANIFEST_SCHEMA
-    capacity_negative = _verify_queue_capacity_negative(manifest) if final_acceptance else None
+    capacity_negative = None
     cases_raw = manifest.get('cases')
     _require(type(cases_raw) is list and len(cases_raw) == 8,
              'exactly eight heldout cases required')
@@ -3926,6 +4027,8 @@ def verify_manifest(manifest_path):
                                  case_bundle['disabled_config_negative_wall_seconds'],
                              'branches': branch_results})
     _require(seen_variants == set(range(8)), 'all eight heldout variants are required')
+    if final_acceptance:
+        capacity_negative = _verify_queue_capacity_negative(manifest, runtime_identity)
     return {
         'schema': OUTPUT_SCHEMA,
         'verified': True,

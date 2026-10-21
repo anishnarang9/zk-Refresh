@@ -17,8 +17,8 @@ from tools.part5 import verify_v3_heldout_acceptance as verifier
 
 
 class HeldoutFreezePinClosureTests(unittest.TestCase):
-    def test_heldout_gates_pin_queue_runner_003_consistently(self):
-        expected = 'artifacts/dynark/part5/v3-heldout-queue-runner-003'
+    def test_heldout_gates_pin_queue_runner_004_consistently(self):
+        expected = 'artifacts/dynark/part5/v3-heldout-queue-runner-004'
         self.assertEqual(tool.RUNNER_BINARY, expected)
         self.assertEqual(manifest_builder.freeze_tool.RUNNER_BINARY, expected)
         self.assertEqual(verifier.QUEUE_RUNNER_REL, expected)
@@ -34,6 +34,11 @@ class HeldoutFreezePinClosureTests(unittest.TestCase):
             'tools/part5/run_v3_heldout_direct_arm.py',
             'tools/part5/finalize_v3_expired_status_negative.py',
             'tools/part5/heldout_expired_status_evidence.py',
+            'tools/part5/build_v3_expired_status_negative_inputs.py',
+            'tools/part5/heldout_queue_capacity_evidence.py',
+            'tools/part5/prepare_v3_queue_capacity_fixture.py',
+            'tools/part5/finalize_v3_queue_capacity_negative.py',
+            'tools/part5/run_v3_heldout_whole_session.py',
             'crates/dynark-native-client/tests/support/v3_relation_witness.cjs',
         }
         self.assertTrue(required.issubset(set(tool.CLIENT_FILES)))
@@ -60,6 +65,9 @@ class HeldoutFreezePinClosureTests(unittest.TestCase):
             'harness/tests/queue_v3_clone_prepared.py',
             'harness/tests/queue_v3_local_expired_status_negative.py',
             'harness/tests/queue_v3_loaded_negative_checks.py',
+            'harness/tests/queue_v3_blank_seed.py',
+            'harness/tests/queue_v3_capacity_runtime.py',
+            'harness/tests/queue_v3_local_queue_capacity_negative.py',
             'harness/Cargo.toml',
             'harness/Cargo.lock',
             'circuits/profile.json',

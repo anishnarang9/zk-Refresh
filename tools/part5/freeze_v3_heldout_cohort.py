@@ -30,7 +30,7 @@ RESULTS = ROOT / 'results/dynark/part5'
 SETUP = PART5 / 'v3-development-setup-001'
 COMPILE = PART5 / 'v3-compile-001'
 PROOF = ROOT / 'circuits/credential-v3-bounded/qualification/proof-runner-v1'
-RUNNER_BINARY = 'artifacts/dynark/part5/v3-heldout-queue-runner-003'
+RUNNER_BINARY = 'artifacts/dynark/part5/v3-heldout-queue-runner-004'
 LOADED_ELF = PART5 / 'application-v3-sbf-build-002/elf/zk_fresh_program.so'
 INVENTORY_SCHEMA = 'credential-v3-prior-public-key-inventory-v1'
 
@@ -54,6 +54,9 @@ REGISTRY_FILES = [
     'harness/tests/queue_v3_local_transition.py',
     'harness/tests/queue_v3_local_execute.py',
     'harness/tests/queue_v3_local_expired_status_negative.py',
+    'harness/tests/queue_v3_blank_seed.py',
+    'harness/tests/queue_v3_capacity_runtime.py',
+    'harness/tests/queue_v3_local_queue_capacity_negative.py',
     'harness/tests/queue_v3_loaded_negative_checks.py',
     'harness/tests/queue_v3_ambiguous_rpc_proxy.py',
     'harness/tests/queue_v3_local_ambiguous_restart.py',
@@ -100,6 +103,12 @@ CLIENT_FILES = [
     'tools/part5/verify_v3_heldout_acceptance.py',
     'tools/part5/finalize_v3_expired_status_negative.py',
     'tools/part5/heldout_expired_status_evidence.py',
+    'tools/part5/build_v3_expired_status_negative_inputs.py',
+    'tools/part5/heldout_queue_capacity_evidence.py',
+    'tools/part5/prepare_v3_queue_capacity_fixture.py',
+    'tools/part5/finalize_v3_queue_capacity_negative.py',
+    'tools/part5/run_v3_heldout_whole_session.py',
+    'tools/part5/verify_v3_campaign_public_projection.py',
     'tools/part5/analyze_v3_heldout_costs.py',
     'tools/part5/model_v3_heldout_break_even.py',
     'tools/part5/freeze_v3_heldout_cohort.py',
