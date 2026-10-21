@@ -1,5 +1,6 @@
 import copy
 import contextlib
+import base64
 import importlib.util
 import io
 import json
@@ -8,7 +9,7 @@ import sys
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from harness.tests import queue_v3_local_prepare as base
 from harness.tests import queue_v3_local_stage as stage
@@ -43,7 +44,8 @@ class BlankSeedTests(unittest.TestCase):
         config = dict(schema=1, scope=m.CREATE_SCOPE, validator=validator['path'],
                       validator_sha256=validator['sha256'], program=program, payer=payer,
                       runtime_output=str(runtime), control_output=str(root / 'seed-control'),
-                      outer_limits_required=base.LIMITS)
+                      outer_limits_required=base.LIMITS,
+                      runtime_feature_profile=copy.deepcopy(m.LOCAL_COMPATIBILITY_PROFILE))
         config['owner_source'] = self.write(root / 'owner.py', b'owned seed creator')
         config['owner_manifest'] = self.write(root / 'run-manifest.json', {'manifest': True})
         config_ref = self.write(root / 'create-config.json', config)
@@ -51,7 +53,9 @@ class BlankSeedTests(unittest.TestCase):
                            payer=payer, finalized_slot=7, program_accounts_finalized_slot=8,
                            program_absent=True, programdata_absent=True,
                            application_accounts_empty=True, payer_lamports=1000000000,
-                           payer_owner=base.b58(bytes(32)))
+                           payer_owner=base.b58(bytes(32)),
+                           runtime_feature_profile=copy.deepcopy(m.LOCAL_COMPATIBILITY_PROFILE),
+                           feature_observation=self.feature_observation())
         status = dict(schema=1, scope=m.CREATE_SCOPE, status='failed',
                       config_sha256=config_ref['sha256'], ledger=str(ledger),
                       blank_verified=True, seed_observation=observation,
@@ -131,7 +135,7 @@ class BlankSeedTests(unittest.TestCase):
         self.api()
         program, payer, genesis = (base.b58(bytes([i]) * 32) for i in (11, 12, 13))
         seed = dict(program=program, programdata=m.programdata_address(program),
-                    payer=payer, genesis=genesis)
+                    payer=payer, genesis=genesis,runtime_feature_profile=m.LOCAL_COMPATIBILITY_PROFILE)
         class Proc:
             def poll(self): return None
         for mutation in (None, 'program', 'programdata', 'application', 'genesis', 'payer'):
@@ -142,6 +146,11 @@ class BlankSeedTests(unittest.TestCase):
                     if method == 'getGenesisHash':
                         return base.b58(bytes([14]) * 32) if mutation == 'genesis' and len(calls) > 1 else genesis
                     if method == 'getMultipleAccounts':
+                        if params[0][0] == m.DEPLOYMENT_FEATURE:
+                            raw=b'\x01'+bytes(8)
+                            active={'owner':m.FEATURE_OWNER,'executable':False,
+                                    'data':[base64.b64encode(raw).decode(),'base64']}
+                            return {'context':{'slot':8},'value':[None,active,active]}
                         payer_account = {'owner': base.b58(bytes(32)), 'lamports': 100,
                                          'executable': False}
                         return {'context': {'slot': 7}, 'value': [
@@ -356,6 +365,79 @@ class BlankSeedTests(unittest.TestCase):
                 else: monitor['limits'][mutation] += 1
                 sources['monitor'] = self.write(Path(sources['monitor']['path']), monitor)
                 with self.assertRaises(ValueError): m.build_manifest(sources)
+
+    def test_v0_profile_is_exact_and_creation_flag_fixed(self):
+        self.assertTrue(hasattr(m,'LOCAL_COMPATIBILITY_PROFILE'),'explicit local V0 profile missing')
+        expected='B8JJXCy5amZyWG9r7EnUYLwzXSXTxG7GZ1qZ1qggo83g'
+        self.assertEqual(m.LOCAL_COMPATIBILITY_PROFILE['deactivated_features'],[expected])
+        with tempfile.TemporaryDirectory() as directory:
+            argv=m.creation_argv('/validator',Path(directory).resolve()/'ledger',base.b58(bytes([12])*32))
+        self.assertEqual(argv.count('--deactivate-feature'),1)
+        self.assertEqual(argv[argv.index('--deactivate-feature')+1],expected)
+
+    def feature_observation(self):
+        raw=b'\x01'+bytes(8)
+        return {'finalized_slot':8,'sbpf_v0_execution_allowed':True,'feature_accounts':[
+            {'address':m.DEPLOYMENT_FEATURE,'active':False,'activation_slot':None,'account_sha256':None},
+            *[{'address':address,'active':True,'activation_slot':0,'account_sha256':base.sha(raw)}
+              for address in m.EXECUTION_FEATURES]]}
+
+    def test_manifest_discloses_exact_profile_and_rejects_additional_features(self):
+        self.api()
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve();root.chmod(0o700)
+            config,status,_,sources,manifest,_=self.fixture(root)
+            self.assertEqual(manifest.get('runtime_feature_profile'),m.LOCAL_COMPATIBILITY_PROFILE)
+            self.assertEqual(manifest.get('feature_observation'),status['seed_observation']['feature_observation'])
+            config['runtime_feature_profile']['deactivated_features'].append(m.EXECUTION_FEATURES[0])
+            sources['config']=self.write(Path(sources['config']['path']),config)
+            status['config_sha256']=sources['config']['sha256']
+            sources['status']=self.write(Path(sources['status']['path']),status)
+            invocation=json.loads(Path(sources['invocation']['path']).read_bytes())
+            invocation['argv'][-2]=sources['config']['sha256']
+            sources['invocation']=self.write(Path(sources['invocation']['path']),invocation)
+            with self.assertRaises(ValueError):m.build_manifest(sources)
+
+    def test_observation_rejects_feature_state_drift_and_unregistered_profile(self):
+        self.api()
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve();root.chmod(0o700)
+            config,status,_,_,manifest,_=self.fixture(root)
+            for mutation in ('profile','active','digest'):
+                observation=copy.deepcopy(status['seed_observation'])
+                if mutation=='profile':observation['runtime_feature_profile']['deactivated_features']=[]
+                if mutation=='active':observation['feature_observation']['feature_accounts'][2]['active']=False
+                if mutation=='digest':observation['feature_observation']['feature_accounts'][1]['account_sha256']='f'*64
+                with self.subTest(mutation=mutation),self.assertRaises(ValueError):
+                    m.check_observation(observation,config)
+            rpc=Mock()
+            with self.assertRaises(ValueError):
+                m.observe_blank(rpc,Mock(),{**manifest,'runtime_feature_profile':{}},timeout=1)
+            rpc.assert_not_called()
+
+    def test_finalized_feature_profile_rejects_wrong_activation_owner_and_missing_features(self):
+        self.assertTrue(hasattr(m,'observe_features'),'finalized compatibility profile attestation missing')
+        raw=b'\x01'+bytes(8)
+        active={'owner':'Feature111111111111111111111111111111111111', 'executable':False,
+                'data':[base64.b64encode(raw).decode(),'base64']}
+        for mutation in (None,'deployment-active','missing-execution','owner','inactive','future'):
+            with self.subTest(mutation=mutation):
+                values=[None,copy.deepcopy(active),copy.deepcopy(active)]
+                if mutation=='deployment-active':values[0]=copy.deepcopy(active)
+                if mutation=='missing-execution':values[2]=None
+                if mutation=='owner':values[1]['owner']=base.b58(bytes(32))
+                if mutation=='inactive':values[1]['data'][0]=base64.b64encode(bytes(9)).decode()
+                if mutation=='future':values[1]['data'][0]=base64.b64encode(b'\x01'+(10).to_bytes(8,'little')).decode()
+                rpc=Mock(return_value={'context':{'slot':8},'value':values})
+                if mutation:
+                    with self.assertRaises(ValueError):m.observe_features(rpc,7)
+                else:
+                    observation=m.observe_features(rpc,7)
+                    self.assertTrue(observation['sbpf_v0_execution_allowed'])
+                    self.assertEqual(observation['feature_accounts'][0]['active'],False)
+                    self.assertEqual([row['activation_slot'] for row in observation['feature_accounts'][1:]],[0,0])
+                    self.assertEqual(rpc.call_args.args[1][1]['commitment'],'finalized')
+                    self.assertEqual(rpc.call_args.args[1][1]['minContextSlot'],7)
 
 
 if __name__ == '__main__':

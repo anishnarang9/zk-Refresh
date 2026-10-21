@@ -24,6 +24,16 @@ CREATE_SCOPE = 'part5-v3-blank-seed-create'
 SCHEMA = 'part5-v3-blank-chain-seed-v1'
 KIND = 'blank-seed-deploy-v1'
 SYSTEM = base.b58(bytes(32))
+DEPLOYMENT_FEATURE = 'B8JJXCy5amZyWG9r7EnUYLwzXSXTxG7GZ1qZ1qggo83g'
+EXECUTION_FEATURES = ('TestFeature11111111111111111111111111111111',
+                      'TestFeature21111111111111111111111111111111')
+FEATURE_OWNER = 'Feature111111111111111111111111111111111111'
+LOCAL_COMPATIBILITY_PROFILE = {
+    'schema': 'part5-v3-local-sbpf-v0-profile-v1',
+    'deactivated_features': [DEPLOYMENT_FEATURE],
+    'required_active_features': list(EXECUTION_FEATURES),
+    'reason': 'Allow deployment of the pinned SBPF V0 application ELF on the local Agave validator.',
+}
 
 
 def pin(ref, cap=65536):
@@ -68,7 +78,50 @@ def creation_argv(validator, ledger, payer):
     ledger = Path(ledger)
     if ledger.exists():
         raise ValueError('fresh blank-chain seed ledger required')
-    return resume_argv(validator, ledger) + ['--reset', '--mint', payer]
+    return resume_argv(validator, ledger) + ['--reset', '--mint', payer,
+                                            '--deactivate-feature', DEPLOYMENT_FEATURE]
+
+
+def observe_features(rpc, minimum):
+    addresses = [DEPLOYMENT_FEATURE, *EXECUTION_FEATURES]
+    result = rpc('getMultipleAccounts', [addresses, {'encoding': 'base64',
+                  'commitment': 'finalized', 'minContextSlot': minimum}])
+    slot = base.integer(result['context']['slot'], minimum)
+    values = result.get('value')
+    if type(values) is not list or len(values) != 3 or values[0] is not None:
+        raise ValueError('local V0 deployment-blocking feature must be absent')
+    rows = [{'address': DEPLOYMENT_FEATURE, 'active': False,
+             'activation_slot': None, 'account_sha256': None}]
+    for address, account in zip(EXECUTION_FEATURES, values[1:]):
+        if (type(account) is not dict or account.get('owner') != FEATURE_OWNER
+                or account.get('executable') is not False):
+            raise ValueError('both pinned V0 execution features must be active')
+        raw = base.account_bytes(account)
+        if len(raw) != 9 or raw[0] != 1 or int.from_bytes(raw[1:], 'little') > slot:
+            raise ValueError('canonical finalized active feature slot required')
+        rows.append({'address': address, 'active': True,
+                     'activation_slot': int.from_bytes(raw[1:], 'little'), 'account_sha256': base.sha(raw)})
+    return {'finalized_slot': slot, 'feature_accounts': rows, 'sbpf_v0_execution_allowed': True}
+
+
+def check_feature_observation(observation, minimum):
+    if (type(observation) is not dict
+            or set(observation) != {'finalized_slot', 'feature_accounts', 'sbpf_v0_execution_allowed'}
+            or observation.get('sbpf_v0_execution_allowed') is not True):
+        raise ValueError('finalized local V0 feature observation required')
+    slot = base.integer(observation.get('finalized_slot'), minimum)
+    rows = observation.get('feature_accounts')
+    if (type(rows) is not list or len(rows) != 3
+            or rows[0] != {'address': DEPLOYMENT_FEATURE, 'active': False,
+                           'activation_slot': None, 'account_sha256': None}):
+        raise ValueError('exact deactivated local V0 deployment feature required')
+    for address, row in zip(EXECUTION_FEATURES, rows[1:]):
+        if (type(row) is not dict or set(row) != {'address', 'active', 'activation_slot', 'account_sha256'}
+                or row.get('address') != address or row.get('active') is not True):
+            raise ValueError('both exact V0 execution features must remain active')
+        activated = base.integer(row.get('activation_slot'))
+        if activated > slot or row.get('account_sha256') != base.sha(b'\x01' + activated.to_bytes(8, 'little')):
+            raise ValueError('canonical active feature bytes/slot required')
 
 
 def check_observation(observation, config):
@@ -84,6 +137,10 @@ def check_observation(observation, config):
     base.integer(observation.get('finalized_slot'), 1)
     base.integer(observation.get('program_accounts_finalized_slot'), observation['finalized_slot'])
     base.integer(observation.get('payer_lamports'), 1)
+    if (config.get('runtime_feature_profile') != LOCAL_COMPATIBILITY_PROFILE
+            or observation.get('runtime_feature_profile') != LOCAL_COMPATIBILITY_PROFILE):
+        raise ValueError('exact explicit local V0 compatibility profile required')
+    check_feature_observation(observation.get('feature_observation'), observation['program_accounts_finalized_slot'])
 
 
 def reviewed_stop(cleanup):
@@ -125,6 +182,7 @@ def build_manifest(sources):
     config, status, monitor = (pin(sources[name]) for name in ('config', 'status', 'monitor'))
     if (config.get('schema') != 1 or config.get('scope') != CREATE_SCOPE
             or config.get('outer_limits_required') != base.LIMITS
+            or config.get('runtime_feature_profile') != LOCAL_COMPATIBILITY_PROFILE
             or status.get('schema') != 1 or status.get('scope') != CREATE_SCOPE
             or status.get('config_sha256') != sources['config']['sha256']
             or status.get('ledger') != str(Path(config['runtime_output']) / 'ledger')
@@ -151,6 +209,8 @@ def build_manifest(sources):
             **{name: observation[name] for name in ('program', 'programdata', 'payer', 'genesis')},
             'entry_count': count, 'tree_sha256': tree,
             'genesis_file_sha256': base.sha(_raw(ledger / 'genesis.bin', 16 * 1024 * 1024)),
+            'runtime_feature_profile': config['runtime_feature_profile'],
+            'feature_observation': observation['feature_observation'],
             'application_effect': False, 'prepared_application_accounts': False}
 
 
@@ -188,7 +248,9 @@ def review_manifest(ref, config):
         raise ValueError('explicit blank-chain seed manifest required')
     reconstructed = build_manifest(manifest.get('source_creation'))
     if (manifest != reconstructed or manifest['program'] != config['program']
-            or manifest['validator_sha256'] != config['validator_sha256']):
+            or manifest['validator_sha256'] != config['validator_sha256']
+            or ('runtime_feature_profile' in config
+                and config['runtime_feature_profile'] != manifest['runtime_feature_profile'])):
         raise ValueError('blank-chain seed domain or inventory drift')
     return manifest
 
@@ -218,6 +280,8 @@ def clone(ref, destination, config):
 
 
 def observe_blank(rpc, proc, seed, timeout=30):
+    if seed.get('runtime_feature_profile') != LOCAL_COMPATIBILITY_PROFILE:
+        raise ValueError('exact explicit local V0 compatibility profile required')
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if proc.poll() is not None:
@@ -243,12 +307,17 @@ def observe_blank(rpc, proc, seed, timeout=30):
             account_slot = base.integer(accounts['context']['slot'], slot)
             if accounts.get('value') != []:
                 raise ValueError('blank seed must have no application-owned accounts')
+            features = observe_features(rpc, account_slot)
+            if ('feature_observation' in seed
+                    and features['feature_accounts'] != seed['feature_observation']['feature_accounts']):
+                raise ValueError('runtime feature state changed since immutable seed creation')
             if rpc('getGenesisHash', []) != seed['genesis'] or proc.poll() is not None:
                 raise ValueError('blank seed domain changed during attestation')
             observation = {name: seed[name] for name in ('genesis', 'program', 'programdata', 'payer')}
             observation.update(finalized_slot=slot, program_accounts_finalized_slot=account_slot,
                                program_absent=True, programdata_absent=True,
-                               application_accounts_empty=True, payer_lamports=lamports, payer_owner=SYSTEM)
+                               application_accounts_empty=True, payer_lamports=lamports, payer_owner=SYSTEM,
+                               runtime_feature_profile=seed['runtime_feature_profile'], feature_observation=features)
             check_observation(observation, seed)
             return observation
         except (OSError, base.NotReady):
@@ -409,6 +478,9 @@ def review_prepare(prior, monitor, original, config):
     check_observation(deployment.get('predeployment_observation'), manifest)
     if deployment['predeployment_observation']['genesis'] != manifest['genesis']:
         raise ValueError('predeployment seed genesis mismatch')
+    if (deployment['predeployment_observation']['feature_observation']['feature_accounts']
+            != manifest['feature_observation']['feature_accounts']):
+        raise ValueError('predeployment feature accounts differ from immutable seed profile')
     expected_invocation = {'schema': 'part5-v3-seeded-deployment-invocation-v1', 'argv': argv,
                            'blank_seed': original['blank_seed'], 'solana_cli': original['solana_cli'],
                            'program_signer': original['program_signer'],
