@@ -290,6 +290,31 @@ class ExpiredStatusNegativeTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(ValueError):
                 supervisor._validate_config(altered)
 
+    def test_prepared_identity_requires_pinned_complete_matching_prior_status(self):
+        for mutation in ('valid', 'missing', 'hash', 'identity', 'program', 'genesis', 'elf'):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp).resolve()
+                value = config()
+                _, loaded, _ = candidate_fixture(root, value)
+                if mutation == 'identity':
+                    del loaded['programdata']
+                elif mutation in ('program', 'genesis'):
+                    loaded[mutation] = 'different'
+                elif mutation == 'elf':
+                    loaded['elf_sha256'] = '0' * 64
+                prior = root / 'prior.json'
+                pin = _write_private(prior, json.dumps({'loaded_program': loaded}).encode())
+                staged = {'prior_status': str(prior), 'prior_status_sha256': pin}
+                if mutation == 'missing':
+                    prior.unlink()
+                elif mutation == 'hash':
+                    prior.write_bytes(b'{}')
+                if mutation == 'valid':
+                    self.assertEqual(supervisor._prepared_identity(staged, value), loaded)
+                else:
+                    with self.assertRaises((ValueError, OSError)):
+                        supervisor._prepared_identity(staged, value)
+
     def test_preflight_accepts_pinned_executable_elf(self):
         with tempfile.TemporaryDirectory() as tmp:
             value = config()
@@ -863,9 +888,14 @@ class ExpiredSupervisorLifecycleTests(unittest.TestCase):
             for path in output.iterdir():
                 path.rmdir()
             output.rmdir()
-            stage_report = {'loaded_program': loaded, 'account_sha256': initial_hashes, 'finalized_slot': 9}
+            stage_report = {'loaded_program': {'elf_match': True,
+                            'elf_sha256': value['expected_elf_sha256']},
+                            'account_sha256': initial_hashes, 'finalized_slot': 9}
             prepared = {'validator': '/pinned/validator', 'validator_sha256': 'e' * 64}
-            staged = {'context': '/pinned/context.json', 'context_sha256': 'f' * 64}
+            prior_path = root / 'prepare-status.json'
+            prior_sha = _write_private(prior_path, json.dumps({'loaded_program': loaded}).encode())
+            staged = {'context': '/pinned/context.json', 'context_sha256': 'f' * 64,
+                      'prior_status': str(prior_path), 'prior_status_sha256': prior_sha}
             validator = mock.Mock(pid=122)
             validator.poll.return_value = 7 if mode == 'validator_exit' else None
             runner = mock.Mock(pid=123)
@@ -875,6 +905,7 @@ class ExpiredSupervisorLifecycleTests(unittest.TestCase):
             clock = [0]
             loaded_reads = [0]
             original_snapshot = supervisor.execute.stage.snapshot_generated
+            original_checked = supervisor.execute.base.checked
             def snapshot(path, cap):
                 result = original_snapshot(path, cap)
                 if mode == 'before_cleanup_exit' and Path(path) == config_path:
@@ -904,7 +935,10 @@ class ExpiredSupervisorLifecycleTests(unittest.TestCase):
                         (7 if mode == 'unexpected_cleanup_exit' else -2)}
             with mock.patch.object(supervisor, 'REPO', root), \
                     mock.patch.object(supervisor, '_runtime_inputs', return_value=(prepared, staged, stage_report)), \
-                    mock.patch.object(supervisor.execute.base, 'checked', return_value=b'elf'), \
+                    mock.patch.object(supervisor.execute.base, 'checked',
+                                      side_effect=lambda path, pin, cap:
+                                      original_checked(path, pin, cap)
+                                      if Path(path) == prior_path else b'elf'), \
                     mock.patch.object(supervisor.execute.base, 'ports_free'), \
                     mock.patch.object(supervisor.execute.base, 'LocalRpc'), \
                     mock.patch.object(supervisor.execute, 'wait_loaded_after_start', side_effect=wait_loaded), \

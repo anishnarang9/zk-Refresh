@@ -707,6 +707,20 @@ def _runtime_inputs(config):
     return prepared, staged, report
 
 
+def _prepared_identity(staged, config):
+    prior = execute.pinned_json(staged['prior_status'], staged['prior_status_sha256'])
+    loaded = prior.get('loaded_program')
+    if (type(loaded) is not dict
+            or any(type(loaded.get(field)) is not str or not loaded[field]
+                   for field in execute.IDENTITY_FIELDS)
+            or loaded.get('elf_match') is not True
+            or loaded['program'] != config['expected_program']
+            or loaded['genesis'] != config['expected_genesis']
+            or loaded['elf_sha256'] != config['expected_elf_sha256']):
+        raise ValueError('pinned prepared loaded identity required')
+    return loaded
+
+
 def _check_budget(started):
     if time.monotonic() >= started + SUPERVISOR_BUDGET_SECONDS:
         raise TimeoutError('expired-status supervisor deadline')
@@ -714,6 +728,7 @@ def _check_budget(started):
 
 def _run_loaded(config, config_sha256, config_path):
     prepared, staged, stage_report = _runtime_inputs(config)
+    prior_loaded = _prepared_identity(staged, config)
     elf = execute.base.checked(config['expected_elf'], config['expected_elf_sha256'], 4 * 1024 * 1024)
     root = REPO / 'artifacts/dynark/part5'
     output = execute.base.fresh_child(config['output_dir'], root)
@@ -768,7 +783,7 @@ def _run_loaded(config, config_sha256, config_path):
                 raise RuntimeError('expired-status supervisor RPC deadline') from None
         loaded = execute.wait_loaded_after_start(rpc, validator, config['expected_program'],
                                                 elf, config['expected_elf_sha256'])
-        execute.same_loaded(stage_report['loaded_program'], loaded)
+        execute.same_loaded(prior_loaded, loaded)
         if (loaded.get('elf_match') is not True or loaded.get('program') != config['expected_program']
                 or loaded.get('genesis') != config['expected_genesis']):
             raise ValueError('loaded expired-status target mismatch')
