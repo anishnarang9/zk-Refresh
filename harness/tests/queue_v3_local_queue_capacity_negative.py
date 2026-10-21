@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import stat
 import sys
+import time
 
 REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
@@ -19,6 +20,7 @@ if str(REPO) not in sys.path:
 
 from harness.tests import queue_v3_local_execute as execute
 from harness.tests import queue_v3_loaded_negative_checks as checks
+from harness.tests import queue_v3_capacity_runtime as runtime
 from harness.tests.queue_v3_clone_ledger import inventory as ledger_inventory
 from tools.part5 import heldout_queue_capacity_evidence as capacity_evidence
 
@@ -45,11 +47,10 @@ INPUT_FIELDS = {
     "proof_receipt", "proof_receipt_sha256", "full_wire", "full_wire_sha256",
 }
 
-# Required producer contract for the next source wave, not an accepted schema.
 # Rust emits runtime facts; the supervisor and outer runner supply their own
 # process/resource/cleanup receipts after the Rust process has exited.
 LOADED_REPORT_CONTRACT = {
-    "status": "required_design_not_implemented",
+    "status": "runtime_candidate_requires_external_finalization",
     "identity_fields": ["runner_test", "rust_config_sha256", "cohort_id",
                         "cohort_freeze_sha256", "cohort_manifest_sha256",
                         "stage_report_sha256", "clone_receipt_sha256",
@@ -150,8 +151,8 @@ def _validate_inputs(inputs):
                      MAX_PROOF_RECEIPT_BYTES, f"request {index + 1} proof receipt", private=True)
         wire = _read_pinned(row["full_wire"], row["full_wire_sha256"],
                             MAX_WIRE_BYTES, f"request {index + 1} Full wire", private=True)
-        if not wire:
-            raise ValueError(f"request {index + 1} Full wire is empty")
+        if len(wire) != 448 or wire[128:160].hex() != row['action_sha256']:
+            raise ValueError(f"request {index + 1} Full wire must bind its exact action")
         checked.append(dict(row))
     return checked
 
@@ -245,8 +246,55 @@ def _expected_identities(config):
     }
 
 
+def _read_ref(reference, cap, label):
+    if type(reference) is not dict or set(reference) != {'path', 'sha256'}:
+        raise ValueError(label + ' requires an exact pinned reference')
+    return _read_pinned(reference['path'], reference['sha256'], cap, label, private=True)
+
+
+def _validate_signed_validity(config, prepared, proof_config, inputs):
+    """Derive validity from the signed DER and pinned heldout cohort itself."""
+    from tools.part5.credential_profile import admit_certificate, public_bindings
+    source = proof_config.get('credential_source', {})
+    der = _read_ref(source.get('credential'), 952, 'signed capacity credential')
+    modulus = _read_ref(source.get('issuer_modulus'), 256, 'enrolled issuer modulus')
+    if len(modulus) != 256:
+        raise ValueError('exact enrolled RSA2048 issuer modulus required')
+    parsed = admit_certificate(der, int.from_bytes(modulus, 'big'))
+    issuer, policy = public_bindings(parsed, int.from_bytes(modulus, 'big'))
+    cohort = execute.base.decode_json(_read_pinned(config['cohort_manifest'],
+        config['cohort_manifest_sha256'], MAX_CONFIG_BYTES, 'heldout cohort manifest'))
+    rows = cohort.get('certificates')
+    matches = [row for row in rows if type(row) is dict and row.get('credential_sha256') == _sha(der)] \
+        if type(rows) is list else []
+    if (cohort.get('schema') != 'credential-v3-heldout-issuance-cohort-v1' or len(matches) != 1
+            or any(matches[0].get(name) != value for name, value in {
+                'variant': parsed['variant'], 'not_before_unix': parsed['not_before'],
+                'not_after_unix': parsed['not_after'], 'issuer_hash': str(issuer),
+                'policy_hash': str(policy)}.items())
+            or type(prepared.get('request_deadline')) is not int
+            or prepared.get('credential_not_after') != parsed['not_after']
+            or not time.time() + LIMITS['runtime_seconds'] < prepared['request_deadline'] <= parsed['not_after']
+            or len(inputs) != 65):
+        raise ValueError('capacity deadline must fit the signed heldout credential validity')
+    for row in inputs:
+        request = _read_pinned(row['request_account'], row['request_sha256'], 2249,
+                               'capacity request account', private=True)
+        wire = _read_pinned(row['full_wire'], row['full_wire_sha256'], 448,
+                            'capacity Full wire', private=True)
+        if (len(request) != 2249 or request[:8] != b'DYNREQ03' or request[183] != 1
+                or int.from_bytes(request[170:178], 'big') != prepared['request_deadline']
+                or len(wire) != 448 or int.from_bytes(wire[32:64], 'big') != issuer
+                or int.from_bytes(wire[64:96], 'big') != parsed['not_before']
+                or int.from_bytes(wire[96:128], 'big') != parsed['not_after']
+                or int.from_bytes(wire[160:192], 'big') != policy):
+            raise ValueError('every request deadline and Full statement must bind signed cohort validity')
+
+
 def _validate_stage_binding(config, clone, source):
     """Bind the accepted report and cloned source to the externally pinned stage run."""
+    if 'fixture_manifest' in config:
+        return _validate_prepared_binding(config, clone, source)
     stage_config = execute.base.decode_json(_read_pinned(
         config["stage_config"], config["stage_config_sha256"],
         MAX_CONFIG_BYTES, "local-stage config"))
@@ -256,6 +304,91 @@ def _validate_stage_binding(config, clone, source):
         "local-stage status"))
     if type(stage_config) is not dict or type(stage_status) is not dict:
         raise ValueError("pinned local-stage status and config must bind the staged source ledger")
+    return _validate_legacy_stage(config, clone, source, stage_config, stage_status, stage_status_path)
+
+
+def _validate_prepared_binding(config, clone, source):
+    from tools.part5 import prepare_v3_queue_capacity_fixture as producer
+    from tools.part5.finalize_v3_queue_capacity_negative import check_monitor
+    def doc(reference, label):
+        return execute.base.decode_json(_read_ref(reference, MAX_CONFIG_BYTES, label))
+    fixture_ref = {'path': config['fixture_manifest'], 'sha256': config['fixture_manifest_sha256']}
+    preparation_ref = {'path': config['preparation_receipt'], 'sha256': config['preparation_receipt_sha256']}
+    stage_ref = {'path': config['stage_report'], 'sha256': config['stage_report_sha256']}
+    stage_config_ref = {'path': config['stage_config'], 'sha256': config['stage_config_sha256']}
+    stage_status_ref = {'path': config['stage_status'], 'sha256': config['stage_status_sha256']}
+    freeze_ref = {'path': config['cohort_freeze'], 'sha256': config['cohort_freeze_sha256']}
+    fixture, receipt = doc(fixture_ref, 'capacity fixture'), doc(preparation_ref, 'capacity preparation receipt')
+    if (fixture.get('schema') != producer.FIXTURE_SCHEMA or receipt.get('schema') != 'part5-v3-queue-capacity-prepared-fixture-v1'
+            or any(fixture.get(name) != expected for name, expected in {
+                'program': config['expected_program'], 'genesis': config['expected_genesis'],
+                'genesis_sha256': config['expected_genesis_sha256'], 'elf_sha256': config['expected_elf_sha256'],
+                'stage_report': stage_ref, 'inputs': config['inputs']}.items())
+            or any(receipt.get(name) != expected for name, expected in {
+                'fixture_manifest': fixture_ref, 'stage_config': stage_config_ref,
+                'stage_status': stage_status_ref, 'freeze': freeze_ref, 'prepared_ledger': str(source)}.items())
+            or any(clone.get(name) != config[name] for name in (
+                'preparation_receipt_sha256', 'fixture_manifest_sha256', 'stage_report_sha256', 'stage_status_sha256'))
+            or receipt.get('proof_receipts') != [{'path': row['proof_receipt'], 'sha256': row['proof_receipt_sha256']}
+                                                for row in config['inputs']]):
+        raise ValueError('exact normally prepared 65-proof fixture and clone provenance required')
+    proof_config = doc(receipt['config_ref'], 'capacity offline proof config')
+    stage_config = doc(stage_config_ref, 'capacity preparation owner config')
+    status = doc(stage_status_ref, 'capacity preparation owner status')
+    prepared = doc(receipt['preparation_report'], 'capacity normally prepared requests')
+    for key in ('stage_config', 'stage_status', 'stage_monitor', 'stage_invocation', 'preparation_report', 'freeze'):
+        if proof_config.get(key) != receipt.get(key):
+            raise ValueError('offline proof owner disconnected from prepared fixture')
+    if (proof_config.get('schema') != producer.SCHEMA or proof_config.get('phase') != 'proofs'
+            or proof_config.get('proof_count', 65) != 65
+            or proof_config.get('baseline_stage_report') != stage_ref
+            or stage_config.get('schema') != producer.SCHEMA or stage_config.get('phase') != 'stage'
+            or stage_config.get('baseline_stage_report') != stage_ref or stage_config.get('ledger') != str(source)
+            or any(stage_config.get(name) != config[name] for name in (
+                'expected_program', 'expected_genesis', 'expected_elf_sha256'))
+            or status.get('status') != 'candidate_verified_pending_external_finalization'
+            or status.get('schema') != 1 or status.get('scope') != 'part5-v3-queue-capacity-stage'
+            or status.get('output_dir') != stage_config.get('output_dir')
+            or Path(stage_status_ref['path']) != Path(stage_config.get('control_output', '')) / 'status.json'
+            or receipt['preparation_report']['path'] != str(Path(stage_config.get('output_dir', '')) / 'capacity-preparation-report.json')
+            or status.get('candidate_verified') is not True or status.get('error_type') is not None
+            or status.get('candidate') != receipt['preparation_report'] or status.get('config_ref') != stage_config_ref
+            or status.get('runner_cleanup', {}).get('reaped') is not True
+            or status.get('runner_cleanup', {}).get('exit_code') != 0
+            or status.get('validator_cleanup', {}).get('reaped') is not True
+            or status.get('validator_cleanup', {}).get('exit_code') != -2
+            or prepared.get('schema') != producer.PREPARATION_SCHEMA or prepared.get('passed') is not True
+            or prepared.get('request_count') != 65 or prepared.get('queue_empty') is not True
+            or prepared.get('program') != config['expected_program'] or prepared.get('genesis') != config['expected_genesis']
+            or prepared.get('stage_report_sha256') != config['stage_report_sha256']
+            or prepared.get('config_ref') != {'path': stage_config['rust_config_path'],
+                                            'sha256': stage_config['rust_config_sha256']}):
+        raise ValueError('stopped verified capacity preparation and complete offline proof owner required')
+    check_monitor(doc(receipt['stage_monitor'], 'capacity preparation monitor'),
+                  doc(receipt['stage_invocation'], 'capacity preparation invocation'),
+                  stage_config_ref, Path(producer.__file__), stage_config, staging=True)
+    inputs = _validate_inputs(config['inputs'])
+    rows, finalizations = prepared.get('inputs'), fixture.get('request_finalizations')
+    if type(rows) is not list or len(rows) != 65 or type(finalizations) is not list or len(finalizations) != 65:
+        raise ValueError('all 65 exact normally finalized requests required')
+    signatures = set()
+    for row, staged, finalized in zip(inputs, rows, finalizations):
+        _opaque(finalized.get('signature'), 'request finalization signature')
+        if (any(staged.get(name) != row[name] for name in ('request_address', 'action_sha256', 'request_account', 'request_sha256'))
+                or finalized.get('request_address') != row['request_address']
+                or finalized.get('signature') != staged.get('finalization', {}).get('signature')
+                or finalized.get('slot') != staged.get('finalization', {}).get('slot')
+                or type(finalized.get('slot')) is not int or finalized['slot'] <= 0
+                or finalized['signature'] in signatures):
+            raise ValueError('capacity fixture finalization order differs from pinned preparation')
+        signatures.add(finalized['signature'])
+        proof = doc({'path': row['proof_receipt'], 'sha256': row['proof_receipt_sha256']}, 'capacity proof receipt')
+        wire = _read_pinned(row['full_wire'], row['full_wire_sha256'], 448, 'capacity Full wire', private=True)
+        producer.check_proof_receipt(proof, row, wire)
+    _validate_signed_validity(config, prepared, proof_config, inputs)
+
+
+def _validate_legacy_stage(config, clone, source, stage_config, stage_status, stage_status_path):
     stage_root = Path(config["stage_report"]).parent
     stage_control = Path(stage_config.get("control_output", ""))
     validator_cleanup = stage_status.get("validator_cleanup")
@@ -337,6 +470,7 @@ def _validate_config(config):
         "expected_program", "expected_genesis", "expected_genesis_sha256",
         "expected_elf", "expected_elf_sha256", "validator", "validator_sha256",
         "runner", "runner_sha256", "rust_config_path", "rust_config_sha256",
+        "fixture_manifest", "fixture_manifest_sha256", "preparation_receipt", "preparation_receipt_sha256",
         "output_dir", "control_output", "inputs", "outer_limits_required",
     }
     if (type(config) is not dict or set(config) != fields
@@ -350,7 +484,7 @@ def _validate_config(config):
                  "stage_report_sha256", "stage_config_sha256", "stage_status_sha256",
                  "expected_genesis_sha256",
                  "expected_elf_sha256", "validator_sha256", "runner_sha256",
-                 "rust_config_sha256"):
+                 "rust_config_sha256", "fixture_manifest_sha256", "preparation_receipt_sha256"):
         _hash(config[name], name)
     _read_pinned(config["cohort_freeze"], config["cohort_freeze_sha256"],
                  MAX_CONFIG_BYTES, "cohort tooling freeze")
@@ -367,14 +501,15 @@ def _validate_config(config):
             or stage_report.get("loaded_program", {}).get("elf_match") is not True
             or stage_report.get("loaded_program", {}).get("elf_sha256") != config["expected_elf_sha256"]):
         raise ValueError("accepted stage report must bind the expected loaded ELF and genesis")
-    # Parse the externally pinned local-stage config even before the clone source
-    # is resolved; this confirms the configured stage artifact paths are direct.
+    # This is the separately measured 65-request preparation owner, linked to
+    # the original accepted application stage report.
     stage_config_raw = _read_pinned(config["stage_config"], config["stage_config_sha256"],
                                     MAX_CONFIG_BYTES, "local-stage config")
     stage_config = execute.base.decode_json(stage_config_raw)
-    if (type(stage_config) is not dict or stage_config.get("schema") != 1
-            or stage_config.get("scope") != "part5-v3-local-stage"
-            or stage_config.get("stage_output") != str(Path(config["stage_report"]).parent)
+    if (type(stage_config) is not dict
+            or stage_config.get("schema") != 'part5-v3-queue-capacity-producer-config-v1'
+            or stage_config.get("phase") != 'stage'
+            or stage_config.get("baseline_stage_report") != {'path': config['stage_report'], 'sha256': config['stage_report_sha256']}
             or stage_config.get("expected_genesis") != config["expected_genesis"]):
         raise ValueError("pinned local-stage config does not bind the accepted stage report")
     _read_pinned(config["stage_status"], config["stage_status_sha256"],
@@ -383,8 +518,7 @@ def _validate_config(config):
                              MAX_CONFIG_BYTES, "queue-capacity clone receipt")
     clone = execute.base.decode_json(clone_raw)
     ledger = Path(config["ledger"])
-    if (type(clone) is not dict or clone.get("schema") != "part5-v3-heldout-r0-ledger-clone-v1"
-            or clone.get("heldout_acceptance") is not False
+    if (type(clone) is not dict or clone.get("schema") != "part5-v3-queue-capacity-prepared-ledger-clone-v1"
             or clone.get("source_stable") is not True or clone.get("copy_identical") is not True
             or clone.get("loaded_identity_rechecked_after_restart") is not False
             or clone.get("application_effect") is not False
@@ -432,6 +566,7 @@ def _validate_config(config):
         "genesis_sha256": config["expected_genesis_sha256"],
         "elf_sha256": config["expected_elf_sha256"], "input_count": 65,
         "queue_capacity": QUEUE_CAPACITY,
+        "fixture_manifest": config['fixture_manifest'], "fixture_manifest_sha256": config['fixture_manifest_sha256'],
         "inputs": [{"request_address": row["request_address"],
                     "action_sha256": row["action_sha256"],
                     "request_account": row["request_account"],
@@ -488,13 +623,30 @@ def run(config, config_sha256, config_path):
         _write_integration_failure(config, config_sha256, config_path, error)
         return 2
 
-    error = RuntimeError(
-        "Rust queue-capacity loaded report interface is not integrated: "
-        "supplied evidence v1 establishes consistency only; a reviewed runtime "
-        "producer, finalized RPC checks, and separate outer cleanup receipt are required")
-    _write_integration_failure(config, config_sha256, config_path, error,
-                               blocker="missing_loaded_report_interface")
-    return 2
+    return runtime.supervise(config, {'path': str(config_path), 'sha256': config_sha256},
+                             'queue-capacity-negative-report.json', _verify_runtime)
+
+
+def _verify_runtime(rpc, report, config, output, loaded, runner_pid):
+    """Replay finalized signed transactions and exact application bytes live.
+
+    The external finalizer reopens these retained RPC bytes after the complete
+    bounded owner has exited. This supervisor never fabricates its RSS/storage
+    measurement or claims whole-process-tree cleanup.
+    """
+    from tools.part5 import finalize_v3_queue_capacity_negative as finalizer
+    expected_ref = {'path': config['rust_config_path'], 'sha256': config['rust_config_sha256']}
+    if (report.get('runner_test') != RUST_TEST or report.get('config_ref') != expected_ref):
+        raise ValueError('runtime report differs from exact Rust entrypoint/config')
+    output = Path(output)
+    (output / 'rpc').mkdir(mode=0o700)
+    _, transactions = finalizer.replay_runtime(report, config, output, rpc=rpc,
+                                                loaded=loaded, runner_pid=runner_pid)
+    path = output / 'rpc-rechecks.json'
+    execute.base.write_new(path, {'schema': 'part5-v3-queue-capacity-rpc-rechecks-v1',
+                                  'rust_config': expected_ref, 'transactions': transactions})
+    raw, digest = execute.stage.snapshot_generated(path, MAX_CONFIG_BYTES)
+    return {'path': str(path), 'sha256': digest}
 
 
 def main():

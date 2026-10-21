@@ -36,7 +36,8 @@ class QueueCapacitySupervisorTests(unittest.TestCase):
             wire = root / f"{stem}.wire"
             request.write_bytes(f"request-bytes-{index}".encode())
             proof.write_text(json.dumps({"receipt": stem}), encoding="utf-8")
-            wire.write_bytes(f"wire-bytes-{index}".encode())
+            action = hashlib.sha256(f"action-{index}".encode()).digest()
+            wire.write_bytes(bytes(128) + action + bytes(288))
             for path in (request, proof, wire):
                 path.chmod(0o600)
             rows.append({
@@ -69,6 +70,11 @@ class QueueCapacitySupervisorTests(unittest.TestCase):
             bad_wire[0]["full_wire_sha256"] = "0" * 64
             with self.assertRaisesRegex(ValueError, "Full wire.*pin"):
                 supervisor._validate_inputs(bad_wire)
+
+            wrong_action = json.loads(json.dumps(rows))
+            wrong_action[0]['action_sha256'] = '0' * 64
+            with self.assertRaisesRegex(ValueError, 'action'):
+                supervisor._validate_inputs(wrong_action)
 
     def test_missing_rust_capacity_entrypoint_fails_closed(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -112,7 +118,7 @@ class QueueCapacitySupervisorTests(unittest.TestCase):
             module_source.write_text(implementation, encoding='utf-8')
             supervisor._require_rust_entrypoint((test_source, module_source))
 
-    def test_present_marker_still_blocks_missing_loaded_report_interface_without_startup(self):
+    def test_present_entrypoint_delegates_runtime_failure_without_inventing_evidence(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()
             control = root / 'control'
@@ -124,20 +130,12 @@ class QueueCapacitySupervisorTests(unittest.TestCase):
             with (mock.patch.dict(os.environ, {'P5_V3_QUEUE_CAPACITY_NEGATIVE_SCOPE': supervisor.SCOPE}),
                   mock.patch.object(supervisor, '_validate_config'),
                   mock.patch.object(supervisor, '_require_rust_entrypoint'),
-                  mock.patch.object(supervisor, '_canonical_child', return_value=control),
-                  mock.patch.object(supervisor.execute.base, 'ports_free') as ports,
-                  mock.patch('subprocess.Popen') as spawn):
+                  mock.patch.object(supervisor.runtime, 'supervise', return_value=2) as supervise,
+                  mock.patch.object(supervisor, '_write_integration_failure') as blocker):
                 self.assertEqual(supervisor.run(config, hashlib.sha256(raw).hexdigest(), path), 2)
-            status = json.loads((control / 'status.json').read_text())
-            self.assertIn('loaded report interface is not integrated', status['error_message'])
-            self.assertEqual(status['integration_blocker'], 'missing_loaded_report_interface')
-            self.assertIs(status['report_consistency_establishes_loaded_execution'], False)
-            self.assertEqual(status['required_loaded_report_contract'], supervisor.LOADED_REPORT_CONTRACT)
-            self.assertIs(status['validator_started'], False)
-            self.assertIs(status['runner_started'], False)
-            self.assertEqual(status['remaining_owned_processes'], 0)
-            ports.assert_not_called()
-            spawn.assert_not_called()
+            supervise.assert_called_once()
+            blocker.assert_not_called()
+            self.assertFalse(control.exists())
 
     def test_integration_failure_status_records_zero_started_processes(self):
         with tempfile.TemporaryDirectory() as temporary:
