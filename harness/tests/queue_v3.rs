@@ -51,3 +51,9 @@ fn root_pinned_queue_v3_disabled_config_negative() {
 fn root_pinned_queue_v3_expired_status_negative() {
     zk_fresh_benchmark::solana::queue_v3::expired_status_negative_from_env().unwrap();
 }
+
+#[test]
+#[ignore = "requires 65 independently proved finalized requests, private fixture manifest, and supervised loaded validator"]
+fn root_pinned_queue_v3_queue_capacity_negative() {
+    zk_fresh_benchmark::solana::queue_v3::queue_capacity_negative_from_env().unwrap();
+}

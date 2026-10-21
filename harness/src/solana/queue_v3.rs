@@ -15,9 +15,14 @@ mod branch;
 mod campaign;
 mod disabled_config;
 mod expired_status_negative;
+mod queue_capacity_negative;
 pub use branch::branch_from_env;
 pub use disabled_config::disabled_config_negative_from_env;
 pub use expired_status_negative::expired_status_negative_from_env;
+
+pub fn queue_capacity_negative_from_env() -> Result<()> {
+    queue_capacity_negative::queue_capacity_negative_from_env()
+}
 
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
