@@ -974,6 +974,35 @@ def _sampled_peak(samples):
     }
 
 
+def _accepted_runtime_identity(acceptance):
+    """Recover the common loaded identity from the pinned verified case results."""
+    frozen = acceptance.get('frozen_identities')
+    frozen_elf = frozen.get('loaded_elf_sha256') if type(frozen) is dict else None
+    if type(frozen_elf) is not str or HEX64.fullmatch(frozen_elf) is None:
+        raise ValueError('verified runtime identity requires the frozen ELF digest')
+    identity = None
+    for case in acceptance['cases']:
+        branches = case.get('branches')
+        if type(branches) is not dict or set(branches) != BRANCHES:
+            raise ValueError('verified runtime identity required for all branches')
+        for branch in branches.values():
+            runtime = branch.get('runtime_identity') if type(branch) is dict else None
+            if (type(runtime) is not dict
+                    or any(type(runtime.get(key)) is not str or not runtime[key]
+                           for key in ('program', 'programdata', 'genesis'))
+                    or any(type(runtime.get(key)) is not str
+                           or HEX64.fullmatch(runtime[key]) is None
+                           for key in ('elf_sha256', 'program_account_sha256',
+                                       'programdata_account_sha256'))
+                    or runtime['elf_sha256'] != frozen_elf):
+                raise ValueError('verified runtime identity missing or differs from frozen ELF')
+            if identity is None:
+                identity = dict(runtime)
+            if runtime != identity:
+                raise ValueError('verified runtime identity differs across heldout branches')
+    return identity
+
+
 def analyze(manifest_ref, acceptance_ref):
     manifest, manifest_sha = _load_input_ref(manifest_ref, 'assembled manifest')
     acceptance, acceptance_sha = _load_input_ref(acceptance_ref, 'acceptance report')
@@ -992,10 +1021,6 @@ def analyze(manifest_ref, acceptance_ref):
         if (acceptance.get('counts', {}).get('loaded_expired_status_negatives') != 8
                 or acceptance.get('counts', {}).get('loaded_queue_capacity_negatives') != 1):
             raise ValueError('eight expiry and one capacity loaded negatives required')
-        from tools.part5 import verify_v3_heldout_acceptance as verifier
-        capacity = verifier._verify_queue_capacity_negative(manifest)
-        if acceptance.get('queue_capacity_negative') != capacity:
-            raise ValueError('capacity acceptance differs from independently reopened evidence')
     _verify_analyzer_frozen_source(manifest)
     freeze_ref, cohort_ref = manifest.get('freeze_receipt'), manifest.get('cohort_receipt')
     if (type(freeze_ref) is not dict or type(cohort_ref) is not dict
@@ -1016,6 +1041,13 @@ def analyze(manifest_ref, acceptance_ref):
         by_variant[variant] = row
     if set(by_variant) != VARIANTS:
         raise ValueError('independent acceptance report must cover variants 0 through 7')
+
+    if final_acceptance:
+        from tools.part5 import verify_v3_heldout_acceptance as verifier
+        runtime_identity = _accepted_runtime_identity(acceptance)
+        capacity = verifier._verify_queue_capacity_negative(manifest, runtime_identity)
+        if acceptance.get('queue_capacity_negative') != capacity:
+            raise ValueError('capacity acceptance differs from independently reopened evidence')
 
     output_rows = []
     sampled = []

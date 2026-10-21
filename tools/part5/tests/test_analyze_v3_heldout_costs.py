@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 from tools.part5 import analyze_v3_heldout_costs as analyzer
 
@@ -664,6 +665,63 @@ class HeldoutCostAnalyzerTests(unittest.TestCase):
             'counts': {'variants': 8}, 'cases': acceptance_cases,
         })
         return manifest_ref, acceptance_ref
+
+    def make_final_inputs(self):
+        manifest = json.loads(Path(self.manifest['path']).read_text())
+        acceptance = json.loads(Path(self.acceptance['path']).read_text())
+        identity = {
+            'program': 'program', 'genesis': 'genesis', 'programdata': 'programdata',
+            'elf_sha256': 'd' * 64, 'program_account_sha256': 'e' * 64,
+            'programdata_account_sha256': 'f' * 64,
+        }
+        manifest['schema'] = analyzer.MANIFEST_SCHEMA
+        manifest['evidence_scope'] = 'final-acceptance'
+        for case in manifest['cases']:
+            case['expired_status_negative_wall_seconds'] = 0.0
+        acceptance['heldout_acceptance'] = True
+        acceptance['evidence_scope'] = 'final-acceptance'
+        acceptance['counts'].update(loaded_expired_status_negatives=8,
+                                    loaded_queue_capacity_negatives=1)
+        acceptance['frozen_identities'] = {'loaded_elf_sha256': identity['elf_sha256']}
+        acceptance['queue_capacity_negative'] = {'verified': True}
+        for case in acceptance['cases']:
+            for branch in case['branches'].values():
+                branch['runtime_identity'] = dict(identity)
+        self.manifest = self._write_pinned_json(self.manifest, manifest)
+        acceptance['manifest_sha256'] = self.manifest['sha256']
+        self.acceptance = self._write_pinned_json(self.acceptance, acceptance)
+        return manifest, acceptance, identity
+
+    def test_final_acceptance_passes_verified_identity_to_capacity_replay(self):
+        manifest, acceptance, identity = self.make_final_inputs()
+        from tools.part5 import verify_v3_heldout_acceptance as verifier
+        def replay(actual_manifest, runtime_identity=None):
+            self.assertEqual(actual_manifest, manifest)
+            self.assertEqual(runtime_identity, identity)
+            return acceptance['queue_capacity_negative']
+        with mock.patch.object(verifier, '_verify_queue_capacity_negative', side_effect=replay) as capacity, \
+                mock.patch.object(analyzer, '_expired_status_cost'), \
+                mock.patch.object(analyzer, '_verify_expired_status_audit'):
+            result = analyzer.analyze(self.manifest, self.acceptance)
+        self.assertTrue(result['heldout_acceptance'])
+        capacity.assert_called_once()
+
+    def test_final_acceptance_rejects_missing_or_conflicting_runtime_identity(self):
+        _, acceptance, _ = self.make_final_inputs()
+        original = json.loads(json.dumps(acceptance))
+        for mutation in ('missing', 'program', 'genesis', 'elf_sha256', 'frozen_elf'):
+            with self.subTest(mutation=mutation):
+                changed = json.loads(json.dumps(original))
+                branch = changed['cases'][7]['branches']['own_revocation']
+                if mutation == 'missing':
+                    del branch['runtime_identity']
+                elif mutation == 'frozen_elf':
+                    changed['frozen_identities']['loaded_elf_sha256'] = '0' * 64
+                else:
+                    branch['runtime_identity'][mutation] = '0' * 64
+                self.acceptance = self._write_pinned_json(self.acceptance, changed)
+                with self.assertRaisesRegex(ValueError, 'runtime identity'):
+                    analyzer.analyze(self.manifest, self.acceptance)
 
     def test_recomputes_request_b_costs_and_reports_matched_pairs(self):
         result = analyzer.analyze(self.manifest, self.acceptance)
