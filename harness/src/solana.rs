@@ -2143,18 +2143,23 @@ pub mod queue_v2 {
             .last()
             .and_then(|e| e["slot"].as_u64())
             .context("last transaction slot missing")?;
-        let deadline = Instant::now() + Duration::from_secs(20);
+        let started = Instant::now();
+        let deadline = started + Duration::from_secs(30);
+        let mut first_rooted = None;
         loop {
             let rooted = rpc
                 .call("getSlot", json!([{"commitment":"finalized"}]))?
                 .as_u64()
                 .context("finalized slot missing")?;
+            first_rooted.get_or_insert(rooted);
             if rooted >= slot {
                 return Ok(rooted);
             }
             ensure!(
                 Instant::now() < deadline,
-                "persistent-ledger finalization deadline"
+                "persistent-ledger finalization deadline: target_slot={slot} first_finalized_slot={} last_finalized_slot={rooted} elapsed_seconds={:.3}",
+                first_rooted.unwrap_or(rooted),
+                started.elapsed().as_secs_f64()
             );
             thread::sleep(Duration::from_millis(250));
         }
@@ -2181,6 +2186,7 @@ pub mod queue_v2 {
         use super::*;
         use std::io::{Read, Write};
         use std::net::TcpListener;
+        use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::{Arc, Mutex};
 
         // A finite loopback JSON-RPC script. No validator, keys or transactions.
@@ -2327,6 +2333,101 @@ pub mod queue_v2 {
             server.join().unwrap();
             assert_eq!(result.unwrap(), 101);
             assert_eq!(calls.lock().unwrap().len(), 4);
+        }
+
+        #[test]
+        fn finalized_wait_accepts_root_after_old_twenty_second_cutoff() {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            listener.set_nonblocking(true).unwrap();
+            let address = listener.local_addr().unwrap();
+            let done = Arc::new(AtomicBool::new(false));
+            let server_done = done.clone();
+            let server = thread::spawn(move || {
+                let started = Instant::now();
+                while !server_done.load(Ordering::SeqCst)
+                    && started.elapsed() < Duration::from_secs(24)
+                {
+                    let mut connection = match listener.accept() {
+                        Ok((stream, _)) => stream,
+                        Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                            thread::sleep(Duration::from_millis(5));
+                            continue;
+                        }
+                        Err(e) => panic!("late-root RPC accept: {e}"),
+                    };
+                    connection.set_nonblocking(false).unwrap();
+                    connection
+                        .set_read_timeout(Some(Duration::from_secs(1)))
+                        .unwrap();
+                    let mut raw = Vec::new();
+                    let body = loop {
+                        let mut bytes = [0u8; 4096];
+                        let read = match connection.read(&mut bytes) {
+                            Ok(0) => return,
+                            Ok(count) => count,
+                            Err(error)
+                                if error.kind() == std::io::ErrorKind::WouldBlock
+                                    || error.kind() == std::io::ErrorKind::TimedOut =>
+                            {
+                                if server_done.load(Ordering::SeqCst) {
+                                    return;
+                                }
+                                continue;
+                            }
+                            Err(error) => panic!("late-root RPC read: {error}"),
+                        };
+                        raw.extend_from_slice(&bytes[..read]);
+                        assert!(raw.len() < 32768);
+                        if let Some(split) = raw.windows(4).position(|part| part == b"\r\n\r\n") {
+                            let headers = String::from_utf8(raw[..split].to_vec()).unwrap();
+                            let length = headers
+                                .lines()
+                                .find_map(|line| {
+                                    line.to_ascii_lowercase()
+                                        .strip_prefix("content-length:")
+                                        .map(|value| value.trim().parse::<usize>().unwrap())
+                                })
+                                .unwrap();
+                            if raw.len() >= split + 4 + length {
+                                break raw[split + 4..split + 4 + length].to_vec();
+                            }
+                        }
+                    };
+                    let call: Value = serde_json::from_slice(&body).unwrap();
+                    assert_eq!(call["method"], "getSlot");
+                    let root = if started.elapsed() >= Duration::from_secs(21) {
+                        153
+                    } else {
+                        151
+                    };
+                    let response = serde_json::to_vec(&json!({
+                        "jsonrpc":"2.0", "id":1, "result":root
+                    }))
+                    .unwrap();
+                    write!(
+                        connection,
+                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                        response.len()
+                    )
+                    .unwrap();
+                    connection.write_all(&response).unwrap();
+                    if root == 153 {
+                        break;
+                    }
+                }
+            });
+            let rpc = Rpc {
+                endpoint: format!("http://{address}"),
+                client: Client::builder()
+                    .no_proxy()
+                    .timeout(Duration::from_secs(1))
+                    .build()
+                    .unwrap(),
+            };
+            let result = wait_finalized(&rpc, &[json!({"slot":153})]);
+            done.store(true, Ordering::SeqCst);
+            server.join().unwrap();
+            assert_eq!(result.unwrap(), 153);
         }
     }
 
