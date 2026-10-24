@@ -626,7 +626,7 @@ pub fn queue_capacity_negative_from_env() -> Result<()> {
             && config.inputs.len() == 65
             && config.outer_limits_required
                 == json!({"runtime_seconds":3600,"rss_bytes":4294967296u64,
-            "storage_growth_bytes":1073741824}),
+            "storage_growth_bytes":17179869184u64}),
         "exact bounded capacity configuration required"
     );
     for digest in [

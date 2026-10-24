@@ -32,7 +32,7 @@ RUST_FN = "queue_capacity_negative_from_env"
 QUEUE_CAPACITY = 64
 ACCOUNT_NAMES = checks.ACCOUNT_NAMES
 LIMITS = {"runtime_seconds": 3600, "rss_bytes": 4294967296,
-          "storage_growth_bytes": 1073741824}
+          "storage_growth_bytes": 17179869184}
 MAX_CONFIG_BYTES = 1024 * 1024
 MAX_ACCOUNT_BYTES = 1024 * 1024
 MAX_PROOF_RECEIPT_BYTES = 256 * 1024

@@ -251,6 +251,7 @@ class CapacityProducerTests(unittest.TestCase):
             self.assertTrue(result['clone_owner_required'])
             self.assertFalse(result['cost_included'])
             self.assertEqual(result['owner_limits']['runtime_seconds'], 3600)
+            self.assertEqual(result['owner_limits']['storage_growth_bytes'], 17179869184)
             self.assertTrue((destination.parent / 'clone-report.json').exists())
 
     def test_clone_rejects_missing_or_changed_source_pin_before_copy(self):

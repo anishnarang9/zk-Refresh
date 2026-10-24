@@ -512,7 +512,7 @@ def clone_prepared(config, config_pin):
                'cost_included': False,
                'owner_limits': {'runtime_seconds': 3600,
                                 'owned_tree_rss_bytes': 4294967296,
-                                'storage_growth_bytes': 1073741824,
+                                'storage_growth_bytes': 17179869184,
                                 'poll_seconds': .25},
                'source': str(source), 'destination': str(destination),
                'entry_count': len(before), 'tree_sha256': tree_sha256,

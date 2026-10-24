@@ -364,7 +364,7 @@ class CloneOwnerCase(unittest.TestCase):
         clone_config={**proof,'schema':finalizer.fixture.SCHEMA,'phase':'clone','ledger':config['ledger'],'output_dir':root,
                       'preparation_receipt':{'path':config['preparation_receipt'],'sha256':config['preparation_receipt_sha256']},
                       'proof_monitor':manifest['proof_monitor'],'proof_invocation':manifest['proof_invocation'],'source_tree_sha256':digest}
-        limits={'runtime_seconds':3600,'owned_tree_rss_bytes':4294967296,'storage_growth_bytes':1073741824,'poll_seconds':.25}
+        limits={'runtime_seconds':3600,'owned_tree_rss_bytes':4294967296,'storage_growth_bytes':17179869184,'poll_seconds':.25}
         report={'schema':'part5-v3-queue-capacity-prepared-ledger-clone-v1','config_ref':manifest['clone_config'],'clone_owner_required':True,
                 'cost_included':False,'owner_limits':limits,'source':stage['ledger'],'destination':config['ledger'],'entry_count':1,'tree_sha256':digest,
                 'source_stable':True,'copy_identical':True,'excluded_stale_admin_socket':False,'loaded_identity_rechecked_after_restart':False,'application_effect':False,
@@ -386,6 +386,28 @@ class CloneOwnerCase(unittest.TestCase):
 
     def test_verified_clone_external_wall_is_returned(self):
         self.assertEqual(self.check_case(self.make_case())['wall_seconds'],12)
+
+    def test_prior_one_gib_clone_ceiling_is_rejected(self):
+        case=self.make_case()
+        case[5][case[0]['clone_report']['path']]['owner_limits']['storage_growth_bytes']=1073741824
+        with self.assertRaises(ValueError):
+            self.check_case(case)
+
+    def test_stage_monitor_requires_revised_ceiling(self):
+        case=self.make_case()
+        manifest,_,_,_,_,docs,_=case
+        monitor=docs[manifest['clone_monitor']['path']]
+        invocation=docs[manifest['clone_invocation']['path']]
+        config_pin=manifest['clone_config']
+        stage_config={'phase':'stage','output_dir':'/private/capacity-clone/output',
+                      'control_output':'/private/capacity-clone/control',
+                      'ledger':'/private/capacity-clone/ledger'}
+        self.assertEqual(finalizer.check_monitor(monitor,invocation,config_pin,
+                         Path(finalizer.fixture.__file__),stage_config)['storage_limit_bytes'],17179869184)
+        monitor['limits']['storage_growth_bytes']=1073741824
+        with self.assertRaisesRegex(ValueError,'storage ceiling differs'):
+            finalizer.check_monitor(monitor,invocation,config_pin,
+                                    Path(finalizer.fixture.__file__),stage_config)
 
     def test_clone_monitor_requires_named_owner_and_real_numeric_status(self):
         for key,value in [('owner',None),('exit_code',False),('sample_count',True)]:

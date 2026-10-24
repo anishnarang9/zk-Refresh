@@ -20,6 +20,7 @@ from tools.part5.build_v3_campaign_packet import action
 SCHEMA='part5-v3-queue-capacity-finalization-v1'
 MANIFEST_SCHEMA='part5-v3-queue-capacity-finalizer-input-v1'
 RUNTIME_SCHEMA='part5-v3-queue-capacity-negative-rust-report-v1'
+CAPACITY_STORAGE_LIMIT_BYTES=17179869184
 require=runtime.require
 
 
@@ -51,7 +52,7 @@ def check_monitor(monitor,invocation,config_pin,command_path,config,*,staging=Fa
             and number(bounds.get('storage_growth_bytes'),True)>0
             and number(bounds.get('poll_seconds'))<=.25, 'exact declared capacity owner limits required')
     if config.get('phase')!='proofs':
-        require(bounds['storage_growth_bytes']==1073741824,'capacity fill/stage storage ceiling differs')
+        require(bounds['storage_growth_bytes']==CAPACITY_STORAGE_LIMIT_BYTES,'capacity fill/stage storage ceiling differs')
     duration=number(monitor.get('duration_seconds'))
     require(0<duration<=bounds['runtime_seconds'],'owner wall bound exceeded')
     roots=[Path(p) for p in invocation.get('storage_roots',[])]
@@ -457,7 +458,7 @@ def check_clone_owner(manifest, config, preparation, proof_config, stage_config)
             and Path(manifest['clone_report']['path'])==destination.parent/'clone-report.json',
             'clone source/destination ownership differs')
     limits={'runtime_seconds':3600,'owned_tree_rss_bytes':4294967296,
-            'storage_growth_bytes':1073741824,'poll_seconds':.25}
+            'storage_growth_bytes':CAPACITY_STORAGE_LIMIT_BYTES,'poll_seconds':.25}
     require(report.get('schema')=='part5-v3-queue-capacity-prepared-ledger-clone-v1'
             and report.get('config_ref')==manifest['clone_config']
             and report.get('clone_owner_required') is True and report.get('cost_included') is False

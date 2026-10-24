@@ -30,7 +30,7 @@ RESULTS = ROOT / 'results/dynark/part5'
 SETUP = PART5 / 'v3-development-setup-001'
 COMPILE = PART5 / 'v3-compile-001'
 PROOF = ROOT / 'circuits/credential-v3-bounded/qualification/proof-runner-v1'
-RUNNER_BINARY = 'artifacts/dynark/part5/v3-heldout-queue-runner-005'
+RUNNER_BINARY = 'artifacts/dynark/part5/v3-heldout-queue-runner-006'
 LOADED_ELF = PART5 / 'application-v3-sbf-build-002/elf/zk_fresh_program.so'
 INVENTORY_SCHEMA = 'credential-v3-prior-public-key-inventory-v1'
 

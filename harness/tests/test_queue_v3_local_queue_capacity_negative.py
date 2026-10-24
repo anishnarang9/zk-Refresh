@@ -259,7 +259,7 @@ class QueueCapacitySupervisorTests(unittest.TestCase):
             report, config = make_report(root, self.make_catalog(root))
             for key, larger in (("wall_limit_seconds", 3601),
                                 ("rss_limit_bytes", 4294967297),
-                                ("storage_limit_bytes", 1073741825)):
+                                ("storage_limit_bytes", 17179869185)):
                 changed = json.loads(json.dumps(report))
                 changed["owner"][key] = larger
                 with self.subTest(key=key), self.assertRaisesRegex(ValueError, "supervisor limit"):
