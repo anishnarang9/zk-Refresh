@@ -1565,6 +1565,21 @@ class HeldoutAcceptanceVerifierTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'finite monotonic timestamps'):
             verifier._verify_positive_full_clone_order(broken)
 
+    def test_separate_case_ledgers_share_loaded_program_but_keep_own_genesis(self):
+        first = {
+            'program': 'program', 'programdata': 'programdata',
+            'elf_sha256': 'a' * 64,
+            'program_account_sha256': 'b' * 64,
+            'programdata_account_sha256': 'c' * 64,
+            'genesis': 'first-genesis',
+        }
+        second = {**first, 'genesis': 'second-genesis'}
+        compare = getattr(verifier, '_require_same_loaded_application', None)
+        self.assertIsNotNone(compare)
+        compare(first, second)
+        with self.assertRaisesRegex(ValueError, 'loaded program'):
+            compare(first, {**second, 'elf_sha256': 'd' * 64})
+
     def test_ambiguous_restart_journal_allows_job_overhead_above_outer_duration(self):
         case, steps = self._ambiguous_journal_fixture()
         steps['positive_full:ambiguous-restart']['wall_seconds'] = 3.0

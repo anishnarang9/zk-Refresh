@@ -1391,6 +1391,17 @@ def _verify_report_runtime_identity(report, status, config, frozen_elf_sha256, *
         'programdata_account_sha256', 'genesis')}
 
 
+def _require_same_loaded_application(first, current):
+    """Separate local ledgers may have distinct genesis hashes for one ELF."""
+    common = ('program', 'programdata', 'elf_sha256',
+              'program_account_sha256', 'programdata_account_sha256')
+    _require(type(first) is dict and type(current) is dict
+             and all(type(first.get(name)) is str and first[name]
+                     and current.get(name) == first[name] for name in common)
+             and type(current.get('genesis')) is str and current['genesis'],
+             'loaded program changed across heldout sessions')
+
+
 def _validate_stage(stage_bundle, case, frozen_elf_sha256):
     _require(type(stage_bundle) is dict and set(stage_bundle) == {
         'report', 'plan', 'allocations', 'signed_history', 'accounts',
@@ -4005,8 +4016,8 @@ def verify_manifest(manifest_path):
         for branch_result in branch_results.values():
             if runtime_identity is None:
                 runtime_identity = branch_result['runtime_identity']
-            _require(branch_result['runtime_identity'] == runtime_identity,
-                     'loaded program or genesis changed across heldout sessions')
+            _require_same_loaded_application(
+                runtime_identity, branch_result['runtime_identity'])
         output_cases.append({'variant': variant,
                              'target_credential_sha256': target['credential_sha256'],
                              'target_tbs_sha256': target['tbs_sha256'],

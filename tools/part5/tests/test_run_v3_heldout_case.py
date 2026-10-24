@@ -54,11 +54,13 @@ def test_positive_full_r0_clones_complete_between_stage_and_transition(tmp_path)
     case_runner._verify_record = runner.HeldoutCaseRunner._verify_record
     wall_by_label = {'r0': 1.25, 'disabled-config-r0': 2.5,
                      'ambiguous-restart-r0': 3.75,
-                     'expired-status-r0': 4.25}
+                     'expired-status-r0': 4.25,
+                     'capacity-baseline-r0': 4.5}
     clone_steps = ['positive_full:r0-clone',
                    'positive_full:disabled-config-clone',
                    'positive_full:ambiguous-restart-clone',
-                   'positive_full:expired-status-clone']
+                   'positive_full:expired-status-clone',
+                   'positive_full:capacity-baseline-clone']
 
     def stage(req, root, case_root, context, prepared):
         return {'report_sha256': 'b' * 64, 'wall_seconds': 4.0}
@@ -96,12 +98,16 @@ def test_positive_full_r0_clones_complete_between_stage_and_transition(tmp_path)
         {'stage_report_sha256': stage_sha, 'label': 'ambiguous-restart-r0'}]
     assert case_runner.journal.calls[4][1] == {
         'stage_report_sha256': stage_sha, 'label': 'expired-status-r0'}
+    assert case_runner.journal.calls[5][1] == {
+        'stage_report_sha256': stage_sha, 'label': 'capacity-baseline-r0'}
     assert [clones[key]['wall_seconds'] for key in
             ('r0', 'disabled_config', 'ambiguous_restart')] == [1.25, 2.5, 3.75]
     assert clones['expired_status']['label'] == 'expired-status-r0'
     assert clones['expired_status']['wall_seconds'] == 4.25
     assert clones['expired_status']['monitor_sha256'] == runner.digest(
         Path(clones['expired_status']['monitor']).read_bytes())
+    assert clones['capacity_baseline']['label'] == 'capacity-baseline-r0'
+    assert clones['capacity_baseline']['receipt'] != clones['r0']['receipt']
     assert transition_result['report_sha256'] == 'c' * 64
 
 
@@ -109,6 +115,8 @@ def test_positive_full_r0_clones_complete_between_stage_and_transition(tmp_path)
 def test_expired_status_r0_clone_is_created_for_every_variant(tmp_path, variant):
     expected_labels = ['r0', 'disabled-config-r0', 'ambiguous-restart-r0',
                        'expired-status-r0']
+    if variant == 0:
+        expected_labels.append('capacity-baseline-r0')
     class Journal:
         def __init__(self):
             self.calls = []
@@ -145,6 +153,7 @@ def test_expired_status_r0_clone_is_created_for_every_variant(tmp_path, variant)
         'label': 'expired-status-r0'})
     assert expired_step in case_runner.journal.calls
     assert 'expired_status' in clones
+    assert ('capacity_baseline' in clones) is (variant == 0)
 
 
 def test_expired_status_r0_clone_reuse_binds_stage_label_and_receipt(tmp_path):

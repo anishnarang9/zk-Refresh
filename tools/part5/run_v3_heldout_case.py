@@ -1361,6 +1361,33 @@ class HeldoutCaseRunner:
             job=create_expired_status_clone,
             reuse=verified_expired_status_clone)
         clones['expired_status'] = expired_status_clone
+        if self.variant == 0:
+            capacity_label = 'capacity-baseline-r0'
+
+            def verified_capacity_clone(saved):
+                try:
+                    return (self._verify_record(
+                        saved, ('receipt', 'monitor'),
+                        ('receipt_sha256', 'monitor_sha256'))
+                        and saved.get('label') == capacity_label
+                        and _json(saved['receipt']).get('stage_report_sha256')
+                            == stage_report_sha256)
+                except (OSError, ValueError, KeyError, TypeError):
+                    return False
+
+            def create_capacity_clone():
+                saved = self._clone_r0('positive_full', root, stage,
+                                       label=capacity_label)
+                if not verified_capacity_clone(saved):
+                    raise ValueError('capacity baseline R0 clone failed review')
+                return {'status': 'passed', **saved}
+
+            clones['capacity_baseline'] = self.journal.run_step(
+                'positive_full:capacity-baseline-clone',
+                inputs={'stage_report_sha256': stage_report_sha256,
+                        'label': capacity_label},
+                job=create_capacity_clone,
+                reuse=verified_capacity_clone)
         return clones
 
     def _expired_status_inputs(self, request, root, stage, source, proof, clone, positive):
