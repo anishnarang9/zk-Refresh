@@ -81,3 +81,42 @@ count will be selected after seeing this cohort's results. One evidence-ranked
 engineering improvement may be evaluated on a new source/cohort boundary,
 with the baseline retained and the same protocol rerun. If the measured
 application loses, report the loss and cause.
+
+## October 26 capacity-clock addendum, before any new variant-00 run
+
+Training-032's eight original cases and loaded expiry negatives passed, but the
+untouched variant-00 R0 ledger saved on October 24 has a finalized block clock
+about 34 hours behind the host on October 26. The frozen capacity stage
+requires a request deadline no more than 24 hours after that chain clock, and
+the frozen proof/fill supervisor requires a deadline more than six hours after
+the host clock. No registered capacity request has started. Disposable normal
+restarts preserved the application accounts; slot-warp diagnostics did not
+establish a usable clock. The original R0 clone and all diagnostics remain
+preserved.
+
+Before inspecting any result from a new run, select exactly one supplemental
+variant-00 attempt using the **unchanged** Training-032 freeze, cohort,
+credential, manifest, ELF, and runner in a new private case root. Select it
+solely to make a current-clock untouched R0 capacity baseline, regardless of
+its speed. Preserve and disclose the original passing variant-00 result. If
+the supplemental attempt fails, is censored, lacks known cleanup, or suffers a
+host timing interruption, stop this route and report it; do not silently
+choose another attempt. If it passes its entire individual and loaded expiry
+review, independently compare its pinned identity and credential with the
+original. Use its untouched pre-transition R0 clone for a **new** capacity
+copy. Any final eight-case assembly that uses the supplemental variant-00
+fragment must identify that substitution and retain both variant-00 results;
+the original case order and this later deviation must be reported. The shared
+capacity finalization must bind the same loaded program and genesis as that
+selected variant-00 fragment. Do not alter frozen application, runner,
+capacity, assembler, or verifier source to force a pass.
+
+This is a prospective operational addendum made after the original eight-case
+results. It does not turn the original protocol's capacity gate into a pass or
+hide extra setup cost. A final acceptance label requires the existing
+independent verifier to pass the exact pinned assembly and the report to
+state this deviation. The four registered direct Full/Anchor pairs still use
+the preselected variant-00 credential and workload; all extra preparation
+and failed diagnostic work is separately disclosed. The 16 GiB stage/clone/
+fill storage bound, finite owner limits, stable heavy lock, and stop-on-first-
+actual-failure rule remain in force.
