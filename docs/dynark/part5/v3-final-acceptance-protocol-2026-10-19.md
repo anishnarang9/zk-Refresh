@@ -178,3 +178,30 @@ uninterrupted host interval. Preserve the result even on failure or a cap and
 stop the campaign at that boundary. Only after an independently reviewed pass
 may cases 01–07 proceed serially. This is a disclosed operational reattempt,
 not a change to the Training-033 credential, source, or acceptance criteria.
+
+## October 26 Training-033 case-01 power-state reattempt, before new output
+
+Training-033 case 01 exited zero and passed its individual functional,
+bounded-receipt, and loaded expiry reviews, but AC power was disconnected
+during the run: the host reported battery power while its owner was still
+active, and remained on battery at terminal review. The monotonic timing
+audit showed no sleep gap, yet the power-state change confounds this case's
+comparison with the registered AC-host samples. Preserve this result as
+functional and expiry evidence; exclude its timing from the eight-case cost
+comparison. Do not relabel it a matched AC sample.
+
+Select exactly one fresh case-01 attempt 002 for this host-power deviation,
+independent of speed or eventual result. Use a NEW ignored private case root
+and launcher under the unchanged Training-033 freeze SHA-256
+`155304129df3a059f288a6b0ebcc84e164e0c7dbbd21458998d5ed76b59d821c`,
+cohort SHA-256 `4eb6e481494c2bcc83813c86d5eb2b84aa0c717a24076de7c5eadf88e4d929c5`,
+and case-01 manifest SHA-256
+`35cb3b573c928e5ee06fdc4cbe62544b9ad28a3b76b53aa2b8d0e9ae699c87b6`.
+Keep all frozen source, ELF, proof runner, adapter, and queue-runner pins.
+Wait for AC power and an open lid, then repeat full branch, file, process,
+disk, and stable-lock preflight immediately before launch. Require the
+original 37-step, fragment, bounded-receipt, loaded expiry custom-705/no
+effect, and uninterrupted host gates, with AC throughout the timed run.
+Preserve both roots, stop on actual failure or cap, and proceed to case 02
+only after independent review of the new attempt. This is a disclosed host
+reattempt, not a change to the credential, source, or acceptance criteria.
