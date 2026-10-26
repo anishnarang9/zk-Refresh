@@ -7,6 +7,8 @@ program/target/
 harness/target/
 results/raw/
 *.log
+__pycache__/
+*.py[cod]
 
 # Local study records and agent planning stay outside the public tree.
 /docs/
@@ -16,3 +18,12 @@ results/raw/
 /AGENTS.md
 /CLAUDE.md
 /GEMINI.md
+
+# Internal research notes kept beside the source in the evidence checkout.
+/circuits/credential-v3-bounded/*.md
+/circuits/credential-v3-bounded/qualification/prover/*.md
+/crates/credential-registry/tests/*.md
+/crates/dynark-native-client/*.md
+/crates/dynark-v3-current-state/*.md
+/tools/part5/*.md
+**/*proposal.json

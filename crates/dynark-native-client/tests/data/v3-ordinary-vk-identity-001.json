@@ -1,0 +1,22 @@
+{
+  "schema":"credential-v3-ordinary-vk-identity-v1",
+  "development_only":true,
+  "profile_admitted":false,
+  "proof_verified":false,
+  "setup_manifest_sha256":"d31f82e3f147e31b30074b3a570a9d7945c5e1f5d3f3dd74172801abbe984918",
+  "ordinary_vk_file_sha256":"87edb4608c2140f3c7fddc8503e49b68931cda973711ce2c831bd44f1b98a875",
+  "ordinary_vk_file_bytes":456,
+  "ordinary_vk_ic_count":7,
+  "ordered_public_inputs":["root","issuerHash","notBefore","notAfter","actionHash","policyHash"],
+  "ordinary_vk_tag":"dynark-solana-adapter/ordinary-vk/v2",
+  "ordinary_vk_tagged_digest":"2f9b770ff51ac399619a3127ddb32efad67697402f10c4549441a3578e4f9a4e",
+  "circuit_id":"eae99530daf7331037f2d1c6dc93ccc582603bd448f38d06e6469c734e8252fe",
+  "package_id":"61d941890d823433468048dd1bd91da80c1bf7e1b3d2b6f5d509077a47ed06c8",
+  "engine_extended_vk_digest":"2611d58c8c8d0b0c1f2c3f0facc4516e5c08e1fb3a7f14b16e32b948bc8f3c70",
+  "profile_sha256":"2e5d26564fb055e70cff924c4cb6e296509030b8c0062130f86ad5af783f7918",
+  "semantic_schema_sha256":"eabfaa2d95e4abc9126b87a04e94397091c103891e92dbaefaafba79cf3b26d4",
+  "public_schema_file_sha256":"ebb3ce4b4eef3ad43c5e21ad76d1bf9f0883a8ebc9e1a37c55c9894f1c00444b",
+  "adapter_lib_sha256":"c9016bbdacb17b7ffa41a67f96d34fc84581f8e6b30bd152ad1a369339d9cd9e",
+  "adapter_v3_sha256":"0148353f8ea06afa03df9e16aefd81e3cfe3e9049be6da20f923a4d8061bc816",
+  "gate_source_sha256":"ae96f73ede3d70be025cd5f38523d6511543a3b1eceb10756e4e68064b62e4da"
+}
