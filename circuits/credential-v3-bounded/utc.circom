@@ -1,0 +1,92 @@
+pragma circom 2.2.3;
+include "circomlib/circuits/bitify.circom";
+include "circomlib/circuits/comparators.circom";
+
+// Exact UTC calendar conversion for the development interval2000-2049.
+template UTCTimeV2() {
+    signal input bytes[13];
+    signal output epoch;
+    signal digits[12];
+    component digitBits[12];
+    component digitRange[12];
+    for (var i = 0; i < 12; i++) {
+        digits[i] <== bytes[i] - 48;
+        digitBits[i] = Num2Bits(4);
+        digitBits[i].in <== digits[i];
+        digitRange[i] = LessEqThan(4);
+        digitRange[i].in[0] <== digits[i];
+        digitRange[i].in[1] <== 9;
+        digitRange[i].out === 1;
+    }
+    bytes[12] === 90;
+    signal year <== digits[0]*10 + digits[1];
+    signal month <== digits[2]*10 + digits[3];
+    signal day <== digits[4]*10 + digits[5];
+    signal hour <== digits[6]*10 + digits[7];
+    signal minute <== digits[8]*10 + digits[9];
+    signal second <== digits[10]*10 + digits[11];
+    component yearRange = LessEqThan(7);
+    yearRange.in[0] <== year;
+    yearRange.in[1] <== 49;
+    yearRange.out === 1;
+    signal yearDiv4;
+    signal yearRem4;
+    yearDiv4 <-- year \ 4;
+    yearRem4 <-- year % 4;
+    year === yearDiv4 * 4 + yearRem4;
+    component quotientBits = Num2Bits(4);
+    quotientBits.in <== yearDiv4;
+    component remainderBits = Num2Bits(2);
+    remainderBits.in <== yearRem4;
+    component leapTest = IsZero();
+    leapTest.in <== yearRem4;
+    signal priorLeapYears;
+    signal priorLeapRem;
+    priorLeapYears <-- (year + 3) \ 4;
+    priorLeapRem <-- (year + 3) % 4;
+    year + 3 === priorLeapYears * 4 + priorLeapRem;
+    component priorBits = Num2Bits(4);
+    priorBits.in <== priorLeapYears;
+    component priorRemBits = Num2Bits(2);
+    priorRemBits.in <== priorLeapRem;
+    var starts[12] = [0,31,59,90,120,151,181,212,243,273,304,334];
+    var lengths[12] = [31,28,31,30,31,30,31,31,30,31,30,31];
+    component months[12];
+    var sum = 0;
+    var daysBefore = 0;
+    var monthLength = 0;
+    for (var i = 0; i < 12; i++) {
+        months[i] = IsEqual();
+        months[i].in[0] <== month;
+        months[i].in[1] <== i+1;
+        sum += months[i].out;
+        daysBefore += starts[i] * months[i].out;
+        monthLength += lengths[i] * months[i].out;
+    }
+    sum === 1;
+    component afterFebruary = GreaterThan(7);
+    afterFebruary.in[0] <== month;
+    afterFebruary.in[1] <== 2;
+    signal leapAdjustment <== leapTest.out * afterFebruary.out;
+    signal maxDay <== monthLength + leapTest.out * months[1].out;
+    component dayNonzero = IsZero();
+    dayNonzero.in <== day;
+    dayNonzero.out === 0;
+    component dayRange = LessEqThan(7);
+    dayRange.in[0] <== day;
+    dayRange.in[1] <== maxDay;
+    dayRange.out === 1;
+    component hourRange = LessEqThan(7);
+    hourRange.in[0] <== hour;
+    hourRange.in[1] <== 23;
+    hourRange.out === 1;
+    component minuteRange = LessEqThan(7);
+    minuteRange.in[0] <== minute;
+    minuteRange.in[1] <== 59;
+    minuteRange.out === 1;
+    component secondRange = LessEqThan(7);
+    secondRange.in[0] <== second;
+    secondRange.in[1] <== 59;
+    secondRange.out === 1;
+    epoch <== (10957 + year*365 + priorLeapYears + daysBefore + leapAdjustment + day - 1) * 86400 + hour*3600 + minute*60 + second;
+}
