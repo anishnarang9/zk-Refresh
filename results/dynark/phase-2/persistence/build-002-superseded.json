@@ -1,7 +1,0 @@
-{
-  "owner": "t6-persistence-build-002",
-  "status": "superseded_unbuilt",
-  "compiler_result": null,
-  "reason": "Parent authorized defensive malformed-Conflict response repair before compiling",
-  "source_manifest": "source-before-build-002.json"
-}

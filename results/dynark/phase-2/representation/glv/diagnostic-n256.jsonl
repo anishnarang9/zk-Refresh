@@ -1,6 +1,0 @@
-{"kind":"conditions","mode":"diagnostic","n":256,"batches":30,"excluded_warmup_batches":2,"multipliers_per_repeat":65,"logical_multiplies_including_warmup":715,"table_entries":513,"entry_size":80,"table_structural_bytes":41040,"scalar_fixture_bytes":16416,"point_fixture_bytes":6240,"cpu_ticks_per_second":1000000,"allocator_instrumented":true,"fixture_seed":"51a7ee12badc0ffe","cache_identity":"BN254/ark-bn254=0.5.0/ark-ec=0.5.0/Fr-root-of-unity/powers-forward-inverse-plus-N-inverse/v1"}
-{"kind":"allocation","path":"construction","live_delta":41040,"peak_delta":41352,"traffic":557136,"calls":16902,"live_absolute":66144}
-{"kind":"allocation","path":"pinned","repeat":1,"live_delta":0,"peak_delta":312,"traffic":64516,"calls":2117,"live_absolute":66144}
-{"kind":"allocation","path":"cached","repeat":1,"live_delta":0,"peak_delta":0,"traffic":0,"calls":0,"live_absolute":66144}
-{"kind":"allocation","path":"pinned","repeat":4,"live_delta":0,"peak_delta":312,"traffic":258064,"calls":8468,"live_absolute":66144}
-{"kind":"allocation","path":"cached","repeat":4,"live_delta":0,"peak_delta":0,"traffic":0,"calls":0,"live_absolute":66144}
