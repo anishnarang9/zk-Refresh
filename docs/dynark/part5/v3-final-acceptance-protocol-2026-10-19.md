@@ -153,3 +153,28 @@ assembly and verifier, four directly timed matched whole-session Full/Anchor
 pairs, economics and a scrubbed report. Preserve and disclose all Training-032
 work and extra cost; its eight functional case passes remain supporting
 evidence, not a substitute for the new complete acceptance run.
+
+## October 26 Training-033 case-00 user-stop reattempt, before new output
+
+The user stopped Training-033 case-00 attempt 001 while an Anchor proof was
+running so the host could be put away. Its owner exited 70; the interrupted
+root and logs are preserved and excluded from accepted cases and timing. On
+the user's explicit resumption, select exactly one fresh case-00 attempt 002
+for this interruption, independent of its eventual speed or outcome. Use a
+NEW ignored private case root and launcher under the same Training-033 freeze
+SHA-256 `155304129df3a059f288a6b0ebcc84e164e0c7dbbd21458998d5ed76b59d821c`,
+cohort receipt SHA-256 `4eb6e481494c2bcc83813c86d5eb2b84aa0c717a24076de7c5eadf88e4d929c5`,
+and case-00 manifest SHA-256 `d966dc65e983738e9ad12ce01babefa096c888afed75b9c2a8eff14695be4535`.
+Keep all frozen source, ELF, proof runner, adapter, and queue-runner pins. Never
+reuse attempt 001's partial ledger or classify its interrupted proof as a
+completed receipt.
+
+Apply the original case gates without relaxation: full immediate host,
+branch, pin, process, disk, and stable-lock preflight; bounded detached owner;
+owner exit zero; all 38 journal steps; pinned fragment and reopened hashes;
+uncensored bounded receipts with known cleanup and zero children; finalized
+loaded expiry custom 705 with no effect; an untouched R0 clone; and an
+uninterrupted host interval. Preserve the result even on failure or a cap and
+stop the campaign at that boundary. Only after an independently reviewed pass
+may cases 01–07 proceed serially. This is a disclosed operational reattempt,
+not a change to the Training-033 credential, source, or acceptance criteria.
