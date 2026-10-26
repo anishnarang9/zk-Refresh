@@ -7,3 +7,12 @@ program/target/
 harness/target/
 results/raw/
 *.log
+
+# Local study records and agent planning stay outside the public tree.
+/docs/
+/results/
+/.codex/
+/.agents/
+/AGENTS.md
+/CLAUDE.md
+/GEMINI.md
