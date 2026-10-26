@@ -120,3 +120,36 @@ the preselected variant-00 credential and workload; all extra preparation
 and failed diagnostic work is separately disclosed. The 16 GiB stage/clone/
 fill storage bound, finite owner limits, stable heavy lock, and stop-on-first-
 actual-failure rule remain in force.
+
+## October 26 next-source boundary, after the failed Training-032 capacity stage
+
+Training-032 capacity stage 007 is failed, with its advanced ledger preserved.
+The Rust child produced 65 candidate finalized requests, but the Python
+stage verifier rejected the report before independent RPC replay because the
+Rust loaded-ELF observation has five fields while the Python finalized RPC
+identity has additional program, ProgramData, account-hash, and genesis
+fields. The loaded capacity finalizer had the same contract mismatch. The
+candidate is not capacity acceptance, and no later check may retroactively
+mark this owner passed.
+
+Source revision `d4be444` changes only this capacity identity comparison:
+the Python supervisor keeps its full finalized RPC identity and compares
+the Rust observation on shared ELF hash, loader, and byte-count fields while
+binding the program and genesis separately. The external finalizer reopens
+the pinned full identity. Focused capacity tests passed; no loaded capacity
+result has passed with this revision. This source revision is prospective for
+a **new** attempt, not an amendment to Training-032 results.
+
+Call the next complete acceptance attempt Training-033. Before its first
+case output, freeze this new source revision and unchanged application/circuit
+identities, include every prior held-out credential in the exclusion inventory,
+issue a fresh eight-credential cohort, and pin all eight manifests. Run the
+same eight case and loaded expiry negatives serially under the stable lock,
+stopping on the first actual failure. Use only that cohort's accepted,
+untouched variant-00 pre-transition R0 copy for a fresh 16 GiB bounded
+65-request stage, 65 genuine Full proofs, separate prepared clone, 64 loaded
+fills and finalized 65th custom-708 rejection. Then require independent
+assembly and verifier, four directly timed matched whole-session Full/Anchor
+pairs, economics and a scrubbed report. Preserve and disclose all Training-032
+work and extra cost; its eight functional case passes remain supporting
+evidence, not a substitute for the new complete acceptance run.
