@@ -361,19 +361,22 @@ def publish_full_fixture(output, config, config_pin, prepared, stage_config, bas
 
 def verify_stage(rpc, report, config, output, loaded, runner_pid):
     """Bind the Rust preparation candidate before its owner is stopped."""
+    from harness.tests import queue_v3_capacity_runtime as runtime
     require(report.get('schema') == PREPARATION_SCHEMA and report.get('passed') is True
             and report.get('config_ref') == {'path': config['rust_config_path'],
                                               'sha256': config['rust_config_sha256']}
             and report.get('request_count') == 65 and report.get('queue_empty') is True
             and report.get('request_preparation_effect') is True
             and report.get('application_effect') is False
-            and report.get('loaded_program') == loaded
             and report.get('request_deadline') == config['request_deadline']
             and report.get('credential_not_after') == config['credential_not_after']
             and report.get('stage_report_sha256') == config['baseline_stage_report']['sha256']
             and report.get('program') == config['expected_program']
             and report.get('genesis') == config['expected_genesis'],
             'exact normal capacity preparation candidate required')
+    runtime.check_rust_loaded_observation(report.get('loaded_program'), loaded,
+                                          config['expected_program'], config['expected_genesis'],
+                                          config['expected_elf_sha256'])
     rows = report.get('inputs')
     require(type(rows) is list and len(rows) == 65, '65 prepared requests required')
     rust = doc({'path': config['rust_config_path'], 'sha256': config['rust_config_sha256']})
@@ -397,7 +400,6 @@ def verify_stage(rpc, report, config, output, loaded, runner_pid):
     signatures = set()
     replayed = []
     (Path(output) / 'rpc').mkdir(mode=0o700)
-    from harness.tests import queue_v3_capacity_runtime as runtime
     for index, row in enumerate(rows):
         require(type(row) is dict and row.get('request_address') not in addresses
                 and type(row.get('finalization')) is dict

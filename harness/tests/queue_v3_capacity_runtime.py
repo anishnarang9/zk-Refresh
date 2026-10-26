@@ -15,6 +15,27 @@ def require(condition, message):
         raise ValueError(message)
 
 
+def check_rust_loaded_observation(observation, finalized, program, genesis, elf_sha256):
+    """Bind Rust's compact ELF observation to the full finalized RPC identity."""
+    require(type(observation) is dict
+            and set(observation) == {'elf_match', 'elf_sha256', 'loader',
+                                     'local_bytes', 'remote_bytes'}
+            and type(finalized) is dict
+            and all(field in finalized for field in execute.IDENTITY_FIELDS)
+            and finalized.get('program') == program
+            and finalized.get('genesis') == genesis
+            and finalized.get('elf_match') is True
+            and finalized.get('elf_sha256') == observation['elf_sha256'] == elf_sha256
+            and finalized.get('loader') == observation['loader']
+            and type(finalized.get('elf_bytes')) is int
+            and type(observation['local_bytes']) is int
+            and type(observation['remote_bytes']) is int
+            and finalized['elf_bytes'] > 0
+            and finalized['elf_bytes'] == observation['local_bytes'] == observation['remote_bytes']
+            and observation['elf_match'] is True,
+            'capacity Rust ELF observation differs from finalized RPC loaded identity')
+
+
 def queue(raw, config_address):
     require(len(raw) == 2090 and raw[:8] == b'DYNQUE03'
             and raw[8:40] == execute.base.key(config_address), 'exact capacity queue codec required')

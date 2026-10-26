@@ -14,6 +14,123 @@ from harness.tests import queue_v3_local_queue_capacity_negative as m
 
 
 class IntegratedCapacitySupervisorTests(unittest.TestCase):
+    def test_compact_rust_loaded_observation_matches_full_finalized_rpc_identity(self):
+        from harness.tests import queue_v3_capacity_runtime as runtime
+        self.assertTrue(hasattr(runtime, 'check_rust_loaded_observation'),
+                        'capacity loaded-identity contract is missing')
+        full = {'program':'program', 'programdata':'programdata', 'genesis':'genesis',
+                'elf_sha256':'a'*64, 'program_account_sha256':'b'*64,
+                'programdata_account_sha256':'c'*64, 'elf_match':True,
+                'loader':'loader', 'elf_bytes':295080}
+        compact = {'elf_match':True, 'elf_sha256':'a'*64, 'loader':'loader',
+                   'local_bytes':295080, 'remote_bytes':295080}
+        runtime.check_rust_loaded_observation(compact, full, 'program', 'genesis', 'a'*64)
+
+        for changed in ({**compact, 'elf_sha256':'d'*64},
+                        {**compact, 'loader':'different'},
+                        {**compact, 'remote_bytes':295079},
+                        {**compact, 'elf_match':False},
+                        {**compact, 'extra':True}):
+            with self.subTest(changed=changed), self.assertRaises(ValueError):
+                runtime.check_rust_loaded_observation(changed, full, 'program', 'genesis', 'a'*64)
+        for changed in ({**full, 'program':'different'},
+                        {**full, 'genesis':'different'},
+                        {key:value for key,value in full.items() if key != 'programdata_account_sha256'}):
+            with self.subTest(changed=changed), self.assertRaises(ValueError):
+                runtime.check_rust_loaded_observation(compact, changed, 'program', 'genesis', 'a'*64)
+
+    def test_live_finalizer_uses_compact_rust_loaded_contract(self):
+        from harness.tests import queue_v3_capacity_runtime as runtime
+        from tools.part5 import finalize_v3_queue_capacity_negative as finalizer
+        class ContractReached(Exception):
+            pass
+        compact = {'elf_match':True, 'elf_sha256':'a'*64, 'loader':'loader',
+                   'local_bytes':295080, 'remote_bytes':295080}
+        full = {'program':'program', 'programdata':'programdata', 'genesis':'genesis',
+                'elf_sha256':'a'*64, 'program_account_sha256':'b'*64,
+                'programdata_account_sha256':'c'*64, 'elf_match':True,
+                'loader':'loader', 'elf_bytes':295080}
+        config = {'expected_program':'program', 'expected_genesis':'genesis',
+                  'expected_genesis_sha256':'d'*64, 'expected_elf_sha256':'a'*64,
+                  'fixture_manifest':'/fixture', 'fixture_manifest_sha256':'e'*64,
+                  'rust_config_sha256':'f'*64, 'inputs':[]}
+        for key in ('cohort_id','cohort_freeze_sha256','cohort_manifest_sha256',
+                    'stage_report_sha256','clone_receipt_sha256'):
+            config[key] = key
+        report = {'schema':finalizer.RUNTIME_SCHEMA, 'scope':m.SCOPE,
+                  'external_finalization_required':True, 'successful_fill_count':64,
+                  'queue_capacity':64, 'full_proofs_verified_in_rust':65,
+                  'rejection_application_effect':False, 'setup_application_effect':True,
+                  'program':'program', 'genesis':'genesis', 'genesis_sha256':'d'*64,
+                  'inputs':[], 'fixture_manifest':{'path':'/fixture','sha256':'e'*64},
+                  'rust_config_sha256':'f'*64, 'loaded_program':compact,
+                  'loaded_program_after':compact}
+        for key in ('cohort_id','cohort_freeze_sha256','cohort_manifest_sha256',
+                    'stage_report_sha256','clone_receipt_sha256'):
+            report[key] = config[key]
+        with patch.object(runtime, 'check_rust_loaded_observation', side_effect=ContractReached) as check:
+            try:
+                with self.assertRaises(ContractReached):
+                    finalizer.replay_runtime(report, config, Path('/unused'), loaded=full)
+            except ValueError as error:
+                self.fail(f'finalizer rejected the compact Rust observation before shared identity check: {error}')
+            check.assert_called_once_with(compact, full, 'program', 'genesis', 'a'*64)
+
+    def test_external_finalizer_rechecks_pinned_full_loaded_identity(self):
+        from tools.part5 import finalize_v3_queue_capacity_negative as finalizer
+        class ProjectionReached(Exception):
+            pass
+        pin = {'path':'/candidate','sha256':'a'*64}
+        config_pin = {'path':'/config','sha256':'b'*64}
+        full = {'program':'program','programdata':'programdata','genesis':'genesis',
+                'elf_sha256':'c'*64,'program_account_sha256':'d'*64,
+                'programdata_account_sha256':'e'*64}
+        config = {'output_dir':'/unused'}
+        status = {'status':'candidate_verified_pending_external_finalization',
+                  'candidate_verified':True,'candidate':pin,'config_ref':config_pin,
+                  'replay':{'path':'/rechecks','sha256':'f'*64},'loaded_program':full}
+        manifest = {'schema':finalizer.MANIFEST_SCHEMA,'config':config_pin,'candidate':pin,
+                    'supervisor_status':{'path':'/status','sha256':'1'*64},
+                    'monitor':{'path':'/monitor','sha256':'2'*64},
+                    'monitor_invocation':{'path':'/invocation','sha256':'3'*64}}
+        with patch.object(finalizer.fixture,'doc',side_effect=[config,{},status,{},{},{'transactions':[]}]), \
+                patch.object(finalizer,'check_monitor',return_value={}), \
+                patch.object(finalizer,'replay_runtime',side_effect=ProjectionReached) as replay:
+            with self.assertRaises(ProjectionReached):
+                finalizer.finalize(manifest)
+            self.assertIn('loaded', replay.call_args.kwargs,
+                          'external finalizer omitted pinned full loaded identity')
+            self.assertEqual(replay.call_args.kwargs['loaded'], full)
+
+    def test_stage_verifier_checks_compact_rust_observation_against_rpc_identity(self):
+        from harness.tests import queue_v3_capacity_runtime as runtime
+        from tools.part5 import prepare_v3_queue_capacity_fixture as fixture
+        class ContractReached(Exception):
+            pass
+        compact = {'elf_match':True,'elf_sha256':'a'*64,'loader':'loader',
+                   'local_bytes':295080,'remote_bytes':295080}
+        full = {'program':'program','programdata':'programdata','genesis':'genesis',
+                'elf_sha256':'a'*64,'program_account_sha256':'b'*64,
+                'programdata_account_sha256':'c'*64}
+        config = {'rust_config_path':'/rust-config','rust_config_sha256':'d'*64,
+                  'request_deadline':1000,'credential_not_after':2000,
+                  'baseline_stage_report':{'path':'/stage-report','sha256':'e'*64},
+                  'expected_program':'program','expected_genesis':'genesis',
+                  'expected_elf_sha256':'a'*64}
+        report = {'schema':fixture.PREPARATION_SCHEMA,'passed':True,
+                  'config_ref':{'path':'/rust-config','sha256':'d'*64},
+                  'request_count':65,'queue_empty':True,'request_preparation_effect':True,
+                  'application_effect':False,'loaded_program':compact,
+                  'request_deadline':1000,'credential_not_after':2000,
+                  'stage_report_sha256':'e'*64,'program':'program','genesis':'genesis'}
+        with patch.object(runtime,'check_rust_loaded_observation',side_effect=ContractReached) as check:
+            try:
+                with self.assertRaises(ContractReached):
+                    fixture.verify_stage(None,report,config,Path('/unused'),full,123)
+            except ValueError as error:
+                self.fail(f'stage verifier rejected compact Rust identity before shared contract: {error}')
+            check.assert_called_once_with(compact,full,'program','genesis','a'*64)
+
     def test_integrated_entrypoint_delegates_to_finite_supervisor_without_blocker(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory).resolve() / 'config.json'

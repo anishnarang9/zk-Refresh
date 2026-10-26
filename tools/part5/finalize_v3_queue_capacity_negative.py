@@ -239,7 +239,9 @@ def replay_runtime(report,config,output,*,rpc=None,loaded=None,runner_pid=None,r
             and report['loaded_program'].get('elf_match') is True
             and report['loaded_program'].get('elf_sha256')==config['expected_elf_sha256'], 'capacity loaded identity drift')
     if loaded is not None:
-        supervisor.execute.same_loaded(loaded,report['loaded_program'])
+        runtime.check_rust_loaded_observation(report['loaded_program'], loaded,
+                                              config['expected_program'], config['expected_genesis'],
+                                              config['expected_elf_sha256'])
     if runner_pid is not None:
         require(report['runner_observations']['pid']==runner_pid,'capacity child PID differs')
     stage=supervisor.execute.pinned_json(config['stage_report'],config['stage_report_sha256'])
@@ -498,7 +500,8 @@ def finalize(manifest):
     output=Path(config['output_dir'])
     recheck_pin=status['replay']
     rechecks=fixture.doc(recheck_pin)
-    projected,_=replay_runtime(candidate,config,output,rechecks=rechecks['transactions'])
+    projected,_=replay_runtime(candidate,config,output,loaded=status['loaded_program'],
+                               rechecks=rechecks['transactions'])
     projected['owner']=owner
     result=evidence.validate_report(projected,output,supervisor._expected_identities(config))
     preparation=fixture.doc({'path':config['preparation_receipt'],'sha256':config['preparation_receipt_sha256']})
