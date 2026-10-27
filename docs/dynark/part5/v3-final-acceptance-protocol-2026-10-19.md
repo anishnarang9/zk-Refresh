@@ -205,3 +205,37 @@ effect, and uninterrupted host gates, with AC throughout the timed run.
 Preserve both roots, stop on actual failure or cap, and proceed to case 02
 only after independent review of the new attempt. This is a disclosed host
 reattempt, not a change to the credential, source, or acceptance criteria.
+
+## October 26 Training-033 case-02 host-interruption reattempt, before new output
+
+While case 02's original detached owner remained active, AC power was lost.
+The host reported battery power at 21:35 EDT, and its power log records a
+three-second Maintenance Sleep at 21:26:36 EDT followed by Wake at 21:26:39
+EDT on battery. The exact AC disconnect time is unknown. The original case
+root and logs remain preserved; its functional, bounded-receipt, and loaded
+expiry results are pending terminal review. Exclude its timing from the
+matched AC-host comparison regardless of its eventual outcome. Let the
+current bounded proof reach its terminal boundary and review it independently.
+An actual functional failure, cap, or missing cleanup stops this route.
+
+For the observed host interruption alone, prospectively select exactly one
+fresh case-02 attempt 002 independent of speed or eventual result. Do not
+launch it unless the original case passes its functional, bounded-receipt,
+and loaded expiry review without another failure. Use a NEW ignored private
+case root and separate launcher under the unchanged Training-033 freeze
+SHA-256 `155304129df3a059f288a6b0ebcc84e164e0c7dbbd21458998d5ed76b59d821c`,
+cohort SHA-256 `4eb6e481494c2bcc83813c86d5eb2b84aa0c717a24076de7c5eadf88e4d929c5`,
+and case-02 manifest SHA-256
+`e7b51fc5fd9a077427c7d765a6989410c15046213122f27019809219dc2e876b`.
+The selected root is
+`artifacts/dynark/part5/v3-heldout-case-training-033-02-attempt-002`.
+Keep all frozen source, ELF, proof runner, adapter, and queue-runner pins.
+Wait for AC power and an open lid. Immediately before launch repeat the
+complete branch, file, process, disk, and stable-lock preflight. Require
+the registered case gates in the new root: complete journal, pinned
+fragment/reopened hashes, uncensored bounded receipts with known cleanup
+and zero children, finalized loaded expiry custom 705/no effect, and an
+uninterrupted AC-host interval. Preserve both roots and
+disclose the substitution. A failure, cap, or host interruption in the
+fresh attempt stops the campaign; do not silently select another attempt.
+Case 03 may proceed only after independent review of the fresh attempt.
